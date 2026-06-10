@@ -24,11 +24,13 @@ interface Migration {
 const MIGRATIONS_DIR = join(__dirname, '..', 'database', 'migrations')
 
 async function ensureMigrationsTable(): Promise<void> {
+  const isSqlite = (process.env.DB_DRIVER ?? 'postgres') === 'sqlite'
+
   await DB.execute(`
     CREATE TABLE IF NOT EXISTS migrations (
-      id SERIAL PRIMARY KEY,
+      id ${isSqlite ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'SERIAL PRIMARY KEY'},
       name VARCHAR(255) NOT NULL UNIQUE,
-      applied_at TIMESTAMP NOT NULL DEFAULT NOW()
+      applied_at TIMESTAMP NOT NULL DEFAULT ${isSqlite ? 'CURRENT_TIMESTAMP' : 'NOW()'}
     )
   `)
 }

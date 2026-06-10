@@ -2,27 +2,34 @@ import { DB } from '@neogroup/neorm'
 
 /**
  * Base schema for the TeamUp application.
+ * DDL is engine-aware so the same migration runs on PostgreSQL and SQLite.
  */
+const IS_SQLITE = (process.env.DB_DRIVER ?? 'postgres') === 'sqlite'
+const ID = IS_SQLITE ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'SERIAL PRIMARY KEY'
+const TIMESTAMP = IS_SQLITE
+  ? 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP'
+  : 'TIMESTAMP NOT NULL DEFAULT NOW()'
+
 export default {
   name: '001-create-base-tables',
 
   async up(): Promise<void> {
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id ${ID},
         email VARCHAR(255) NOT NULL UNIQUE,
         password_hash VARCHAR(255),
         first_name VARCHAR(100),
         last_name VARCHAR(100),
         nickname VARCHAR(100),
         profile VARCHAR(20),
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        created_at ${TIMESTAMP}
       )
     `)
 
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS tournaments (
-        id SERIAL PRIMARY KEY,
+        id ${ID},
         owner_id INTEGER NOT NULL REFERENCES users (id),
         name VARCHAR(150) NOT NULL,
         description TEXT,
@@ -35,36 +42,36 @@ export default {
         max_competitors INTEGER NOT NULL,
         settings TEXT,
         current_round INTEGER NOT NULL DEFAULT 0,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        created_at ${TIMESTAMP},
+        updated_at ${TIMESTAMP}
       )
     `)
 
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS competitors (
-        id SERIAL PRIMARY KEY,
+        id ${ID},
         tournament_id INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
         user_id INTEGER REFERENCES users (id),
         partner_user_id INTEGER REFERENCES users (id),
         partner_name VARCHAR(150),
         display_name VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        created_at ${TIMESTAMP}
       )
     `)
 
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS rounds (
-        id SERIAL PRIMARY KEY,
+        id ${ID},
         tournament_id INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
         number INTEGER NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'open',
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        created_at ${TIMESTAMP}
       )
     `)
 
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS matches (
-        id SERIAL PRIMARY KEY,
+        id ${ID},
         tournament_id INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
         round_id INTEGER NOT NULL REFERENCES rounds (id) ON DELETE CASCADE,
         position INTEGER NOT NULL DEFAULT 0,
@@ -73,8 +80,8 @@ export default {
         score TEXT,
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         winner VARCHAR(10),
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        created_at ${TIMESTAMP},
+        updated_at ${TIMESTAMP}
       )
     `)
 

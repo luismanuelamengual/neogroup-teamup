@@ -1,6 +1,6 @@
 'use client'
 
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlined'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import LanguageIcon from '@mui/icons-material/Language'
 import LogoutIcon from '@mui/icons-material/Logout'

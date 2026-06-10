@@ -48,14 +48,23 @@ export async function searchUsers(query: string): Promise<UserDto[]> {
     return []
   }
 
-  const rows = await DB.query(
-    `SELECT id, email, first_name, last_name, nickname
-     FROM users
-     WHERE (first_name ILIKE $1 OR last_name ILIKE $1 OR nickname ILIKE $1 OR email ILIKE $1) AND id <> $2
-     ORDER BY first_name, last_name
-     LIMIT 10`,
-    [`%${normalized}%`, userId]
-  )
+  // Raw query: placeholders and case-insensitive LIKE differ per engine.
+  // SQLite LIKE is already case-insensitive; PostgreSQL needs ILIKE.
+  const isSqlite = (process.env.DB_DRIVER ?? 'postgres') === 'sqlite'
+  const pattern = `%${normalized}%`
+  const sql = isSqlite
+    ? `SELECT id, email, first_name, last_name, nickname
+       FROM users
+       WHERE (first_name LIKE ? OR last_name LIKE ? OR nickname LIKE ? OR email LIKE ?) AND id <> ?
+       ORDER BY first_name, last_name
+       LIMIT 10`
+    : `SELECT id, email, first_name, last_name, nickname
+       FROM users
+       WHERE (first_name ILIKE $1 OR last_name ILIKE $1 OR nickname ILIKE $1 OR email ILIKE $1) AND id <> $2
+       ORDER BY first_name, last_name
+       LIMIT 10`
+  const bindings = isSqlite ? [pattern, pattern, pattern, pattern, userId] : [pattern, userId]
+  const rows = await DB.query(sql, bindings)
 
   return rows.map((row: any) => ({
     id: Number(row.id),
