@@ -1,0 +1,12 @@
+.tournament-filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+
+  &__name {
+    flex: 1;
+    min-width: 220px;
+    max-width: 360px;
+  }
+}

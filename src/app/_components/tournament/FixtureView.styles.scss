@@ -1,0 +1,36 @@
+.fixture-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  &__round {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__round-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__round-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-primary-dark);
+  }
+
+  &__matches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .fixture-view__matches {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,30 @@
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  &__title {
+    text-align: center;
+    font-weight: 700;
+  }
+
+  &__subtitle {
+    text-align: center;
+    margin-top: -8px;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__footer {
+    text-align: center;
+
+    a {
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+  }
+}

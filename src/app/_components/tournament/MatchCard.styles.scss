@@ -1,0 +1,92 @@
+.match-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+
+  &--highlighted {
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+  }
+
+  &__sides {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__side {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+
+    &--winner .match-card__side-name {
+      font-weight: 700;
+      color: var(--color-primary-dark);
+    }
+
+    &--loser .match-card__side-name {
+      color: var(--color-text-secondary);
+    }
+  }
+
+  &__side-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    &--home {
+      background-color: var(--color-home);
+    }
+
+    &--away {
+      background-color: var(--color-away);
+    }
+  }
+
+  &__side-name {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__bye {
+    font-size: 13px;
+    font-style: italic;
+    color: var(--color-text-secondary);
+  }
+
+  &__result {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  &__score {
+    font-weight: 700;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+    background-color: rgba(15, 118, 110, 0.08);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    white-space: nowrap;
+  }
+
+  &__pending {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-style: italic;
+  }
+}

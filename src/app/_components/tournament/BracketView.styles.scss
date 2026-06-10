@@ -1,0 +1,51 @@
+.bracket-view {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 8px;
+
+  &__scroller {
+    display: flex;
+    gap: 28px;
+    min-width: min-content;
+  }
+
+  &__column {
+    display: flex;
+    flex-direction: column;
+    min-width: 280px;
+  }
+
+  &__round-title {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-primary-dark);
+    text-align: center;
+  }
+
+  &__matches {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    flex: 1;
+    gap: 16px;
+  }
+
+  &__match {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -28px;
+      width: 28px;
+      height: 2px;
+      background-color: var(--color-divider);
+    }
+  }
+
+  &__column:last-child &__match::after {
+    display: none;
+  }
+}

@@ -1,0 +1,70 @@
+.score-dialog {
+  display: flex !important;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px !important;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  &__competitor {
+    font-weight: 700;
+    font-size: 14px;
+
+    &--home {
+      color: var(--color-home);
+    }
+
+    &--away {
+      color: var(--color-away);
+    }
+  }
+
+  &__vs {
+    color: var(--color-text-secondary);
+    font-size: 12px;
+  }
+
+  &__sets {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__set-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .MuiTextField-root {
+      width: 80px;
+    }
+  }
+
+  &__set-label {
+    width: 110px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+
+  &__set-separator {
+    font-weight: 700;
+  }
+
+  &__walkover {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__walkover-title {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+}

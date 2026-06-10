@@ -1,0 +1,37 @@
+.tournament-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  max-width: 720px;
+
+  &__row {
+    display: flex;
+    gap: 16px;
+  }
+
+  &__settings {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border: 1px dashed var(--color-divider);
+    border-radius: var(--radius-md);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tournament-form {
+    padding: 16px;
+
+    &__row {
+      flex-direction: column;
+    }
+  }
+}
