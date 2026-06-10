@@ -1,17 +1,15 @@
 'use client'
 
+import './TournamentFilters.styles.scss'
 import SearchIcon from '@mui/icons-material/Search'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import InputAdornment from '@mui/material/InputAdornment'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
-import { useTranslations } from 'next-intl'
 import { usePathname, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-
 import { useDebouncedValue } from '@/app/_hooks/useDebouncedValue'
-
-import './TournamentFilters.styles.scss'
 
 interface TournamentFiltersProps {
   name: string
@@ -66,9 +64,7 @@ export default function TournamentFilters({ name, onlyActive }: TournamentFilter
         }}
       />
       <FormControlLabel
-        control={
-          <Switch checked={onlyActive} onChange={(event) => applyFilters(nameValue, event.target.checked)} />
-        }
+        control={<Switch checked={onlyActive} onChange={(event) => applyFilters(nameValue, event.target.checked)} />}
         label={t('onlyActive')}
       />
     </div>

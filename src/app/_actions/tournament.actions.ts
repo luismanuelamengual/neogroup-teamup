@@ -1,10 +1,7 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
-
 import { Entities } from '@neogroup/neorm'
-
-import { auth } from '@/auth'
+import { revalidatePath } from 'next/cache'
 import { CompetitorModel } from '@/app/_models/competitor.entity'
 import { toMatchDto } from '@/app/_models/dtos'
 import { Match, MatchModel } from '@/app/_models/match.entity'
@@ -21,6 +18,7 @@ import {
 } from '@/app/_models/types'
 import { getScoreWinner, isValidScore } from '@/app/_utils/score'
 import { generateRoundPairings, getTotalRounds } from '@/app/_utils/tournament-engine'
+import { auth } from '@/auth'
 
 export interface ActionResult {
   success: boolean

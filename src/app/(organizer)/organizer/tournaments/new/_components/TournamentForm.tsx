@@ -1,5 +1,6 @@
 'use client'
 
+import './TournamentForm.styles.scss'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import FormControlLabel from '@mui/material/FormControlLabel'
@@ -8,10 +9,9 @@ import Paper from '@mui/material/Paper'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
-
 import { createTournament } from '@/app/_actions/tournament.actions'
 import {
   DEFAULT_AMERICANO_SETTINGS,
@@ -20,8 +20,6 @@ import {
   ScoreFormat,
   TournamentType
 } from '@/app/_models/types'
-
-import './TournamentForm.styles.scss'
 
 const DISCIPLINES: Discipline[] = ['padel', 'tennis', 'tennis_doubles']
 
@@ -42,7 +40,6 @@ export default function TournamentForm() {
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
   const availableTypes: TournamentType[] =
     discipline === 'padel' ? ['league', 'americano', 'playoff'] : ['league', 'playoff']
 
@@ -86,13 +83,7 @@ export default function TournamentForm() {
   return (
     <Paper component="form" onSubmit={handleSubmit} className="tournament-form">
       {error && <Alert severity="error">{error}</Alert>}
-      <TextField
-        label={t('name')}
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        required
-        fullWidth
-      />
+      <TextField label={t('name')} value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
       <TextField
         label={t('description')}
         value={description}

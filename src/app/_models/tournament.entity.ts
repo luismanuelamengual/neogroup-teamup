@@ -1,5 +1,4 @@
 import { Column, Entity } from '@neogroup/neorm'
-
 import { Discipline, ScoreFormat, TournamentSettings, TournamentStatus, TournamentType } from '@/app/_models/types'
 
 @Entity({ table: 'tournaments' })

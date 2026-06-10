@@ -1,5 +1,5 @@
 import { DB } from '@neogroup/neorm'
-
+import { OrderByDirection } from '@neogroup/neorm'
 import { Competitor, CompetitorModel } from '@/app/_models/competitor.entity'
 import {
   CompetitorDto,
@@ -14,7 +14,6 @@ import {
 import { Match, MatchModel } from '@/app/_models/match.entity'
 import { Round, RoundModel } from '@/app/_models/round.entity'
 import { Tournament, TournamentModel } from '@/app/_models/tournament.entity'
-import { OrderByDirection } from '@neogroup/neorm'
 
 /** Server-side data fetching helpers shared by pages and actions. */
 
@@ -32,9 +31,7 @@ export async function getTournamentDetail(tournamentId: number): Promise<Tournam
     return null
   }
 
-  const competitors: Competitor[] = await CompetitorModel.where('tournament_id', tournamentId)
-    .orderBy('id')
-    .get()
+  const competitors: Competitor[] = await CompetitorModel.where('tournament_id', tournamentId).orderBy('id').get()
   const rounds: Round[] = await RoundModel.where('tournament_id', tournamentId).orderBy('number').get()
   const matches: Match[] = await MatchModel.where('tournament_id', tournamentId)
     .orderBy('round_id')

@@ -25,8 +25,7 @@ const theme = createTheme({
     borderRadius: 10
   },
   typography: {
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     button: {
       textTransform: 'none',
       fontWeight: 600

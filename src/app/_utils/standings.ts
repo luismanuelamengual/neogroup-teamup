@@ -113,6 +113,10 @@ export function computeStandings(
   }
 
   return [...rows.values()].sort(
-    (a, b) => b.points - a.points || b.won - a.won || (b.setsWon ?? 0) - (a.setsWon ?? 0) || (b.gamesWon ?? 0) - (a.gamesWon ?? 0)
+    (a, b) =>
+      b.points - a.points ||
+      b.won - a.won ||
+      (b.setsWon ?? 0) - (a.setsWon ?? 0) ||
+      (b.gamesWon ?? 0) - (a.gamesWon ?? 0)
   )
 }

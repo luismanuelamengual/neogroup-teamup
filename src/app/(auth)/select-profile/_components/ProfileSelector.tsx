@@ -1,18 +1,16 @@
 'use client'
 
+import './ProfileSelector.styles.scss'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
-
 import { setProfile } from '@/app/_actions/account.actions'
 import { Profile } from '@/app/_models/types'
-
-import './ProfileSelector.styles.scss'
 
 interface ProfileSelectorProps {
   callbackUrl: string | null

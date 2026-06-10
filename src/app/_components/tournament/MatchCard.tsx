@@ -1,14 +1,12 @@
 'use client'
 
+import './MatchCard.styles.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
 import { useTranslations } from 'next-intl'
-
 import { MatchDto } from '@/app/_models/dtos'
 import { MatchSide, ScoreFormat } from '@/app/_models/types'
 import { formatScore } from '@/app/_utils/score'
-
-import './MatchCard.styles.scss'
 
 interface MatchCardProps {
   match: MatchDto
@@ -38,7 +36,6 @@ export default function MatchCard({
   const t = useTranslations('tournaments')
   const isBye = match.awayCompetitorIds === null
   const winner: MatchSide | null = match.winner
-
   const renderSide = (side: MatchSide, ids: number[] | null) => (
     <div
       className={`match-card__side ${winner === side ? 'match-card__side--winner' : ''} ${
@@ -54,11 +51,7 @@ export default function MatchCard({
     <div className={`match-card ${highlighted ? 'match-card--highlighted' : ''}`}>
       <div className="match-card__sides">
         {renderSide('home', match.homeCompetitorIds)}
-        {isBye ? (
-          <div className="match-card__bye">{t('bye')}</div>
-        ) : (
-          renderSide('away', match.awayCompetitorIds)
-        )}
+        {isBye ? <div className="match-card__bye">{t('bye')}</div> : renderSide('away', match.awayCompetitorIds)}
       </div>
       <div className="match-card__result">
         {!isBye &&

@@ -1,5 +1,6 @@
 'use client'
 
+import './EditTournamentDialog.styles.scss'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
@@ -9,11 +10,8 @@ import DialogTitle from '@mui/material/DialogTitle'
 import TextField from '@mui/material/TextField'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-
 import { updateTournament } from '@/app/_actions/tournament.actions'
 import { TournamentDto } from '@/app/_models/dtos'
-
-import './EditTournamentDialog.styles.scss'
 
 interface EditTournamentDialogProps {
   open: boolean

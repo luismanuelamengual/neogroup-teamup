@@ -1,5 +1,6 @@
 'use client'
 
+import './ScoreDialog.styles.scss'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
@@ -13,11 +14,8 @@ import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-
 import { MatchScore, MatchSide, ScoreFormat, SetScore } from '@/app/_models/types'
 import { isValidScore } from '@/app/_utils/score'
-
-import './ScoreDialog.styles.scss'
 
 interface ScoreDialogProps {
   open: boolean
@@ -63,11 +61,7 @@ export default function ScoreDialog({
     setInvalid(false)
     setWalkover(!!initialScore?.walkover)
     setWalkoverWinner(initialScore?.walkover ?? 'home')
-    setSets(
-      initialScore?.sets
-        ? EMPTY_SETS.map((empty, index) => initialScore.sets?.[index] ?? empty)
-        : EMPTY_SETS
-    )
+    setSets(initialScore?.sets ? EMPTY_SETS.map((empty, index) => initialScore.sets?.[index] ?? empty) : EMPTY_SETS)
     setHomeCount(initialScore?.home ?? 0)
     setAwayCount(initialScore?.away ?? 0)
   }, [open, initialScore])
@@ -120,10 +114,7 @@ export default function ScoreDialog({
         {walkover ? (
           <div className="score-dialog__walkover">
             <span className="score-dialog__walkover-title">{t('walkoverWinner')}</span>
-            <RadioGroup
-              value={walkoverWinner}
-              onChange={(event) => setWalkoverWinner(event.target.value as MatchSide)}
-            >
+            <RadioGroup value={walkoverWinner} onChange={(event) => setWalkoverWinner(event.target.value as MatchSide)}>
               <FormControlLabel value="home" control={<Radio />} label={homeName} />
               <FormControlLabel value="away" control={<Radio />} label={awayName} />
             </RadioGroup>

@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
-
-import { auth } from '@/auth'
 import AppShell from '@/app/_components/AppShell'
+import { auth } from '@/auth'
 
 export default async function PlayerLayout({ children }: { children: ReactNode }) {
   const session = await auth()

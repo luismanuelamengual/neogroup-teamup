@@ -64,11 +64,7 @@ export function isDoublesDiscipline(discipline: Discipline): boolean {
 }
 
 /** Americano tournaments with partner swapping register players individually. */
-export function registersAsPairs(
-  discipline: Discipline,
-  type: TournamentType,
-  settings: TournamentSettings
-): boolean {
+export function registersAsPairs(discipline: Discipline, type: TournamentType, settings: TournamentSettings): boolean {
   if (!isDoublesDiscipline(discipline)) {
     return false
   }

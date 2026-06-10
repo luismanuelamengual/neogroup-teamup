@@ -1,16 +1,14 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
-
 import { DB, Entities } from '@neogroup/neorm'
-
-import { auth } from '@/auth'
+import { revalidatePath } from 'next/cache'
 import { Competitor, CompetitorModel } from '@/app/_models/competitor.entity'
 import { getUserDisplayName, UserDto } from '@/app/_models/dtos'
 import { Tournament, TournamentModel } from '@/app/_models/tournament.entity'
 import { registersAsPairs } from '@/app/_models/types'
 import { UserModel } from '@/app/_models/user.entity'
 import { getGravatarUrl } from '@/app/_utils/gravatar'
+import { auth } from '@/auth'
 
 export interface ActionResult {
   success: boolean

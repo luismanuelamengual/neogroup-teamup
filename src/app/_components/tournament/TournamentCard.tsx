@@ -1,16 +1,14 @@
 'use client'
 
+import './TournamentCard.styles.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import GroupsIcon from '@mui/icons-material/Groups'
 import PlaceIcon from '@mui/icons-material/Place'
 import Paper from '@mui/material/Paper'
-import { useTranslations } from 'next-intl'
 import Link from 'next/link'
-
+import { useTranslations } from 'next-intl'
 import StatusChip from '@/app/_components/tournament/StatusChip'
 import { TournamentDto } from '@/app/_models/dtos'
-
-import './TournamentCard.styles.scss'
 
 interface TournamentCardProps {
   tournament: TournamentDto

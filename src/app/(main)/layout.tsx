@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
-
-import { auth } from '@/auth'
 import AppShell from '@/app/_components/AppShell'
+import { auth } from '@/auth'
 
 /** Layout for pages shared by both profiles (e.g. My account). */
 export default async function MainLayout({ children }: { children: ReactNode }) {
@@ -17,11 +16,7 @@ export default async function MainLayout({ children }: { children: ReactNode }) 
   }
 
   return (
-    <AppShell
-      profile={session.user.profile}
-      userName={session.user.name ?? ''}
-      avatarUrl={session.user.image ?? ''}
-    >
+    <AppShell profile={session.user.profile} userName={session.user.name ?? ''} avatarUrl={session.user.image ?? ''}>
       {children}
     </AppShell>
   )

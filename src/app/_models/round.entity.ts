@@ -1,5 +1,4 @@
 import { Column, Entity } from '@neogroup/neorm'
-
 import { RoundStatus } from '@/app/_models/types'
 
 @Entity({ table: 'rounds' })

@@ -1,13 +1,11 @@
 'use client'
 
+import './FixtureView.styles.scss'
 import Chip from '@mui/material/Chip'
 import { useTranslations } from 'next-intl'
-
 import MatchCard from '@/app/_components/tournament/MatchCard'
 import { MatchDto, RoundDto } from '@/app/_models/dtos'
 import { ScoreFormat, TournamentType } from '@/app/_models/types'
-
-import './FixtureView.styles.scss'
 
 interface FixtureViewProps {
   type: TournamentType

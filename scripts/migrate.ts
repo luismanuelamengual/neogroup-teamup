@@ -45,7 +45,6 @@ async function loadMigrations(): Promise<Migration[]> {
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((file) => file.endsWith('.ts') || file.endsWith('.js'))
     .sort()
-
   const migrations: Migration[] = []
 
   for (const file of files) {

@@ -1,5 +1,6 @@
 'use client'
 
+import './ManageTournamentView.styles.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import EditIcon from '@mui/icons-material/Edit'
 import FlagIcon from '@mui/icons-material/Flag'
@@ -12,10 +13,9 @@ import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
-
 import {
   closeCurrentRound,
   finishTournament,
@@ -34,8 +34,6 @@ import { useNotificationsStore } from '@/app/_stores/notifications.store'
 import { computeStandings } from '@/app/_utils/standings'
 import { getTotalRounds } from '@/app/_utils/tournament-engine'
 import EditTournamentDialog from '@/app/(organizer)/organizer/tournaments/[id]/_components/EditTournamentDialog'
-
-import './ManageTournamentView.styles.scss'
 
 interface ManageTournamentViewProps {
   tournament: TournamentDto
@@ -59,7 +57,6 @@ export default function ManageTournamentView({
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
-
   const competitorNames = useMemo(() => {
     const names: Record<number, string> = {}
 
@@ -69,11 +66,8 @@ export default function ManageTournamentView({
 
     return names
   }, [competitors])
-
   const currentRound = rounds.find((round) => round.number === tournament.currentRound) ?? null
-  const currentRoundMatches = currentRound
-    ? matches.filter((match) => match.roundId === currentRound.id)
-    : []
+  const currentRoundMatches = currentRound ? matches.filter((match) => match.roundId === currentRound.id) : []
   const roundIsOpen = currentRound?.status === 'open'
   const allResolved = currentRoundMatches.every((match) => match.status !== 'pending')
   const totalRounds = getTotalRounds(tournament.type, tournament.settings, competitors.length)
@@ -179,12 +173,7 @@ export default function ManageTournamentView({
         <div className="manage-tournament__actions">
           {tournament.status === 'stand_by' && (
             <>
-              <Button
-                variant="outlined"
-                color="success"
-                startIcon={<WhatsAppIcon />}
-                onClick={handleShare}
-              >
+              <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
                 {tOrganizer('manage.share')}
               </Button>
               <Button
@@ -208,12 +197,7 @@ export default function ManageTournamentView({
             </Button>
           )}
           {tournament.status === 'ongoing' && !roundIsOpen && hasMoreRounds && (
-            <Button
-              variant="contained"
-              startIcon={<SkipNextIcon />}
-              onClick={handleNextRound}
-              disabled={working}
-            >
+            <Button variant="contained" startIcon={<SkipNextIcon />} onClick={handleNextRound} disabled={working}>
               {tOrganizer('manage.nextRound')}
             </Button>
           )}
@@ -294,13 +278,9 @@ export default function ManageTournamentView({
       <ScoreDialog
         open={!!scoreMatch}
         scoreFormat={tournament.scoreFormat}
-        homeName={
-          scoreMatch ? scoreMatch.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ') : ''
-        }
+        homeName={scoreMatch ? scoreMatch.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ') : ''}
         awayName={
-          scoreMatch
-            ? (scoreMatch.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ')
-            : ''
+          scoreMatch ? (scoreMatch.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ') : ''
         }
         initialScore={scoreMatch?.score ?? null}
         saving={working}

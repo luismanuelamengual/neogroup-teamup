@@ -1,14 +1,12 @@
+import { Entities } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
-
-import { Entities } from '@neogroup/neorm'
-
-import { authConfig } from '@/auth.config'
 import { getUserDisplayName } from '@/app/_models/dtos'
 import { User, UserModel } from '@/app/_models/user.entity'
 import { getGravatarUrl } from '@/app/_utils/gravatar'
+import { authConfig } from '@/auth.config'
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,

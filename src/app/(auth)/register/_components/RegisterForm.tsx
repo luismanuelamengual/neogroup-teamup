@@ -1,18 +1,16 @@
 'use client'
 
+import './RegisterForm.styles.scss'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { signIn } from 'next-auth/react'
-import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
+import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
-
 import { registerUser } from '@/app/_actions/auth.actions'
-
-import './RegisterForm.styles.scss'
 
 interface RegisterFormProps {
   callbackUrl: string | null
@@ -27,7 +25,6 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
   const targetUrl = callbackUrl ? `/?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/'
 
   const handleSubmit = async (event: FormEvent) => {

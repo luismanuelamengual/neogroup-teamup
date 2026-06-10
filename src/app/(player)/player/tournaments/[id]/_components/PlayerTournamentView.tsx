@@ -1,5 +1,6 @@
 'use client'
 
+import './PlayerTournamentView.styles.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
@@ -8,11 +9,10 @@ import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
-
 import { leaveTournament } from '@/app/_actions/registration.actions'
 import { saveMatchResult } from '@/app/_actions/tournament.actions'
 import BracketView from '@/app/_components/tournament/BracketView'
@@ -25,8 +25,6 @@ import { CompetitorDto, MatchDto, RoundDto, TournamentDto } from '@/app/_models/
 import { MatchScore } from '@/app/_models/types'
 import { useNotificationsStore } from '@/app/_stores/notifications.store'
 import { computeStandings } from '@/app/_utils/standings'
-
-import './PlayerTournamentView.styles.scss'
 
 interface PlayerTournamentViewProps {
   tournament: TournamentDto
@@ -49,7 +47,6 @@ export default function PlayerTournamentView({
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
-
   const competitorNames = useMemo(() => {
     const names: Record<number, string> = {}
 
@@ -59,7 +56,6 @@ export default function PlayerTournamentView({
 
     return names
   }, [competitors])
-
   const currentRound = rounds.find((round) => round.number === tournament.currentRound) ?? null
   const roundIsOpen = currentRound?.status === 'open'
   const myMatches = useMemo(() => {
@@ -74,7 +70,6 @@ export default function PlayerTournamentView({
         (match.homeCompetitorIds.includes(userEntry.id) || match.awayCompetitorIds.includes(userEntry.id))
     )
   }, [matches, userEntry, currentRound, roundIsOpen])
-
   const editableMatchIds = myMatches.map((match) => match.id)
   const standings = useMemo(
     () =>
@@ -238,13 +233,9 @@ export default function PlayerTournamentView({
       <ScoreDialog
         open={!!scoreMatch}
         scoreFormat={tournament.scoreFormat}
-        homeName={
-          scoreMatch ? scoreMatch.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ') : ''
-        }
+        homeName={scoreMatch ? scoreMatch.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ') : ''}
         awayName={
-          scoreMatch
-            ? (scoreMatch.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ')
-            : ''
+          scoreMatch ? (scoreMatch.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ') : ''
         }
         initialScore={scoreMatch?.score ?? null}
         saving={working}

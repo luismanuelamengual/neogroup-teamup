@@ -1,16 +1,14 @@
+import './page.styles.scss'
 import AddIcon from '@mui/icons-material/Add'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
-import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-
-import { auth } from '@/auth'
+import { getTranslations } from 'next-intl/server'
 import TournamentCard from '@/app/_components/tournament/TournamentCard'
 import { getOrganizerTournaments } from '@/app/_utils/queries'
 import TournamentFilters from '@/app/(organizer)/organizer/tournaments/_components/TournamentFilters'
-
-import './page.styles.scss'
+import { auth } from '@/auth'
 
 export default async function OrganizerTournamentsPage({
   searchParams
@@ -36,12 +34,7 @@ export default async function OrganizerTournamentsPage({
         <Typography variant="h5" component="h1" className="organizer-tournaments__title">
           {t('title')}
         </Typography>
-        <Button
-          component={Link}
-          href="/organizer/tournaments/new"
-          variant="contained"
-          startIcon={<AddIcon />}
-        >
+        <Button component={Link} href="/organizer/tournaments/new" variant="contained" startIcon={<AddIcon />}>
           {t('create')}
         </Button>
       </div>

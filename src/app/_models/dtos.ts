@@ -2,7 +2,6 @@ import { Competitor } from '@/app/_models/competitor.entity'
 import { Match } from '@/app/_models/match.entity'
 import { Round } from '@/app/_models/round.entity'
 import { Tournament } from '@/app/_models/tournament.entity'
-import { User } from '@/app/_models/user.entity'
 import {
   Discipline,
   MatchScore,
@@ -14,6 +13,7 @@ import {
   TournamentStatus,
   TournamentType
 } from '@/app/_models/types'
+import { User } from '@/app/_models/user.entity'
 
 /** Plain serializable objects passed from server components/actions to client components. */
 
@@ -105,8 +105,7 @@ export function toTournamentDto(tournament: Tournament, competitorsCount?: numbe
     discipline: tournament.discipline,
     type: tournament.type,
     scoreFormat: tournament.score_format,
-    startDate:
-      startDate instanceof Date ? startDate.toISOString().slice(0, 10) : String(startDate).slice(0, 10),
+    startDate: startDate instanceof Date ? startDate.toISOString().slice(0, 10) : String(startDate).slice(0, 10),
     location: tournament.location,
     maxCompetitors: tournament.max_competitors,
     settings: tournament.settings ?? {},

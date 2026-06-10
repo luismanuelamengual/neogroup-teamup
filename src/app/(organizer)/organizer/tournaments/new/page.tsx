@@ -1,6 +1,5 @@
 import Typography from '@mui/material/Typography'
 import { getTranslations } from 'next-intl/server'
-
 import TournamentForm from '@/app/(organizer)/organizer/tournaments/new/_components/TournamentForm'
 
 export default async function NewTournamentPage() {

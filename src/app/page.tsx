@@ -1,16 +1,11 @@
 import { redirect } from 'next/navigation'
-
 import { auth } from '@/auth'
 
 /**
  * Entry point: routes the user to the right home depending on the session,
  * the selected profile and an optional callbackUrl (e.g. invite links).
  */
-export default async function HomePage({
-  searchParams
-}: {
-  searchParams: Promise<{ callbackUrl?: string }>
-}) {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
   const { callbackUrl } = await searchParams
   const session = await auth()
 

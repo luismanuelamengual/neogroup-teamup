@@ -2,7 +2,6 @@
 
 import Alert from '@mui/material/Alert'
 import Snackbar from '@mui/material/Snackbar'
-
 import { useNotificationsStore } from '@/app/_stores/notifications.store'
 
 /** Renders the global notifications managed by the notifications store. */

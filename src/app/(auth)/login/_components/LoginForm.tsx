@@ -1,18 +1,17 @@
 'use client'
 
+import './LoginForm.styles.scss'
 import GoogleIcon from '@mui/icons-material/Google'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { signIn } from 'next-auth/react'
-import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
+import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
-
-import './LoginForm.styles.scss'
 
 interface LoginFormProps {
   callbackUrl: string | null
@@ -25,7 +24,6 @@ export default function LoginForm({ callbackUrl }: LoginFormProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
   const targetUrl = callbackUrl ? `/?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/'
 
   const handleSubmit = async (event: FormEvent) => {

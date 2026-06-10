@@ -1,9 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
-
-import { auth } from '@/auth'
 import { registersAsPairs } from '@/app/_models/types'
 import { getTournamentDetail, getUserCompetitorEntry } from '@/app/_utils/queries'
 import JoinTournamentForm from '@/app/(player)/player/tournaments/[id]/join/_components/JoinTournamentForm'
+import { auth } from '@/auth'
 
 export default async function JoinTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,11 +28,7 @@ export default async function JoinTournamentPage({ params }: { params: Promise<{
   return (
     <JoinTournamentForm
       tournament={detail.tournament}
-      needsPartner={registersAsPairs(
-        detail.tournament.discipline,
-        detail.tournament.type,
-        detail.tournament.settings
-      )}
+      needsPartner={registersAsPairs(detail.tournament.discipline, detail.tournament.type, detail.tournament.settings)}
     />
   )
 }

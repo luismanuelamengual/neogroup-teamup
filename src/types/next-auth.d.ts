@@ -1,5 +1,4 @@
 import { DefaultSession } from 'next-auth'
-
 import { Profile } from '@/app/_models/types'
 
 declare module 'next-auth' {

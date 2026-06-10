@@ -6,9 +6,7 @@ import { DB } from '@neogroup/neorm'
  */
 const IS_SQLITE = (process.env.DB_DRIVER ?? 'postgres') === 'sqlite'
 const ID = IS_SQLITE ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'SERIAL PRIMARY KEY'
-const TIMESTAMP = IS_SQLITE
-  ? 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP'
-  : 'TIMESTAMP NOT NULL DEFAULT NOW()'
+const TIMESTAMP = IS_SQLITE ? 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP' : 'TIMESTAMP NOT NULL DEFAULT NOW()'
 
 export default {
   name: '001-create-base-tables',

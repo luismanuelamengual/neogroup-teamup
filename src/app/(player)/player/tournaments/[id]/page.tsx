@@ -1,8 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
-
-import { auth } from '@/auth'
 import { getTournamentDetail, getUserCompetitorEntry } from '@/app/_utils/queries'
 import PlayerTournamentView from '@/app/(player)/player/tournaments/[id]/_components/PlayerTournamentView'
+import { auth } from '@/auth'
 
 export default async function PlayerTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

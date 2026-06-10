@@ -1,13 +1,11 @@
 'use server'
 
+import { Entities } from '@neogroup/neorm'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
-
-import { Entities } from '@neogroup/neorm'
-
-import { auth, unstable_update } from '@/auth'
-import { UserModel } from '@/app/_models/user.entity'
 import { Profile } from '@/app/_models/types'
+import { UserModel } from '@/app/_models/user.entity'
+import { auth, unstable_update } from '@/auth'
 import { LOCALE_COOKIE, SUPPORTED_LOCALES, SupportedLocale } from '@/i18n/request'
 
 export interface AccountInput {

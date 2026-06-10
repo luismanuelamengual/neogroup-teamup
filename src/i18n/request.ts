@@ -1,5 +1,5 @@
-import { getRequestConfig } from 'next-intl/server'
 import { cookies } from 'next/headers'
+import { getRequestConfig } from 'next-intl/server'
 
 export const SUPPORTED_LOCALES = ['es', 'en'] as const
 export const DEFAULT_LOCALE = 'es'

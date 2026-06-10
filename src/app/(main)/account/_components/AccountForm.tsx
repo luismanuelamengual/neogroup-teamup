@@ -1,18 +1,16 @@
 'use client'
 
+import './AccountForm.styles.scss'
 import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
-
 import { updateAccount } from '@/app/_actions/account.actions'
-
-import './AccountForm.styles.scss'
 
 interface AccountFormProps {
   email: string

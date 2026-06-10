@@ -1,5 +1,4 @@
 import { Column, Entity } from '@neogroup/neorm'
-
 import { MatchScore, MatchSide, MatchStatus } from '@/app/_models/types'
 
 @Entity({ table: 'matches' })

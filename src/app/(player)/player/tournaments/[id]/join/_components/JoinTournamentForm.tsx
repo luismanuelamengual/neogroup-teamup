@@ -1,24 +1,22 @@
 'use client'
 
+import './JoinTournamentForm.styles.scss'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import Paper from '@mui/material/Paper'
 import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-
 import { joinTournament, searchUsers } from '@/app/_actions/registration.actions'
 import { TournamentDto, UserDto } from '@/app/_models/dtos'
-
-import './JoinTournamentForm.styles.scss'
 
 interface JoinTournamentFormProps {
   tournament: TournamentDto
@@ -105,10 +103,7 @@ export default function JoinTournamentForm({ tournament, needsPartner }: JoinTou
           <Typography variant="subtitle1" className="join-tournament__partner-title">
             {tPlayer('partnerTitle')}
           </Typography>
-          <RadioGroup
-            value={partnerMode}
-            onChange={(event) => setPartnerMode(event.target.value as PartnerMode)}
-          >
+          <RadioGroup value={partnerMode} onChange={(event) => setPartnerMode(event.target.value as PartnerMode)}>
             <FormControlLabel value="search" control={<Radio />} label={tPlayer('partnerSearchOption')} />
             <FormControlLabel value="free" control={<Radio />} label={tPlayer('partnerFreeTextOption')} />
           </RadioGroup>
@@ -152,9 +147,7 @@ export default function JoinTournamentForm({ tournament, needsPartner }: JoinTou
         variant="contained"
         size="large"
         onClick={handleJoin}
-        disabled={
-          loading || (needsPartner && (partnerMode === 'search' ? !partnerUser : !partnerName.trim()))
-        }
+        disabled={loading || (needsPartner && (partnerMode === 'search' ? !partnerUser : !partnerName.trim()))}
       >
         {tPlayer('confirmRegistration')}
       </Button>

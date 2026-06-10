@@ -1,15 +1,13 @@
+import './page.styles.scss'
 import SearchIcon from '@mui/icons-material/Search'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
-import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-
-import { auth } from '@/auth'
+import { getTranslations } from 'next-intl/server'
 import TournamentCard from '@/app/_components/tournament/TournamentCard'
 import { getPlayerActiveTournaments } from '@/app/_utils/queries'
-
-import './page.styles.scss'
+import { auth } from '@/auth'
 
 export default async function PlayerTournamentsPage() {
   const session = await auth()
@@ -36,11 +34,7 @@ export default async function PlayerTournamentsPage() {
       ) : (
         <div className="player-tournaments__list">
           {tournaments.map((tournament) => (
-            <TournamentCard
-              key={tournament.id}
-              tournament={tournament}
-              href={`/player/tournaments/${tournament.id}`}
-            />
+            <TournamentCard key={tournament.id} tournament={tournament} href={`/player/tournaments/${tournament.id}`} />
           ))}
         </div>
       )}

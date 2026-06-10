@@ -1,12 +1,10 @@
 'use client'
 
+import './BracketView.styles.scss'
 import { useTranslations } from 'next-intl'
-
 import MatchCard from '@/app/_components/tournament/MatchCard'
 import { MatchDto, RoundDto } from '@/app/_models/dtos'
 import { ScoreFormat } from '@/app/_models/types'
-
-import './BracketView.styles.scss'
 
 interface BracketViewProps {
   rounds: RoundDto[]

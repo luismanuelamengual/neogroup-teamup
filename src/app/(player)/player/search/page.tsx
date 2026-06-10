@@ -1,17 +1,11 @@
+import './page.styles.scss'
 import Typography from '@mui/material/Typography'
 import { getTranslations } from 'next-intl/server'
-
 import TournamentCard from '@/app/_components/tournament/TournamentCard'
 import { searchTournaments } from '@/app/_utils/queries'
 import TournamentSearchBar from '@/app/(player)/player/search/_components/TournamentSearchBar'
 
-import './page.styles.scss'
-
-export default async function PlayerSearchPage({
-  searchParams
-}: {
-  searchParams: Promise<{ q?: string }>
-}) {
+export default async function PlayerSearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams
   const t = await getTranslations('player')
   const tournaments = await searchTournaments(q ?? '')
@@ -29,11 +23,7 @@ export default async function PlayerSearchPage({
       ) : (
         <div className="player-search__list">
           {tournaments.map((tournament) => (
-            <TournamentCard
-              key={tournament.id}
-              tournament={tournament}
-              href={`/player/tournaments/${tournament.id}`}
-            />
+            <TournamentCard key={tournament.id} tournament={tournament} href={`/player/tournaments/${tournament.id}`} />
           ))}
         </div>
       )}

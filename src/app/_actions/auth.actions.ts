@@ -1,9 +1,7 @@
 'use server'
 
-import bcrypt from 'bcryptjs'
-
 import { Entities } from '@neogroup/neorm'
-
+import bcrypt from 'bcryptjs'
 import { User, UserModel } from '@/app/_models/user.entity'
 
 export interface RegisterInput {

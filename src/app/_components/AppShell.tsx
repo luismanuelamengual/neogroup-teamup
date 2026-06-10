@@ -1,5 +1,6 @@
 'use client'
 
+import './AppShell.styles.scss'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlined'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import LanguageIcon from '@mui/icons-material/Language'
@@ -17,16 +18,13 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Toolbar from '@mui/material/Toolbar'
-import { signOut } from 'next-auth/react'
-import { useLocale, useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
+import { useLocale, useTranslations } from 'next-intl'
 import { MouseEvent, ReactNode, useState } from 'react'
-
 import { setLocale, setProfile } from '@/app/_actions/account.actions'
 import { Profile } from '@/app/_models/types'
-
-import './AppShell.styles.scss'
 
 interface AppShellProps {
   profile: Profile
@@ -49,7 +47,6 @@ export default function AppShell({ profile, userName, avatarUrl, children }: App
   const pathname = usePathname()
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
   const [switchingProfile, setSwitchingProfile] = useState(false)
-
   const navItems: NavItem[] =
     profile === 'organizer'
       ? [
@@ -80,12 +77,10 @@ export default function AppShell({ profile, userName, avatarUrl, children }: App
             icon: <SearchIcon />
           }
         ]
-
   const isActive = (href: string) =>
     href === '/organizer/tournaments' || href === '/player/tournaments'
       ? pathname === href || /^\/(organizer|player)\/tournaments\/\d+/.test(pathname)
       : pathname.startsWith(href)
-
   const openMenu = (event: MouseEvent<HTMLElement>) => setMenuAnchor(event.currentTarget)
   const closeMenu = () => setMenuAnchor(null)
 
