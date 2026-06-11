@@ -1,19 +1,22 @@
+'use client'
+
 import './page.styles.scss'
 import AddIcon from '@mui/icons-material/Add'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
-import { getTranslations } from 'next-intl/server'
+import { useTranslations } from 'next-intl'
+import { use } from 'react'
 import OrganizerTournamentsList from '@/app/(organizer)/organizer/tournaments/_components/OrganizerTournamentsList'
 import TournamentFilters from '@/app/(organizer)/organizer/tournaments/_components/TournamentFilters'
 
-export default async function OrganizerTournamentsPage({
+export default function OrganizerTournamentsPage({
   searchParams
 }: {
   searchParams: Promise<{ name?: string; active?: string }>
 }) {
-  const { name, active } = await searchParams
-  const t = await getTranslations('organizer')
+  const { name, active } = use(searchParams)
+  const t = useTranslations('organizer')
 
   return (
     <div className="organizer-tournaments">
