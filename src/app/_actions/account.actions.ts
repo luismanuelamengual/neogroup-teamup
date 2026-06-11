@@ -1,6 +1,5 @@
 'use server'
 
-import { Entities } from '@neogroup/neorm'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { Profile } from '@/app/_models/types'
@@ -49,7 +48,7 @@ export async function updateAccount(input: AccountInput): Promise<ActionResult> 
   user.firstName = firstName
   user.lastName = lastName
   user.nickname = input.nickname.trim() || null
-  await Entities.save(user)
+  await user.save()
   await unstable_update({})
 
   return { success: true }
@@ -74,7 +73,7 @@ export async function setProfile(profile: Profile): Promise<ActionResult> {
   }
 
   user.profile = profile
-  await Entities.save(user)
+  await user.save()
   await unstable_update({})
   revalidatePath('/', 'layout')
 

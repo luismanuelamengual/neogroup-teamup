@@ -1,6 +1,5 @@
 'use server'
 
-import { Entities } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
 import { User } from '@/app/_models/User'
 
@@ -49,7 +48,7 @@ export async function registerUser(input: RegisterInput): Promise<ActionResult> 
   user.lastName = lastName
   user.nickname = null
   user.profile = null
-  await Entities.save(user)
+  await user.save()
 
   return { success: true }
 }

@@ -1,6 +1,6 @@
 'use server'
 
-import { DB, Entities } from '@neogroup/neorm'
+import { DB } from '@neogroup/neorm'
 import { revalidatePath } from 'next/cache'
 import { Competitor } from '@/app/_models/Competitor'
 import { getUserDisplayName, UserDto } from '@/app/_models/dtos'
@@ -150,7 +150,7 @@ export async function joinTournament(tournamentId: number, input: JoinTournament
     ? `${getUserDisplayName(user)} / ${partnerDisplayName}`
     : getUserDisplayName(user)
   competitor.createdAt = new Date()
-  await Entities.save(competitor)
+  await competitor.save()
   revalidateTournamentPaths(tournamentId)
 
   return { success: true }
@@ -180,7 +180,7 @@ export async function leaveTournament(tournamentId: number): Promise<ActionResul
     return { success: false, error: 'notRegistered' }
   }
 
-  await Entities.delete(entry)
+  await entry.delete()
   revalidateTournamentPaths(tournamentId)
 
   return { success: true }

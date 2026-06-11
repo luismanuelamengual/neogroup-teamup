@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
-import { registerUser } from '@/app/_actions/auth.actions'
+import { registerUser } from '@/app/(auth)/_actions/auth.actions'
 
 interface RegisterFormProps {
   callbackUrl: string | null

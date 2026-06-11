@@ -1,6 +1,5 @@
 'use server'
 
-import { Entities } from '@neogroup/neorm'
 import { revalidatePath } from 'next/cache'
 import { Competitor } from '@/app/_models/Competitor'
 import { toMatchDto } from '@/app/_models/dtos'
@@ -115,7 +114,7 @@ export async function createTournament(input: CreateTournamentInput): Promise<Ac
   tournament.currentRound = 0
   tournament.createdAt = new Date()
   tournament.updatedAt = new Date()
-  await Entities.save(tournament)
+  await tournament.save()
   revalidatePath('/organizer/tournaments')
 
   return { success: true, id: tournament.id }
@@ -147,7 +146,7 @@ export async function updateTournament(tournamentId: number, input: UpdateTourna
   tournament.startDate = input.startDate
   tournament.maxCompetitors = input.maxCompetitors
   tournament.updatedAt = new Date()
-  await Entities.save(tournament)
+  await tournament.save()
   revalidateTournamentPaths(tournamentId)
 
   return { success: true }
@@ -191,7 +190,7 @@ async function createRound(tournament: Tournament, roundNumber: number): Promise
   round.number = roundNumber
   round.status = 'open'
   round.createdAt = new Date()
-  await Entities.save(round)
+  await round.save()
 
   for (const pairing of pairings) {
     const match = new Match()
@@ -214,12 +213,12 @@ async function createRound(tournament: Tournament, roundNumber: number): Promise
 
     match.createdAt = new Date()
     match.updatedAt = new Date()
-    await Entities.save(match)
+    await match.save()
   }
 
   tournament.currentRound = roundNumber
   tournament.updatedAt = new Date()
-  await Entities.save(tournament)
+  await tournament.save()
 
   return { success: true }
 }
@@ -249,7 +248,7 @@ export async function startTournament(tournamentId: number): Promise<ActionResul
     return result
   }
 
-  await Entities.save(tournament)
+  await tournament.save()
   revalidateTournamentPaths(tournamentId)
 
   return { success: true }
@@ -284,7 +283,7 @@ export async function closeCurrentRound(tournamentId: number): Promise<ActionRes
   }
 
   round.status = 'closed'
-  await Entities.save(round)
+  await round.save()
   revalidateTournamentPaths(tournamentId)
 
   return { success: true }
@@ -346,7 +345,7 @@ export async function finishTournament(tournamentId: number): Promise<ActionResu
 
   tournament.status = 'finished'
   tournament.updatedAt = new Date()
-  await Entities.save(tournament)
+  await tournament.save()
   revalidateTournamentPaths(tournamentId)
 
   return { success: true }
@@ -410,7 +409,7 @@ export async function saveMatchResult(matchId: number, score: MatchScore): Promi
   }
 
   match.updatedAt = new Date()
-  await Entities.save(match)
+  await match.save()
   revalidateTournamentPaths(tournament.id)
 
   return { success: true }

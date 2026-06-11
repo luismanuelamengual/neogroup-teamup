@@ -1,4 +1,3 @@
-import { Entities } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
@@ -61,7 +60,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           dbUser.lastName = (profile?.family_name as string | undefined) ?? null
           dbUser.nickname = null
           dbUser.profile = null
-          await Entities.save(dbUser)
+          await dbUser.save()
         }
 
         token.userId = Number(dbUser.id)
