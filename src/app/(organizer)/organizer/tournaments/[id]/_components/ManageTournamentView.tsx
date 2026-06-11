@@ -24,7 +24,7 @@ import {
   startNextRound,
   startTournament,
   TournamentDetailWithEntry
-} from '@/app/_actions/tournament.actions'
+} from '@/app/_actions/tournament'
 import BracketView from '@/app/_components/tournament/BracketView'
 import FixtureView from '@/app/_components/tournament/FixtureView'
 import ScoreDialog from '@/app/_components/tournament/ScoreDialog'

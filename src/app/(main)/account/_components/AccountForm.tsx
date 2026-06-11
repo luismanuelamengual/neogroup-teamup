@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
-import { updateAccount } from '@/app/_actions/account.actions'
+import { updateAccount } from '@/app/_actions/account'
 
 interface AccountFormProps {
   email: string

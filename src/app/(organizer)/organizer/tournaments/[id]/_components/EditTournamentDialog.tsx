@@ -10,7 +10,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import TextField from '@mui/material/TextField'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { updateTournament } from '@/app/_actions/tournament.actions'
+import { updateTournament } from '@/app/_actions/tournament'
 import { TournamentDto } from '@/app/_models/dtos'
 
 interface EditTournamentDialogProps {

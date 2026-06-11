@@ -7,7 +7,7 @@ import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { getPlayerActiveTournaments } from '@/app/_actions/registration.actions'
+import { getPlayerActiveTournaments } from '@/app/_actions/registration'
 import TournamentCard from '@/app/_components/tournament/TournamentCard'
 import { TournamentDto } from '@/app/_models/dtos'
 

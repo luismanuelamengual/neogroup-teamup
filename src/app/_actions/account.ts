@@ -1,6 +1,6 @@
+import { executeRequest } from '@/app/_actions/api'
 import type { AccountInput, ApiResult } from '@/app/_models/api'
 import type { Profile } from '@/app/_models/types'
-import { apiRequest } from '@/app/_utils/api-client'
 
 /**
  * Client-side account actions: thin wrappers around the REST API
@@ -12,17 +12,17 @@ export type { AccountInput }
 
 /** Updates the personal information of the signed-in user. */
 export async function updateAccount(input: AccountInput): Promise<ActionResult> {
-  return apiRequest<ActionResult>('/api/account', { method: 'PATCH', body: JSON.stringify(input) })
+  return executeRequest<ActionResult>('/account', { method: 'PATCH', body: JSON.stringify(input) })
 }
 
 /** Sets the active profile (organizer / player) for the signed-in user. */
 export async function setProfile(profile: Profile): Promise<ActionResult> {
-  return apiRequest<ActionResult>('/api/account/profile', { method: 'PUT', body: JSON.stringify({ profile }) })
+  return executeRequest<ActionResult>('/account/profile', { method: 'PUT', body: JSON.stringify({ profile }) })
 }
 
 /** Changes the interface language (stored in a cookie). */
 export async function setLocale(locale: string): Promise<void> {
-  await apiRequest<{ success: boolean }>('/api/account/locale', {
+  await executeRequest<{ success: boolean }>('/account/locale', {
     method: 'PUT',
     body: JSON.stringify({ locale })
   })

@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
-import { setProfile } from '@/app/_actions/account.actions'
+import { setProfile } from '@/app/_actions/account'
 import { Profile } from '@/app/_models/types'
 
 interface ProfileSelectorProps {

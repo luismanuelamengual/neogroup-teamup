@@ -4,7 +4,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { searchTournaments } from '@/app/_actions/registration.actions'
+import { searchTournaments } from '@/app/_actions/registration'
 import TournamentCard from '@/app/_components/tournament/TournamentCard'
 import { TournamentDto } from '@/app/_models/dtos'
 

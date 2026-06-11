@@ -1,7 +1,7 @@
+import { executeRequest } from '@/app/_actions/api'
 import type { ApiResult, CreateTournamentInput, UpdateTournamentInput } from '@/app/_models/api'
 import type { CompetitorDto, TournamentDto } from '@/app/_models/dtos'
 import type { MatchScore } from '@/app/_models/types'
-import { apiRequest } from '@/app/_utils/api-client'
 import type { OrganizerTournamentFilters, TournamentDetail } from '@/app/_utils/queries'
 
 /**
@@ -30,26 +30,26 @@ export async function getOrganizerTournaments(filters: OrganizerTournamentFilter
   }
 
   const query = params.toString()
-  const data = await apiRequest<{ tournaments: TournamentDto[] }>(`/api/tournaments${query ? `?${query}` : ''}`)
+  const data = await executeRequest<{ tournaments: TournamentDto[] }>(`/tournaments${query ? `?${query}` : ''}`)
 
   return data.tournaments ?? []
 }
 
 /** Full tournament detail plus the signed-in user competitor entry (if any). */
 export async function getTournamentDetail(tournamentId: number): Promise<TournamentDetailWithEntry | null> {
-  const data = await apiRequest<TournamentDetailWithEntry & { error?: string }>(`/api/tournaments/${tournamentId}`)
+  const data = await executeRequest<TournamentDetailWithEntry & { error?: string }>(`/tournaments/${tournamentId}`)
 
   return data.error ? null : data
 }
 
 /** Creates a new tournament in stand_by status. */
 export async function createTournament(input: CreateTournamentInput): Promise<ActionResult> {
-  return apiRequest<ActionResult>('/api/tournaments', { method: 'POST', body: JSON.stringify(input) })
+  return executeRequest<ActionResult>('/tournaments', { method: 'POST', body: JSON.stringify(input) })
 }
 
 /** Updates the editable attributes of a tournament. */
 export async function updateTournament(tournamentId: number, input: UpdateTournamentInput): Promise<ActionResult> {
-  return apiRequest<ActionResult>(`/api/tournaments/${tournamentId}`, {
+  return executeRequest<ActionResult>(`/tournaments/${tournamentId}`, {
     method: 'PATCH',
     body: JSON.stringify(input)
   })
@@ -57,27 +57,27 @@ export async function updateTournament(tournamentId: number, input: UpdateTourna
 
 /** Starts the tournament: sets it ongoing and generates the first round. */
 export async function startTournament(tournamentId: number): Promise<ActionResult> {
-  return apiRequest<ActionResult>(`/api/tournaments/${tournamentId}/start`, { method: 'POST' })
+  return executeRequest<ActionResult>(`/tournaments/${tournamentId}/start`, { method: 'POST' })
 }
 
 /** Closes the current round once every match has a result. */
 export async function closeCurrentRound(tournamentId: number): Promise<ActionResult> {
-  return apiRequest<ActionResult>(`/api/tournaments/${tournamentId}/rounds/close`, { method: 'POST' })
+  return executeRequest<ActionResult>(`/tournaments/${tournamentId}/rounds/close`, { method: 'POST' })
 }
 
 /** Starts the next round (the current one must be closed). */
 export async function startNextRound(tournamentId: number): Promise<ActionResult> {
-  return apiRequest<ActionResult>(`/api/tournaments/${tournamentId}/rounds/next`, { method: 'POST' })
+  return executeRequest<ActionResult>(`/tournaments/${tournamentId}/rounds/next`, { method: 'POST' })
 }
 
 /** Marks the tournament as finished. */
 export async function finishTournament(tournamentId: number): Promise<ActionResult> {
-  return apiRequest<ActionResult>(`/api/tournaments/${tournamentId}/finish`, { method: 'POST' })
+  return executeRequest<ActionResult>(`/tournaments/${tournamentId}/finish`, { method: 'POST' })
 }
 
 /** Saves (or edits) a match result. */
 export async function saveMatchResult(matchId: number, score: MatchScore): Promise<ActionResult> {
-  return apiRequest<ActionResult>(`/api/matches/${matchId}/result`, {
+  return executeRequest<ActionResult>(`/matches/${matchId}/result`, {
     method: 'PUT',
     body: JSON.stringify({ score })
   })

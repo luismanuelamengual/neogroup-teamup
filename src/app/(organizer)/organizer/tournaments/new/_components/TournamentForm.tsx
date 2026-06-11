@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
-import { createTournament } from '@/app/_actions/tournament.actions'
+import { createTournament } from '@/app/_actions/tournament'
 import {
   DEFAULT_AMERICANO_SETTINGS,
   DEFAULT_LEAGUE_SETTINGS,

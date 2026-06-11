@@ -1,6 +1,6 @@
+import { executeRequest } from '@/app/_actions/api'
 import type { ApiResult, JoinTournamentInput } from '@/app/_models/api'
 import type { TournamentDto, UserDto } from '@/app/_models/dtos'
-import { apiRequest } from '@/app/_utils/api-client'
 
 /**
  * Client-side registration actions: thin wrappers around the REST API
@@ -18,15 +18,15 @@ export async function searchUsers(query: string): Promise<UserDto[]> {
     return []
   }
 
-  const data = await apiRequest<{ users: UserDto[] }>(`/api/users?q=${encodeURIComponent(normalized)}`)
+  const data = await executeRequest<{ users: UserDto[] }>(`/users?q=${encodeURIComponent(normalized)}`)
 
   return data.users ?? []
 }
 
 /** Searches joinable/visible tournaments by name. */
 export async function searchTournaments(name: string): Promise<TournamentDto[]> {
-  const data = await apiRequest<{ tournaments: TournamentDto[] }>(
-    `/api/tournaments/search?name=${encodeURIComponent(name)}`
+  const data = await executeRequest<{ tournaments: TournamentDto[] }>(
+    `/tournaments/search?name=${encodeURIComponent(name)}`
   )
 
   return data.tournaments ?? []
@@ -34,14 +34,14 @@ export async function searchTournaments(name: string): Promise<TournamentDto[]> 
 
 /** Tournaments in stand_by or ongoing where the signed-in user participates. */
 export async function getPlayerActiveTournaments(): Promise<TournamentDto[]> {
-  const data = await apiRequest<{ tournaments: TournamentDto[] }>('/api/tournaments/active')
+  const data = await executeRequest<{ tournaments: TournamentDto[] }>('/tournaments/active')
 
   return data.tournaments ?? []
 }
 
 /** Registers the signed-in user (optionally with a partner) into a tournament. */
 export async function joinTournament(tournamentId: number, input: JoinTournamentInput): Promise<ActionResult> {
-  return apiRequest<ActionResult>('/api/registrations', {
+  return executeRequest<ActionResult>('/registrations', {
     method: 'POST',
     body: JSON.stringify({ tournamentId, ...input })
   })
@@ -49,5 +49,5 @@ export async function joinTournament(tournamentId: number, input: JoinTournament
 
 /** Removes the signed-in user registration while the tournament is in stand_by. */
 export async function leaveTournament(tournamentId: number): Promise<ActionResult> {
-  return apiRequest<ActionResult>(`/api/registrations/${tournamentId}`, { method: 'DELETE' })
+  return executeRequest<ActionResult>(`/registrations/${tournamentId}`, { method: 'DELETE' })
 }

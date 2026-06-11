@@ -23,7 +23,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { useLocale, useTranslations } from 'next-intl'
 import { MouseEvent, ReactNode, useState } from 'react'
-import { setLocale, setProfile } from '@/app/_actions/account.actions'
+import { setLocale, setProfile } from '@/app/_actions/account'
 import { Profile } from '@/app/_models/types'
 
 interface AppShellProps {
