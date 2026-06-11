@@ -5,48 +5,56 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
 import PlaceIcon from '@mui/icons-material/Place'
+import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { leaveTournament } from '@/app/_actions/registration.actions'
-import { saveMatchResult } from '@/app/_actions/tournament.actions'
+import { getTournamentDetail, saveMatchResult, TournamentDetailWithEntry } from '@/app/_actions/tournament.actions'
 import BracketView from '@/app/_components/tournament/BracketView'
 import FixtureView from '@/app/_components/tournament/FixtureView'
 import MatchCard from '@/app/_components/tournament/MatchCard'
 import ScoreDialog from '@/app/_components/tournament/ScoreDialog'
 import StandingsTable from '@/app/_components/tournament/StandingsTable'
 import StatusChip from '@/app/_components/tournament/StatusChip'
-import { CompetitorDto, MatchDto, RoundDto, TournamentDto } from '@/app/_models/dtos'
+import { MatchDto } from '@/app/_models/dtos'
 import { MatchScore } from '@/app/_models/types'
 import { useNotificationsStore } from '@/app/_stores/notifications.store'
 import { computeStandings } from '@/app/_utils/standings'
 
 interface PlayerTournamentViewProps {
-  tournament: TournamentDto
-  competitors: CompetitorDto[]
-  rounds: RoundDto[]
-  matches: MatchDto[]
-  userEntry: CompetitorDto | null
+  tournamentId: number
 }
 
-export default function PlayerTournamentView({
-  tournament,
-  competitors,
-  rounds,
-  matches,
-  userEntry
-}: PlayerTournamentViewProps) {
+export default function PlayerTournamentView({ tournamentId }: PlayerTournamentViewProps) {
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
-  const router = useRouter()
+  const [detail, setDetail] = useState<TournamentDetailWithEntry | null>(null)
+  const [loading, setLoading] = useState(true)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
+  const loadDetail = useCallback(async () => {
+    const data = await getTournamentDetail(tournamentId)
+
+    setDetail(data)
+    setLoading(false)
+  }, [tournamentId])
+
+  useEffect(() => {
+    loadDetail()
+  }, [loadDetail])
+
+  const tournament = detail?.tournament ?? null
+  const competitors = useMemo(() => detail?.competitors ?? [], [detail])
+  const rounds = detail?.rounds ?? []
+  const matches = useMemo(() => detail?.matches ?? [], [detail])
+  const userEntry = detail?.userEntry ?? null
   const competitorNames = useMemo(() => {
     const names: Record<number, string> = {}
 
@@ -56,7 +64,7 @@ export default function PlayerTournamentView({
 
     return names
   }, [competitors])
-  const currentRound = rounds.find((round) => round.number === tournament.currentRound) ?? null
+  const currentRound = tournament ? rounds.find((round) => round.number === tournament.currentRound) ?? null : null
   const roundIsOpen = currentRound?.status === 'open'
   const myMatches = useMemo(() => {
     if (!userEntry || !currentRound || !roundIsOpen) {
@@ -73,11 +81,23 @@ export default function PlayerTournamentView({
   const editableMatchIds = myMatches.map((match) => match.id)
   const standings = useMemo(
     () =>
-      tournament.type !== 'playoff'
+      tournament && tournament.type !== 'playoff'
         ? computeStandings(tournament.type, tournament.scoreFormat, tournament.settings, competitors, matches)
         : [],
     [tournament, competitors, matches]
   )
+
+  if (loading) {
+    return (
+      <div className="player-tournament" style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+        <CircularProgress />
+      </div>
+    )
+  }
+
+  if (!tournament) {
+    return <Alert severity="error">{tPlayer('errors.notFound')}</Alert>
+  }
 
   const handleLeave = async () => {
     if (!window.confirm(tPlayer('leaveConfirm'))) {
@@ -88,15 +108,15 @@ export default function PlayerTournamentView({
 
     const result = await leaveTournament(tournament.id)
 
-    setWorking(false)
-
     if (!result.success) {
+      setWorking(false)
       notify(tPlayer(`errors.${result.error ?? 'notFound'}`))
 
       return
     }
 
-    router.refresh()
+    await loadDetail()
+    setWorking(false)
   }
 
   const handleSaveScore = async (score: MatchScore) => {
@@ -108,16 +128,16 @@ export default function PlayerTournamentView({
 
     const result = await saveMatchResult(scoreMatch.id, score)
 
-    setWorking(false)
-
     if (!result.success) {
+      setWorking(false)
       notify(tPlayer(`errors.${result.error ?? 'notFound'}`))
 
       return
     }
 
     setScoreMatch(null)
-    router.refresh()
+    await loadDetail()
+    setWorking(false)
   }
 
   return (

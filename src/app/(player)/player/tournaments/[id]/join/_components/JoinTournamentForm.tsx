@@ -6,6 +6,7 @@ import Autocomplete from '@mui/material/Autocomplete'
 import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Paper from '@mui/material/Paper'
 import Radio from '@mui/material/Radio'
@@ -16,19 +17,22 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { joinTournament, searchUsers } from '@/app/_actions/registration.actions'
+import { getTournamentDetail } from '@/app/_actions/tournament.actions'
 import { TournamentDto, UserDto } from '@/app/_models/dtos'
+import { registersAsPairs } from '@/app/_models/types'
 
 interface JoinTournamentFormProps {
-  tournament: TournamentDto
-  needsPartner: boolean
+  tournamentId: number
 }
 
 type PartnerMode = 'search' | 'free'
 
-export default function JoinTournamentForm({ tournament, needsPartner }: JoinTournamentFormProps) {
+export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormProps) {
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
   const router = useRouter()
+  const [tournament, setTournament] = useState<TournamentDto | null>(null)
+  const [initializing, setInitializing] = useState(true)
   const [partnerMode, setPartnerMode] = useState<PartnerMode>('search')
   const [partnerQuery, setPartnerQuery] = useState('')
   const [partnerOptions, setPartnerOptions] = useState<UserDto[]>([])
@@ -37,6 +41,40 @@ export default function JoinTournamentForm({ tournament, needsPartner }: JoinTou
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Loads the tournament; redirects back when already registered or registration is closed.
+  useEffect(() => {
+    let cancelled = false
+
+    getTournamentDetail(tournamentId).then((detail) => {
+      if (cancelled) {
+        return
+      }
+
+      if (!detail) {
+        setInitializing(false)
+
+        return
+      }
+
+      if (detail.userEntry || detail.tournament.status !== 'stand_by') {
+        router.replace(`/player/tournaments/${tournamentId}`)
+
+        return
+      }
+
+      setTournament(detail.tournament)
+      setInitializing(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tournamentId, router])
+
+  const needsPartner = tournament
+    ? registersAsPairs(tournament.discipline, tournament.type, tournament.settings)
+    : false
 
   // Debounced platform user search.
   useEffect(() => {
@@ -58,6 +96,18 @@ export default function JoinTournamentForm({ tournament, needsPartner }: JoinTou
     return () => clearTimeout(timeout)
   }, [partnerQuery, partnerMode])
 
+  if (initializing) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+        <CircularProgress />
+      </div>
+    )
+  }
+
+  if (!tournament) {
+    return <Alert severity="error">{tPlayer('errors.notFound')}</Alert>
+  }
+
   const handleJoin = async () => {
     setError(null)
     setLoading(true)
@@ -75,7 +125,6 @@ export default function JoinTournamentForm({ tournament, needsPartner }: JoinTou
     }
 
     router.push(`/player/tournaments/${tournament.id}`)
-    router.refresh()
   }
 
   return (

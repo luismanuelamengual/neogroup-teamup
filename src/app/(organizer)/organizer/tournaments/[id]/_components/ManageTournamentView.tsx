@@ -11,24 +11,26 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
-import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   closeCurrentRound,
   finishTournament,
+  getTournamentDetail,
   saveMatchResult,
   startNextRound,
-  startTournament
+  startTournament,
+  TournamentDetailWithEntry
 } from '@/app/_actions/tournament.actions'
 import BracketView from '@/app/_components/tournament/BracketView'
 import FixtureView from '@/app/_components/tournament/FixtureView'
 import ScoreDialog from '@/app/_components/tournament/ScoreDialog'
 import StandingsTable from '@/app/_components/tournament/StandingsTable'
 import StatusChip from '@/app/_components/tournament/StatusChip'
-import { CompetitorDto, MatchDto, RoundDto, TournamentDto } from '@/app/_models/dtos'
+import { MatchDto } from '@/app/_models/dtos'
 import { MatchScore } from '@/app/_models/types'
 import { useNotificationsStore } from '@/app/_stores/notifications.store'
 import { computeStandings } from '@/app/_utils/standings'
@@ -36,27 +38,34 @@ import { getTotalRounds } from '@/app/_utils/tournament-engine'
 import EditTournamentDialog from '@/app/(organizer)/organizer/tournaments/[id]/_components/EditTournamentDialog'
 
 interface ManageTournamentViewProps {
-  tournament: TournamentDto
-  competitors: CompetitorDto[]
-  rounds: RoundDto[]
-  matches: MatchDto[]
+  tournamentId: number
   appUrl: string
 }
 
-export default function ManageTournamentView({
-  tournament,
-  competitors,
-  rounds,
-  matches,
-  appUrl
-}: ManageTournamentViewProps) {
+export default function ManageTournamentView({ tournamentId, appUrl }: ManageTournamentViewProps) {
   const t = useTranslations('tournaments')
   const tOrganizer = useTranslations('organizer')
-  const router = useRouter()
+  const [detail, setDetail] = useState<TournamentDetailWithEntry | null>(null)
+  const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
+  const loadDetail = useCallback(async () => {
+    const data = await getTournamentDetail(tournamentId)
+
+    setDetail(data && data.isOwner ? data : null)
+    setLoading(false)
+  }, [tournamentId])
+
+  useEffect(() => {
+    loadDetail()
+  }, [loadDetail])
+
+  const tournament = detail?.tournament ?? null
+  const competitors = useMemo(() => detail?.competitors ?? [], [detail])
+  const rounds = detail?.rounds ?? []
+  const matches = useMemo(() => detail?.matches ?? [], [detail])
   const competitorNames = useMemo(() => {
     const names: Record<number, string> = {}
 
@@ -66,6 +75,26 @@ export default function ManageTournamentView({
 
     return names
   }, [competitors])
+  const standings = useMemo(
+    () =>
+      tournament && tournament.type !== 'playoff'
+        ? computeStandings(tournament.type, tournament.scoreFormat, tournament.settings, competitors, matches)
+        : [],
+    [tournament, competitors, matches]
+  )
+
+  if (loading) {
+    return (
+      <div className="manage-tournament" style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+        <CircularProgress />
+      </div>
+    )
+  }
+
+  if (!tournament) {
+    return <Alert severity="error">{tOrganizer('errors.notFound')}</Alert>
+  }
+
   const currentRound = rounds.find((round) => round.number === tournament.currentRound) ?? null
   const currentRoundMatches = currentRound ? matches.filter((match) => match.roundId === currentRound.id) : []
   const roundIsOpen = currentRound?.status === 'open'
@@ -73,28 +102,21 @@ export default function ManageTournamentView({
   const totalRounds = getTotalRounds(tournament.type, tournament.settings, competitors.length)
   const hasMoreRounds = tournament.currentRound < totalRounds
   const editableMatchIds = roundIsOpen ? currentRoundMatches.map((match) => match.id) : []
-  const standings = useMemo(
-    () =>
-      tournament.type !== 'playoff'
-        ? computeStandings(tournament.type, tournament.scoreFormat, tournament.settings, competitors, matches)
-        : [],
-    [tournament, competitors, matches]
-  )
 
   const runAction = async (action: () => Promise<{ success: boolean; error?: string }>) => {
     setWorking(true)
 
     const result = await action()
 
-    setWorking(false)
-
     if (!result.success) {
+      setWorking(false)
       notify(tOrganizer(`errors.${result.error ?? 'invalidStatus'}`))
 
       return false
     }
 
-    router.refresh()
+    await loadDetail()
+    setWorking(false)
 
     return true
   }
@@ -272,7 +294,7 @@ export default function ManageTournamentView({
         onClose={() => setEditOpen(false)}
         onSaved={() => {
           setEditOpen(false)
-          router.refresh()
+          loadDetail()
         }}
       />
       <ScoreDialog
