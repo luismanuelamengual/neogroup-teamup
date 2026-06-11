@@ -2,7 +2,7 @@
 
 import { Entities } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
-import { User, UserModel } from '@/app/_models/user.entity'
+import { User } from '@/app/_models/User'
 
 export interface RegisterInput {
   email: string
@@ -35,7 +35,7 @@ export async function registerUser(input: RegisterInput): Promise<ActionResult> 
     return { success: false, error: 'missingFields' }
   }
 
-  const existing = await UserModel.where('email', email).first()
+  const existing = await User.where('email', email).first()
 
   if (existing) {
     return { success: false, error: 'emailAlreadyRegistered' }
@@ -44,9 +44,9 @@ export async function registerUser(input: RegisterInput): Promise<ActionResult> 
   const user = new User()
 
   user.email = email
-  user.password_hash = await bcrypt.hash(password, 10)
-  user.first_name = firstName
-  user.last_name = lastName
+  user.passwordHash = await bcrypt.hash(password, 10)
+  user.firstName = firstName
+  user.lastName = lastName
   user.nickname = null
   user.profile = null
   await Entities.save(user)

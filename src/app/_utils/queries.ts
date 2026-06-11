@@ -1,6 +1,6 @@
 import { DB } from '@neogroup/neorm'
 import { OrderByDirection } from '@neogroup/neorm'
-import { Competitor, CompetitorModel } from '@/app/_models/competitor.entity'
+import { Competitor } from '@/app/_models/Competitor'
 import {
   CompetitorDto,
   MatchDto,
@@ -11,9 +11,9 @@ import {
   toTournamentDto,
   TournamentDto
 } from '@/app/_models/dtos'
-import { Match, MatchModel } from '@/app/_models/match.entity'
-import { Round, RoundModel } from '@/app/_models/round.entity'
-import { Tournament, TournamentModel } from '@/app/_models/tournament.entity'
+import { Match } from '@/app/_models/Match'
+import { Round } from '@/app/_models/Round'
+import { Tournament } from '@/app/_models/Tournament'
 
 /** Server-side data fetching helpers shared by pages and actions. */
 
@@ -25,18 +25,15 @@ export interface TournamentDetail {
 }
 
 export async function getTournamentDetail(tournamentId: number): Promise<TournamentDetail | null> {
-  const tournament: Tournament | null = await TournamentModel.find(tournamentId)
+  const tournament: Tournament | null = await Tournament.find(tournamentId)
 
   if (!tournament) {
     return null
   }
 
-  const competitors: Competitor[] = await CompetitorModel.where('tournament_id', tournamentId).orderBy('id').get()
-  const rounds: Round[] = await RoundModel.where('tournament_id', tournamentId).orderBy('number').get()
-  const matches: Match[] = await MatchModel.where('tournament_id', tournamentId)
-    .orderBy('round_id')
-    .orderBy('position')
-    .get()
+  const competitors: Competitor[] = await Competitor.where('tournamentId', tournamentId).orderBy('id').get()
+  const rounds: Round[] = await Round.where('tournamentId', tournamentId).orderBy('number').get()
+  const matches: Match[] = await Match.where('tournamentId', tournamentId).orderBy('roundId').orderBy('position').get()
 
   return {
     tournament: toTournamentDto(tournament, competitors.length),
@@ -54,13 +51,13 @@ async function getCompetitorCounts(tournamentIds: number[]): Promise<Map<number,
   }
 
   const rows = await DB.table('competitors')
-    .select('tournament_id', 'COUNT(*) AS total')
-    .whereIn('tournament_id', tournamentIds)
-    .groupBy('tournament_id')
+    .select('tournamentId', 'COUNT(*) AS total')
+    .whereIn('tournamentId', tournamentIds)
+    .groupBy('tournamentId')
     .get()
 
   for (const row of rows) {
-    counts.set(Number(row.tournament_id), Number(row.total))
+    counts.set(Number(row.tournamentId), Number(row.total))
   }
 
   return counts
@@ -75,7 +72,7 @@ export async function getOrganizerTournaments(
   ownerId: number,
   filters: OrganizerTournamentFilters
 ): Promise<TournamentDto[]> {
-  const query = TournamentModel.where('owner_id', ownerId)
+  const query = Tournament.where('ownerId', ownerId)
 
   if (filters.onlyActive) {
     query.whereIn('status', ['stand_by', 'ongoing'])
@@ -91,7 +88,7 @@ export async function getOrganizerTournaments(
 }
 
 export async function searchTournaments(name: string): Promise<TournamentDto[]> {
-  const query = TournamentModel.whereIn('status', ['stand_by', 'ongoing', 'finished'])
+  const query = Tournament.whereIn('status', ['stand_by', 'ongoing', 'finished'])
   const tournaments: Tournament[] = await query.orderBy('id', OrderByDirection.DESC).limit(100).get()
   const normalized = name.trim().toLowerCase()
   const filtered = normalized
@@ -105,16 +102,16 @@ export async function searchTournaments(name: string): Promise<TournamentDto[]> 
 
 /** Tournaments in stand_by or ongoing where the user participates (as player or partner). */
 export async function getPlayerActiveTournaments(userId: number): Promise<TournamentDto[]> {
-  const entries: Competitor[] = await CompetitorModel.where((group: any) =>
-    group.where('user_id', userId).orWhere('partner_user_id', userId)
+  const entries: Competitor[] = await Competitor.where((group: any) =>
+    group.where('userId', userId).orWhere('partnerUserId', userId)
   ).get()
-  const tournamentIds = [...new Set(entries.map((entry) => entry.tournament_id))]
+  const tournamentIds = [...new Set(entries.map((entry) => entry.tournamentId))]
 
   if (tournamentIds.length === 0) {
     return []
   }
 
-  const tournaments: Tournament[] = await TournamentModel.whereIn('id', tournamentIds)
+  const tournaments: Tournament[] = await Tournament.whereIn('id', tournamentIds)
     .whereIn('status', ['stand_by', 'ongoing'])
     .orderBy('id', OrderByDirection.DESC)
     .get()
@@ -125,8 +122,8 @@ export async function getPlayerActiveTournaments(userId: number): Promise<Tourna
 
 /** The competitor entry of a user inside a tournament (as main player or partner). */
 export async function getUserCompetitorEntry(tournamentId: number, userId: number): Promise<CompetitorDto | null> {
-  const entry: Competitor | null = await CompetitorModel.where('tournament_id', tournamentId)
-    .where((group: any) => group.where('user_id', userId).orWhere('partner_user_id', userId))
+  const entry: Competitor | null = await Competitor.where('tournamentId', tournamentId)
+    .where((group: any) => group.where('userId', userId).orWhere('partnerUserId', userId))
     .first()
 
   return entry ? toCompetitorDto(entry) : null

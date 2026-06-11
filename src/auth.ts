@@ -4,7 +4,7 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
 import { getUserDisplayName } from '@/app/_models/dtos'
-import { User, UserModel } from '@/app/_models/user.entity'
+import { User } from '@/app/_models/User'
 import { getGravatarUrl } from '@/app/_utils/gravatar'
 import { authConfig } from '@/auth.config'
 
@@ -29,13 +29,13 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
-        const user = await UserModel.where('email', email).first()
+        const user = await User.where('email', email).first()
 
-        if (!user?.password_hash) {
+        if (!user?.passwordHash) {
           return null
         }
 
-        const passwordMatches = await bcrypt.compare(password, user.password_hash)
+        const passwordMatches = await bcrypt.compare(password, user.passwordHash)
 
         if (!passwordMatches) {
           return null
@@ -51,14 +51,14 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       // First sign-in with Google: find or create the application user.
       if (account?.provider === 'google' && token.email) {
         const email = token.email.toLowerCase()
-        let dbUser = await UserModel.where('email', email).first()
+        let dbUser = await User.where('email', email).first()
 
         if (!dbUser) {
           dbUser = new User()
           dbUser.email = email
-          dbUser.password_hash = null
-          dbUser.first_name = (profile?.given_name as string | undefined) ?? null
-          dbUser.last_name = (profile?.family_name as string | undefined) ?? null
+          dbUser.passwordHash = null
+          dbUser.firstName = (profile?.given_name as string | undefined) ?? null
+          dbUser.lastName = (profile?.family_name as string | undefined) ?? null
           dbUser.nickname = null
           dbUser.profile = null
           await Entities.save(dbUser)
@@ -76,12 +76,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
       // Load (or reload after an update) the user attributes into the token.
       if (token.userId && (!token.profileLoaded || trigger === 'update')) {
-        const dbUser = await UserModel.find(token.userId)
+        const dbUser = await User.find(token.userId)
 
         if (dbUser) {
           token.profile = dbUser.profile
-          token.firstName = dbUser.first_name
-          token.lastName = dbUser.last_name
+          token.firstName = dbUser.firstName
+          token.lastName = dbUser.lastName
           token.nickname = dbUser.nickname
           token.profileLoaded = true
         }
@@ -97,8 +97,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         session.user.lastName = token.lastName ?? null
         session.user.nickname = token.nickname ?? null
         session.user.name = getUserDisplayName({
-          first_name: token.firstName ?? null,
-          last_name: token.lastName ?? null,
+          firstName: token.firstName ?? null,
+          lastName: token.lastName ?? null,
           nickname: token.nickname ?? null,
           email: session.user.email ?? ''
         })

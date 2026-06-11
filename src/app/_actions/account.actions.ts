@@ -4,7 +4,7 @@ import { Entities } from '@neogroup/neorm'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { Profile } from '@/app/_models/types'
-import { UserModel } from '@/app/_models/user.entity'
+import { User } from '@/app/_models/User'
 import { auth, unstable_update } from '@/auth'
 import { LOCALE_COOKIE, SUPPORTED_LOCALES, SupportedLocale } from '@/i18n/request'
 
@@ -40,14 +40,14 @@ export async function updateAccount(input: AccountInput): Promise<ActionResult> 
     return { success: false, error: 'missingFields' }
   }
 
-  const user = await UserModel.find(userId)
+  const user = await User.find(userId)
 
   if (!user) {
     return { success: false, error: 'unauthorized' }
   }
 
-  user.first_name = firstName
-  user.last_name = lastName
+  user.firstName = firstName
+  user.lastName = lastName
   user.nickname = input.nickname.trim() || null
   await Entities.save(user)
   await unstable_update({})
@@ -67,7 +67,7 @@ export async function setProfile(profile: Profile): Promise<ActionResult> {
     return { success: false, error: 'invalidProfile' }
   }
 
-  const user = await UserModel.find(userId)
+  const user = await User.find(userId)
 
   if (!user) {
     return { success: false, error: 'unauthorized' }

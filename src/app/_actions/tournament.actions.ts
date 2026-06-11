@@ -2,11 +2,11 @@
 
 import { Entities } from '@neogroup/neorm'
 import { revalidatePath } from 'next/cache'
-import { CompetitorModel } from '@/app/_models/competitor.entity'
+import { Competitor } from '@/app/_models/Competitor'
 import { toMatchDto } from '@/app/_models/dtos'
-import { Match, MatchModel } from '@/app/_models/match.entity'
-import { Round, RoundModel } from '@/app/_models/round.entity'
-import { Tournament, TournamentModel } from '@/app/_models/tournament.entity'
+import { Match } from '@/app/_models/Match'
+import { Round } from '@/app/_models/Round'
+import { Tournament } from '@/app/_models/Tournament'
 import {
   DEFAULT_AMERICANO_SETTINGS,
   DEFAULT_LEAGUE_SETTINGS,
@@ -53,9 +53,9 @@ async function requireUserId(): Promise<number | null> {
 }
 
 async function requireOwnedTournament(tournamentId: number, userId: number): Promise<Tournament | null> {
-  const tournament: Tournament | null = await TournamentModel.find(tournamentId)
+  const tournament: Tournament | null = await Tournament.find(tournamentId)
 
-  if (!tournament || tournament.owner_id !== userId) {
+  if (!tournament || tournament.ownerId !== userId) {
     return null
   }
 
@@ -101,20 +101,20 @@ export async function createTournament(input: CreateTournamentInput): Promise<Ac
 
   const tournament = new Tournament()
 
-  tournament.owner_id = userId
+  tournament.ownerId = userId
   tournament.name = name
   tournament.description = input.description.trim() || null
   tournament.status = 'stand_by'
   tournament.discipline = input.discipline
   tournament.type = input.type
-  tournament.score_format = input.scoreFormat
-  tournament.start_date = input.startDate
+  tournament.scoreFormat = input.scoreFormat
+  tournament.startDate = input.startDate
   tournament.location = input.location.trim() || null
-  tournament.max_competitors = input.maxCompetitors
+  tournament.maxCompetitors = input.maxCompetitors
   tournament.settings = settings
-  tournament.current_round = 0
-  tournament.created_at = new Date()
-  tournament.updated_at = new Date()
+  tournament.currentRound = 0
+  tournament.createdAt = new Date()
+  tournament.updatedAt = new Date()
   await Entities.save(tournament)
   revalidatePath('/organizer/tournaments')
 
@@ -144,9 +144,9 @@ export async function updateTournament(tournamentId: number, input: UpdateTourna
   tournament.name = name
   tournament.description = input.description.trim() || null
   tournament.location = input.location.trim() || null
-  tournament.start_date = input.startDate
-  tournament.max_competitors = input.maxCompetitors
-  tournament.updated_at = new Date()
+  tournament.startDate = input.startDate
+  tournament.maxCompetitors = input.maxCompetitors
+  tournament.updatedAt = new Date()
   await Entities.save(tournament)
   revalidateTournamentPaths(tournamentId)
 
@@ -154,7 +154,7 @@ export async function updateTournament(tournamentId: number, input: UpdateTourna
 }
 
 async function createRound(tournament: Tournament, roundNumber: number): Promise<ActionResult> {
-  const competitors = await CompetitorModel.where('tournament_id', tournament.id).orderBy('id').get()
+  const competitors = await Competitor.where('tournamentId', tournament.id).orderBy('id').get()
   const competitorIds: number[] = competitors.map((competitor: any) => competitor.id)
 
   if (competitorIds.length < 2) {
@@ -164,12 +164,12 @@ async function createRound(tournament: Tournament, roundNumber: number): Promise
   let previousRoundMatches: Match[] = []
 
   if (roundNumber > 1) {
-    const previousRound: Round | null = await RoundModel.where('tournament_id', tournament.id)
+    const previousRound: Round | null = await Round.where('tournamentId', tournament.id)
       .where('number', roundNumber - 1)
       .first()
 
     if (previousRound) {
-      previousRoundMatches = await MatchModel.where('round_id', previousRound.id).get()
+      previousRoundMatches = await Match.where('roundId', previousRound.id).get()
     }
   }
 
@@ -187,20 +187,20 @@ async function createRound(tournament: Tournament, roundNumber: number): Promise
 
   const round = new Round()
 
-  round.tournament_id = tournament.id
+  round.tournamentId = tournament.id
   round.number = roundNumber
   round.status = 'open'
-  round.created_at = new Date()
+  round.createdAt = new Date()
   await Entities.save(round)
 
   for (const pairing of pairings) {
     const match = new Match()
 
-    match.tournament_id = tournament.id
-    match.round_id = round.id
+    match.tournamentId = tournament.id
+    match.roundId = round.id
     match.position = pairing.position
-    match.home_competitor_ids = pairing.home
-    match.away_competitor_ids = pairing.away
+    match.homeCompetitorIds = pairing.home
+    match.awayCompetitorIds = pairing.away
     match.score = null
 
     // Byes (playoff only) are stored as already resolved in favor of "home".
@@ -212,13 +212,13 @@ async function createRound(tournament: Tournament, roundNumber: number): Promise
       match.winner = null
     }
 
-    match.created_at = new Date()
-    match.updated_at = new Date()
+    match.createdAt = new Date()
+    match.updatedAt = new Date()
     await Entities.save(match)
   }
 
-  tournament.current_round = roundNumber
-  tournament.updated_at = new Date()
+  tournament.currentRound = roundNumber
+  tournament.updatedAt = new Date()
   await Entities.save(tournament)
 
   return { success: true }
@@ -269,15 +269,15 @@ export async function closeCurrentRound(tournamentId: number): Promise<ActionRes
     return { success: false, error: 'invalidStatus' }
   }
 
-  const round: Round | null = await RoundModel.where('tournament_id', tournamentId)
-    .where('number', tournament.current_round)
+  const round: Round | null = await Round.where('tournamentId', tournamentId)
+    .where('number', tournament.currentRound)
     .first()
 
   if (!round || round.status !== 'open') {
     return { success: false, error: 'invalidStatus' }
   }
 
-  const pendingMatches = await MatchModel.where('round_id', round.id).where('status', 'pending').get()
+  const pendingMatches = await Match.where('roundId', round.id).where('status', 'pending').get()
 
   if (pendingMatches.length > 0) {
     return { success: false, error: 'pendingMatches' }
@@ -304,22 +304,22 @@ export async function startNextRound(tournamentId: number): Promise<ActionResult
     return { success: false, error: 'invalidStatus' }
   }
 
-  const currentRound: Round | null = await RoundModel.where('tournament_id', tournamentId)
-    .where('number', tournament.current_round)
+  const currentRound: Round | null = await Round.where('tournamentId', tournamentId)
+    .where('number', tournament.currentRound)
     .first()
 
   if (!currentRound || currentRound.status !== 'closed') {
     return { success: false, error: 'roundStillOpen' }
   }
 
-  const competitorsCount = (await CompetitorModel.where('tournament_id', tournamentId).get()).length
+  const competitorsCount = (await Competitor.where('tournamentId', tournamentId).get()).length
   const totalRounds = getTotalRounds(tournament.type, tournament.settings ?? {}, competitorsCount)
 
-  if (tournament.current_round >= totalRounds) {
+  if (tournament.currentRound >= totalRounds) {
     return { success: false, error: 'noMoreRounds' }
   }
 
-  const result = await createRound(tournament, tournament.current_round + 1)
+  const result = await createRound(tournament, tournament.currentRound + 1)
 
   if (!result.success) {
     return result
@@ -345,7 +345,7 @@ export async function finishTournament(tournamentId: number): Promise<ActionResu
   }
 
   tournament.status = 'finished'
-  tournament.updated_at = new Date()
+  tournament.updatedAt = new Date()
   await Entities.save(tournament)
   revalidateTournamentPaths(tournamentId)
 
@@ -363,31 +363,31 @@ export async function saveMatchResult(matchId: number, score: MatchScore): Promi
     return { success: false, error: 'unauthorized' }
   }
 
-  const match: Match | null = await MatchModel.find(matchId)
+  const match: Match | null = await Match.find(matchId)
 
-  if (!match || !match.away_competitor_ids) {
+  if (!match || !match.awayCompetitorIds) {
     return { success: false, error: 'notFound' }
   }
 
-  const tournament: Tournament | null = await TournamentModel.find(match.tournament_id)
+  const tournament: Tournament | null = await Tournament.find(match.tournamentId)
 
   if (!tournament || tournament.status !== 'ongoing') {
     return { success: false, error: 'invalidStatus' }
   }
 
-  const round: Round | null = await RoundModel.find(match.round_id)
+  const round: Round | null = await Round.find(match.roundId)
 
   if (!round || round.status !== 'open') {
     return { success: false, error: 'roundClosed' }
   }
 
-  const isOwner = tournament.owner_id === userId
+  const isOwner = tournament.ownerId === userId
 
   if (!isOwner) {
-    const competitorIds = [...match.home_competitor_ids, ...(match.away_competitor_ids ?? [])]
-    const participants = await CompetitorModel.whereIn('id', competitorIds).get()
+    const competitorIds = [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]
+    const participants = await Competitor.whereIn('id', competitorIds).get()
     const isParticipant = participants.some(
-      (competitor: any) => competitor.user_id === userId || competitor.partner_user_id === userId
+      (competitor: any) => competitor.userId === userId || competitor.partnerUserId === userId
     )
 
     if (!isParticipant) {
@@ -395,7 +395,7 @@ export async function saveMatchResult(matchId: number, score: MatchScore): Promi
     }
   }
 
-  if (!isValidScore(score, tournament.score_format)) {
+  if (!isValidScore(score, tournament.scoreFormat)) {
     return { success: false, error: 'invalidScore' }
   }
 
@@ -406,10 +406,10 @@ export async function saveMatchResult(matchId: number, score: MatchScore): Promi
   } else {
     match.score = score
     match.status = 'played'
-    match.winner = getScoreWinner(score, tournament.score_format)
+    match.winner = getScoreWinner(score, tournament.scoreFormat)
   }
 
-  match.updated_at = new Date()
+  match.updatedAt = new Date()
   await Entities.save(match)
   revalidateTournamentPaths(tournament.id)
 

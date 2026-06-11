@@ -1,7 +1,7 @@
-import { Competitor } from '@/app/_models/competitor.entity'
-import { Match } from '@/app/_models/match.entity'
-import { Round } from '@/app/_models/round.entity'
-import { Tournament } from '@/app/_models/tournament.entity'
+import { Competitor } from '@/app/_models/Competitor'
+import { Match } from '@/app/_models/Match'
+import { Round } from '@/app/_models/Round'
+import { Tournament } from '@/app/_models/Tournament'
 import {
   Discipline,
   MatchScore,
@@ -13,7 +13,7 @@ import {
   TournamentStatus,
   TournamentType
 } from '@/app/_models/types'
-import { User } from '@/app/_models/user.entity'
+import { User } from '@/app/_models/User'
 
 /** Plain serializable objects passed from server components/actions to client components. */
 
@@ -82,34 +82,34 @@ export interface StandingsRowDto {
   points: number
 }
 
-export function getUserDisplayName(user: Pick<User, 'first_name' | 'last_name' | 'nickname' | 'email'>): string {
+export function getUserDisplayName(user: Pick<User, 'firstName' | 'lastName' | 'nickname' | 'email'>): string {
   if (user.nickname) {
     return user.nickname
   }
 
-  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ')
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ')
 
   return fullName || user.email
 }
 
 export function toTournamentDto(tournament: Tournament, competitorsCount?: number): TournamentDto {
   // The database driver may return DATE columns as Date objects.
-  const startDate: unknown = tournament.start_date
+  const startDate: unknown = tournament.startDate
 
   return {
     id: tournament.id,
-    ownerId: tournament.owner_id,
+    ownerId: tournament.ownerId,
     name: tournament.name,
     description: tournament.description,
     status: tournament.status,
     discipline: tournament.discipline,
     type: tournament.type,
-    scoreFormat: tournament.score_format,
+    scoreFormat: tournament.scoreFormat,
     startDate: startDate instanceof Date ? startDate.toISOString().slice(0, 10) : String(startDate).slice(0, 10),
     location: tournament.location,
-    maxCompetitors: tournament.max_competitors,
+    maxCompetitors: tournament.maxCompetitors,
     settings: tournament.settings ?? {},
-    currentRound: tournament.current_round,
+    currentRound: tournament.currentRound,
     competitorsCount
   }
 }
@@ -117,18 +117,18 @@ export function toTournamentDto(tournament: Tournament, competitorsCount?: numbe
 export function toCompetitorDto(competitor: Competitor): CompetitorDto {
   return {
     id: competitor.id,
-    tournamentId: competitor.tournament_id,
-    userId: competitor.user_id,
-    partnerUserId: competitor.partner_user_id,
-    partnerName: competitor.partner_name,
-    displayName: competitor.display_name
+    tournamentId: competitor.tournamentId,
+    userId: competitor.userId,
+    partnerUserId: competitor.partnerUserId,
+    partnerName: competitor.partnerName,
+    displayName: competitor.displayName
   }
 }
 
 export function toRoundDto(round: Round): RoundDto {
   return {
     id: round.id,
-    tournamentId: round.tournament_id,
+    tournamentId: round.tournamentId,
     number: round.number,
     status: round.status
   }
@@ -137,11 +137,11 @@ export function toRoundDto(round: Round): RoundDto {
 export function toMatchDto(match: Match): MatchDto {
   return {
     id: match.id,
-    tournamentId: match.tournament_id,
-    roundId: match.round_id,
+    tournamentId: match.tournamentId,
+    roundId: match.roundId,
     position: match.position,
-    homeCompetitorIds: match.home_competitor_ids,
-    awayCompetitorIds: match.away_competitor_ids,
+    homeCompetitorIds: match.homeCompetitorIds,
+    awayCompetitorIds: match.awayCompetitorIds,
     score: match.score,
     status: match.status,
     winner: match.winner

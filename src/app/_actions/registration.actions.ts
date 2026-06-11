@@ -2,11 +2,11 @@
 
 import { DB, Entities } from '@neogroup/neorm'
 import { revalidatePath } from 'next/cache'
-import { Competitor, CompetitorModel } from '@/app/_models/competitor.entity'
+import { Competitor } from '@/app/_models/Competitor'
 import { getUserDisplayName, UserDto } from '@/app/_models/dtos'
-import { Tournament, TournamentModel } from '@/app/_models/tournament.entity'
+import { Tournament } from '@/app/_models/Tournament'
 import { registersAsPairs } from '@/app/_models/types'
-import { UserModel } from '@/app/_models/user.entity'
+import { User } from '@/app/_models/User'
 import { getGravatarUrl } from '@/app/_utils/gravatar'
 import { auth } from '@/auth'
 
@@ -51,15 +51,15 @@ export async function searchUsers(query: string): Promise<UserDto[]> {
   const isSqlite = (process.env.DB_DRIVER ?? 'postgres') === 'sqlite'
   const pattern = `%${normalized}%`
   const sql = isSqlite
-    ? `SELECT id, email, first_name, last_name, nickname
+    ? `SELECT id, email, firstName, lastName, nickname
        FROM users
-       WHERE (first_name LIKE ? OR last_name LIKE ? OR nickname LIKE ? OR email LIKE ?) AND id <> ?
-       ORDER BY first_name, last_name
+       WHERE (firstName LIKE ? OR lastName LIKE ? OR nickname LIKE ? OR email LIKE ?) AND id <> ?
+       ORDER BY firstName, lastName
        LIMIT 10`
-    : `SELECT id, email, first_name, last_name, nickname
+    : `SELECT id, email, firstName, lastName, nickname
        FROM users
-       WHERE (first_name ILIKE $1 OR last_name ILIKE $1 OR nickname ILIKE $1 OR email ILIKE $1) AND id <> $2
-       ORDER BY first_name, last_name
+       WHERE (firstName ILIKE $1 OR lastName ILIKE $1 OR nickname ILIKE $1 OR email ILIKE $1) AND id <> $2
+       ORDER BY firstName, lastName
        LIMIT 10`
   const bindings = isSqlite ? [pattern, pattern, pattern, pattern, userId] : [pattern, userId]
   const rows = await DB.query(sql, bindings)
@@ -67,8 +67,8 @@ export async function searchUsers(query: string): Promise<UserDto[]> {
   return rows.map((row: any) => ({
     id: Number(row.id),
     email: row.email,
-    firstName: row.first_name,
-    lastName: row.last_name,
+    firstName: row.firstName,
+    lastName: row.lastName,
     nickname: row.nickname,
     displayName: getUserDisplayName(row),
     avatarUrl: getGravatarUrl(row.email, 80)
@@ -83,7 +83,7 @@ export async function joinTournament(tournamentId: number, input: JoinTournament
     return { success: false, error: 'unauthorized' }
   }
 
-  const tournament: Tournament | null = await TournamentModel.find(tournamentId)
+  const tournament: Tournament | null = await Tournament.find(tournamentId)
 
   if (!tournament) {
     return { success: false, error: 'notFound' }
@@ -93,25 +93,25 @@ export async function joinTournament(tournamentId: number, input: JoinTournament
     return { success: false, error: 'registrationClosed' }
   }
 
-  const competitors = await CompetitorModel.where('tournament_id', tournamentId).get()
+  const competitors = await Competitor.where('tournamentId', tournamentId).get()
 
-  if (competitors.length >= tournament.max_competitors) {
+  if (competitors.length >= tournament.maxCompetitors) {
     return { success: false, error: 'tournamentFull' }
   }
 
   const alreadyRegistered = competitors.some(
     (competitor: any) =>
-      competitor.user_id === userId ||
-      competitor.partner_user_id === userId ||
+      competitor.userId === userId ||
+      competitor.partnerUserId === userId ||
       (input.partnerUserId &&
-        (competitor.user_id === input.partnerUserId || competitor.partner_user_id === input.partnerUserId))
+        (competitor.userId === input.partnerUserId || competitor.partnerUserId === input.partnerUserId))
   )
 
   if (alreadyRegistered) {
     return { success: false, error: 'alreadyRegistered' }
   }
 
-  const user = await UserModel.find(userId)
+  const user = await User.find(userId)
 
   if (!user) {
     return { success: false, error: 'unauthorized' }
@@ -124,7 +124,7 @@ export async function joinTournament(tournamentId: number, input: JoinTournament
 
   if (needsPartner) {
     if (input.partnerUserId) {
-      const partner = await UserModel.find(input.partnerUserId)
+      const partner = await User.find(input.partnerUserId)
 
       if (!partner) {
         return { success: false, error: 'partnerNotFound' }
@@ -142,14 +142,14 @@ export async function joinTournament(tournamentId: number, input: JoinTournament
 
   const competitor = new Competitor()
 
-  competitor.tournament_id = tournamentId
-  competitor.user_id = userId
-  competitor.partner_user_id = partnerUserId
-  competitor.partner_name = partnerName
-  competitor.display_name = needsPartner
+  competitor.tournamentId = tournamentId
+  competitor.userId = userId
+  competitor.partnerUserId = partnerUserId
+  competitor.partnerName = partnerName
+  competitor.displayName = needsPartner
     ? `${getUserDisplayName(user)} / ${partnerDisplayName}`
     : getUserDisplayName(user)
-  competitor.created_at = new Date()
+  competitor.createdAt = new Date()
   await Entities.save(competitor)
   revalidateTournamentPaths(tournamentId)
 
@@ -164,7 +164,7 @@ export async function leaveTournament(tournamentId: number): Promise<ActionResul
     return { success: false, error: 'unauthorized' }
   }
 
-  const tournament: Tournament | null = await TournamentModel.find(tournamentId)
+  const tournament: Tournament | null = await Tournament.find(tournamentId)
 
   if (!tournament) {
     return { success: false, error: 'notFound' }
@@ -174,9 +174,7 @@ export async function leaveTournament(tournamentId: number): Promise<ActionResul
     return { success: false, error: 'registrationClosed' }
   }
 
-  const entry: Competitor | null = await CompetitorModel.where('tournament_id', tournamentId)
-    .where('user_id', userId)
-    .first()
+  const entry: Competitor | null = await Competitor.where('tournamentId', tournamentId).where('userId', userId).first()
 
   if (!entry) {
     return { success: false, error: 'notRegistered' }

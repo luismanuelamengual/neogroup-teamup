@@ -16,79 +16,79 @@ export default {
       CREATE TABLE IF NOT EXISTS users (
         id ${ID},
         email VARCHAR(255) NOT NULL UNIQUE,
-        password_hash VARCHAR(255),
-        first_name VARCHAR(100),
-        last_name VARCHAR(100),
+        passwordHash VARCHAR(255),
+        firstName VARCHAR(100),
+        lastName VARCHAR(100),
         nickname VARCHAR(100),
         profile VARCHAR(20),
-        created_at ${TIMESTAMP}
+        createdAt ${TIMESTAMP}
       )
     `)
 
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS tournaments (
         id ${ID},
-        owner_id INTEGER NOT NULL REFERENCES users (id),
+        ownerId INTEGER NOT NULL REFERENCES users (id),
         name VARCHAR(150) NOT NULL,
         description TEXT,
         status VARCHAR(20) NOT NULL DEFAULT 'stand_by',
         discipline VARCHAR(20) NOT NULL,
         type VARCHAR(20) NOT NULL,
-        score_format VARCHAR(30) NOT NULL,
-        start_date DATE NOT NULL,
+        scoreFormat VARCHAR(30) NOT NULL,
+        startDate DATE NOT NULL,
         location VARCHAR(255),
-        max_competitors INTEGER NOT NULL,
+        maxCompetitors INTEGER NOT NULL,
         settings TEXT,
-        current_round INTEGER NOT NULL DEFAULT 0,
-        created_at ${TIMESTAMP},
-        updated_at ${TIMESTAMP}
+        currentRound INTEGER NOT NULL DEFAULT 0,
+        createdAt ${TIMESTAMP},
+        updatedAt ${TIMESTAMP}
       )
     `)
 
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS competitors (
         id ${ID},
-        tournament_id INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users (id),
-        partner_user_id INTEGER REFERENCES users (id),
-        partner_name VARCHAR(150),
-        display_name VARCHAR(255) NOT NULL,
-        created_at ${TIMESTAMP}
+        tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
+        userId INTEGER REFERENCES users (id),
+        partnerUserId INTEGER REFERENCES users (id),
+        partnerName VARCHAR(150),
+        displayName VARCHAR(255) NOT NULL,
+        createdAt ${TIMESTAMP}
       )
     `)
 
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS rounds (
         id ${ID},
-        tournament_id INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
+        tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
         number INTEGER NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'open',
-        created_at ${TIMESTAMP}
+        createdAt ${TIMESTAMP}
       )
     `)
 
     await DB.execute(`
       CREATE TABLE IF NOT EXISTS matches (
         id ${ID},
-        tournament_id INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
-        round_id INTEGER NOT NULL REFERENCES rounds (id) ON DELETE CASCADE,
+        tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
+        roundId INTEGER NOT NULL REFERENCES rounds (id) ON DELETE CASCADE,
         position INTEGER NOT NULL DEFAULT 0,
-        home_competitor_ids TEXT NOT NULL,
-        away_competitor_ids TEXT,
+        homeCompetitorIds TEXT NOT NULL,
+        awayCompetitorIds TEXT,
         score TEXT,
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         winner VARCHAR(10),
-        created_at ${TIMESTAMP},
-        updated_at ${TIMESTAMP}
+        createdAt ${TIMESTAMP},
+        updatedAt ${TIMESTAMP}
       )
     `)
 
-    await DB.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_owner ON tournaments (owner_id)')
+    await DB.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_owner ON tournaments (ownerId)')
     await DB.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments (status)')
-    await DB.execute('CREATE INDEX IF NOT EXISTS idx_competitors_tournament ON competitors (tournament_id)')
-    await DB.execute('CREATE INDEX IF NOT EXISTS idx_competitors_user ON competitors (user_id)')
-    await DB.execute('CREATE INDEX IF NOT EXISTS idx_rounds_tournament ON rounds (tournament_id)')
-    await DB.execute('CREATE INDEX IF NOT EXISTS idx_matches_tournament ON matches (tournament_id)')
-    await DB.execute('CREATE INDEX IF NOT EXISTS idx_matches_round ON matches (round_id)')
+    await DB.execute('CREATE INDEX IF NOT EXISTS idx_competitors_tournament ON competitors (tournamentId)')
+    await DB.execute('CREATE INDEX IF NOT EXISTS idx_competitors_user ON competitors (userId)')
+    await DB.execute('CREATE INDEX IF NOT EXISTS idx_rounds_tournament ON rounds (tournamentId)')
+    await DB.execute('CREATE INDEX IF NOT EXISTS idx_matches_tournament ON matches (tournamentId)')
+    await DB.execute('CREATE INDEX IF NOT EXISTS idx_matches_round ON matches (roundId)')
   }
 }
