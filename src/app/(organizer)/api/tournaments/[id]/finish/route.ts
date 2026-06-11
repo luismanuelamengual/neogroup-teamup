@@ -1,16 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { finishTournament } from '@/app/_services/tournament.service'
-import { getSessionUserId, serviceResponse, unauthorizedResponse } from '@/app/_utils/api-server'
+import { apiResponse, withAuth } from '@/app/_utils/api-server'
+import { requireOwnedTournament } from '@/app/(organizer)/api/tournaments/[id]/helpers'
 
 /** POST /api/tournaments/[id]/finish — marks the tournament as finished. */
-export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }): Promise<NextResponse> {
-  const userId = await getSessionUserId()
+export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
+  const { id } = await context.params
+  const tournament = await requireOwnedTournament(Number(id), userId)
 
-  if (!userId) {
-    return unauthorizedResponse()
+  if (!tournament || tournament.status !== 'ongoing') {
+    return apiResponse({ success: false, error: 'invalidStatus' })
   }
 
-  const { id } = await context.params
+  tournament.status = 'finished'
+  tournament.updatedAt = new Date()
+  await tournament.save()
 
-  return serviceResponse(await finishTournament(userId, Number(id)))
-}
+  return apiResponse({ success: true })
+})

@@ -1,23 +1,34 @@
-import { NextResponse } from 'next/server'
-import { ServiceResult } from '@/app/_services/types'
+import { NextRequest, NextResponse } from 'next/server'
+import { ApiResult } from '@/app/_models/api'
 import { auth } from '@/auth'
 
 /** Helpers shared by the /api route handlers. */
 
-/** Returns the signed-in user id, or null when there is no session. */
-export async function getSessionUserId(): Promise<number | null> {
-  const session = await auth()
-
-  return session?.user?.id ? Number(session.user.id) : null
+interface RouteContext<P> {
+  params: Promise<P>
 }
 
-/** 401 JSON response. */
-export function unauthorizedResponse(): NextResponse {
-  return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 })
+type AuthenticatedHandler<P> = (request: NextRequest, context: RouteContext<P>, userId: number) => Promise<NextResponse>
+
+/**
+ * Wraps a route handler with the session check: responds 401 when there is
+ * no signed-in user, otherwise invokes the handler with the user id.
+ */
+export function withAuth<P = Record<string, string>>(handler: AuthenticatedHandler<P>) {
+  return async (request: NextRequest, context: RouteContext<P>): Promise<NextResponse> => {
+    const session = await auth()
+    const userId = session?.user?.id ? Number(session.user.id) : null
+
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 })
+    }
+
+    return handler(request, context, userId)
+  }
 }
 
-/** Maps a ServiceResult to a JSON response with a proper HTTP status. */
-export function serviceResponse(result: ServiceResult): NextResponse {
+/** Maps an ApiResult to a JSON response with a proper HTTP status. */
+export function apiResponse(result: ApiResult): NextResponse {
   let status = 200
 
   if (!result.success) {

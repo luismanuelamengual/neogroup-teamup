@@ -1,19 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { leaveTournament } from '@/app/_services/registration.service'
-import { getSessionUserId, serviceResponse, unauthorizedResponse } from '@/app/_utils/api-server'
+import { Competitor } from '@/app/_models/Competitor'
+import { Tournament } from '@/app/_models/Tournament'
+import { apiResponse, withAuth } from '@/app/_utils/api-server'
 
-/** DELETE /api/registrations/[tournamentId] — removes the signed-in user registration. */
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ tournamentId: string }> }
-): Promise<NextResponse> {
-  const userId = await getSessionUserId()
+/** DELETE /api/registrations/[tournamentId] — removes the signed-in user registration (stand_by only). */
+export const DELETE = withAuth<{ tournamentId: string }>(async (request, context, userId) => {
+  const { tournamentId } = await context.params
+  const tournament: Tournament | null = await Tournament.find(Number(tournamentId))
 
-  if (!userId) {
-    return unauthorizedResponse()
+  if (!tournament) {
+    return apiResponse({ success: false, error: 'notFound' })
   }
 
-  const { tournamentId } = await context.params
+  if (tournament.status !== 'stand_by') {
+    return apiResponse({ success: false, error: 'registrationClosed' })
+  }
 
-  return serviceResponse(await leaveTournament(userId, Number(tournamentId)))
-}
+  const entry: Competitor | null = await Competitor.where('tournamentId', tournament.id).where('userId', userId).first()
+
+  if (!entry) {
+    return apiResponse({ success: false, error: 'notRegistered' })
+  }
+
+  await entry.delete()
+
+  return apiResponse({ success: true })
+})

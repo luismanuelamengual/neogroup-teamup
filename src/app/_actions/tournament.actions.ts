@@ -1,7 +1,6 @@
+import type { ApiResult, CreateTournamentInput, UpdateTournamentInput } from '@/app/_models/api'
 import type { CompetitorDto, TournamentDto } from '@/app/_models/dtos'
 import type { MatchScore } from '@/app/_models/types'
-import type { CreateTournamentInput, UpdateTournamentInput } from '@/app/_services/tournament.service'
-import type { ServiceResult } from '@/app/_services/types'
 import { apiRequest } from '@/app/_utils/api-client'
 import type { OrganizerTournamentFilters, TournamentDetail } from '@/app/_utils/queries'
 
@@ -10,7 +9,7 @@ import type { OrganizerTournamentFilters, TournamentDetail } from '@/app/_utils/
  * (plus any data massaging needed by the views).
  */
 
-export type ActionResult = ServiceResult
+export type ActionResult = ApiResult
 export type { CreateTournamentInput, UpdateTournamentInput }
 
 export interface TournamentDetailWithEntry extends TournamentDetail {

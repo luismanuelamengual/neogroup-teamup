@@ -1,6 +1,5 @@
+import type { ApiResult, JoinTournamentInput } from '@/app/_models/api'
 import type { TournamentDto, UserDto } from '@/app/_models/dtos'
-import type { JoinTournamentInput } from '@/app/_services/registration.service'
-import type { ServiceResult } from '@/app/_services/types'
 import { apiRequest } from '@/app/_utils/api-client'
 
 /**
@@ -8,7 +7,7 @@ import { apiRequest } from '@/app/_utils/api-client'
  * (plus any data massaging needed by the views).
  */
 
-export type ActionResult = ServiceResult
+export type ActionResult = ApiResult
 export type { JoinTournamentInput }
 
 /** Searches platform users by name, nickname or email (for partner selection). */

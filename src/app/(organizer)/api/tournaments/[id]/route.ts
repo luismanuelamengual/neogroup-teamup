@@ -1,23 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { updateTournament, UpdateTournamentInput } from '@/app/_services/tournament.service'
-import { getSessionUserId, serviceResponse, unauthorizedResponse } from '@/app/_utils/api-server'
+import { NextResponse } from 'next/server'
+import { UpdateTournamentInput } from '@/app/_models/api'
+import { apiResponse, withAuth } from '@/app/_utils/api-server'
 import { getTournamentDetail, getUserCompetitorEntry } from '@/app/_utils/queries'
-
-interface RouteContext {
-  params: Promise<{ id: string }>
-}
+import { requireOwnedTournament } from '@/app/(organizer)/api/tournaments/[id]/helpers'
 
 /**
  * GET /api/tournaments/[id] — full tournament detail (competitors, rounds, matches),
  * plus the signed-in user competitor entry (if any).
  */
-export async function GET(request: NextRequest, context: RouteContext): Promise<NextResponse> {
-  const userId = await getSessionUserId()
-
-  if (!userId) {
-    return unauthorizedResponse()
-  }
-
+export const GET = withAuth<{ id: string }>(async (request, context, userId) => {
   const { id } = await context.params
   const tournamentId = Number(id)
   const detail = await getTournamentDetail(tournamentId)
@@ -29,18 +20,31 @@ export async function GET(request: NextRequest, context: RouteContext): Promise<
   const userEntry = await getUserCompetitorEntry(tournamentId, userId)
 
   return NextResponse.json({ ...detail, userEntry, isOwner: detail.tournament.ownerId === userId })
-}
+})
 
 /** PATCH /api/tournaments/[id] — updates the editable attributes (owner only). */
-export async function PATCH(request: NextRequest, context: RouteContext): Promise<NextResponse> {
-  const userId = await getSessionUserId()
-
-  if (!userId) {
-    return unauthorizedResponse()
-  }
-
+export const PATCH = withAuth<{ id: string }>(async (request, context, userId) => {
   const { id } = await context.params
   const input = (await request.json()) as UpdateTournamentInput
+  const tournament = await requireOwnedTournament(Number(id), userId)
 
-  return serviceResponse(await updateTournament(userId, Number(id), input))
-}
+  if (!tournament) {
+    return apiResponse({ success: false, error: 'notFound' })
+  }
+
+  const name = input.name.trim()
+
+  if (!name || !input.startDate || input.maxCompetitors < 2) {
+    return apiResponse({ success: false, error: 'missingFields' })
+  }
+
+  tournament.name = name
+  tournament.description = input.description.trim() || null
+  tournament.location = input.location.trim() || null
+  tournament.startDate = input.startDate
+  tournament.maxCompetitors = input.maxCompetitors
+  tournament.updatedAt = new Date()
+  await tournament.save()
+
+  return apiResponse({ success: true })
+})

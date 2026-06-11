@@ -1,16 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { closeCurrentRound } from '@/app/_services/tournament.service'
-import { getSessionUserId, serviceResponse, unauthorizedResponse } from '@/app/_utils/api-server'
+import { Match } from '@/app/_models/Match'
+import { Round } from '@/app/_models/Round'
+import { apiResponse, withAuth } from '@/app/_utils/api-server'
+import { requireOwnedTournament } from '@/app/(organizer)/api/tournaments/[id]/helpers'
 
 /** POST /api/tournaments/[id]/rounds/close — closes the current round. */
-export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }): Promise<NextResponse> {
-  const userId = await getSessionUserId()
+export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
+  const { id } = await context.params
+  const tournamentId = Number(id)
+  const tournament = await requireOwnedTournament(tournamentId, userId)
 
-  if (!userId) {
-    return unauthorizedResponse()
+  if (!tournament || tournament.status !== 'ongoing') {
+    return apiResponse({ success: false, error: 'invalidStatus' })
   }
 
-  const { id } = await context.params
+  const round: Round | null = await Round.where('tournamentId', tournamentId)
+    .where('number', tournament.currentRound)
+    .first()
 
-  return serviceResponse(await closeCurrentRound(userId, Number(id)))
-}
+  if (!round || round.status !== 'open') {
+    return apiResponse({ success: false, error: 'invalidStatus' })
+  }
+
+  const pendingMatches = await Match.where('roundId', round.id).where('status', 'pending').get()
+
+  if (pendingMatches.length > 0) {
+    return apiResponse({ success: false, error: 'pendingMatches' })
+  }
+
+  round.status = 'closed'
+  await round.save()
+
+  return apiResponse({ success: true })
+})

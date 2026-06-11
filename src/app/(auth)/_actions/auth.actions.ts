@@ -1,10 +1,9 @@
-import type { RegisterInput } from '@/app/_services/account.service'
-import type { ServiceResult } from '@/app/_services/types'
+import type { ApiResult, RegisterInput } from '@/app/_models/api'
 import { apiRequest } from '@/app/_utils/api-client'
 
 /** Client-side auth actions: thin wrappers around the REST API. */
 
-export type ActionResult = ServiceResult
+export type ActionResult = ApiResult
 export type { RegisterInput }
 
 /** Creates a new user with email/password credentials. */

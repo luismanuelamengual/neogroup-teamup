@@ -1,6 +1,5 @@
+import type { AccountInput, ApiResult } from '@/app/_models/api'
 import type { Profile } from '@/app/_models/types'
-import type { AccountInput } from '@/app/_services/account.service'
-import type { ServiceResult } from '@/app/_services/types'
 import { apiRequest } from '@/app/_utils/api-client'
 
 /**
@@ -8,7 +7,7 @@ import { apiRequest } from '@/app/_utils/api-client'
  * (plus any data massaging needed by the views).
  */
 
-export type ActionResult = ServiceResult
+export type ActionResult = ApiResult
 export type { AccountInput }
 
 /** Updates the personal information of the signed-in user. */
