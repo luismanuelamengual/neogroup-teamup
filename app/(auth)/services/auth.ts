@@ -2,9 +2,10 @@ import bcrypt from 'bcryptjs'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
-import { User } from '@/app/(auth)/entities/User'
-import { getUserDisplayName, UserRoleId } from '@/app/(auth)/models/user'
+import { User } from '@/app/(auth)/models/User'
+import { UserRoleId } from '@/app/(auth)/models/UserRoles'
 import { authConfig } from '@/app/(auth)/services/auth.config'
+import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { getGravatarUrl } from '@/app/utils/gravatar'
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({

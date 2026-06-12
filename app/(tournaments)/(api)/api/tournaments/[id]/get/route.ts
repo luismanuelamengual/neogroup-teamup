@@ -1,4 +1,4 @@
-import { getTournamentDetail, getUserCompetitorEntry } from '@/app/(tournaments)/services/queries'
+import { getTournamentDetail, getUserCompetitorEntry } from '@/app/(tournaments)/services/tournaments'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 
 /**

@@ -1,5 +1,6 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 
 /** POST /api/registrations/leave — removes the signed-in user registration (stand_by only). */
@@ -11,7 +12,7 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('notFound')
   }
 
-  if (tournament.status !== 'stand_by') {
+  if (tournament.status !== TournamentStatus.STAND_BY) {
     throw new ApiException('registrationClosed')
   }
 

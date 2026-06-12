@@ -1,7 +1,8 @@
-import { BaseEntity, Column, Entity, HasMany } from '@neogroup/neorm'
-import { getUserDisplayName, UserRoleId } from '@/app/(auth)/models/user'
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { BaseEntity, Column, Dto, Entity, HasMany } from '@neogroup/neorm'
+import { UserRoleId } from '@/app/(auth)/models/UserRoles'
+import { getUserDisplayName } from '@/app/(auth)/utils/user'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { getGravatarUrl } from '@/app/utils/gravatar'
 
 @Entity({ table: 'users' })
@@ -47,3 +48,6 @@ export class User extends BaseEntity {
     return getGravatarUrl(this.email, 80)
   }
 }
+
+/** Plain serializable user object passed from server code to client components. */
+export type UserDto = Omit<Dto<User>, 'passwordHash'>

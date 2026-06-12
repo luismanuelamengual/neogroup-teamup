@@ -1,10 +1,14 @@
-import type { AccountInput } from '@/app/(account)/models/account'
-import type { UserRoleId } from '@/app/(auth)/models/user'
+import type { UserRoleId } from '@/app/(auth)/models/UserRoles'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side account actions: thin wrappers around the REST API. */
 
-export type { AccountInput }
+/** Payload to update the personal information of the signed-in user. */
+export interface AccountInput {
+  firstName: string
+  lastName: string
+  nickname: string
+}
 
 /** Updates the personal information of the signed-in user. */
 export async function updateAccount(input: AccountInput): Promise<void> {

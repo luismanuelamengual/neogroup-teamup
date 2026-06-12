@@ -1,5 +1,5 @@
 import { DefaultSession } from 'next-auth'
-import { UserRoleId } from '@/app/(auth)/models/user'
+import { UserRoleId } from '@/app/(auth)/models/UserRoles'
 
 declare module 'next-auth' {
   interface Session {

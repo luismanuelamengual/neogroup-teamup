@@ -16,11 +16,13 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { UserDto } from '@/app/(auth)/models/user'
+import { UserDto } from '@/app/(auth)/models/User'
 import { joinTournament, searchUsers } from '@/app/(tournaments)/actions/registration'
 import { getTournamentDetail } from '@/app/(tournaments)/actions/tournament'
-import { TournamentDto } from '@/app/(tournaments)/models/dtos'
-import { registersAsPairs } from '@/app/(tournaments)/models/types'
+import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
+import { registersAsPairs } from '@/app/(tournaments)/utils/discipline'
+import { DISCIPLINE_KEYS, SUB_DISCIPLINE_KEYS, TOURNAMENT_TYPE_KEYS } from '@/app/(tournaments)/utils/labels'
 
 interface JoinTournamentFormProps {
   tournamentId: number
@@ -58,7 +60,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
         return
       }
 
-      if (detail.userEntry || detail.tournament.status !== 'stand_by') {
+      if (detail.userEntry || detail.tournament.status !== TournamentStatus.STAND_BY) {
         router.replace(`/tournaments/${tournamentId}`)
 
         return
@@ -74,7 +76,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   }, [tournamentId, router])
 
   const needsPartner = tournament
-    ? registersAsPairs(tournament.discipline, tournament.type, tournament.settings)
+    ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type, tournament.settings ?? {})
     : false
 
   // Debounced platform user search.
@@ -143,8 +145,11 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
           </Typography>
         )}
         <div className="join-tournament__tags">
-          <Chip size="small" label={t(`discipline.${tournament.discipline}`)} />
-          <Chip size="small" label={t(`type.${tournament.type}`)} />
+          <Chip size="small" label={t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)} />
+          {tournament.subDiscipline && (
+            <Chip size="small" label={t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)} />
+          )}
+          <Chip size="small" label={t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)} />
         </div>
       </div>
       {error && <Alert severity="error">{error}</Alert>}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { SessionUser } from '@/app/(auth)/models/user'
+import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { useUserStore } from '@/app/(auth)/stores/user.store'
 
 /**

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
-import { User } from '@/app/(auth)/entities/User'
-import { isValidRoleId, RegisterInput } from '@/app/(auth)/models/user'
+import { RegisterInput } from '@/app/(auth)/actions/auth'
+import { User } from '@/app/(auth)/models/User'
+import { isValidRoleId } from '@/app/(auth)/utils/user'
 import { ApiException, withApi } from '@/app/utils/api-server'
 
 /** POST /api/users/register — creates a new user with email/password credentials (public). */

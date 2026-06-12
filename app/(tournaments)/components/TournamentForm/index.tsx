@@ -13,15 +13,17 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
 import { createTournament } from '@/app/(tournaments)/actions/tournament'
-import {
-  DEFAULT_AMERICANO_SETTINGS,
-  DEFAULT_LEAGUE_SETTINGS,
-  Discipline,
-  ScoreFormat,
-  TournamentType
-} from '@/app/(tournaments)/models/types'
+import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(tournaments)/models/AmericanoSettings'
+import { Discipline } from '@/app/(tournaments)/models/Discipline'
+import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(tournaments)/models/LeagueSettings'
+import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
+import { SubDiscipline } from '@/app/(tournaments)/models/SubDiscipline'
+import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
+import { isDoublesDiscipline } from '@/app/(tournaments)/utils/discipline'
+import { DISCIPLINE_KEYS, SUB_DISCIPLINE_KEYS, TOURNAMENT_TYPE_KEYS } from '@/app/(tournaments)/utils/labels'
 
-const DISCIPLINES: Discipline[] = ['padel', 'tennis', 'tennis_doubles']
+const DISCIPLINES: Discipline[] = [Discipline.PADEL, Discipline.TENNIS]
+const SUB_DISCIPLINES: SubDiscipline[] = [SubDiscipline.SINGLES, SubDiscipline.DOUBLES]
 
 export default function TournamentForm() {
   const t = useTranslations('tournaments')
@@ -30,9 +32,10 @@ export default function TournamentForm() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [discipline, setDiscipline] = useState<Discipline>('padel')
-  const [type, setType] = useState<TournamentType>('league')
-  const [scoreFormat, setScoreFormat] = useState<ScoreFormat>('three_sets')
+  const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
+  const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
+  const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
+  const [scoreFormat, setScoreFormat] = useState<ScoreFormat>(ScoreFormat.THREE_SETS)
   const [startDate, setStartDate] = useState('')
   const [location, setLocation] = useState('')
   const [maxCompetitors, setMaxCompetitors] = useState(8)
@@ -41,13 +44,15 @@ export default function TournamentForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const availableTypes: TournamentType[] =
-    discipline === 'padel' ? ['league', 'americano', 'playoff'] : ['league', 'playoff']
+    discipline === Discipline.PADEL
+      ? [TournamentType.LEAGUE, TournamentType.AMERICANO, TournamentType.PLAYOFF]
+      : [TournamentType.LEAGUE, TournamentType.PLAYOFF]
 
   const handleDisciplineChange = (value: Discipline) => {
     setDiscipline(value)
 
-    if (value !== 'padel' && type === 'americano') {
-      setType('league')
+    if (value !== Discipline.PADEL && type === TournamentType.AMERICANO) {
+      setType(TournamentType.LEAGUE)
     }
   }
 
@@ -63,12 +68,14 @@ export default function TournamentForm() {
         name,
         description,
         discipline,
+        subDiscipline: discipline === Discipline.TENNIS ? subDiscipline : null,
         type,
         scoreFormat,
         startDate,
         location,
         maxCompetitors,
-        settings: type === 'league' ? leagueSettings : type === 'americano' ? americanoSettings : {}
+        settings:
+          type === TournamentType.LEAGUE ? leagueSettings : type === TournamentType.AMERICANO ? americanoSettings : {}
       })
 
       createdId = created.id
@@ -82,7 +89,7 @@ export default function TournamentForm() {
     router.push(`/tournaments/${createdId}`)
   }
 
-  const isDoubles = discipline === 'padel' || discipline === 'tennis_doubles'
+  const isDoubles = isDoublesDiscipline(discipline, discipline === Discipline.TENNIS ? subDiscipline : null)
 
   return (
     <Paper component="form" onSubmit={handleSubmit} className="tournament-form">
@@ -101,25 +108,40 @@ export default function TournamentForm() {
           select
           label={t('discipline.label')}
           value={discipline}
-          onChange={(event) => handleDisciplineChange(event.target.value as Discipline)}
+          onChange={(event) => handleDisciplineChange(Number(event.target.value) as Discipline)}
           fullWidth
         >
           {DISCIPLINES.map((value) => (
             <MenuItem key={value} value={value}>
-              {t(`discipline.${value}`)}
+              {t(`discipline.${DISCIPLINE_KEYS[value]}`)}
             </MenuItem>
           ))}
         </TextField>
+        {discipline === Discipline.TENNIS && (
+          <TextField
+            select
+            label={t('subDiscipline.label')}
+            value={subDiscipline}
+            onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
+            fullWidth
+          >
+            {SUB_DISCIPLINES.map((value) => (
+              <MenuItem key={value} value={value}>
+                {t(`subDiscipline.${SUB_DISCIPLINE_KEYS[value]}`)}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
         <TextField
           select
           label={t('type.label')}
           value={type}
-          onChange={(event) => setType(event.target.value as TournamentType)}
+          onChange={(event) => setType(Number(event.target.value) as TournamentType)}
           fullWidth
         >
           {availableTypes.map((value) => (
             <MenuItem key={value} value={value}>
-              {t(`type.${value}`)}
+              {t(`type.${TOURNAMENT_TYPE_KEYS[value]}`)}
             </MenuItem>
           ))}
         </TextField>
@@ -146,12 +168,12 @@ export default function TournamentForm() {
           select
           label={t('scoreFormat.label')}
           value={scoreFormat}
-          onChange={(event) => setScoreFormat(event.target.value as ScoreFormat)}
+          onChange={(event) => setScoreFormat(Number(event.target.value) as ScoreFormat)}
           fullWidth
         >
-          <MenuItem value="three_sets">{t('scoreFormat.three_sets')}</MenuItem>
-          <MenuItem value="two_sets_super_tiebreak">{t('scoreFormat.two_sets_super_tiebreak')}</MenuItem>
-          <MenuItem value="basic_count">{t('scoreFormat.basic_count')}</MenuItem>
+          <MenuItem value={ScoreFormat.THREE_SETS}>{t('scoreFormat.three_sets')}</MenuItem>
+          <MenuItem value={ScoreFormat.TWO_SETS_SUPER_TIEBREAK}>{t('scoreFormat.two_sets_super_tiebreak')}</MenuItem>
+          <MenuItem value={ScoreFormat.BASIC_COUNT}>{t('scoreFormat.basic_count')}</MenuItem>
         </TextField>
         <TextField
           label={isDoubles ? t('maxTeams') : t('maxCompetitors')}
@@ -163,7 +185,7 @@ export default function TournamentForm() {
           slotProps={{ htmlInput: { min: 2 } }}
         />
       </div>
-      {type === 'league' && (
+      {type === TournamentType.LEAGUE && (
         <div className="tournament-form__settings">
           <Typography variant="subtitle2">{t('settings.title')}</Typography>
           <div className="tournament-form__row">
@@ -200,7 +222,7 @@ export default function TournamentForm() {
           </div>
         </div>
       )}
-      {type === 'americano' && (
+      {type === TournamentType.AMERICANO && (
         <div className="tournament-form__settings">
           <Typography variant="subtitle2">{t('settings.title')}</Typography>
           <div className="tournament-form__row">

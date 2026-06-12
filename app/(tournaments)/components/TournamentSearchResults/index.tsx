@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { searchTournaments } from '@/app/(tournaments)/actions/registration'
 import TournamentCard from '@/app/(tournaments)/components/TournamentCard'
-import { TournamentDto } from '@/app/(tournaments)/models/dtos'
+import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
 
 interface TournamentSearchResultsProps {
   query: string

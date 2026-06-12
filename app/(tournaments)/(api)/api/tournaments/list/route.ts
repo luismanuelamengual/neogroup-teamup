@@ -1,4 +1,4 @@
-import { getOrganizerTournaments, OrganizerTournamentFilters } from '@/app/(tournaments)/services/queries'
+import { getOrganizerTournaments, OrganizerTournamentFilters } from '@/app/(tournaments)/services/tournaments'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/tournaments/list — tournaments owned by the signed-in user. */

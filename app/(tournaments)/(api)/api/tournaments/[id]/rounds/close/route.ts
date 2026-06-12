@@ -1,5 +1,8 @@
-import { Match } from '@/app/(tournaments)/entities/Match'
-import { Round } from '@/app/(tournaments)/entities/Round'
+import { Match } from '@/app/(tournaments)/models/Match'
+import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
+import { Round } from '@/app/(tournaments)/models/Round'
+import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 
@@ -9,7 +12,7 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
   const tournamentId = Number(id)
   const tournament = await requireOwnedTournament(tournamentId, userId)
 
-  if (!tournament || tournament.status !== 'ongoing') {
+  if (!tournament || tournament.status !== TournamentStatus.ONGOING) {
     throw new ApiException('invalidStatus')
   }
 
@@ -17,16 +20,16 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
     .where('number', tournament.currentRound)
     .first()
 
-  if (!round || round.status !== 'open') {
+  if (!round || round.status !== RoundStatus.OPEN) {
     throw new ApiException('invalidStatus')
   }
 
-  const pendingMatches = await Match.where('roundId', round.id).where('status', 'pending').get()
+  const pendingMatches = await Match.where('roundId', round.id).where('status', MatchStatus.PENDING).get()
 
   if (pendingMatches.length > 0) {
     throw new ApiException('pendingMatches')
   }
 
-  round.status = 'closed'
+  round.status = RoundStatus.CLOSED
   await round.save()
 })

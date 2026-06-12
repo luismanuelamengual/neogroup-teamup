@@ -4,8 +4,11 @@ import './index.scss'
 import Chip from '@mui/material/Chip'
 import { useTranslations } from 'next-intl'
 import MatchCard from '@/app/(tournaments)/components/MatchCard'
-import { MatchDto, RoundDto } from '@/app/(tournaments)/models/dtos'
-import { ScoreFormat, TournamentType } from '@/app/(tournaments)/models/types'
+import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { RoundDto } from '@/app/(tournaments)/models/Round'
+import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
+import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 
 interface FixtureViewProps {
   type: TournamentType
@@ -43,9 +46,9 @@ export default function FixtureView({
           <section key={round.id} className="fixture-view__round">
             <header className="fixture-view__round-header">
               <h3 className="fixture-view__round-title">
-                {t(type === 'league' ? 'round' : 'playoffRound', { number: round.number })}
+                {t(type === TournamentType.LEAGUE ? 'round' : 'playoffRound', { number: round.number })}
               </h3>
-              {round.status === 'open' && (
+              {round.status === RoundStatus.OPEN && (
                 <Chip size="small" color="success" variant="outlined" label={t('status.ongoing')} />
               )}
             </header>

@@ -4,8 +4,11 @@ import './index.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
 import { useTranslations } from 'next-intl'
-import { MatchDto } from '@/app/(tournaments)/models/dtos'
-import { MatchSide, ScoreFormat } from '@/app/(tournaments)/models/types'
+import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
+import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
+import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
+import { MATCH_SIDE_KEYS } from '@/app/(tournaments)/utils/labels'
 import { formatScore } from '@/app/(tournaments)/utils/score'
 
 interface MatchCardProps {
@@ -42,7 +45,7 @@ export default function MatchCard({
         winner && winner !== side ? 'match-card__side--loser' : ''
       }`}
     >
-      <span className={`match-card__side-dot match-card__side-dot--${side}`} />
+      <span className={`match-card__side-dot match-card__side-dot--${MATCH_SIDE_KEYS[side]}`} />
       <span className="match-card__side-name">{sideName(ids, competitorNames)}</span>
     </div>
   )
@@ -50,12 +53,16 @@ export default function MatchCard({
   return (
     <div className={`match-card ${highlighted ? 'match-card--highlighted' : ''}`}>
       <div className="match-card__sides">
-        {renderSide('home', match.homeCompetitorIds)}
-        {isBye ? <div className="match-card__bye">{t('bye')}</div> : renderSide('away', match.awayCompetitorIds)}
+        {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
+        {isBye ? (
+          <div className="match-card__bye">{t('bye')}</div>
+        ) : (
+          renderSide(MatchSide.AWAY, match.awayCompetitorIds)
+        )}
       </div>
       <div className="match-card__result">
         {!isBye &&
-          (match.status === 'pending' ? (
+          (match.status === MatchStatus.PENDING ? (
             <span className="match-card__pending">{t('pendingResult')}</span>
           ) : (
             <span className="match-card__score">{formatScore(match.score, scoreFormat)}</span>

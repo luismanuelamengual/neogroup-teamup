@@ -1,3 +1,4 @@
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { createRound, requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 
@@ -10,11 +11,11 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
     throw new ApiException('notFound', 404)
   }
 
-  if (tournament.status !== 'stand_by') {
+  if (tournament.status !== TournamentStatus.STAND_BY) {
     throw new ApiException('invalidStatus')
   }
 
-  tournament.status = 'ongoing'
+  tournament.status = TournamentStatus.ONGOING
   await createRound(tournament, 1)
   await tournament.save()
 })

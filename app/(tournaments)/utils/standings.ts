@@ -1,11 +1,13 @@
-import { CompetitorDto, MatchDto, StandingsRowDto } from '@/app/(tournaments)/models/dtos'
-import {
-  DEFAULT_AMERICANO_SETTINGS,
-  DEFAULT_LEAGUE_SETTINGS,
-  ScoreFormat,
-  TournamentSettings,
-  TournamentType
-} from '@/app/(tournaments)/models/types'
+import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(tournaments)/models/AmericanoSettings'
+import { CompetitorDto } from '@/app/(tournaments)/models/Competitor'
+import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(tournaments)/models/LeagueSettings'
+import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
+import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
+import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
+import { StandingsRowDto } from '@/app/(tournaments)/models/StandingsRowDto'
+import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
+import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 import { getGamesWon, getSetsWon } from '@/app/(tournaments)/utils/score'
 
 /**
@@ -48,14 +50,14 @@ export function computeStandings(
   }
 
   for (const match of matches) {
-    if (match.status === 'pending' || !match.awayCompetitorIds) {
+    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
       continue
     }
 
     const score = match.score ?? {}
-    const isWalkover = match.status === 'walkover' || !!score.walkover
+    const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
 
-    if (type === 'league') {
+    if (type === TournamentType.LEAGUE) {
       const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
 
       addToSide(match.homeCompetitorIds, (row) => {
@@ -63,11 +65,11 @@ export function computeStandings(
         row.setsWon = (row.setsWon ?? 0) + sets.home
         row.points += sets.home * leagueSettings.pointsPerSetWon
 
-        if (!isWalkover || score.walkover === 'home') {
+        if (!isWalkover || score.walkover === MatchSide.HOME) {
           row.points += leagueSettings.pointsPerPresent
         }
 
-        if (match.winner === 'home') {
+        if (match.winner === MatchSide.HOME) {
           row.won++
           row.points += leagueSettings.pointsPerMatchWon
         }
@@ -77,16 +79,16 @@ export function computeStandings(
         row.setsWon = (row.setsWon ?? 0) + sets.away
         row.points += sets.away * leagueSettings.pointsPerSetWon
 
-        if (!isWalkover || score.walkover === 'away') {
+        if (!isWalkover || score.walkover === MatchSide.AWAY) {
           row.points += leagueSettings.pointsPerPresent
         }
 
-        if (match.winner === 'away') {
+        if (match.winner === MatchSide.AWAY) {
           row.won++
           row.points += leagueSettings.pointsPerMatchWon
         }
       })
-    } else if (type === 'americano') {
+    } else if (type === TournamentType.AMERICANO) {
       const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
 
       addToSide(match.homeCompetitorIds, (row) => {
@@ -94,7 +96,7 @@ export function computeStandings(
         row.gamesWon = (row.gamesWon ?? 0) + games.home
         row.points += games.home * americanoSettings.pointsPerGameWon
 
-        if (match.winner === 'home') {
+        if (match.winner === MatchSide.HOME) {
           row.won++
           row.points += americanoSettings.pointsPerMatchWon
         }
@@ -104,7 +106,7 @@ export function computeStandings(
         row.gamesWon = (row.gamesWon ?? 0) + games.away
         row.points += games.away * americanoSettings.pointsPerGameWon
 
-        if (match.winner === 'away') {
+        if (match.winner === MatchSide.AWAY) {
           row.won++
           row.points += americanoSettings.pointsPerMatchWon
         }

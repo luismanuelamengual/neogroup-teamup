@@ -1,4 +1,4 @@
-import { searchTournaments } from '@/app/(tournaments)/services/queries'
+import { searchTournaments } from '@/app/(tournaments)/services/tournaments'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/tournaments/search — searches joinable/visible tournaments by name. */

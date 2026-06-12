@@ -1,4 +1,4 @@
-import { UserRoles } from '@/app/(auth)/models/user'
+import { UserRoles } from '@/app/(auth)/models/UserRoles'
 import { auth } from '@/app/(auth)/services/auth'
 import ManageTournamentView from '@/app/(tournaments)/components/ManageTournamentView'
 import PlayerTournamentView from '@/app/(tournaments)/components/PlayerTournamentView'

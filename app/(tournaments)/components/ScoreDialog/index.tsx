@@ -14,7 +14,11 @@ import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { MatchScore, MatchSide, ScoreFormat, SetScore } from '@/app/(tournaments)/models/types'
+import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
+import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
+import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
+import { SetScore } from '@/app/(tournaments)/models/SetScore'
+import { MATCH_SIDE_KEYS } from '@/app/(tournaments)/utils/labels'
 import { isValidScore } from '@/app/(tournaments)/utils/score'
 
 interface ScoreDialogProps {
@@ -47,7 +51,7 @@ export default function ScoreDialog({
   const t = useTranslations('score')
   const tCommon = useTranslations('common')
   const [walkover, setWalkover] = useState(false)
-  const [walkoverWinner, setWalkoverWinner] = useState<MatchSide>('home')
+  const [walkoverWinner, setWalkoverWinner] = useState<MatchSide>(MatchSide.HOME)
   const [sets, setSets] = useState<SetScore[]>(EMPTY_SETS)
   const [homeCount, setHomeCount] = useState(0)
   const [awayCount, setAwayCount] = useState(0)
@@ -60,17 +64,19 @@ export default function ScoreDialog({
 
     setInvalid(false)
     setWalkover(!!initialScore?.walkover)
-    setWalkoverWinner(initialScore?.walkover ?? 'home')
+    setWalkoverWinner(initialScore?.walkover ?? MatchSide.HOME)
     setSets(initialScore?.sets ? EMPTY_SETS.map((empty, index) => initialScore.sets?.[index] ?? empty) : EMPTY_SETS)
     setHomeCount(initialScore?.home ?? 0)
     setAwayCount(initialScore?.away ?? 0)
   }, [open, initialScore])
 
-  const usesSets = scoreFormat !== 'basic_count'
+  const usesSets = scoreFormat !== ScoreFormat.BASIC_COUNT
 
   const updateSet = (index: number, side: MatchSide, value: number) => {
     setSets((current) =>
-      current.map((set, setIndex) => (setIndex === index ? { ...set, [side]: Math.max(0, value) } : set))
+      current.map((set, setIndex) =>
+        setIndex === index ? { ...set, [MATCH_SIDE_KEYS[side]]: Math.max(0, value) } : set
+      )
     )
   }
 
@@ -95,7 +101,9 @@ export default function ScoreDialog({
   }
 
   const setLabel = (index: number) =>
-    scoreFormat === 'two_sets_super_tiebreak' && index === 2 ? t('superTiebreak') : t('set', { number: index + 1 })
+    scoreFormat === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && index === 2
+      ? t('superTiebreak')
+      : t('set', { number: index + 1 })
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
@@ -114,9 +122,12 @@ export default function ScoreDialog({
         {walkover ? (
           <div className="score-dialog__walkover">
             <span className="score-dialog__walkover-title">{t('walkoverWinner')}</span>
-            <RadioGroup value={walkoverWinner} onChange={(event) => setWalkoverWinner(event.target.value as MatchSide)}>
-              <FormControlLabel value="home" control={<Radio />} label={homeName} />
-              <FormControlLabel value="away" control={<Radio />} label={awayName} />
+            <RadioGroup
+              value={walkoverWinner}
+              onChange={(event) => setWalkoverWinner(Number(event.target.value) as MatchSide)}
+            >
+              <FormControlLabel value={MatchSide.HOME} control={<Radio />} label={homeName} />
+              <FormControlLabel value={MatchSide.AWAY} control={<Radio />} label={awayName} />
             </RadioGroup>
           </div>
         ) : usesSets ? (
@@ -128,7 +139,7 @@ export default function ScoreDialog({
                   type="number"
                   size="small"
                   value={set.home}
-                  onChange={(event) => updateSet(index, 'home', Number(event.target.value))}
+                  onChange={(event) => updateSet(index, MatchSide.HOME, Number(event.target.value))}
                   slotProps={{ htmlInput: { min: 0, 'aria-label': `${setLabel(index)} ${homeName}` } }}
                 />
                 <span className="score-dialog__set-separator">-</span>
@@ -136,7 +147,7 @@ export default function ScoreDialog({
                   type="number"
                   size="small"
                   value={set.away}
-                  onChange={(event) => updateSet(index, 'away', Number(event.target.value))}
+                  onChange={(event) => updateSet(index, MatchSide.AWAY, Number(event.target.value))}
                   slotProps={{ htmlInput: { min: 0, 'aria-label': `${setLabel(index)} ${awayName}` } }}
                 />
               </div>

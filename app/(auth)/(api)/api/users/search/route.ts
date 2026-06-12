@@ -1,6 +1,5 @@
 import { DB } from '@neogroup/neorm'
-import { User } from '@/app/(auth)/entities/User'
-import { UserDto } from '@/app/(auth)/models/user'
+import { User, UserDto } from '@/app/(auth)/models/User'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/users/search — searches users by name, nickname or email (partner selection). */

@@ -1,25 +1,26 @@
-import { User } from '@/app/(auth)/entities/User'
-import { getUserDisplayName } from '@/app/(auth)/models/user'
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
-import { JoinTournamentInput } from '@/app/(tournaments)/models/inputs'
-import { registersAsPairs } from '@/app/(tournaments)/models/types'
+import { User } from '@/app/(auth)/models/User'
+import { getUserDisplayName } from '@/app/(auth)/utils/user'
+import { JoinTournamentInput } from '@/app/(tournaments)/actions/registration'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
+import { registersAsPairs } from '@/app/(tournaments)/utils/discipline'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 
 /** POST /api/registrations/join — registers the signed-in user (optionally with a partner) into a tournament. */
 export const POST = withAuth(async (request, context, userId) => {
   const { tournamentId, ...input } = (await request.json()) as JoinTournamentInput & { tournamentId: number }
-  const tournament: Tournament | null = await Tournament.find(Number(tournamentId))
+  const tournament: Tournament | null = await Tournament.where('id', Number(tournamentId)).with('competitors').first()
 
   if (!tournament) {
     throw new ApiException('notFound')
   }
 
-  if (tournament.status !== 'stand_by') {
+  if (tournament.status !== TournamentStatus.STAND_BY) {
     throw new ApiException('registrationClosed')
   }
 
-  const competitors = await Competitor.where('tournamentId', tournament.id).get()
+  const competitors = tournament.competitors ?? []
 
   if (competitors.length >= tournament.maxCompetitors) {
     throw new ApiException('tournamentFull')
@@ -43,7 +44,12 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('unauthorized')
   }
 
-  const needsPartner = registersAsPairs(tournament.discipline, tournament.type, tournament.settings ?? {})
+  const needsPartner = registersAsPairs(
+    tournament.discipline,
+    tournament.subDiscipline,
+    tournament.type,
+    tournament.settings ?? {}
+  )
   let partnerUserId: number | null = null
   let partnerName: string | null = null
   let partnerDisplayName = ''

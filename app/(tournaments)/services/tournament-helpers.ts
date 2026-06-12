@@ -1,8 +1,10 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Match } from '@/app/(tournaments)/entities/Match'
-import { Round } from '@/app/(tournaments)/entities/Round'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
-import { toMatchDto } from '@/app/(tournaments)/models/dtos'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Match } from '@/app/(tournaments)/models/Match'
+import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
+import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
+import { Round } from '@/app/(tournaments)/models/Round'
+import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { generateRoundPairings } from '@/app/(tournaments)/services/tournament-engine'
 import { ApiException } from '@/app/utils/api-server'
 
@@ -33,10 +35,11 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   if (roundNumber > 1) {
     const previousRound: Round | null = await Round.where('tournamentId', tournament.id)
       .where('number', roundNumber - 1)
+      .with('matches')
       .first()
 
     if (previousRound) {
-      previousRoundMatches = await Match.where('roundId', previousRound.id).get()
+      previousRoundMatches = previousRound.matches ?? []
     }
   }
 
@@ -45,7 +48,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
     tournament.settings ?? {},
     competitorIds,
     roundNumber,
-    previousRoundMatches.map(toMatchDto)
+    previousRoundMatches.map((match) => match.toDto())
   )
 
   if (pairings.length === 0) {
@@ -56,7 +59,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
 
   round.tournamentId = tournament.id
   round.number = roundNumber
-  round.status = 'open'
+  round.status = RoundStatus.OPEN
   round.createdAt = new Date()
   await round.save()
 
@@ -72,10 +75,10 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
 
     // Byes (playoff only) are stored as already resolved in favor of "home".
     if (pairing.away === null) {
-      match.status = 'walkover'
-      match.winner = 'home'
+      match.status = MatchStatus.WALKOVER
+      match.winner = MatchSide.HOME
     } else {
-      match.status = 'pending'
+      match.status = MatchStatus.PENDING
       match.winner = null
     }
 

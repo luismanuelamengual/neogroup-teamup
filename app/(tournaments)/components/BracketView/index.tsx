@@ -3,8 +3,9 @@
 import './index.scss'
 import { useTranslations } from 'next-intl'
 import MatchCard from '@/app/(tournaments)/components/MatchCard'
-import { MatchDto, RoundDto } from '@/app/(tournaments)/models/dtos'
-import { ScoreFormat } from '@/app/(tournaments)/models/types'
+import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { RoundDto } from '@/app/(tournaments)/models/Round'
+import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
 
 interface BracketViewProps {
   rounds: RoundDto[]

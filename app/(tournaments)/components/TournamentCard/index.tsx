@@ -8,7 +8,8 @@ import Paper from '@mui/material/Paper'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import StatusChip from '@/app/(tournaments)/components/StatusChip'
-import { TournamentDto } from '@/app/(tournaments)/models/dtos'
+import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { DISCIPLINE_KEYS, SUB_DISCIPLINE_KEYS, TOURNAMENT_TYPE_KEYS } from '@/app/(tournaments)/utils/labels'
 
 interface TournamentCardProps {
   tournament: TournamentDto
@@ -26,8 +27,13 @@ export default function TournamentCard({ tournament, href }: TournamentCardProps
           <StatusChip status={tournament.status} />
         </div>
         <div className="tournament-card__tags">
-          <span className="tournament-card__tag">{t(`discipline.${tournament.discipline}`)}</span>
-          <span className="tournament-card__tag">{t(`type.${tournament.type}`)}</span>
+          <span className="tournament-card__tag">{t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)}</span>
+          {tournament.subDiscipline && (
+            <span className="tournament-card__tag">
+              {t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)}
+            </span>
+          )}
+          <span className="tournament-card__tag">{t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)}</span>
         </div>
         <div className="tournament-card__details">
           <span className="tournament-card__detail">

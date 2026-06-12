@@ -15,7 +15,7 @@ import { signIn } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
 import { registerUser } from '@/app/(auth)/actions/auth'
-import { UserRoleId, UserRoles } from '@/app/(auth)/models/user'
+import { UserRoleId, UserRoles } from '@/app/(auth)/models/UserRoles'
 
 interface RegisterFormProps {
   callbackUrl: string | null

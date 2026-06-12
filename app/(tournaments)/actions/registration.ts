@@ -1,11 +1,14 @@
-import type { UserDto } from '@/app/(auth)/models/user'
-import type { TournamentDto } from '@/app/(tournaments)/models/dtos'
-import type { JoinTournamentInput } from '@/app/(tournaments)/models/inputs'
+import type { UserDto } from '@/app/(auth)/models/User'
+import type { TournamentDto } from '@/app/(tournaments)/models/Tournament'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side registration actions: thin wrappers around the REST API. */
 
-export type { JoinTournamentInput }
+/** Payload to register the signed-in user (optionally with a partner) into a tournament. */
+export interface JoinTournamentInput {
+  partnerUserId?: number | null
+  partnerName?: string | null
+}
 
 /** Searches platform users by name, nickname or email (for partner selection). */
 export async function searchUsers(query: string): Promise<UserDto[]> {

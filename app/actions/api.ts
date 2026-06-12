@@ -1,4 +1,4 @@
-import { ApiResponse } from '@/app/models/api'
+import { ApiResponse } from '@/app/models/ApiResponse'
 
 /**
  * Calls a REST API endpoint. Every endpoint of the app is a POST with a JSON

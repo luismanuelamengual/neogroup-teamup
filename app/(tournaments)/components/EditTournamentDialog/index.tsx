@@ -11,7 +11,7 @@ import TextField from '@mui/material/TextField'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { updateTournament } from '@/app/(tournaments)/actions/tournament'
-import { TournamentDto } from '@/app/(tournaments)/models/dtos'
+import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
 
 interface EditTournamentDialogProps {
   open: boolean

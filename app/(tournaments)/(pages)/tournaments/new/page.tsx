@@ -1,7 +1,7 @@
 import Typography from '@mui/material/Typography'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { UserRoles } from '@/app/(auth)/models/user'
+import { UserRoles } from '@/app/(auth)/models/UserRoles'
 import { auth } from '@/app/(auth)/services/auth'
 import TournamentForm from '@/app/(tournaments)/components/TournamentForm'
 

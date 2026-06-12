@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { setRole } from '@/app/(account)/actions/account'
-import { UserRoleId, UserRoles } from '@/app/(auth)/models/user'
+import { UserRoleId, UserRoles } from '@/app/(auth)/models/UserRoles'
 
 interface RoleSelectorProps {
   callbackUrl: string | null

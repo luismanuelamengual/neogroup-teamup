@@ -1,7 +1,9 @@
-import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
-import { Round } from '@/app/(tournaments)/entities/Round'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
-import { MatchScore, MatchSide, MatchStatus } from '@/app/(tournaments)/models/types'
+import { BaseEntity, BelongsTo, Column, Dto, Entity } from '@neogroup/neorm'
+import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
+import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
+import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
+import { Round } from '@/app/(tournaments)/models/Round'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 
 @Entity({ table: 'matches' })
 export class Match extends BaseEntity {
@@ -32,7 +34,7 @@ export class Match extends BaseEntity {
   @Column({ cast: 'json' })
   score!: MatchScore | null
 
-  @Column()
+  @Column({ cast: 'number' })
   status!: MatchStatus
 
   @Column()
@@ -50,3 +52,6 @@ export class Match extends BaseEntity {
   @BelongsTo(() => Round, 'roundId')
   round?: Round
 }
+
+/** Plain serializable match passed from server code to client components. */
+export type MatchDto = Dto<Match>

@@ -1,8 +1,9 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Match } from '@/app/(tournaments)/entities/Match'
-import { Round } from '@/app/(tournaments)/entities/Round'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
-import { MatchScore } from '@/app/(tournaments)/models/types'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Match } from '@/app/(tournaments)/models/Match'
+import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
+import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
+import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { getScoreWinner, isValidScore } from '@/app/(tournaments)/utils/score'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 
@@ -14,21 +15,21 @@ import { ApiException, withAuth } from '@/app/utils/api-server'
 export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
   const { id } = await context.params
   const { score } = (await request.json()) as { score: MatchScore }
-  const match: Match | null = await Match.find(Number(id))
+  const match: Match | null = await Match.where('id', Number(id)).with('tournament', 'round').first()
 
   if (!match || !match.awayCompetitorIds) {
     throw new ApiException('notFound')
   }
 
-  const tournament: Tournament | null = await Tournament.find(match.tournamentId)
+  const tournament = match.tournament ?? null
 
-  if (!tournament || tournament.status !== 'ongoing') {
+  if (!tournament || tournament.status !== TournamentStatus.ONGOING) {
     throw new ApiException('invalidStatus')
   }
 
-  const round: Round | null = await Round.find(match.roundId)
+  const round = match.round ?? null
 
-  if (!round || round.status !== 'open') {
+  if (!round || round.status !== RoundStatus.OPEN) {
     throw new ApiException('roundClosed')
   }
 
@@ -52,11 +53,11 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
 
   if (score.walkover) {
     match.score = { walkover: score.walkover }
-    match.status = 'walkover'
+    match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
     match.score = score
-    match.status = 'played'
+    match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }
 

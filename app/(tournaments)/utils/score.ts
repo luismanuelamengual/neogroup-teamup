@@ -1,8 +1,11 @@
-import { MatchScore, MatchSide, ScoreFormat, SetScore } from '@/app/(tournaments)/models/types'
+import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
+import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
+import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
+import { SetScore } from '@/app/(tournaments)/models/SetScore'
 
 /** Number of set inputs shown for each score format. */
 export function getSetsCount(format: ScoreFormat): number {
-  return format === 'three_sets' || format === 'two_sets_super_tiebreak' ? 3 : 0
+  return format === ScoreFormat.THREE_SETS || format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK ? 3 : 0
 }
 
 /** Computes the winning side of a score, or null when it cannot be determined. */
@@ -11,12 +14,12 @@ export function getScoreWinner(score: MatchScore, format: ScoreFormat): MatchSid
     return score.walkover
   }
 
-  if (format === 'basic_count') {
+  if (format === ScoreFormat.BASIC_COUNT) {
     if (score.home == null || score.away == null || score.home === score.away) {
       return null
     }
 
-    return score.home > score.away ? 'home' : 'away'
+    return score.home > score.away ? MatchSide.HOME : MatchSide.AWAY
   }
 
   const sets = (score.sets ?? []).filter((set) => set.home !== set.away)
@@ -40,7 +43,7 @@ export function getScoreWinner(score: MatchScore, format: ScoreFormat): MatchSid
     return null
   }
 
-  return homeSets > awaySets ? 'home' : 'away'
+  return homeSets > awaySets ? MatchSide.HOME : MatchSide.AWAY
 }
 
 /** Counts sets won by each side (sets formats only). */
@@ -58,9 +61,9 @@ export function getSetsWon(score: MatchScore): { home: number; away: number } {
   return result
 }
 
-/** Counts games won by each side. For basic_count scores, the counters are used as games. */
+/** Counts games won by each side. For BASIC_COUNT scores, the counters are used as games. */
 export function getGamesWon(score: MatchScore, format: ScoreFormat): { home: number; away: number } {
-  if (format === 'basic_count') {
+  if (format === ScoreFormat.BASIC_COUNT) {
     return { home: score.home ?? 0, away: score.away ?? 0 }
   }
 
@@ -77,10 +80,10 @@ export function getGamesWon(score: MatchScore, format: ScoreFormat): { home: num
 /** Validates a score payload for the given format before persisting it. */
 export function isValidScore(score: MatchScore, format: ScoreFormat): boolean {
   if (score.walkover) {
-    return score.walkover === 'home' || score.walkover === 'away'
+    return score.walkover === MatchSide.HOME || score.walkover === MatchSide.AWAY
   }
 
-  if (format === 'basic_count') {
+  if (format === ScoreFormat.BASIC_COUNT) {
     return (
       typeof score.home === 'number' &&
       typeof score.away === 'number' &&
@@ -110,7 +113,7 @@ export function formatScore(score: MatchScore | null, format: ScoreFormat): stri
     return 'W.O.'
   }
 
-  if (format === 'basic_count') {
+  if (format === ScoreFormat.BASIC_COUNT) {
     return `${score.home ?? 0}-${score.away ?? 0}`
   }
 

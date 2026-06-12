@@ -1,5 +1,5 @@
-import { AccountInput } from '@/app/(account)/models/account'
-import { User } from '@/app/(auth)/entities/User'
+import { AccountInput } from '@/app/(account)/actions/account'
+import { User } from '@/app/(auth)/models/User'
 import { unstable_update } from '@/app/(auth)/services/auth'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 

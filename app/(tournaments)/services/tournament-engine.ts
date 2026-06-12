@@ -1,5 +1,7 @@
-import { MatchDto } from '@/app/(tournaments)/models/dtos'
-import { TournamentSettings, TournamentType } from '@/app/(tournaments)/models/types'
+import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
+import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
+import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 
 /**
  * Pure functions that compute the pairings of every tournament round.
@@ -21,10 +23,10 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
   }
 
   switch (type) {
-    case 'league':
+    case TournamentType.LEAGUE:
       return competitorsCount % 2 === 0 ? competitorsCount - 1 : competitorsCount
 
-    case 'americano': {
+    case TournamentType.AMERICANO: {
       if (settings.swapPartnersEachRound) {
         // Individuals rotate partners: one round per circle-method rotation.
         const slots = competitorsCount % 2 === 0 ? competitorsCount : competitorsCount + 1
@@ -35,7 +37,7 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
       return competitorsCount % 2 === 0 ? competitorsCount - 1 : competitorsCount
     }
 
-    case 'playoff':
+    case TournamentType.PLAYOFF:
       return Math.ceil(Math.log2(competitorsCount))
   }
 }
@@ -149,11 +151,11 @@ function generatePlayoffRound(
 
   const sorted = [...previousRoundMatches].sort((a, b) => a.position - b.position)
   const winners = sorted.map((match) => {
-    if (match.winner === 'home') {
+    if (match.winner === MatchSide.HOME) {
       return match.homeCompetitorIds[0]
     }
 
-    if (match.winner === 'away' && match.awayCompetitorIds) {
+    if (match.winner === MatchSide.AWAY && match.awayCompetitorIds) {
       return match.awayCompetitorIds[0]
     }
 
@@ -210,15 +212,15 @@ export function generateRoundPairings(
   previousRoundMatches: MatchDto[]
 ): Pairing[] {
   switch (type) {
-    case 'league':
+    case TournamentType.LEAGUE:
       return generateRoundRobinRound(competitorIds, roundNumber)
 
-    case 'americano':
+    case TournamentType.AMERICANO:
       return settings.swapPartnersEachRound
         ? generateAmericanoSwapRound(competitorIds, roundNumber)
         : generateRoundRobinRound(competitorIds, roundNumber)
 
-    case 'playoff':
+    case TournamentType.PLAYOFF:
       return generatePlayoffRound(competitorIds, roundNumber, previousRoundMatches)
   }
 }

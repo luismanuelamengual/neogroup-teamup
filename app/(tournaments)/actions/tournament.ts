@@ -1,12 +1,10 @@
-import type { CompetitorDto, TournamentDto } from '@/app/(tournaments)/models/dtos'
-import type { CreateTournamentInput, UpdateTournamentInput } from '@/app/(tournaments)/models/inputs'
-import type { MatchScore } from '@/app/(tournaments)/models/types'
-import type { OrganizerTournamentFilters, TournamentDetail } from '@/app/(tournaments)/services/queries'
+import type { CompetitorDto } from '@/app/(tournaments)/models/Competitor'
+import type { MatchScore } from '@/app/(tournaments)/models/MatchScore'
+import type { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import type { OrganizerTournamentFilters, TournamentDetail } from '@/app/(tournaments)/services/tournaments'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side tournament actions: thin wrappers around the REST API. */
-
-export type { CreateTournamentInput, UpdateTournamentInput }
 
 export interface TournamentDetailWithEntry extends TournamentDetail {
   userEntry: CompetitorDto | null
@@ -28,13 +26,13 @@ export async function getTournamentDetail(tournamentId: number): Promise<Tournam
 }
 
 /** Creates a new tournament in stand_by status. Returns the new tournament id. */
-export async function createTournament(input: CreateTournamentInput): Promise<{ id: number }> {
-  return executeRequest<{ id: number }>('/tournaments/create', input)
+export async function createTournament(tournament: Partial<TournamentDto>): Promise<{ id: number }> {
+  return executeRequest<{ id: number }>('/tournaments/create', tournament)
 }
 
 /** Updates the editable attributes of a tournament. */
-export async function updateTournament(tournamentId: number, input: UpdateTournamentInput): Promise<void> {
-  await executeRequest(`/tournaments/${tournamentId}/update`, input)
+export async function updateTournament(tournamentId: number, tournament: Partial<TournamentDto>): Promise<void> {
+  await executeRequest(`/tournaments/${tournamentId}/update`, tournament)
 }
 
 /** Starts the tournament: sets it ongoing and generates the first round. */

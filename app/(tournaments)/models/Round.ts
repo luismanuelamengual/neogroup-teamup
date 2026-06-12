@@ -1,7 +1,7 @@
-import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
-import { Match } from '@/app/(tournaments)/entities/Match'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
-import { RoundStatus } from '@/app/(tournaments)/models/types'
+import { BaseEntity, BelongsTo, Column, Dto, Entity, HasMany } from '@neogroup/neorm'
+import { Match } from '@/app/(tournaments)/models/Match'
+import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 
 @Entity({ table: 'rounds' })
 export class Round extends BaseEntity {
@@ -14,7 +14,7 @@ export class Round extends BaseEntity {
   @Column({ cast: 'number' })
   number!: number
 
-  @Column()
+  @Column({ cast: 'number' })
   status!: RoundStatus
 
   @Column({ cast: 'date' })
@@ -26,3 +26,6 @@ export class Round extends BaseEntity {
   @HasMany(() => Match, 'roundId')
   matches?: Match[]
 }
+
+/** Plain serializable round passed from server code to client components. */
+export type RoundDto = Dto<Round>

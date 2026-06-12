@@ -23,7 +23,7 @@ import { signOut } from 'next-auth/react'
 import { useLocale, useTranslations } from 'next-intl'
 import { MouseEvent, ReactNode, useState } from 'react'
 import { setLocale } from '@/app/(account)/actions/account'
-import { UserRoles } from '@/app/(auth)/models/user'
+import { UserRoles } from '@/app/(auth)/models/UserRoles'
 import { useUserStore } from '@/app/(auth)/stores/user.store'
 
 interface NavItem {

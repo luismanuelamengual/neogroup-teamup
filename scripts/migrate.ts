@@ -38,7 +38,7 @@ async function ensureMigrationsTable(): Promise<void> {
 async function getAppliedMigrations(): Promise<Set<string>> {
   const rows = await DB.table('migrations').select('name').get()
 
-  return new Set(rows.map((row: { name: string }) => row.name))
+  return new Set(rows.map((row) => String(row.name)))
 }
 
 async function loadMigrations(): Promise<Migration[]> {

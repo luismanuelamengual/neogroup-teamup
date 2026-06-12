@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { SessionUser, UserRoleId, UserRoles } from '@/app/(auth)/models/user'
+import { SessionUser } from '@/app/(auth)/models/SessionUser'
+import { UserRoleId, UserRoles } from '@/app/(auth)/models/UserRoles'
 
 /**
  * Store with the signed-in user. It is hydrated from the session by

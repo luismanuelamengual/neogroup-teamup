@@ -9,8 +9,8 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import { useTranslations } from 'next-intl'
-import { StandingsRowDto } from '@/app/(tournaments)/models/dtos'
-import { TournamentType } from '@/app/(tournaments)/models/types'
+import { StandingsRowDto } from '@/app/(tournaments)/models/StandingsRowDto'
+import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 
 interface StandingsTableProps {
   type: TournamentType
@@ -29,8 +29,8 @@ export default function StandingsTable({ type, rows }: StandingsTableProps) {
             <TableCell>{t('competitor')}</TableCell>
             <TableCell align="center">{t('played')}</TableCell>
             <TableCell align="center">{t('won')}</TableCell>
-            {type === 'league' && <TableCell align="center">{t('setsWon')}</TableCell>}
-            {type === 'americano' && <TableCell align="center">{t('gamesWon')}</TableCell>}
+            {type === TournamentType.LEAGUE && <TableCell align="center">{t('setsWon')}</TableCell>}
+            {type === TournamentType.AMERICANO && <TableCell align="center">{t('gamesWon')}</TableCell>}
             <TableCell align="center" className="standings-table__points-cell">
               {t('points')}
             </TableCell>
@@ -43,8 +43,8 @@ export default function StandingsTable({ type, rows }: StandingsTableProps) {
               <TableCell>{row.displayName}</TableCell>
               <TableCell align="center">{row.played}</TableCell>
               <TableCell align="center">{row.won}</TableCell>
-              {type === 'league' && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
-              {type === 'americano' && <TableCell align="center">{row.gamesWon ?? 0}</TableCell>}
+              {type === TournamentType.LEAGUE && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
+              {type === TournamentType.AMERICANO && <TableCell align="center">{row.gamesWon ?? 0}</TableCell>}
               <TableCell align="center" className="standings-table__points-cell">
                 {row.points}
               </TableCell>

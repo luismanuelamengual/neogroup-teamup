@@ -1,5 +1,7 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Round } from '@/app/(tournaments)/entities/Round'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Round } from '@/app/(tournaments)/models/Round'
+import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { getTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
 import { createRound, requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
 import { ApiException, withAuth } from '@/app/utils/api-server'
@@ -10,7 +12,7 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
   const tournamentId = Number(id)
   const tournament = await requireOwnedTournament(tournamentId, userId)
 
-  if (!tournament || tournament.status !== 'ongoing') {
+  if (!tournament || tournament.status !== TournamentStatus.ONGOING) {
     throw new ApiException('invalidStatus')
   }
 
@@ -18,7 +20,7 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
     .where('number', tournament.currentRound)
     .first()
 
-  if (!currentRound || currentRound.status !== 'closed') {
+  if (!currentRound || currentRound.status !== RoundStatus.CLOSED) {
     throw new ApiException('roundStillOpen')
   }
 

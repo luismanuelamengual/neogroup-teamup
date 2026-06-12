@@ -1,6 +1,7 @@
-import { User } from '@/app/(auth)/entities/User'
-import { isValidRoleId, UserRoleId } from '@/app/(auth)/models/user'
+import { User } from '@/app/(auth)/models/User'
+import { UserRoleId } from '@/app/(auth)/models/UserRoles'
 import { unstable_update } from '@/app/(auth)/services/auth'
+import { isValidRoleId } from '@/app/(auth)/utils/user'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 
 /**

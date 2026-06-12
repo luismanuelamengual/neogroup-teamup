@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
 import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
-import { SessionUser, UserRoleId } from '@/app/(auth)/models/user'
+import { SessionUser } from '@/app/(auth)/models/SessionUser'
+import { UserRoleId } from '@/app/(auth)/models/UserRoles'
 import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/components/AppShell'
 

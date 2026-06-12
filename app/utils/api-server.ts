@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/app/(auth)/services/auth'
-import { ApiResponse } from '@/app/models/api'
+import { ApiResponse } from '@/app/models/ApiResponse'
 
 /** Helpers shared by the /api route handlers. */
 

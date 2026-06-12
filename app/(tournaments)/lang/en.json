@@ -10,8 +10,12 @@
     "discipline": {
       "label": "Discipline",
       "padel": "Padel",
-      "tennis": "Tennis",
-      "tennis_doubles": "Tennis (doubles)"
+      "tennis": "Tennis"
+    },
+    "subDiscipline": {
+      "label": "Modality",
+      "singles": "Singles",
+      "doubles": "Doubles"
     },
     "type": {
       "label": "Tournament type",

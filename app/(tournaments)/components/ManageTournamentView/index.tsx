@@ -31,9 +31,19 @@ import FixtureView from '@/app/(tournaments)/components/FixtureView'
 import ScoreDialog from '@/app/(tournaments)/components/ScoreDialog'
 import StandingsTable from '@/app/(tournaments)/components/StandingsTable'
 import StatusChip from '@/app/(tournaments)/components/StatusChip'
-import { MatchDto } from '@/app/(tournaments)/models/dtos'
-import { MatchScore } from '@/app/(tournaments)/models/types'
+import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
+import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
+import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
+import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 import { getTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
+import {
+  DISCIPLINE_KEYS,
+  SCORE_FORMAT_KEYS,
+  SUB_DISCIPLINE_KEYS,
+  TOURNAMENT_TYPE_KEYS
+} from '@/app/(tournaments)/utils/labels'
 import { computeStandings } from '@/app/(tournaments)/utils/standings'
 import { useNotificationsStore } from '@/app/stores/notifications.store'
 
@@ -77,8 +87,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   }, [competitors])
   const standings = useMemo(
     () =>
-      tournament && tournament.type !== 'playoff'
-        ? computeStandings(tournament.type, tournament.scoreFormat, tournament.settings, competitors, matches)
+      tournament && tournament.type !== TournamentType.PLAYOFF
+        ? computeStandings(tournament.type, tournament.scoreFormat, tournament.settings ?? {}, competitors, matches)
         : [],
     [tournament, competitors, matches]
   )
@@ -97,9 +107,9 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
   const currentRound = rounds.find((round) => round.number === tournament.currentRound) ?? null
   const currentRoundMatches = currentRound ? matches.filter((match) => match.roundId === currentRound.id) : []
-  const roundIsOpen = currentRound?.status === 'open'
-  const allResolved = currentRoundMatches.every((match) => match.status !== 'pending')
-  const totalRounds = getTotalRounds(tournament.type, tournament.settings, competitors.length)
+  const roundIsOpen = currentRound?.status === RoundStatus.OPEN
+  const allResolved = currentRoundMatches.every((match) => match.status !== MatchStatus.PENDING)
+  const totalRounds = getTotalRounds(tournament.type, tournament.settings ?? {}, competitors.length)
   const hasMoreRounds = tournament.currentRound < totalRounds
   const editableMatchIds = roundIsOpen ? currentRoundMatches.map((match) => match.id) : []
 
@@ -180,9 +190,12 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           </Typography>
         )}
         <div className="manage-tournament__meta">
-          <Chip size="small" label={t(`discipline.${tournament.discipline}`)} />
-          <Chip size="small" label={t(`type.${tournament.type}`)} />
-          <Chip size="small" label={t(`scoreFormat.${tournament.scoreFormat}`)} />
+          <Chip size="small" label={t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)} />
+          {tournament.subDiscipline && (
+            <Chip size="small" label={t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)} />
+          )}
+          <Chip size="small" label={t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)} />
+          <Chip size="small" label={t(`scoreFormat.${SCORE_FORMAT_KEYS[tournament.scoreFormat]}`)} />
           <span className="manage-tournament__meta-item">
             <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
           </span>
@@ -193,7 +206,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           )}
         </div>
         <div className="manage-tournament__actions">
-          {tournament.status === 'stand_by' && (
+          {tournament.status === TournamentStatus.STAND_BY && (
             <>
               <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
                 {tOrganizer('manage.share')}
@@ -208,7 +221,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
               </Button>
             </>
           )}
-          {tournament.status === 'ongoing' && roundIsOpen && (
+          {tournament.status === TournamentStatus.ONGOING && roundIsOpen && (
             <Button
               variant="contained"
               startIcon={<FlagIcon />}
@@ -218,18 +231,18 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
               {tOrganizer('manage.closeRound')}
             </Button>
           )}
-          {tournament.status === 'ongoing' && !roundIsOpen && hasMoreRounds && (
+          {tournament.status === TournamentStatus.ONGOING && !roundIsOpen && hasMoreRounds && (
             <Button variant="contained" startIcon={<SkipNextIcon />} onClick={handleNextRound} disabled={working}>
               {tOrganizer('manage.nextRound')}
             </Button>
           )}
-          {tournament.status === 'ongoing' && !roundIsOpen && (
+          {tournament.status === TournamentStatus.ONGOING && !roundIsOpen && (
             <Button variant="outlined" color="error" onClick={handleFinish} disabled={working}>
               {tOrganizer('manage.finish')}
             </Button>
           )}
         </div>
-        {tournament.status === 'ongoing' && !roundIsOpen && !hasMoreRounds && (
+        {tournament.status === TournamentStatus.ONGOING && !roundIsOpen && !hasMoreRounds && (
           <Alert severity="info">{tOrganizer('manage.allRoundsPlayed')}</Alert>
         )}
       </Paper>
@@ -254,9 +267,9 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
       {rounds.length > 0 && (
         <Paper className="manage-tournament__section">
           <Typography variant="h6" className="manage-tournament__section-title">
-            {tournament.type === 'playoff' ? t('bracket') : t('fixture')}
+            {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
           </Typography>
-          {tournament.type === 'playoff' ? (
+          {tournament.type === TournamentType.PLAYOFF ? (
             <BracketView
               rounds={rounds}
               matches={matches}

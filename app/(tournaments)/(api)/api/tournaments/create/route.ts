@@ -1,18 +1,18 @@
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
-import { CreateTournamentInput } from '@/app/(tournaments)/models/inputs'
-import {
-  DEFAULT_AMERICANO_SETTINGS,
-  DEFAULT_LEAGUE_SETTINGS,
-  TournamentSettings
-} from '@/app/(tournaments)/models/types'
+import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(tournaments)/models/AmericanoSettings'
+import { Discipline } from '@/app/(tournaments)/models/Discipline'
+import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(tournaments)/models/LeagueSettings'
+import { Tournament, TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
+import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 import { ApiException, withAuth } from '@/app/utils/api-server'
 
 /** POST /api/tournaments/create — creates a new tournament in stand_by status. */
 export const POST = withAuth(async (request, context, userId) => {
-  const input = (await request.json()) as CreateTournamentInput
-  const name = input.name.trim()
+  const input = (await request.json()) as Partial<TournamentDto>
+  const name = input.name?.trim() ?? ''
 
-  if (!name) {
+  if (!name || !input.discipline || !input.type || !input.scoreFormat) {
     throw new ApiException('missingFields')
   }
 
@@ -20,15 +20,19 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('missingFields')
   }
 
-  if (input.type === 'americano' && input.discipline !== 'padel') {
+  if (input.discipline === Discipline.TENNIS && !input.subDiscipline) {
+    throw new ApiException('missingFields')
+  }
+
+  if (input.type === TournamentType.AMERICANO && input.discipline !== Discipline.PADEL) {
     throw new ApiException('americanoOnlyPadel')
   }
 
   let settings: TournamentSettings = {}
 
-  if (input.type === 'league') {
+  if (input.type === TournamentType.LEAGUE) {
     settings = { ...DEFAULT_LEAGUE_SETTINGS, ...input.settings }
-  } else if (input.type === 'americano') {
+  } else if (input.type === TournamentType.AMERICANO) {
     settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
   }
 
@@ -36,13 +40,14 @@ export const POST = withAuth(async (request, context, userId) => {
 
   tournament.ownerId = userId
   tournament.name = name
-  tournament.description = input.description.trim() || null
-  tournament.status = 'stand_by'
+  tournament.description = input.description?.trim() || null
+  tournament.status = TournamentStatus.STAND_BY
   tournament.discipline = input.discipline
+  tournament.subDiscipline = input.discipline === Discipline.TENNIS ? input.subDiscipline ?? null : null
   tournament.type = input.type
   tournament.scoreFormat = input.scoreFormat
   tournament.startDate = input.startDate
-  tournament.location = input.location.trim() || null
+  tournament.location = input.location?.trim() || null
   tournament.maxCompetitors = input.maxCompetitors
   tournament.settings = settings
   tournament.currentRound = 0

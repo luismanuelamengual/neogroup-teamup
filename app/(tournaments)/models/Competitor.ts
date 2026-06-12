@@ -1,6 +1,6 @@
-import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
-import { User } from '@/app/(auth)/entities/User'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { BaseEntity, BelongsTo, Column, Dto, Entity } from '@neogroup/neorm'
+import { User } from '@/app/(auth)/models/User'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 
 @Entity({ table: 'competitors' })
 export class Competitor extends BaseEntity {
@@ -40,3 +40,6 @@ export class Competitor extends BaseEntity {
   @BelongsTo(() => User, 'partnerUserId')
   partnerUser?: User
 }
+
+/** Plain serializable competitor passed from server code to client components. */
+export type CompetitorDto = Dto<Competitor>
