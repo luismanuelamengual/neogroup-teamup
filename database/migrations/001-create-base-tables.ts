@@ -20,7 +20,7 @@ export default {
         firstName VARCHAR(100),
         lastName VARCHAR(100),
         nickname VARCHAR(100),
-        profile VARCHAR(20),
+        roleId INTEGER,
         createdAt ${TIMESTAMP}
       )
     `)

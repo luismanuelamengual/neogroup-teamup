@@ -1,11 +1,12 @@
 /**
- * Types shared by every API route handler (server) and action (client):
- * the common result shape returned by the REST endpoints.
+ * Standard response shape shared by every API endpoint (server) and by
+ * executeRequest (client). Every endpoint responds:
+ * - success: { success: true, data: ... }
+ * - error:   { success: false, errorMessage: ..., error: ... }
  */
-
-/** Shared result type returned by the API endpoints. */
-export interface ApiResult {
+export interface ApiResponse<T = unknown> {
   success: boolean
-  error?: string
-  id?: number
+  data?: T
+  errorMessage?: string
+  error?: Error
 }

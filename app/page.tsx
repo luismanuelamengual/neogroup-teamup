@@ -13,8 +13,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     redirect('/login')
   }
 
-  if (!session.user.profile) {
-    redirect(`/select-profile${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`)
+  if (!session.user.roleId) {
+    redirect(`/select-role${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`)
   }
 
   if (callbackUrl && callbackUrl.startsWith('/')) {

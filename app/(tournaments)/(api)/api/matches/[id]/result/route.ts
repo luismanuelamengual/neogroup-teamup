@@ -4,32 +4,32 @@ import { Round } from '@/app/(tournaments)/entities/Round'
 import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 import { MatchScore } from '@/app/(tournaments)/models/types'
 import { getScoreWinner, isValidScore } from '@/app/(tournaments)/utils/score'
-import { apiResponse, withAuth } from '@/app/utils/api-server'
+import { ApiException, withAuth } from '@/app/utils/api-server'
 
 /**
- * PUT /api/matches/[id]/result — saves (or edits) a match result.
+ * POST /api/matches/[id]/result — saves (or edits) a match result.
  * Allowed for the tournament owner and for players taking part in the match,
  * while the match round is open.
  */
-export const PUT = withAuth<{ id: string }>(async (request, context, userId) => {
+export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
   const { id } = await context.params
   const { score } = (await request.json()) as { score: MatchScore }
   const match: Match | null = await Match.find(Number(id))
 
   if (!match || !match.awayCompetitorIds) {
-    return apiResponse({ success: false, error: 'notFound' })
+    throw new ApiException('notFound')
   }
 
   const tournament: Tournament | null = await Tournament.find(match.tournamentId)
 
   if (!tournament || tournament.status !== 'ongoing') {
-    return apiResponse({ success: false, error: 'invalidStatus' })
+    throw new ApiException('invalidStatus')
   }
 
   const round: Round | null = await Round.find(match.roundId)
 
   if (!round || round.status !== 'open') {
-    return apiResponse({ success: false, error: 'roundClosed' })
+    throw new ApiException('roundClosed')
   }
 
   const isOwner = tournament.ownerId === userId
@@ -42,12 +42,12 @@ export const PUT = withAuth<{ id: string }>(async (request, context, userId) => 
     )
 
     if (!isParticipant) {
-      return apiResponse({ success: false, error: 'unauthorized' })
+      throw new ApiException('unauthorized')
     }
   }
 
   if (!isValidScore(score, tournament.scoreFormat)) {
-    return apiResponse({ success: false, error: 'invalidScore' })
+    throw new ApiException('invalidScore')
   }
 
   if (score.walkover) {
@@ -62,6 +62,4 @@ export const PUT = withAuth<{ id: string }>(async (request, context, userId) => 
 
   match.updatedAt = new Date()
   await match.save()
-
-  return apiResponse({ success: true })
 })

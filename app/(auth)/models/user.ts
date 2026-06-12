@@ -1,9 +1,21 @@
-/** FE user models shared across the app (auth module owns the user concept). */
+import type { Dto } from '@neogroup/neorm'
+import type { User } from '@/app/(auth)/entities/User'
 
-export type Profile = 'organizer' | 'player'
+/** FE user models shared across the app (the auth module owns the user concept). */
+
+/** Available roles. A user gets a role once (at registration or first login) and cannot switch it. */
+export const UserRoles = {
+  ORGANIZER: 1,
+  PLAYER: 2
+} as const
+
+export type UserRoleId = (typeof UserRoles)[keyof typeof UserRoles]
 
 /** Plain serializable user object passed from server code to client components. */
-export interface UserDto {
+export type UserDto = Omit<Dto<User>, 'passwordHash'>
+
+/** The signed-in user, as stored in the user store and the session. */
+export interface SessionUser {
   id: number
   email: string
   firstName: string | null
@@ -11,6 +23,7 @@ export interface UserDto {
   nickname: string | null
   displayName: string
   avatarUrl: string
+  roleId: UserRoleId | null
 }
 
 export interface RegisterInput {
@@ -18,6 +31,11 @@ export interface RegisterInput {
   password: string
   firstName: string
   lastName: string
+  roleId: UserRoleId
+}
+
+export function isValidRoleId(value: unknown): value is UserRoleId {
+  return value === UserRoles.ORGANIZER || value === UserRoles.PLAYER
 }
 
 export function getUserDisplayName(user: {

@@ -4,7 +4,7 @@ import { Round } from '@/app/(tournaments)/entities/Round'
 import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 import { toMatchDto } from '@/app/(tournaments)/models/dtos'
 import { generateRoundPairings } from '@/app/(tournaments)/services/tournament-engine'
-import { ApiResult } from '@/app/models/api'
+import { ApiException } from '@/app/utils/api-server'
 
 /** Helpers shared by the /api/tournaments/[id]/* route handlers. */
 
@@ -19,13 +19,13 @@ export async function requireOwnedTournament(tournamentId: number, userId: numbe
   return tournament
 }
 
-/** Generates and persists the pairings/matches of a round. */
-export async function createRound(tournament: Tournament, roundNumber: number): Promise<ApiResult> {
+/** Generates and persists the pairings/matches of a round. Throws ApiException when not possible. */
+export async function createRound(tournament: Tournament, roundNumber: number): Promise<void> {
   const competitors = await Competitor.where('tournamentId', tournament.id).orderBy('id').get()
   const competitorIds: number[] = competitors.map((competitor: any) => competitor.id)
 
   if (competitorIds.length < 2) {
-    return { success: false, error: 'notEnoughCompetitors' }
+    throw new ApiException('notEnoughCompetitors')
   }
 
   let previousRoundMatches: Match[] = []
@@ -49,7 +49,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   )
 
   if (pairings.length === 0) {
-    return { success: false, error: 'noMatchesGenerated' }
+    throw new ApiException('noMatchesGenerated')
   }
 
   const round = new Round()
@@ -87,6 +87,4 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   tournament.currentRound = roundNumber
   tournament.updatedAt = new Date()
   await tournament.save()
-
-  return { success: true }
 }

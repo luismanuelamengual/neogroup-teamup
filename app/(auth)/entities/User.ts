@@ -1,5 +1,8 @@
-import { BaseEntity, Column, Entity } from '@neogroup/neorm'
-import { Profile } from '@/app/(auth)/models/user'
+import { BaseEntity, Column, Entity, HasMany } from '@neogroup/neorm'
+import { getUserDisplayName, UserRoleId } from '@/app/(auth)/models/user'
+import { Competitor } from '@/app/(tournaments)/entities/Competitor'
+import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { getGravatarUrl } from '@/app/utils/gravatar'
 
 @Entity({ table: 'users' })
 export class User extends BaseEntity {
@@ -21,9 +24,26 @@ export class User extends BaseEntity {
   @Column()
   nickname!: string | null
 
+  /** Role of the user: 1 = organizer, 2 = player. Assigned once, cannot be switched. */
   @Column()
-  profile!: Profile | null
+  roleId!: UserRoleId | null
 
   @Column({ cast: 'date' })
   createdAt!: Date
+
+  /** Tournaments owned (organized) by this user. */
+  @HasMany(() => Tournament, 'ownerId')
+  tournaments?: Tournament[]
+
+  /** Competitor entries of this user (as main player). */
+  @HasMany(() => Competitor, 'userId')
+  competitorEntries?: Competitor[]
+
+  get displayName(): string {
+    return getUserDisplayName(this)
+  }
+
+  get avatarUrl(): string {
+    return getGravatarUrl(this.email, 80)
+  }
 }

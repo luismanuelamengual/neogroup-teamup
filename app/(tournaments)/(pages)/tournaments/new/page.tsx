@@ -1,6 +1,7 @@
 import Typography from '@mui/material/Typography'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
+import { UserRoles } from '@/app/(auth)/models/user'
 import { auth } from '@/app/(auth)/services/auth'
 import TournamentForm from '@/app/(tournaments)/components/TournamentForm'
 
@@ -8,7 +9,7 @@ import TournamentForm from '@/app/(tournaments)/components/TournamentForm'
 export default async function NewTournamentPage() {
   const session = await auth()
 
-  if (session?.user?.profile !== 'organizer') {
+  if (session?.user?.roleId !== UserRoles.ORGANIZER) {
     redirect('/tournaments')
   }
 

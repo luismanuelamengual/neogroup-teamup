@@ -14,15 +14,19 @@
     "lastName": "Apellido",
     "createAccount": "Crear cuenta",
     "haveAccount": "¿Ya tenés cuenta?",
+    "roleLabel": "Quiero usar TeamUp como",
+    "rolePlayer": "Jugador",
+    "roleOrganizer": "Organizador",
     "errors": {
       "invalidCredentials": "Email o contraseña incorrectos",
       "invalidEmail": "El email no es válido",
       "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
       "missingFields": "Completá todos los campos obligatorios",
-      "emailAlreadyRegistered": "Ya existe una cuenta con ese email"
+      "emailAlreadyRegistered": "Ya existe una cuenta con ese email",
+      "invalidRole": "El rol seleccionado no es válido"
     }
   },
-  "profileSelect": {
+  "roleSelect": {
     "title": "¿Cómo vas a usar TeamUp?",
     "subtitle": "Podés cambiar de perfil más adelante desde el menú de tu cuenta.",
     "organizerTitle": "Organizador",

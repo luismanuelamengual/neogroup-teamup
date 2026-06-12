@@ -1,4 +1,8 @@
-import { BaseEntity, Column, Entity } from '@neogroup/neorm'
+import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
+import { User } from '@/app/(auth)/entities/User'
+import { Competitor } from '@/app/(tournaments)/entities/Competitor'
+import { Match } from '@/app/(tournaments)/entities/Match'
+import { Round } from '@/app/(tournaments)/entities/Round'
 import {
   Discipline,
   ScoreFormat,
@@ -53,4 +57,17 @@ export class Tournament extends BaseEntity {
 
   @Column({ cast: 'date' })
   updatedAt!: Date
+
+  /** Organizer that owns this tournament. */
+  @BelongsTo(() => User, 'ownerId')
+  owner?: User
+
+  @HasMany(() => Competitor, 'tournamentId')
+  competitors?: Competitor[]
+
+  @HasMany(() => Round, 'tournamentId')
+  rounds?: Round[]
+
+  @HasMany(() => Match, 'tournamentId')
+  matches?: Match[]
 }

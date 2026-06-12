@@ -1,4 +1,6 @@
-import { BaseEntity, Column, Entity } from '@neogroup/neorm'
+import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
+import { User } from '@/app/(auth)/entities/User'
+import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 
 @Entity({ table: 'competitors' })
 export class Competitor extends BaseEntity {
@@ -26,4 +28,15 @@ export class Competitor extends BaseEntity {
 
   @Column({ cast: 'date' })
   createdAt!: Date
+
+  @BelongsTo(() => Tournament, 'tournamentId')
+  tournament?: Tournament
+
+  /** Platform user behind this entry (null when added manually). */
+  @BelongsTo(() => User, 'userId')
+  user?: User
+
+  /** Partner platform user (doubles disciplines only). */
+  @BelongsTo(() => User, 'partnerUserId')
+  partnerUser?: User
 }

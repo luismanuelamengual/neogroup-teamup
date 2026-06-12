@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
 
-const withNextIntl = createNextIntlPlugin('./app/lang/request.ts')
+const withNextIntl = createNextIntlPlugin('./app/utils/lang.ts')
 const nextConfig: NextConfig = {
   serverExternalPackages: ['@neogroup/neorm', 'pg'],
   images: {

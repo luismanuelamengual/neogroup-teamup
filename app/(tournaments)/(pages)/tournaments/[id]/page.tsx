@@ -1,3 +1,4 @@
+import { UserRoles } from '@/app/(auth)/models/user'
 import { auth } from '@/app/(auth)/services/auth'
 import ManageTournamentView from '@/app/(tournaments)/components/ManageTournamentView'
 import PlayerTournamentView from '@/app/(tournaments)/components/PlayerTournamentView'
@@ -7,7 +8,7 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
   const { id } = await params
   const session = await auth()
 
-  if (session?.user?.profile === 'organizer') {
+  if (session?.user?.roleId === UserRoles.ORGANIZER) {
     return <ManageTournamentView tournamentId={Number(id)} appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ''} />
   }
 

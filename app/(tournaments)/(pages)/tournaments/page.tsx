@@ -4,6 +4,7 @@ import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
+import { UserRoles } from '@/app/(auth)/models/user'
 import { auth } from '@/app/(auth)/services/auth'
 import OrganizerTournamentsList from '@/app/(tournaments)/components/OrganizerTournamentsList'
 import PlayerTournamentsList from '@/app/(tournaments)/components/PlayerTournamentsList'
@@ -17,7 +18,7 @@ export default async function TournamentsPage({
 }) {
   const session = await auth()
 
-  if (session?.user?.profile === 'organizer') {
+  if (session?.user?.roleId === UserRoles.ORGANIZER) {
     const { name, active } = await searchParams
     const t = await getTranslations('organizer')
 

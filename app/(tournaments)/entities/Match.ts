@@ -1,4 +1,6 @@
-import { BaseEntity, Column, Entity } from '@neogroup/neorm'
+import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
+import { Round } from '@/app/(tournaments)/entities/Round'
+import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 import { MatchScore, MatchSide, MatchStatus } from '@/app/(tournaments)/models/types'
 
 @Entity({ table: 'matches' })
@@ -41,4 +43,10 @@ export class Match extends BaseEntity {
 
   @Column({ cast: 'date' })
   updatedAt!: Date
+
+  @BelongsTo(() => Tournament, 'tournamentId')
+  tournament?: Tournament
+
+  @BelongsTo(() => Round, 'roundId')
+  round?: Round
 }

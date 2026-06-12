@@ -1,5 +1,5 @@
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
-import { apiResponse, withAuth } from '@/app/utils/api-server'
+import { ApiException, withAuth } from '@/app/utils/api-server'
 
 /** POST /api/tournaments/[id]/finish — marks the tournament as finished. */
 export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
@@ -7,12 +7,10 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
   const tournament = await requireOwnedTournament(Number(id), userId)
 
   if (!tournament || tournament.status !== 'ongoing') {
-    return apiResponse({ success: false, error: 'invalidStatus' })
+    throw new ApiException('invalidStatus')
   }
 
   tournament.status = 'finished'
   tournament.updatedAt = new Date()
   await tournament.save()
-
-  return apiResponse({ success: true })
 })

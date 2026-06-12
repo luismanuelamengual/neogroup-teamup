@@ -5,7 +5,7 @@ Web application to create and play tennis & padel tournaments and leagues.
 ## Tech stack
 
 - **Next.js 16** (App Router, Turbopack)
-- **MUI** for UI components, **SASS** (`{Component}.styles.scss`) for styling
+- **MUI** for UI components, **SASS** for styling
 - **Auth.js v5** (Google + email/password)
 - **next-intl** for i18n (Spanish by default, English included)
 - **@neogroup/neorm** entities for database access (PostgreSQL)
@@ -46,15 +46,15 @@ The codebase is organized in **feature modules** inside the `app/` directory (wh
 ```
 app/
   layout.tsx             Root layout (theme, i18n provider, snackbar)
-  page.tsx               Entry point: redirects to the right home per session/profile
+  page.tsx               Entry point: redirects to the right home per session
   globals.scss           Global styles
-  components/            Shared components used by any module (AppShell, AppLayout, ThemeRegistry, ...)
-  actions/               Shared FE actions (e.g. executeRequest, the REST client helper)
-  models/                Shared FE models (e.g. ApiResult)
+  components/            Shared components used by any module (AppShell, AppLayout, ...)
+  actions/               Shared FE actions (executeRequest, the REST client helper)
+  models/                Shared FE models (ApiResponse, the standard API response shape)
   stores/                Shared zustand stores (e.g. notifications)
-  utils/                 Shared utilities (gravatar, api-server helpers for route handlers)
-  lang/                  Shared texts (common, nav) + next-intl request config (request.ts)
-  (auth)/                Authentication module
+  utils/                 Shared utilities (gravatar, api-server helpers, lang.ts — i18n config)
+  lang/                  Texts shared by the whole app (common, nav)
+  (auth)/                Authentication module (login, register, role selection, user store)
   (account)/             My-account module
   (tournaments)/         Tournaments module
 proxy.ts                 Route protection (Next.js proxy — must live at the project root)
@@ -68,9 +68,9 @@ Every feature module can contain any of these folders (only create the ones the 
 
 ```
 app/(module)/
-  components/      React components of this module ({Component}.tsx + {Component}.styles.scss)
-  actions/         FE actions: thin client-side wrappers around the REST API (e.g. getTournaments, loginUser)
-  entities/        BE entities of @neogroup/neorm (one class per database table)
+  components/      React components of this module (see "Components" below)
+  actions/         FE actions: thin client-side wrappers around the REST API (e.g. getTournaments)
+  entities/        BE entities of @neogroup/neorm (one class per database table, with relationships)
   models/          FE models: DTOs, domain types and request payloads shared between actions and API handlers
   stores/          zustand stores scoped to this module
   hooks/           React hooks scoped to this module
@@ -81,40 +81,80 @@ app/(module)/
   (api)/           All the API endpoints of this module, under (api)/api/... (URLs keep the /api prefix)
 ```
 
-Current modules:
+### Components
+
+Every component lives in **its own folder**, named after the component, with the code in `index.tsx` and the styles in `index.scss`:
 
 ```
-app/(auth)/        Login, register, profile selection
-  services/        Auth.js configuration (auth.ts, auth.config.ts)
-  entities/        User
-  models/          user.ts (Profile, UserDto, RegisterInput, getUserDisplayName), next-auth.d.ts
-  (pages)/         /login, /register, /select-profile
-  (api)/           /api/auth/[...nextauth], /api/users
-
-app/(account)/     My account
-  (pages)/         /account
-  (api)/           /api/account, /api/account/locale, /api/account/profile
-
-app/(tournaments)/ Tournaments (the core feature)
-  entities/        Tournament, Competitor, Round, Match
-  models/          types.ts (domain types), dtos.ts (serializable DTOs), inputs.ts (API payloads)
-  services/        queries.ts (data fetching), tournament-engine.ts (pairings), tournament-helpers.ts
-  utils/           score.ts, standings.ts
-  (pages)/         /tournaments, /tournaments/new, /tournaments/search, /tournaments/[id], /tournaments/[id]/join
-  (api)/           /api/tournaments/..., /api/matches/..., /api/registrations/...
+components/
+  CustomComponent/
+    index.tsx      The component (imports './index.scss' when it has styles)
+    index.scss     The component styles (only when needed)
 ```
+
+Imports stay clean thanks to the folder + index resolution: `import CustomComponent from '@/app/(module)/components/CustomComponent'`.
+
+### Users and roles
+
+A user has a **`roleId`** assigned once — `1` = Organizer, `2` = Player (constants in `UserRoles`, `app/(auth)/models/user.ts`) — and **it cannot be switched**. The role is chosen in the registration form; users signing in without a role (e.g. first Google login) pick it once at `/select-role`.
+
+The signed-in user (including its `roleId`) lives in a **zustand store**: `useUserStore` in `app/(auth)/stores/user.store.ts`, hydrated by `AppLayout` through `UserStoreHydrator`. Any client component that needs to take a decision based on the role reads it from this store (see also the `useUserRole` / `useIsOrganizer` helpers). Server components and API handlers read the role from the session (`session.user.roleId`).
+
+Pages are shared between roles: the same `/tournaments` routes render the organizer or the player experience based on the role.
+
+### Entities and DTOs
+
+Entities (in `entities/`) are neorm Active Record classes. Besides `@Column`, they declare their **relationships** with `@HasOne`, `@HasMany`, `@BelongsTo` (e.g. `Tournament` has many `competitors`, `rounds` and `matches`, and belongs to its `owner` User). Relations can be eager-loaded with `Entity.with('relation')`.
+
+FE DTOs are **derived from the entities** with the neorm `Dto<T>` type instead of being written by hand:
+
+```ts
+export type CompetitorDto = Dto<Competitor>            // columns + getters + loaded relations
+export type UserDto = Omit<Dto<User>, 'passwordHash'>  // derived, minus sensitive fields
+```
+
+To produce a DTO from an instance use `entity.toDto()`. Adding a column to an entity automatically updates its DTO.
+
+### API endpoints
+
+All endpoints (except Auth.js own `/api/auth/[...nextauth]`) follow the same contract:
+
+- **Method**: always `POST`, with a JSON body for the parameters.
+- **Route naming**: the path ends with the action, e.g. `/api/tournaments/list`, `/api/tournaments/create`, `/api/tournaments/[id]/get`, `/api/tournaments/[id]/update`, `/api/users/register`, `/api/registrations/join`.
+- **Response**: always the standard `ApiResponse` shape (`app/models/api.ts`):
+
+```ts
+{ success: true, data: ... }                          // success
+{ success: false, errorMessage: '...', error: ... }   // error (errorMessage is a stable code the FE translates)
+```
+
+Handlers are wrapped with `withApi` (public) or `withAuth` (requires session) from `app/utils/api-server.ts`: whatever the handler **returns** is sent as `data`, and errors are signalled by **throwing** `ApiException(errorMessage, status)`.
+
+```ts
+export const POST = withAuth(async (request, context, userId) => {
+  const input = (await request.json()) as SomeInput
+
+  if (!input.valid) {
+    throw new ApiException('missingFields')
+  }
+
+  return someData // -> { success: true, data: someData }
+})
+```
+
+On the client, `executeRequest<T>(url, payload)` (`app/actions/api.ts`) posts to the endpoint and returns `data` cast to `T`, or **throws** an `Error` whose `message` is the `errorMessage` code. Actions are thin wrappers around it; components catch the error and translate the code (`t(\`errors.${error.message}\`)`).
 
 ### Conventions — where do I put new code?
 
-- **A new page** → `app/(module)/(pages)/<route>/page.tsx`. Pages are role-agnostic by feature: when organizers and players see different things, the page checks `session.user.profile` and renders the proper view (see `app/(tournaments)/(pages)/tournaments/page.tsx`).
-- **A new API endpoint** → `app/(module)/(api)/api/<endpoint>/route.ts`. All endpoints live under the `/api/...` URL prefix. Wrap handlers with `withAuth` from `app/utils/api-server.ts` when they require a session.
-- **A component used only by one module** → `app/(module)/components/`. Used by several modules → `app/components/`.
-- **A FE action** (function called from components that hits the REST API) → `app/(module)/actions/`. Generic helpers → `app/actions/`.
-- **A neorm entity** (database table) → `entities/` of the module that owns the concept.
-- **FE models** (DTOs, types, request payloads) → `models/` of the module. Cross-module models (like `ApiResult`) → `app/models/`.
-- **BE logic** (queries, business rules executed on the server) → `app/(module)/services/`.
-- **Texts** → the module's `lang/es.json` and `lang/en.json` (see below).
-- **A new feature module** → create `app/(my-feature)/` with the folders you need, add its `lang/` files to `app/lang/request.ts`, and document it here.
+- **A new page** → `app/(module)/(pages)/<route>/page.tsx`. When organizers and players see different things, the page checks `session.user.roleId` (server) and renders the proper view; client components read the role from the user store.
+- **A new API endpoint** → `app/(module)/(api)/api/<resource>/<action>/route.ts`, exporting `POST` wrapped with `withApi`/`withAuth`.
+- **A component used only by one module** → `app/(module)/components/<Name>/index.tsx`. Used by several modules → `app/components/<Name>/index.tsx`.
+- **A FE action** → `app/(module)/actions/`. Generic helpers → `app/actions/`.
+- **A neorm entity** → `entities/` of the module that owns the concept, with its relationships configured.
+- **FE models** (DTOs, types, payloads) → `models/` of the module; derive DTOs with `Dto<T>`. Cross-module models → `app/models/`.
+- **BE logic** → `app/(module)/services/`.
+- **Texts** → the module's `lang/es.json` and `lang/en.json` (picked up automatically — see below).
+- **A new feature module** → create `app/(my-feature)/` with the folders you need and document it here. No registration needed anywhere.
 
 Cross-module imports are allowed but should be the exception (e.g. the tournaments module imports `UserDto` from the auth module, which owns the user concept). Shared code that several modules depend on belongs at the `app/` root instead.
 
@@ -128,20 +168,22 @@ There is no central message catalog. Every module owns its texts inside its own 
 
 ```
 app/lang/es.json                  Shared namespaces: common, nav
-app/(auth)/lang/es.json           Namespaces: auth, profileSelect
+app/(auth)/lang/es.json           Namespaces: auth, roleSelect
 app/(account)/lang/es.json        Namespace: account
 app/(tournaments)/lang/es.json    Namespaces: tournaments, organizer, player, score
 ```
 
+The next-intl request config lives at `app/utils/lang.ts` and discovers the catalogs **dynamically**: it merges every `app/*/lang/<locale>.json` file (plus `app/lang/<locale>.json`) at runtime, so a new module with a `lang/` folder needs **no registration** anywhere.
+
 Rules:
 
 - Each module file declares its **own top-level namespaces** (never reuse a namespace owned by another module). Components consume them as usual with `useTranslations('namespace')` / `getTranslations('namespace')`.
-- `app/lang/request.ts` is the next-intl request config: it statically imports every module's `lang/` files and merges them into the full catalog. **When you add a `lang/` folder to a new module, register its files there** (two import lines and two spreads).
 - Both locales (`es.json` and `en.json`) must define the same keys.
+- Catalogs are read with `fs` from the `app/` directory, so a `standalone` build would need the lang files copied next to the server output.
 
 ## Domain notes
 
-- **Profiles**: each user picks Organizer or Player on first login and can switch from the avatar menu. Pages are shared between profiles: the same `/tournaments` routes render the organizer or the player experience based on the active profile.
+- **Roles**: each user is an Organizer or a Player (`roleId`), assigned once at registration (or at `/select-role` on the first login) and not switchable.
 - **Tournament types**: league (round robin), americano (padel only, optional partner swapping per round) and playoff (knockout bracket with byes).
 - **Score formats**: 3 sets, 2 sets + super tiebreak, or a basic counter. Walkovers (W.O.) are supported everywhere.
 - The organizer starts the tournament, closes each round once all results are loaded and opens the next one; pairings are computed automatically based on the tournament type.

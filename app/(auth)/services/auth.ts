@@ -3,7 +3,7 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
 import { User } from '@/app/(auth)/entities/User'
-import { getUserDisplayName } from '@/app/(auth)/models/user'
+import { getUserDisplayName, UserRoleId } from '@/app/(auth)/models/user'
 import { authConfig } from '@/app/(auth)/services/auth.config'
 import { getGravatarUrl } from '@/app/utils/gravatar'
 
@@ -59,30 +59,30 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           dbUser.firstName = (profile?.given_name as string | undefined) ?? null
           dbUser.lastName = (profile?.family_name as string | undefined) ?? null
           dbUser.nickname = null
-          dbUser.profile = null
+          dbUser.roleId = null
           await dbUser.save()
         }
 
         token.userId = Number(dbUser.id)
-        token.profileLoaded = false
+        token.userLoaded = false
       }
 
       // First sign-in with credentials.
       if (account?.provider === 'credentials' && user?.id) {
         token.userId = Number(user.id)
-        token.profileLoaded = false
+        token.userLoaded = false
       }
 
       // Load (or reload after an update) the user attributes into the token.
-      if (token.userId && (!token.profileLoaded || trigger === 'update')) {
+      if (token.userId && (!token.userLoaded || trigger === 'update')) {
         const dbUser = await User.find(token.userId)
 
         if (dbUser) {
-          token.profile = dbUser.profile
+          token.roleId = dbUser.roleId
           token.firstName = dbUser.firstName
           token.lastName = dbUser.lastName
           token.nickname = dbUser.nickname
-          token.profileLoaded = true
+          token.userLoaded = true
         }
       }
 
@@ -91,14 +91,14 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async session({ session, token }) {
       if (token.userId) {
         session.user.id = String(token.userId)
-        session.user.profile = token.profile ?? null
-        session.user.firstName = token.firstName ?? null
-        session.user.lastName = token.lastName ?? null
-        session.user.nickname = token.nickname ?? null
+        session.user.roleId = (token.roleId as UserRoleId | undefined) ?? null
+        session.user.firstName = (token.firstName as string | undefined) ?? null
+        session.user.lastName = (token.lastName as string | undefined) ?? null
+        session.user.nickname = (token.nickname as string | undefined) ?? null
         session.user.name = getUserDisplayName({
-          firstName: token.firstName ?? null,
-          lastName: token.lastName ?? null,
-          nickname: token.nickname ?? null,
+          firstName: session.user.firstName,
+          lastName: session.user.lastName,
+          nickname: session.user.nickname,
           email: session.user.email ?? ''
         })
         session.user.image = getGravatarUrl(session.user.email)
