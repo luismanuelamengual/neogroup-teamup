@@ -23,8 +23,8 @@ export default async function TournamentsPage({
 
     return (
       <div className="organizer-tournaments">
-        <div className="organizer-tournaments__header">
-          <Typography variant="h5" component="h1" className="organizer-tournaments__title">
+        <div className="header">
+          <Typography variant="h5" component="h1" className="title">
             {t('title')}
           </Typography>
           {/* Plain href (no component={Link}): functions cannot cross the server → client boundary. */}
@@ -42,7 +42,7 @@ export default async function TournamentsPage({
 
   return (
     <div className="player-tournaments">
-      <Typography variant="h5" component="h1" className="player-tournaments__title">
+      <Typography variant="h5" component="h1" className="title">
         {t('myTournamentsTitle')}
       </Typography>
       <PlayerTournamentsList />

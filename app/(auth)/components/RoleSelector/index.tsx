@@ -47,33 +47,31 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
 
   return (
     <div className="role-selector">
-      <Typography variant="h5" component="h1" className="role-selector__title">
+      <Typography variant="h5" component="h1" className="title">
         {t('title')}
       </Typography>
-      <Typography variant="body2" color="text.secondary" className="role-selector__subtitle">
+      <Typography variant="body2" color="text.secondary" className="subtitle">
         {t('subtitle')}
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
-      <div className="role-selector__options">
+      <div className="options">
         <button
           type="button"
-          className={`role-selector__option ${
-            selected === UserRoles.ORGANIZER ? 'role-selector__option--selected' : ''
-          }`}
+          className={`option ${selected === UserRoles.ORGANIZER ? 'selected' : ''}`}
           onClick={() => setSelected(UserRoles.ORGANIZER)}
         >
-          <EmojiEventsIcon className="role-selector__option-icon" />
-          <span className="role-selector__option-title">{t('organizerTitle')}</span>
-          <span className="role-selector__option-description">{t('organizerDescription')}</span>
+          <EmojiEventsIcon className="option-icon" />
+          <span className="option-title">{t('organizerTitle')}</span>
+          <span className="option-description">{t('organizerDescription')}</span>
         </button>
         <button
           type="button"
-          className={`role-selector__option ${selected === UserRoles.PLAYER ? 'role-selector__option--selected' : ''}`}
+          className={`option ${selected === UserRoles.PLAYER ? 'selected' : ''}`}
           onClick={() => setSelected(UserRoles.PLAYER)}
         >
-          <SportsTennisIcon className="role-selector__option-icon" />
-          <span className="role-selector__option-title">{t('playerTitle')}</span>
-          <span className="role-selector__option-description">{t('playerDescription')}</span>
+          <SportsTennisIcon className="option-icon" />
+          <span className="option-title">{t('playerTitle')}</span>
+          <span className="option-description">{t('playerDescription')}</span>
         </button>
       </div>
       <Button variant="contained" fullWidth disabled={!selected || loading} onClick={handleContinue}>

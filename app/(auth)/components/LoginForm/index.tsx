@@ -55,10 +55,10 @@ export default function LoginForm({ callbackUrl }: LoginFormProps) {
 
   return (
     <div className="login-form">
-      <Typography variant="h5" component="h1" className="login-form__title">
+      <Typography variant="h5" component="h1" className="title">
         {t('signInTitle')}
       </Typography>
-      <Typography variant="body2" color="text.secondary" className="login-form__subtitle">
+      <Typography variant="body2" color="text.secondary" className="subtitle">
         {t('signInSubtitle')}
       </Typography>
       <Button
@@ -66,12 +66,12 @@ export default function LoginForm({ callbackUrl }: LoginFormProps) {
         fullWidth
         startIcon={<GoogleIcon />}
         onClick={handleGoogleSignIn}
-        className="login-form__google-button"
+        className="google-button"
       >
         {t('signInWithGoogle')}
       </Button>
-      <Divider className="login-form__divider">{t('or')}</Divider>
-      <form onSubmit={handleSubmit} className="login-form__form">
+      <Divider className="divider">{t('or')}</Divider>
+      <form onSubmit={handleSubmit} className="form">
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label={t('email')}
@@ -95,7 +95,7 @@ export default function LoginForm({ callbackUrl }: LoginFormProps) {
           {t('signIn')}
         </Button>
       </form>
-      <Typography variant="body2" className="login-form__footer">
+      <Typography variant="body2" className="footer">
         {t('noAccount')}{' '}
         <Link href={`/register${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>
           {t('register')}

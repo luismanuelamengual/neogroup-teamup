@@ -52,7 +52,7 @@ export default function TournamentFilters({ name, onlyActive }: TournamentFilter
         placeholder={t('filterByName')}
         value={nameValue}
         onChange={(event) => setNameValue(event.target.value)}
-        className="tournament-filters__name"
+        className="name"
         slotProps={{
           input: {
             startAdornment: (

@@ -110,18 +110,18 @@ export default function ScoreDialog({
       <DialogTitle>{t('dialogTitle')}</DialogTitle>
       <DialogContent className="score-dialog">
         {invalid && <Alert severity="error">{t('invalid')}</Alert>}
-        <div className="score-dialog__header">
-          <span className="score-dialog__competitor score-dialog__competitor--home">{homeName}</span>
-          <span className="score-dialog__vs">vs</span>
-          <span className="score-dialog__competitor score-dialog__competitor--away">{awayName}</span>
+        <div className="header">
+          <span className="competitor home">{homeName}</span>
+          <span className="vs">vs</span>
+          <span className="competitor away">{awayName}</span>
         </div>
         <FormControlLabel
           control={<Switch checked={walkover} onChange={(event) => setWalkover(event.target.checked)} />}
           label={t('walkoverLabel')}
         />
         {walkover ? (
-          <div className="score-dialog__walkover">
-            <span className="score-dialog__walkover-title">{t('walkoverWinner')}</span>
+          <div className="walkover">
+            <span className="walkover-title">{t('walkoverWinner')}</span>
             <RadioGroup
               value={walkoverWinner}
               onChange={(event) => setWalkoverWinner(Number(event.target.value) as MatchSide)}
@@ -131,10 +131,10 @@ export default function ScoreDialog({
             </RadioGroup>
           </div>
         ) : usesSets ? (
-          <div className="score-dialog__sets">
+          <div className="sets">
             {sets.map((set, index) => (
-              <div key={index} className="score-dialog__set-row">
-                <span className="score-dialog__set-label">{setLabel(index)}</span>
+              <div key={index} className="set-row">
+                <span className="set-label">{setLabel(index)}</span>
                 <TextField
                   type="number"
                   size="small"
@@ -142,7 +142,7 @@ export default function ScoreDialog({
                   onChange={(event) => updateSet(index, MatchSide.HOME, Number(event.target.value))}
                   slotProps={{ htmlInput: { min: 0, 'aria-label': `${setLabel(index)} ${homeName}` } }}
                 />
-                <span className="score-dialog__set-separator">-</span>
+                <span className="set-separator">-</span>
                 <TextField
                   type="number"
                   size="small"
@@ -154,8 +154,8 @@ export default function ScoreDialog({
             ))}
           </div>
         ) : (
-          <div className="score-dialog__set-row">
-            <span className="score-dialog__set-label">{t('games')}</span>
+          <div className="set-row">
+            <span className="set-label">{t('games')}</span>
             <TextField
               type="number"
               size="small"
@@ -163,7 +163,7 @@ export default function ScoreDialog({
               onChange={(event) => setHomeCount(Math.max(0, Number(event.target.value)))}
               slotProps={{ htmlInput: { min: 0 } }}
             />
-            <span className="score-dialog__set-separator">-</span>
+            <span className="set-separator">-</span>
             <TextField
               type="number"
               size="small"

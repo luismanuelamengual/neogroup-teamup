@@ -3,14 +3,14 @@
   flex-direction: column;
   gap: 16px;
 
-  &__header {
+  .header {
     display: flex;
     flex-direction: column;
     gap: 12px;
     padding: 20px;
   }
 
-  &__title-row {
+  .title-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -18,24 +18,24 @@
     flex-wrap: wrap;
   }
 
-  &__title-actions {
+  .title-actions {
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
-  &__name {
+  .name {
     font-weight: 700;
   }
 
-  &__meta {
+  .meta {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
   }
 
-  &__meta-item {
+  .meta-item {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -43,25 +43,25 @@
     font-size: 13px;
   }
 
-  &__actions {
+  .actions {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
   }
 
-  &__section {
+  .section {
     display: flex;
     flex-direction: column;
     gap: 14px;
     padding: 20px;
   }
 
-  &__section-title {
+  .section-title {
     font-weight: 700 !important;
     font-size: 17px !important;
   }
 
-  &__competitors {
+  .competitors {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
@@ -70,12 +70,12 @@
 
 @media (max-width: 600px) {
   .manage-tournament {
-    &__header,
-    &__section {
+    .header,
+    .section {
       padding: 14px;
     }
 
-    &__actions {
+    .actions {
       flex-direction: column;
 
       button {

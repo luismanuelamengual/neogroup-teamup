@@ -3,23 +3,23 @@
   flex-direction: column;
   gap: 16px;
 
-  &__title {
+  .title {
     text-align: center;
     font-weight: 700;
   }
 
-  &__subtitle {
+  .subtitle {
     text-align: center;
     margin-top: -8px;
   }
 
-  &__options {
+  .options {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
-  &__option {
+  .option {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -35,23 +35,23 @@
       border-color: var(--color-primary-light);
     }
 
-    &--selected {
+    &.selected {
       border-color: var(--color-primary);
       background-color: rgba(15, 118, 110, 0.06);
     }
   }
 
-  &__option-icon {
+  .option-icon {
     color: var(--color-primary);
     font-size: 36px !important;
   }
 
-  &__option-title {
+  .option-title {
     font-weight: 700;
     font-size: 16px;
   }
 
-  &__option-description {
+  .option-description {
     color: var(--color-text-secondary);
     font-size: 13px;
     text-align: center;

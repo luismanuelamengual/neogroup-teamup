@@ -58,10 +58,10 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
 
   return (
     <div className="register-form">
-      <Typography variant="h5" component="h1" className="register-form__title">
+      <Typography variant="h5" component="h1" className="title">
         {t('registerTitle')}
       </Typography>
-      <form onSubmit={handleSubmit} className="register-form__form">
+      <form onSubmit={handleSubmit} className="form">
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label={t('firstName')}
@@ -95,7 +95,7 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
           fullWidth
           autoComplete="new-password"
         />
-        <div className="register-form__role">
+        <div className="role">
           <Typography variant="body2" color="text.secondary">
             {t('roleLabel')}
           </Typography>
@@ -123,7 +123,7 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
           {t('createAccount')}
         </Button>
       </form>
-      <Typography variant="body2" className="register-form__footer">
+      <Typography variant="body2" className="footer">
         {t('haveAccount')}{' '}
         <Link href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>
           {t('signIn')}

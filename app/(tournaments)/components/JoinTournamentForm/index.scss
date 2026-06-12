@@ -6,11 +6,11 @@
   margin: 0 auto;
   padding: 28px 24px;
 
-  &__title {
+  .title {
     font-weight: 700;
   }
 
-  &__info {
+  .info {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -19,42 +19,43 @@
     border-radius: var(--radius-md);
   }
 
-  &__tournament-name {
+  .tournament-name {
     font-weight: 700 !important;
   }
 
-  &__tags {
+  .tags {
     display: flex;
     gap: 8px;
   }
 
-  &__partner {
+  .partner {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
 
-  &__partner-title {
+  .partner-title {
     font-weight: 600 !important;
   }
+}
 
-  &__user-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+// Rendered inside the Autocomplete popper (outside the .join-tournament tree).
+.join-tournament-user-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 
-  &__user-avatar {
+  .avatar {
     width: 32px !important;
     height: 32px !important;
   }
 
-  &__user-name {
+  .name {
     font-size: 14px;
     font-weight: 600;
   }
 
-  &__user-email {
+  .email {
     font-size: 12px;
     color: var(--color-text-secondary);
   }

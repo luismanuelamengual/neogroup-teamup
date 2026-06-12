@@ -25,27 +25,27 @@ export default function StandingsTable({ type, rows }: StandingsTableProps) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell className="standings-table__position-cell">{t('position')}</TableCell>
+            <TableCell className="position-cell">{t('position')}</TableCell>
             <TableCell>{t('competitor')}</TableCell>
             <TableCell align="center">{t('played')}</TableCell>
             <TableCell align="center">{t('won')}</TableCell>
             {type === TournamentType.LEAGUE && <TableCell align="center">{t('setsWon')}</TableCell>}
             {type === TournamentType.AMERICANO && <TableCell align="center">{t('gamesWon')}</TableCell>}
-            <TableCell align="center" className="standings-table__points-cell">
+            <TableCell align="center" className="points-cell">
               {t('points')}
             </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {rows.map((row, index) => (
-            <TableRow key={row.competitorId} className={index < 1 ? 'standings-table__row--leader' : ''}>
-              <TableCell className="standings-table__position-cell">{index + 1}</TableCell>
+            <TableRow key={row.competitorId} className={index < 1 ? 'leader' : ''}>
+              <TableCell className="position-cell">{index + 1}</TableCell>
               <TableCell>{row.displayName}</TableCell>
               <TableCell align="center">{row.played}</TableCell>
               <TableCell align="center">{row.won}</TableCell>
               {type === TournamentType.LEAGUE && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
               {type === TournamentType.AMERICANO && <TableCell align="center">{row.gamesWon ?? 0}</TableCell>}
-              <TableCell align="center" className="standings-table__points-cell">
+              <TableCell align="center" className="points-cell">
                 {row.points}
               </TableCell>
             </TableRow>

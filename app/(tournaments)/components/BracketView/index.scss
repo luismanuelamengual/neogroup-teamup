@@ -3,19 +3,23 @@
   overflow-x: auto;
   padding-bottom: 8px;
 
-  &__scroller {
+  .scroller {
     display: flex;
     gap: 28px;
     min-width: min-content;
   }
 
-  &__column {
+  .column {
     display: flex;
     flex-direction: column;
     min-width: 280px;
+
+    &:last-child .match::after {
+      display: none;
+    }
   }
 
-  &__round-title {
+  .round-title {
     margin: 0 0 12px;
     font-size: 15px;
     font-weight: 700;
@@ -23,7 +27,7 @@
     text-align: center;
   }
 
-  &__matches {
+  .matches {
     display: flex;
     flex-direction: column;
     justify-content: space-around;
@@ -31,7 +35,7 @@
     gap: 16px;
   }
 
-  &__match {
+  .match {
     position: relative;
 
     &::after {
@@ -43,9 +47,5 @@
       height: 2px;
       background-color: var(--color-divider);
     }
-  }
-
-  &__column:last-child &__match::after {
-    display: none;
   }
 }

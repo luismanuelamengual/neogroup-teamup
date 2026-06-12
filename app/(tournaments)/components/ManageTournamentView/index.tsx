@@ -172,12 +172,12 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
   return (
     <div className="manage-tournament">
-      <Paper className="manage-tournament__header">
-        <div className="manage-tournament__title-row">
-          <Typography variant="h5" component="h1" className="manage-tournament__name">
+      <Paper className="header">
+        <div className="title-row">
+          <Typography variant="h5" component="h1" className="name">
             {tournament.name}
           </Typography>
-          <div className="manage-tournament__title-actions">
+          <div className="title-actions">
             <StatusChip status={tournament.status} />
             <Button size="small" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
               {tOrganizer('manage.edit')}
@@ -189,23 +189,23 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             {tournament.description}
           </Typography>
         )}
-        <div className="manage-tournament__meta">
+        <div className="meta">
           <Chip size="small" label={t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)} />
           {tournament.subDiscipline && (
             <Chip size="small" label={t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)} />
           )}
           <Chip size="small" label={t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)} />
           <Chip size="small" label={t(`scoreFormat.${SCORE_FORMAT_KEYS[tournament.scoreFormat]}`)} />
-          <span className="manage-tournament__meta-item">
+          <span className="meta-item">
             <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
           </span>
           {tournament.location && (
-            <span className="manage-tournament__meta-item">
+            <span className="meta-item">
               <PlaceIcon fontSize="inherit" /> {tournament.location}
             </span>
           )}
         </div>
-        <div className="manage-tournament__actions">
+        <div className="actions">
           {tournament.status === TournamentStatus.STAND_BY && (
             <>
               <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
@@ -247,8 +247,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         )}
       </Paper>
 
-      <Paper className="manage-tournament__section">
-        <Typography variant="h6" className="manage-tournament__section-title">
+      <Paper className="section">
+        <Typography variant="h6" className="section-title">
           {tOrganizer('manage.registeredCompetitors')} ({competitors.length} / {tournament.maxCompetitors})
         </Typography>
         {competitors.length === 0 ? (
@@ -256,7 +256,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             {tOrganizer('manage.noCompetitors')}
           </Typography>
         ) : (
-          <div className="manage-tournament__competitors">
+          <div className="competitors">
             {competitors.map((competitor) => (
               <Chip key={competitor.id} label={competitor.displayName} variant="outlined" />
             ))}
@@ -265,8 +265,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
       </Paper>
 
       {rounds.length > 0 && (
-        <Paper className="manage-tournament__section">
-          <Typography variant="h6" className="manage-tournament__section-title">
+        <Paper className="section">
+          <Typography variant="h6" className="section-title">
             {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
           </Typography>
           {tournament.type === TournamentType.PLAYOFF ? (
@@ -293,8 +293,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
       )}
 
       {standings.length > 0 && rounds.length > 0 && (
-        <Paper className="manage-tournament__section">
-          <Typography variant="h6" className="manage-tournament__section-title">
+        <Paper className="section">
+          <Typography variant="h6" className="section-title">
             {t('standings')}
           </Typography>
           <StandingsTable type={tournament.type} rows={standings} />

@@ -44,14 +44,14 @@ export default function OrganizerTournamentsList({ name, onlyActive }: Organizer
 
   if (tournaments.length === 0) {
     return (
-      <Typography color="text.secondary" className="organizer-tournaments__empty">
+      <Typography color="text.secondary" className="empty">
         {t('empty')}
       </Typography>
     )
   }
 
   return (
-    <div className="organizer-tournaments__list">
+    <div className="list">
       {tournaments.map((tournament) => (
         <TournamentCard key={tournament.id} tournament={tournament} href={`/tournaments/${tournament.id}`} />
       ))}

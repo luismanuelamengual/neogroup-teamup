@@ -41,7 +41,7 @@ export default function PlayerTournamentsList() {
 
   if (tournaments.length === 0) {
     return (
-      <div className="player-tournaments__empty">
+      <div className="empty">
         <Typography color="text.secondary">{t('myTournamentsEmpty')}</Typography>
         <Button component={Link} href="/tournaments/search" variant="contained" startIcon={<SearchIcon />}>
           {t('findTournaments')}
@@ -51,7 +51,7 @@ export default function PlayerTournamentsList() {
   }
 
   return (
-    <div className="player-tournaments__list">
+    <div className="list">
       {tournaments.map((tournament) => (
         <TournamentCard key={tournament.id} tournament={tournament} href={`/tournaments/${tournament.id}`} />
       ))}

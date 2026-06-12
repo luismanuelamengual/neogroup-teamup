@@ -20,7 +20,7 @@ export default async function TournamentSearchPage({ searchParams }: { searchPar
 
   return (
     <div className="player-search">
-      <Typography variant="h5" component="h1" className="player-search__title">
+      <Typography variant="h5" component="h1" className="title">
         {t('searchTitle')}
       </Typography>
       <TournamentSearchBar query={q ?? ''} />

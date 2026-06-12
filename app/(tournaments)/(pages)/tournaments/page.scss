@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: 16px;
 
-  &__header {
+  .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -11,17 +11,17 @@
     flex-wrap: wrap;
   }
 
-  &__title {
+  .title {
     font-weight: 700;
   }
 
-  &__list {
+  .list {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
-  &__empty {
+  .empty {
     text-align: center;
     padding: 48px 0;
   }
@@ -32,17 +32,17 @@
   flex-direction: column;
   gap: 16px;
 
-  &__title {
+  .title {
     font-weight: 700;
   }
 
-  &__list {
+  .list {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
-  &__empty {
+  .empty {
     display: flex;
     flex-direction: column;
     align-items: center;

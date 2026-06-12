@@ -6,32 +6,36 @@
   flex-direction: column;
   gap: 20px;
 
-  &__title {
+  .title {
     font-weight: 700;
   }
 
-  &__avatar-section {
+  .avatar-section {
     display: flex;
     align-items: center;
     gap: 16px;
+    margin-bottom: 20px;
   }
 
-  &__avatar-button {
+  .avatar-button {
     position: relative;
     border-radius: 50% !important;
     overflow: hidden;
+    aspect-ratio: 1;
+    flex-shrink: 0;
 
-    &:hover .account-form__avatar-overlay {
+    &:hover .avatar-overlay {
       opacity: 1;
     }
   }
 
-  &__avatar {
-    width: 64px !important;
-    height: 64px !important;
+  .avatar {
+    width: 60px !important;
+    height: 60px !important;
+    border: 2px solid rgb(61, 140, 57);
   }
 
-  &__avatar-overlay {
+  .avatar-overlay {
     position: absolute;
     inset: 0;
     display: flex;
@@ -43,25 +47,26 @@
     transition: opacity 0.15s ease;
   }
 
-  &__language-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  &__language-flag {
-    font-size: 18px;
-    line-height: 1;
-  }
-
-  &__avatar-info {
+  .avatar-info {
     display: flex;
     flex-direction: column;
   }
 
-  &__form {
+  .form {
     display: flex;
     flex-direction: column;
     gap: 16px;
+  }
+}
+
+// Rendered both inline (selected value) and inside the Select dropdown portal.
+.account-form-language-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .flag {
+    font-size: 18px;
+    line-height: 1;
   }
 }

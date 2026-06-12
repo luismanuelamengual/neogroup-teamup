@@ -20,34 +20,34 @@ export default function TournamentCard({ tournament, href }: TournamentCardProps
   const t = useTranslations('tournaments')
 
   return (
-    <Link href={href} className="tournament-card__link">
+    <Link href={href} className="tournament-card-link">
       <Paper className="tournament-card">
-        <div className="tournament-card__header">
-          <span className="tournament-card__name">{tournament.name}</span>
+        <div className="header">
+          <span className="name">{tournament.name}</span>
           <StatusChip status={tournament.status} />
         </div>
-        <div className="tournament-card__tags">
-          <span className="tournament-card__tag">{t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)}</span>
+        <div className="tags">
+          <span className="tag">{t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)}</span>
           {tournament.subDiscipline && (
-            <span className="tournament-card__tag">
+            <span className="tag">
               {t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)}
             </span>
           )}
-          <span className="tournament-card__tag">{t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)}</span>
+          <span className="tag">{t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)}</span>
         </div>
-        <div className="tournament-card__details">
-          <span className="tournament-card__detail">
+        <div className="details">
+          <span className="detail">
             <CalendarMonthIcon fontSize="inherit" />
             {tournament.startDate}
           </span>
           {tournament.location && (
-            <span className="tournament-card__detail">
+            <span className="detail">
               <PlaceIcon fontSize="inherit" />
               {tournament.location}
             </span>
           )}
           {tournament.competitorsCount != null && (
-            <span className="tournament-card__detail">
+            <span className="detail">
               <GroupsIcon fontSize="inherit" />
               {tournament.competitorsCount} / {tournament.maxCompetitors}
             </span>

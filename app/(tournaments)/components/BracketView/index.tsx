@@ -32,18 +32,18 @@ export default function BracketView({
 
   return (
     <div className="bracket-view">
-      <div className="bracket-view__scroller">
+      <div className="scroller">
         {sortedRounds.map((round) => {
           const roundMatches = matches
             .filter((match) => match.roundId === round.id)
             .sort((a, b) => a.position - b.position)
 
           return (
-            <div key={round.id} className="bracket-view__column">
-              <h3 className="bracket-view__round-title">{t('playoffRound', { number: round.number })}</h3>
-              <div className="bracket-view__matches">
+            <div key={round.id} className="column">
+              <h3 className="round-title">{t('playoffRound', { number: round.number })}</h3>
+              <div className="matches">
                 {roundMatches.map((match) => (
-                  <div key={match.id} className="bracket-view__match">
+                  <div key={match.id} className="match">
                     <MatchCard
                       match={match}
                       competitorNames={competitorNames}

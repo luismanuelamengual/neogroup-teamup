@@ -3,17 +3,17 @@
   flex-direction: column;
   gap: 16px;
 
-  &__title {
+  .title {
     font-weight: 700;
   }
 
-  &__list {
+  .list {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
-  &__empty {
+  .empty {
     text-align: center;
     padding: 48px 0;
   }

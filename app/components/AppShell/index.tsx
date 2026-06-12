@@ -72,27 +72,27 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-shell">
-      <AppBar position="sticky" className="app-shell__appbar">
-        <Toolbar className="app-shell__toolbar">
-          <Link href="/" className="app-shell__brand">
+      <AppBar position="sticky" className="appbar">
+        <Toolbar className="toolbar">
+          <Link href="/" className="brand">
             <SportsLogo />
             <span>TeamUp</span>
           </Link>
-          <nav className="app-shell__nav">
+          <nav className="nav">
             {navItems.map((item) => (
               <Link
                 key={item.key}
                 href={item.href}
-                className={`app-shell__nav-link ${isActive(item.href) ? 'app-shell__nav-link--active' : ''}`}
+                className={`nav-link ${isActive(item.href) ? 'active' : ''}`}
               >
                 {item.label}
               </Link>
             ))}
           </nav>
-          <div className="app-shell__spacer" />
-          <ButtonBase onClick={openMenu} className="app-shell__user" focusRipple>
-            <Avatar src={user?.avatarUrl ?? ''} alt={user?.displayName ?? ''} className="app-shell__avatar" />
-            <span className="app-shell__user-name">
+          <div className="spacer" />
+          <ButtonBase onClick={openMenu} className="user" focusRipple>
+            <Avatar src={user?.avatarUrl ?? ''} alt={user?.displayName ?? ''} className="avatar" />
+            <span className="user-name">
               {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.displayName}
             </span>
           </ButtonBase>
@@ -105,13 +105,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
             open={!!menuAnchor}
             onClose={closeMenu}
           >
-            <div className="app-shell__menu-header">
-              <span className="app-shell__menu-name">{user?.displayName}</span>
-              <span className="app-shell__menu-profile">
+            <div className="app-shell-menu-header">
+              <span className="name">{user?.displayName}</span>
+              <span className="profile">
                 {isOrganizer ? t('profileOrganizer') : t('profilePlayer')}
               </span>
             </div>
-            <Divider className="app-shell__menu-divider" />
+            <Divider className="app-shell-menu-divider" />
             <MenuItem component={Link} href="/account" onClick={closeMenu}>
               <ListItemIcon>
                 <PersonIcon fontSize="small" />
@@ -128,10 +128,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </Menu>
         </Toolbar>
       </AppBar>
-      <main className="app-shell__content">{children}</main>
+      <main className="content">{children}</main>
       <BottomNavigation
         showLabels
-        className="app-shell__bottom-nav"
+        className="bottom-nav"
         value={navItems.findIndex((item) => isActive(item.href))}
         onChange={(_, index) => {
           if (navItems[index]) {

@@ -152,9 +152,9 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
 
   return (
     <div className="player-tournament">
-      <Paper className="player-tournament__header">
-        <div className="player-tournament__title-row">
-          <Typography variant="h5" component="h1" className="player-tournament__name">
+      <Paper className="header">
+        <div className="title-row">
+          <Typography variant="h5" component="h1" className="name">
             {tournament.name}
           </Typography>
           <StatusChip status={tournament.status} />
@@ -164,24 +164,24 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
             {tournament.description}
           </Typography>
         )}
-        <div className="player-tournament__meta">
+        <div className="meta">
           <Chip size="small" label={t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)} />
           {tournament.subDiscipline && (
             <Chip size="small" label={t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)} />
           )}
           <Chip size="small" label={t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)} />
           <Chip size="small" label={t(`scoreFormat.${SCORE_FORMAT_KEYS[tournament.scoreFormat]}`)} />
-          <span className="player-tournament__meta-item">
+          <span className="meta-item">
             <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
           </span>
           {tournament.location && (
-            <span className="player-tournament__meta-item">
+            <span className="meta-item">
               <PlaceIcon fontSize="inherit" /> {tournament.location}
             </span>
           )}
         </div>
         {tournament.status === TournamentStatus.STAND_BY && (
-          <div className="player-tournament__actions">
+          <div className="actions">
             {userEntry ? (
               <>
                 <Chip icon={<CheckCircleIcon />} color="success" label={tPlayer('registered')} />
@@ -204,12 +204,12 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       </Paper>
 
       {myMatches.length > 0 && (
-        <Paper className="player-tournament__section player-tournament__my-match">
-          <Typography variant="h6" className="player-tournament__section-title">
+        <Paper className="section my-match">
+          <Typography variant="h6" className="section-title">
             {tPlayer('yourMatch')}
           </Typography>
           {myMatches.map((match) => (
-            <div key={match.id} className="player-tournament__my-match-row">
+            <div key={match.id} className="my-match-row">
               <MatchCard
                 match={match}
                 competitorNames={competitorNames}
@@ -225,8 +225,8 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       )}
 
       {rounds.length > 0 && (
-        <Paper className="player-tournament__section">
-          <Typography variant="h6" className="player-tournament__section-title">
+        <Paper className="section">
+          <Typography variant="h6" className="section-title">
             {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
           </Typography>
           {tournament.type === TournamentType.PLAYOFF ? (
@@ -255,8 +255,8 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       )}
 
       {standings.length > 0 && rounds.length > 0 && (
-        <Paper className="player-tournament__section">
-          <Typography variant="h6" className="player-tournament__section-title">
+        <Paper className="section">
+          <Typography variant="h6" className="section-title">
             {t('standings')}
           </Typography>
           <StandingsTable type={tournament.type} rows={standings} />

@@ -43,16 +43,16 @@ export default function FixtureView({
           .sort((a, b) => a.position - b.position)
 
         return (
-          <section key={round.id} className="fixture-view__round">
-            <header className="fixture-view__round-header">
-              <h3 className="fixture-view__round-title">
+          <section key={round.id} className="round">
+            <header className="round-header">
+              <h3 className="round-title">
                 {t(type === TournamentType.LEAGUE ? 'round' : 'playoffRound', { number: round.number })}
               </h3>
               {round.status === RoundStatus.OPEN && (
                 <Chip size="small" color="success" variant="outlined" label={t('status.ongoing')} />
               )}
             </header>
-            <div className="fixture-view__matches">
+            <div className="matches">
               {roundMatches.map((match) => (
                 <MatchCard
                   key={match.id}

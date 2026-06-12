@@ -1,15 +1,15 @@
 .standings-table {
-  &__position-cell {
+  .position-cell {
     width: 40px;
     font-weight: 700 !important;
     color: var(--color-text-secondary);
   }
 
-  &__points-cell {
+  .points-cell {
     font-weight: 700 !important;
   }
 
-  &__row--leader {
+  .leader {
     background-color: rgba(245, 158, 11, 0.1);
 
     td {

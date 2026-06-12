@@ -3,18 +3,18 @@
   flex-direction: column;
   gap: 16px;
 
-  &__title {
+  .title {
     text-align: center;
     font-weight: 700;
   }
 
-  &__form {
+  .form {
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
 
-  &__footer {
+  .footer {
     text-align: center;
 
     a {
@@ -22,10 +22,10 @@
       font-weight: 600;
     }
   }
-}
 
-.register-form__role {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  .role {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
 }

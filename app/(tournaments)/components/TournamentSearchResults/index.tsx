@@ -43,14 +43,14 @@ export default function TournamentSearchResults({ query }: TournamentSearchResul
 
   if (tournaments.length === 0) {
     return (
-      <Typography color="text.secondary" className="player-search__empty">
+      <Typography color="text.secondary" className="empty">
         {t('searchEmpty')}
       </Typography>
     )
   }
 
   return (
-    <div className="player-search__list">
+    <div className="list">
       {tournaments.map((tournament) => (
         <TournamentCard key={tournament.id} tournament={tournament} href={`/tournaments/${tournament.id}`} />
       ))}

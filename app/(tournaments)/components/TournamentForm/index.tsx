@@ -103,7 +103,7 @@ export default function TournamentForm() {
         minRows={2}
         fullWidth
       />
-      <div className="tournament-form__row">
+      <div className="row">
         <TextField
           select
           label={t('discipline.label')}
@@ -146,7 +146,7 @@ export default function TournamentForm() {
           ))}
         </TextField>
       </div>
-      <div className="tournament-form__row">
+      <div className="row">
         <TextField
           label={t('startDate')}
           type="date"
@@ -163,7 +163,7 @@ export default function TournamentForm() {
           fullWidth
         />
       </div>
-      <div className="tournament-form__row">
+      <div className="row">
         <TextField
           select
           label={t('scoreFormat.label')}
@@ -186,9 +186,9 @@ export default function TournamentForm() {
         />
       </div>
       {type === TournamentType.LEAGUE && (
-        <div className="tournament-form__settings">
+        <div className="settings">
           <Typography variant="subtitle2">{t('settings.title')}</Typography>
-          <div className="tournament-form__row">
+          <div className="row">
             <TextField
               label={t('settings.pointsPerPresent')}
               type="number"
@@ -223,9 +223,9 @@ export default function TournamentForm() {
         </div>
       )}
       {type === TournamentType.AMERICANO && (
-        <div className="tournament-form__settings">
+        <div className="settings">
           <Typography variant="subtitle2">{t('settings.title')}</Typography>
-          <div className="tournament-form__row">
+          <div className="row">
             <TextField
               label={t('settings.pointsPerGameWon')}
               type="number"
@@ -260,7 +260,7 @@ export default function TournamentForm() {
           />
         </div>
       )}
-      <div className="tournament-form__actions">
+      <div className="actions">
         <Button onClick={() => router.back()}>{tCommon('cancel')}</Button>
         <Button type="submit" variant="contained" disabled={loading}>
           {tOrganizer('create')}

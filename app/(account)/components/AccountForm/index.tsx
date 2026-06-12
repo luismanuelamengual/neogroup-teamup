@@ -1,6 +1,7 @@
 'use client'
 
 import './index.scss'
+import { GravatarQuickEditorCore } from '@gravatar-com/quick-editor'
 import EditIcon from '@mui/icons-material/Edit'
 import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
@@ -13,10 +14,8 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { ChangeEvent, FormEvent, useState } from 'react'
+import { ChangeEvent, FormEvent, useRef, useState } from 'react'
 import { setLocale, updateAccount } from '@/app/(account)/actions/account'
-
-const GRAVATAR_EDIT_URL = 'https://gravatar.com/profile/avatars'
 
 interface AccountFormProps {
   email: string
@@ -35,6 +34,7 @@ export default function AccountForm(props: AccountFormProps) {
   const [lastName, setLastName] = useState(props.lastName)
   const [nickname, setNickname] = useState(props.nickname)
   const [language, setLanguage] = useState(locale)
+  const [avatarVersion, setAvatarVersion] = useState(0)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -42,6 +42,20 @@ export default function AccountForm(props: AccountFormProps) {
     { value: 'es', label: t('spanish'), flag: '🇪🇸' },
     { value: 'en', label: t('english'), flag: '🇬🇧' }
   ]
+  const quickEditorRef = useRef<GravatarQuickEditorCore | null>(null)
+
+  const handleAvatarClick = () => {
+    quickEditorRef.current ??= new GravatarQuickEditorCore({
+      email: props.email,
+      scope: ['avatars'],
+      locale,
+      onProfileUpdated: () => {
+        setAvatarVersion(Date.now())
+        router.refresh()
+      }
+    })
+    quickEditorRef.current.open()
+  }
 
   const handleLanguageChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const newLocale = event.target.value
@@ -83,34 +97,35 @@ export default function AccountForm(props: AccountFormProps) {
 
   return (
     <Paper className="account-form">
-      <Typography variant="h5" component="h1" className="account-form__title">
+      <Typography variant="h5" component="h1" className="title">
         {t('title')}
       </Typography>
-      <div className="account-form__avatar-section">
+      <div className="avatar-section">
         <Tooltip title={t('avatarEdit')}>
           <ButtonBase
-            component="a"
-            href={GRAVATAR_EDIT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="account-form__avatar-button"
+            onClick={handleAvatarClick}
+            className="avatar-button"
             aria-label={t('avatarEdit')}
             focusRipple
           >
-            <Avatar src={props.avatarUrl} alt={firstName} className="account-form__avatar" />
-            <span className="account-form__avatar-overlay">
+            <Avatar
+              src={`${props.avatarUrl}${avatarVersion ? `&t=${avatarVersion}` : ''}`}
+              alt={firstName}
+              className="avatar"
+            />
+            <span className="avatar-overlay">
               <EditIcon fontSize="small" />
             </span>
           </ButtonBase>
         </Tooltip>
-        <div className="account-form__avatar-info">
+        <div className="avatar-info">
           <Typography variant="body2">{props.email}</Typography>
           <Typography variant="caption" color="text.secondary">
             {t('avatarHelp')}
           </Typography>
         </div>
       </div>
-      <form onSubmit={handleSubmit} className="account-form__form">
+      <form onSubmit={handleSubmit} className="form">
         {saved && <Alert severity="success">{t('saved')}</Alert>}
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
@@ -137,8 +152,8 @@ export default function AccountForm(props: AccountFormProps) {
         <TextField select label={t('language')} value={language} onChange={handleLanguageChange} fullWidth>
           {languages.map((option) => (
             <MenuItem key={option.value} value={option.value}>
-              <span className="account-form__language-option">
-                <span className="account-form__language-flag" aria-hidden="true">
+              <span className="account-form-language-option">
+                <span className="flag" aria-hidden="true">
                   {option.flag}
                 </span>
                 {option.label}

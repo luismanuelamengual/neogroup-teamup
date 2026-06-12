@@ -132,11 +132,11 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
 
   return (
     <Paper className="join-tournament">
-      <Typography variant="h5" component="h1" className="join-tournament__title">
+      <Typography variant="h5" component="h1" className="title">
         {tPlayer('joinTitle')}
       </Typography>
-      <div className="join-tournament__info">
-        <Typography variant="h6" className="join-tournament__tournament-name">
+      <div className="info">
+        <Typography variant="h6" className="tournament-name">
           {tournament.name}
         </Typography>
         {tournament.description && (
@@ -144,7 +144,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
             {tournament.description}
           </Typography>
         )}
-        <div className="join-tournament__tags">
+        <div className="tags">
           <Chip size="small" label={t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)} />
           {tournament.subDiscipline && (
             <Chip size="small" label={t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)} />
@@ -154,8 +154,8 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
       </div>
       {error && <Alert severity="error">{error}</Alert>}
       {needsPartner && (
-        <div className="join-tournament__partner">
-          <Typography variant="subtitle1" className="join-tournament__partner-title">
+        <div className="partner">
+          <Typography variant="subtitle1" className="partner-title">
             {tPlayer('partnerTitle')}
           </Typography>
           <RadioGroup value={partnerMode} onChange={(event) => setPartnerMode(event.target.value as PartnerMode)}>
@@ -174,11 +174,11 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
               filterOptions={(options) => options}
               renderOption={(props, option) => (
                 <li {...props} key={option.id}>
-                  <div className="join-tournament__user-option">
-                    <Avatar src={option.avatarUrl} className="join-tournament__user-avatar" />
+                  <div className="join-tournament-user-option">
+                    <Avatar src={option.avatarUrl} className="avatar" />
                     <div>
-                      <div className="join-tournament__user-name">{option.displayName}</div>
-                      <div className="join-tournament__user-email">{option.email}</div>
+                      <div className="name">{option.displayName}</div>
+                      <div className="email">{option.email}</div>
                     </div>
                   </div>
                 </li>
