@@ -703,10 +703,10 @@
   dependencies:
     "@tybys/wasm-util" "^0.10.2"
 
-"@neogroup/neorm@^0.0.4":
-  version "0.0.4"
-  resolved "https://registry.yarnpkg.com/@neogroup/neorm/-/neorm-0.0.4.tgz#f8358a38bf0da7fc9feaf705dd145d079598779d"
-  integrity sha512-nOiP/p7S/dnTNZC2hqNiSRNx3sfmXDoYnFYnibh2of2Py9FYwpucPAyeccFyi2Eo6Scz5fSAZhCPzAKwMN90KA==
+"@neogroup/neorm@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@neogroup/neorm/-/neorm-0.0.5.tgz#bbdf411b01f96fa9d96d9d8029d8fd8c3c605805"
+  integrity sha512-xqKeA3I0gHm1WB0saZ1kg6GanQOl/BHKZFRRIB0d+7jX6X26LoZVrKLksNz3xV31Hya+Xc8tqNTg/vGHXNVSew==
 
 "@next/env@16.2.9":
   version "16.2.9"

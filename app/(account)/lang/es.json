@@ -1,0 +1,11 @@
+{
+  "account": {
+    "title": "Mi cuenta",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "nickname": "Apodo",
+    "nicknameHelp": "Si lo establecés, se muestra siempre en lugar de tu nombre",
+    "avatarHelp": "Tu avatar se obtiene de Gravatar usando tu email",
+    "saved": "Datos guardados correctamente"
+  }
+}

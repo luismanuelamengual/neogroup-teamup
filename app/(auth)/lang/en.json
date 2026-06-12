@@ -1,0 +1,34 @@
+{
+  "auth": {
+    "signInTitle": "Sign in",
+    "signInSubtitle": "Organize and play tennis & padel tournaments",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signInWithGoogle": "Continue with Google",
+    "or": "or",
+    "noAccount": "Don't have an account?",
+    "register": "Sign up",
+    "registerTitle": "Create account",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "createAccount": "Create account",
+    "haveAccount": "Already have an account?",
+    "errors": {
+      "invalidCredentials": "Invalid email or password",
+      "invalidEmail": "The email is not valid",
+      "passwordTooShort": "Password must be at least 6 characters long",
+      "missingFields": "Please fill in all required fields",
+      "emailAlreadyRegistered": "An account with that email already exists"
+    }
+  },
+  "profileSelect": {
+    "title": "How will you use TeamUp?",
+    "subtitle": "You can switch profiles later from your account menu.",
+    "organizerTitle": "Organizer",
+    "organizerDescription": "I create and manage tournaments and leagues",
+    "playerTitle": "Player",
+    "playerDescription": "I join tournaments and load my results",
+    "continue": "Continue"
+  }
+}

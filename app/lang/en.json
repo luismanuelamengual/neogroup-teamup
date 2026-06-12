@@ -1,0 +1,27 @@
+{
+  "common": {
+    "appName": "TeamUp",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "search": "Search",
+    "back": "Back",
+    "confirm": "Confirm",
+    "genericError": "Something went wrong. Please try again.",
+    "requiredField": "This field is required"
+  },
+  "nav": {
+    "myTournaments": "My tournaments",
+    "newTournament": "Create tournament",
+    "searchTournaments": "Search tournaments",
+    "account": "My account",
+    "logout": "Sign out",
+    "switchProfile": "Switch profile",
+    "language": "Language",
+    "spanish": "Spanish",
+    "english": "English",
+    "profileOrganizer": "Organizer",
+    "profilePlayer": "Player"
+  }
+}

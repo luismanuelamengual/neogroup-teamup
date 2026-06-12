@@ -1,0 +1,148 @@
+{
+  "tournaments": {
+    "name": "Nombre",
+    "description": "Descripción",
+    "status": {
+      "stand_by": "Inscripción abierta",
+      "ongoing": "En juego",
+      "finished": "Finalizado"
+    },
+    "discipline": {
+      "label": "Disciplina",
+      "padel": "Pádel",
+      "tennis": "Tenis",
+      "tennis_doubles": "Tenis (dobles)"
+    },
+    "type": {
+      "label": "Tipo de torneo",
+      "league": "Liga",
+      "americano": "Americana",
+      "playoff": "Eliminatoria (play-off)"
+    },
+    "scoreFormat": {
+      "label": "Formato de resultados",
+      "three_sets": "3 sets",
+      "two_sets_super_tiebreak": "2 sets + Super tiebreak",
+      "basic_count": "Contador básico"
+    },
+    "startDate": "Fecha de inicio",
+    "location": "Lugar",
+    "maxCompetitors": "Cantidad máxima de competidores",
+    "maxTeams": "Cantidad máxima de equipos",
+    "competitors": "Competidores",
+    "round": "Fecha {number}",
+    "playoffRound": "Ronda {number}",
+    "rounds": "Rondas",
+    "fixture": "Fixture",
+    "standings": "Posiciones",
+    "bracket": "Llave",
+    "info": "Información",
+    "settings": {
+      "title": "Configuración",
+      "pointsPerPresent": "Puntos por presentarse",
+      "pointsPerSetWon": "Puntos por ganar set",
+      "pointsPerMatchWon": "Puntos por ganar partido",
+      "pointsPerGameWon": "Puntos por ganar game",
+      "swapPartnersEachRound": "Intercambiar parejas luego de cada ronda"
+    },
+    "standingsTable": {
+      "position": "#",
+      "competitor": "Competidor",
+      "played": "PJ",
+      "won": "PG",
+      "setsWon": "Sets",
+      "gamesWon": "Games",
+      "points": "Pts"
+    },
+    "bye": "Pasa de ronda",
+    "pendingResult": "Pendiente",
+    "walkover": "W.O."
+  },
+  "organizer": {
+    "title": "Mis torneos",
+    "create": "Crear torneo",
+    "filterByName": "Filtrar por nombre",
+    "onlyActive": "Solo activos",
+    "empty": "Todavía no creaste ningún torneo",
+    "competitorsCount": "{count} / {max} inscriptos",
+    "newTournamentTitle": "Nuevo torneo",
+    "manage": {
+      "start": "Iniciar torneo",
+      "startConfirm": "Se generará la primera ronda con los {count} competidores inscriptos. ¿Continuar?",
+      "share": "Compartir por WhatsApp",
+      "shareMessage": "¡Inscribite al torneo \"{name}\"! {url}",
+      "closeRound": "Cerrar ronda",
+      "closeRoundConfirm": "¿Cerrar la ronda actual?",
+      "nextRound": "Iniciar siguiente ronda",
+      "finish": "Finalizar torneo",
+      "finishConfirm": "¿Dar por finalizado el torneo?",
+      "edit": "Editar",
+      "editTitle": "Editar torneo",
+      "loadResult": "Cargar resultado",
+      "registeredCompetitors": "Inscriptos",
+      "noCompetitors": "Aún no hay inscriptos",
+      "currentRound": "Ronda actual",
+      "allRoundsPlayed": "Se jugaron todas las rondas"
+    },
+    "errors": {
+      "unauthorized": "No tenés permisos para esta acción",
+      "notFound": "Torneo no encontrado",
+      "invalidStatus": "El torneo no está en un estado válido para esta acción",
+      "pendingMatches": "Hay partidos sin resultado en la ronda actual",
+      "roundStillOpen": "La ronda actual sigue abierta",
+      "noMoreRounds": "No quedan rondas por jugar",
+      "notEnoughCompetitors": "Se necesitan al menos 2 competidores",
+      "americanoOnlyPadel": "La americana solo está disponible para pádel",
+      "invalidScore": "El resultado no es válido",
+      "roundClosed": "La ronda ya fue cerrada",
+      "noMatchesGenerated": "No se pudieron generar los partidos",
+      "missingFields": "Completá todos los campos obligatorios"
+    }
+  },
+  "player": {
+    "searchTitle": "Buscar torneos",
+    "searchPlaceholder": "Nombre del torneo...",
+    "searchEmpty": "No se encontraron torneos",
+    "myTournamentsTitle": "Mis torneos",
+    "myTournamentsEmpty": "No estás inscripto en ningún torneo activo",
+    "findTournaments": "Buscar torneos para inscribirme",
+    "join": "Inscribirme",
+    "leave": "Darme de baja",
+    "leaveConfirm": "¿Querés darte de baja del torneo?",
+    "registered": "Estás inscripto",
+    "joinTitle": "Inscripción",
+    "partnerTitle": "Tu compañero/a",
+    "partnerSearchOption": "Buscar usuario de la plataforma",
+    "partnerFreeTextOption": "Ingresar nombre libre",
+    "partnerSearchPlaceholder": "Buscá por nombre o email...",
+    "partnerNamePlaceholder": "Nombre de tu compañero/a",
+    "confirmRegistration": "Confirmar inscripción",
+    "yourMatch": "Tu partido",
+    "loadResult": "Cargar resultado",
+    "editResult": "Editar resultado",
+    "viewTournament": "Ver torneo",
+    "errors": {
+      "unauthorized": "Tenés que iniciar sesión",
+      "notFound": "Torneo no encontrado",
+      "registrationClosed": "La inscripción está cerrada",
+      "tournamentFull": "El torneo ya está completo",
+      "alreadyRegistered": "Ya estás inscripto en este torneo",
+      "partnerRequired": "Tenés que indicar un compañero/a",
+      "partnerNotFound": "No se encontró el usuario seleccionado",
+      "notRegistered": "No estás inscripto en este torneo",
+      "invalidStatus": "El torneo no está en un estado válido para esta acción",
+      "invalidScore": "El resultado no es válido",
+      "roundClosed": "La ronda ya fue cerrada"
+    }
+  },
+  "score": {
+    "dialogTitle": "Resultado",
+    "set": "Set {number}",
+    "superTiebreak": "Super tiebreak",
+    "games": "Games",
+    "walkoverLabel": "W.O. (no se presentó)",
+    "walkoverWinner": "¿Quién ganó por W.O.?",
+    "normalResult": "Resultado normal",
+    "invalid": "El resultado ingresado no es válido"
+  }
+}
