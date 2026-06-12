@@ -4,7 +4,7 @@ import { ApiResponse } from '@/app/models/ApiResponse'
  * Calls a REST API endpoint. Every endpoint of the app is a POST with a JSON
  * payload and answers the standard ApiResponse shape: this helper returns the
  * `data` of a successful response (cast to T) or throws an Error whose
- * message is the `errorMessage` code of the failed response.
+ * message is the stable error code of the failed response.
  */
 export async function executeRequest<T = void>(url: string, payload: unknown = {}): Promise<T> {
   const response = await fetch(`/api${url}`, {
@@ -15,7 +15,7 @@ export async function executeRequest<T = void>(url: string, payload: unknown = {
   const result = (await response.json()) as ApiResponse<T>
 
   if (!result.success) {
-    throw new Error(result.errorMessage ?? 'internalError')
+    throw new Error(result.error?.message ?? 'internalError')
   }
 
   return result.data as T

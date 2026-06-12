@@ -12,12 +12,12 @@ type ApiHandler<P> = (request: NextRequest, context: RouteContext<P>) => Promise
 type AuthenticatedApiHandler<P> = (request: NextRequest, context: RouteContext<P>, userId: number) => Promise<unknown>
 
 /**
- * Error to be thrown inside API handlers. `errorMessage` is a stable code the
+ * Error to be thrown inside API handlers. `message` is a stable code the
  * FE can map to a translation; `status` is the HTTP status of the response.
  */
 export class ApiException extends Error {
-  constructor(public errorMessage: string, public status = 400) {
-    super(errorMessage)
+  constructor(message: string, public status = 400) {
+    super(message)
     this.name = 'ApiException'
   }
 }
@@ -33,8 +33,8 @@ function errorResponse(error: unknown): NextResponse {
   const normalizedError = error instanceof Error ? error : new Error(String(error))
   const body: ApiResponse = {
     success: false,
-    errorMessage: isApiException ? error.errorMessage : 'internalError',
-    error: { name: normalizedError.name, message: normalizedError.message } as Error
+    // Unexpected errors are masked with a stable "internalError" code.
+    error: { name: normalizedError.name, message: isApiException ? error.message : 'internalError' } as Error
   }
 
   return NextResponse.json(body, { status: isApiException ? error.status : 500 })
