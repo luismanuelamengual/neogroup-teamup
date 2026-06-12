@@ -7,6 +7,7 @@ import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
@@ -55,6 +56,7 @@ export default function LoginForm({ callbackUrl }: LoginFormProps) {
 
   return (
     <div className="login-form">
+      <Image src="/logo.png" alt="TeamUp" width={220} height={35} className="logo" priority />
       <Typography variant="h5" component="h1" className="title">
         {t('signInTitle')}
       </Typography>

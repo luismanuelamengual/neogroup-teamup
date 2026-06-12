@@ -10,10 +10,11 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-weight: 800;
-    font-size: 20px;
-    letter-spacing: 0.3px;
+
+    img {
+      height: 26px;
+      width: auto;
+    }
   }
 
   .nav {

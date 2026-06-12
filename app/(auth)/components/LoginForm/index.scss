@@ -3,6 +3,13 @@
   flex-direction: column;
   gap: 16px;
 
+  .logo {
+    align-self: center;
+    height: auto;
+    max-width: 220px;
+    margin-bottom: 4px;
+  }
+
   .title {
     text-align: center;
     font-weight: 700;

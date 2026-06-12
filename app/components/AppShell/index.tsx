@@ -15,6 +15,7 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Toolbar from '@mui/material/Toolbar'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
@@ -75,16 +76,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <AppBar position="sticky" className="appbar">
         <Toolbar className="toolbar">
           <Link href="/" className="brand">
-            <SportsLogo />
-            <span>TeamUp</span>
+            <Image src="/logo-white.png" alt="TeamUp" width={158} height={26} priority />
           </Link>
           <nav className="nav">
             {navItems.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                className={`nav-link ${isActive(item.href) ? 'active' : ''}`}
-              >
+              <Link key={item.key} href={item.href} className={`nav-link ${isActive(item.href) ? 'active' : ''}`}>
                 {item.label}
               </Link>
             ))}
@@ -107,9 +103,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           >
             <div className="app-shell-menu-header">
               <span className="name">{user?.displayName}</span>
-              <span className="profile">
-                {isOrganizer ? t('profileOrganizer') : t('profilePlayer')}
-              </span>
+              <span className="profile">{isOrganizer ? t('profileOrganizer') : t('profilePlayer')}</span>
             </div>
             <Divider className="app-shell-menu-divider" />
             <MenuItem component={Link} href="/account" onClick={closeMenu}>
@@ -144,19 +138,5 @@ export default function AppShell({ children }: { children: ReactNode }) {
         ))}
       </BottomNavigation>
     </div>
-  )
-}
-
-function SportsLogo() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" fill="#f59e0b" />
-      <path
-        d="M4 6.5C7 9 7 15 4 17.5M20 6.5C17 9 17 15 20 17.5"
-        stroke="#fff"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
   )
 }
