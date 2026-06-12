@@ -5,7 +5,8 @@ import { Tournament, TournamentDto } from '@/app/(tournaments)/models/Tournament
 import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
-import { ApiException, withAuth } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
+import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/tournaments/create — creates a new tournament in stand_by status. */
 export const POST = withAuth(async (request, context, userId) => {

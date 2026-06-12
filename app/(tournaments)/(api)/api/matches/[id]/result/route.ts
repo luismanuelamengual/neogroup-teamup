@@ -5,7 +5,8 @@ import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { getScoreWinner, isValidScore } from '@/app/(tournaments)/utils/score'
-import { ApiException, withAuth } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
+import { withAuth } from '@/app/utils/api-server'
 
 /**
  * POST /api/matches/[id]/result — saves (or edits) a match result.

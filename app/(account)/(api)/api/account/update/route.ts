@@ -1,7 +1,8 @@
 import { AccountInput } from '@/app/(account)/actions/account'
 import { User } from '@/app/(auth)/models/User'
 import { unstable_update } from '@/app/(auth)/services/auth'
-import { ApiException, withAuth } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
+import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/account/update — updates the personal information of the signed-in user. */
 export const POST = withAuth(async (request, context, userId) => {

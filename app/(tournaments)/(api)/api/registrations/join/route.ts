@@ -5,7 +5,8 @@ import { Competitor } from '@/app/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { registersAsPairs } from '@/app/(tournaments)/utils/discipline'
-import { ApiException, withAuth } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
+import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/registrations/join — registers the signed-in user (optionally with a partner) into a tournament. */
 export const POST = withAuth(async (request, context, userId) => {

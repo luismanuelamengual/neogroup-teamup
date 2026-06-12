@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
-import { ApiException, withApi } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
+import { withApi } from '@/app/utils/api-server'
 import { LOCALE_COOKIE, SUPPORTED_LOCALES, SupportedLocale } from '@/app/utils/lang'
 
 /** POST /api/account/locale — changes the interface language (stored in a cookie). */

@@ -2,7 +2,8 @@ import { User } from '@/app/(auth)/models/User'
 import { UserRoleId } from '@/app/(auth)/models/UserRoles'
 import { unstable_update } from '@/app/(auth)/services/auth'
 import { isValidRoleId } from '@/app/(auth)/utils/user'
-import { ApiException, withAuth } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
+import { withAuth } from '@/app/utils/api-server'
 
 /**
  * POST /api/account/role — assigns the user role once (first login without a

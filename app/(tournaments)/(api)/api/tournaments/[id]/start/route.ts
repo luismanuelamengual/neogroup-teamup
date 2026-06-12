@@ -1,6 +1,7 @@
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { createRound, requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
-import { ApiException, withAuth } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
+import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/tournaments/[id]/start — sets the tournament ongoing and generates round 1. */
 export const POST = withAuth<{ id: string }>(async (request, context, userId) => {

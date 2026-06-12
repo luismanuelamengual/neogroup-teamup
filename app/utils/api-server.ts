@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/app/(auth)/services/auth'
+import { ApiException } from '@/app/models/ApiException'
 import { ApiResponse } from '@/app/models/ApiResponse'
 
 /** Helpers shared by the /api route handlers. */
@@ -10,17 +11,6 @@ interface RouteContext<P> {
 
 type ApiHandler<P> = (request: NextRequest, context: RouteContext<P>) => Promise<unknown>
 type AuthenticatedApiHandler<P> = (request: NextRequest, context: RouteContext<P>, userId: number) => Promise<unknown>
-
-/**
- * Error to be thrown inside API handlers. `message` is a stable code the
- * FE can map to a translation; `status` is the HTTP status of the response.
- */
-export class ApiException extends Error {
-  constructor(message: string, public status = 400) {
-    super(message)
-    this.name = 'ApiException'
-  }
-}
 
 function successResponse(data: unknown): NextResponse {
   const body: ApiResponse = { success: true, data: data ?? null }

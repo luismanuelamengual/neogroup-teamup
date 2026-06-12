@@ -1,5 +1,6 @@
 import { getTournamentDetail, getUserCompetitorEntry } from '@/app/(tournaments)/services/tournaments'
-import { ApiException, withAuth } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
+import { withAuth } from '@/app/utils/api-server'
 
 /**
  * POST /api/tournaments/[id]/get — full tournament detail (competitors, rounds,

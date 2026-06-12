@@ -6,7 +6,7 @@ import { Round } from '@/app/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { generateRoundPairings } from '@/app/(tournaments)/services/tournament-engine'
-import { ApiException } from '@/app/utils/api-server'
+import { ApiException } from '@/app/models/ApiException'
 
 /** Helpers shared by the /api/tournaments/[id]/* route handlers. */
 
