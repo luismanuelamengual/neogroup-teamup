@@ -96,14 +96,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
               {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.displayName}
             </span>
           </ButtonBase>
-          <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={closeMenu}>
+          <Menu
+            anchorEl={menuAnchor}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right'
+            }}
+            open={!!menuAnchor}
+            onClose={closeMenu}
+          >
             <div className="app-shell__menu-header">
               <span className="app-shell__menu-name">{user?.displayName}</span>
               <span className="app-shell__menu-profile">
                 {isOrganizer ? t('profileOrganizer') : t('profilePlayer')}
               </span>
             </div>
-            <Divider />
+            <Divider className="app-shell__menu-divider" />
             <MenuItem component={Link} href="/account" onClick={closeMenu}>
               <ListItemIcon>
                 <PersonIcon fontSize="small" />
