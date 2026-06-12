@@ -45,6 +45,28 @@
     flex: 1;
   }
 
+  &__user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 999px;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  &__user-name {
+    font-weight: 600;
+    font-size: 14px;
+
+    @media (max-width: 600px) {
+      display: none;
+    }
+  }
+
   &__avatar {
     width: 36px;
     height: 36px;

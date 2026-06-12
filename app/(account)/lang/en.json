@@ -5,7 +5,11 @@
     "lastName": "Last name",
     "nickname": "Nickname",
     "nicknameHelp": "If set, it is always shown instead of your name",
-    "avatarHelp": "Your avatar comes from Gravatar using your email",
-    "saved": "Changes saved successfully"
+    "avatarHelp": "Your avatar comes from Gravatar using your email. Click it to edit it",
+    "saved": "Changes saved successfully",
+    "avatarEdit": "Edit avatar on Gravatar",
+    "language": "Language",
+    "spanish": "Spanish",
+    "english": "English"
   }
 }

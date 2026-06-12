@@ -5,7 +5,11 @@
     "lastName": "Apellido",
     "nickname": "Apodo",
     "nicknameHelp": "Si lo establecés, se muestra siempre en lugar de tu nombre",
-    "avatarHelp": "Tu avatar se obtiene de Gravatar usando tu email",
-    "saved": "Datos guardados correctamente"
+    "avatarHelp": "Tu avatar se obtiene de Gravatar usando tu email. Hacé click en él para editarlo",
+    "saved": "Datos guardados correctamente",
+    "avatarEdit": "Editar avatar en Gravatar",
+    "language": "Idioma",
+    "spanish": "Español",
+    "english": "Inglés"
   }
 }

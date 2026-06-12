@@ -1,16 +1,22 @@
 'use client'
 
 import './index.scss'
+import EditIcon from '@mui/icons-material/Edit'
 import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
+import ButtonBase from '@mui/material/ButtonBase'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
-import { FormEvent, useState } from 'react'
-import { updateAccount } from '@/app/(account)/actions/account'
+import { useLocale, useTranslations } from 'next-intl'
+import { ChangeEvent, FormEvent, useState } from 'react'
+import { setLocale, updateAccount } from '@/app/(account)/actions/account'
+
+const GRAVATAR_EDIT_URL = 'https://gravatar.com/profile/avatars'
 
 interface AccountFormProps {
   email: string
@@ -24,12 +30,36 @@ export default function AccountForm(props: AccountFormProps) {
   const t = useTranslations('account')
   const tCommon = useTranslations('common')
   const router = useRouter()
+  const locale = useLocale()
   const [firstName, setFirstName] = useState(props.firstName)
   const [lastName, setLastName] = useState(props.lastName)
   const [nickname, setNickname] = useState(props.nickname)
+  const [language, setLanguage] = useState(locale)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const languages = [
+    { value: 'es', label: t('spanish'), flag: '🇪🇸' },
+    { value: 'en', label: t('english'), flag: '🇬🇧' }
+  ]
+
+  const handleLanguageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const newLocale = event.target.value
+
+    setLanguage(newLocale)
+    setError(null)
+
+    try {
+      await setLocale(newLocale)
+    } catch (_error) {
+      setLanguage(locale)
+      setError(tCommon('genericError'))
+
+      return
+    }
+
+    router.refresh()
+  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -57,7 +87,22 @@ export default function AccountForm(props: AccountFormProps) {
         {t('title')}
       </Typography>
       <div className="account-form__avatar-section">
-        <Avatar src={props.avatarUrl} alt={firstName} className="account-form__avatar" />
+        <Tooltip title={t('avatarEdit')}>
+          <ButtonBase
+            component="a"
+            href={GRAVATAR_EDIT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="account-form__avatar-button"
+            aria-label={t('avatarEdit')}
+            focusRipple
+          >
+            <Avatar src={props.avatarUrl} alt={firstName} className="account-form__avatar" />
+            <span className="account-form__avatar-overlay">
+              <EditIcon fontSize="small" />
+            </span>
+          </ButtonBase>
+        </Tooltip>
         <div className="account-form__avatar-info">
           <Typography variant="body2">{props.email}</Typography>
           <Typography variant="caption" color="text.secondary">
@@ -89,6 +134,18 @@ export default function AccountForm(props: AccountFormProps) {
           helperText={t('nicknameHelp')}
           fullWidth
         />
+        <TextField select label={t('language')} value={language} onChange={handleLanguageChange} fullWidth>
+          {languages.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              <span className="account-form__language-option">
+                <span className="account-form__language-flag" aria-hidden="true">
+                  {option.flag}
+                </span>
+                {option.label}
+              </span>
+            </MenuItem>
+          ))}
+        </TextField>
         <Button type="submit" variant="contained" disabled={loading}>
           {tCommon('save')}
         </Button>

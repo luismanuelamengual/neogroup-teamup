@@ -1,9 +1,7 @@
 'use client'
 
 import './index.scss'
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlined'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
-import LanguageIcon from '@mui/icons-material/Language'
 import LogoutIcon from '@mui/icons-material/Logout'
 import PersonIcon from '@mui/icons-material/Person'
 import SearchIcon from '@mui/icons-material/Search'
@@ -11,8 +9,8 @@ import AppBar from '@mui/material/AppBar'
 import Avatar from '@mui/material/Avatar'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
+import ButtonBase from '@mui/material/ButtonBase'
 import Divider from '@mui/material/Divider'
-import IconButton from '@mui/material/IconButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
@@ -20,9 +18,8 @@ import Toolbar from '@mui/material/Toolbar'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { MouseEvent, ReactNode, useState } from 'react'
-import { setLocale } from '@/app/(account)/actions/account'
 import { UserRoles } from '@/app/(auth)/models/UserRoles'
 import { useUserStore } from '@/app/(auth)/stores/user.store'
 
@@ -35,7 +32,6 @@ interface NavItem {
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const t = useTranslations('nav')
-  const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
   const user = useUserStore((state) => state.user)
@@ -48,12 +44,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
           label: t('myTournaments'),
           href: '/tournaments',
           icon: <EmojiEventsIcon />
-        },
-        {
-          key: 'new',
-          label: t('newTournament'),
-          href: '/tournaments/new',
-          icon: <AddCircleOutlineIcon />
         }
       ]
     : [
@@ -74,12 +64,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
     href === '/tournaments' ? pathname === href || /^\/tournaments\/\d+/.test(pathname) : pathname.startsWith(href)
   const openMenu = (event: MouseEvent<HTMLElement>) => setMenuAnchor(event.currentTarget)
   const closeMenu = () => setMenuAnchor(null)
-
-  const handleToggleLanguage = async () => {
-    closeMenu()
-    await setLocale(locale === 'es' ? 'en' : 'es')
-    router.refresh()
-  }
 
   const handleLogout = () => {
     closeMenu()
@@ -106,9 +90,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <div className="app-shell__spacer" />
-          <IconButton onClick={openMenu} size="small">
+          <ButtonBase onClick={openMenu} className="app-shell__user" focusRipple>
             <Avatar src={user?.avatarUrl ?? ''} alt={user?.displayName ?? ''} className="app-shell__avatar" />
-          </IconButton>
+            <span className="app-shell__user-name">
+              {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.displayName}
+            </span>
+          </ButtonBase>
           <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={closeMenu}>
             <div className="app-shell__menu-header">
               <span className="app-shell__menu-name">{user?.displayName}</span>
@@ -122,12 +109,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <PersonIcon fontSize="small" />
               </ListItemIcon>
               {t('account')}
-            </MenuItem>
-            <MenuItem onClick={handleToggleLanguage}>
-              <ListItemIcon>
-                <LanguageIcon fontSize="small" />
-              </ListItemIcon>
-              {t('language')}: {locale === 'es' ? t('english') : t('spanish')}
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout}>

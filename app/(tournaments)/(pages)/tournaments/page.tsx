@@ -2,7 +2,6 @@ import './page.scss'
 import AddIcon from '@mui/icons-material/Add'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
-import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 import { UserRoles } from '@/app/(auth)/models/UserRoles'
 import { auth } from '@/app/(auth)/services/auth'
@@ -28,7 +27,8 @@ export default async function TournamentsPage({
           <Typography variant="h5" component="h1" className="organizer-tournaments__title">
             {t('title')}
           </Typography>
-          <Button component={Link} href="/tournaments/new" variant="contained" startIcon={<AddIcon />}>
+          {/* Plain href (no component={Link}): functions cannot cross the server → client boundary. */}
+          <Button href="/tournaments/new" variant="contained" startIcon={<AddIcon />}>
             {t('create')}
           </Button>
         </div>
