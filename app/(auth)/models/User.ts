@@ -49,5 +49,3 @@ export class User {
   }
 }
 
-/** User object without the sensitive password field, safe to pass to client components. */
-export type UserDto = Omit<User, 'passwordHash'>

@@ -16,7 +16,7 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { UserDto } from '@/app/(auth)/models/User'
+import { User } from '@/app/(auth)/models/User'
 import { joinTournament, searchUsers } from '@/app/(tournaments)/actions/registration'
 import { getTournamentDetail } from '@/app/(tournaments)/actions/tournament'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
@@ -38,8 +38,8 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   const [initializing, setInitializing] = useState(true)
   const [partnerMode, setPartnerMode] = useState<PartnerMode>('search')
   const [partnerQuery, setPartnerQuery] = useState('')
-  const [partnerOptions, setPartnerOptions] = useState<UserDto[]>([])
-  const [partnerUser, setPartnerUser] = useState<UserDto | null>(null)
+  const [partnerOptions, setPartnerOptions] = useState<User[]>([])
+  const [partnerUser, setPartnerUser] = useState<User | null>(null)
   const [partnerName, setPartnerName] = useState('')
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)

@@ -40,8 +40,8 @@ export class Tournament {
   @Column({ cast: 'number' })
   scoreFormat!: ScoreFormat
 
-  @Column()
-  startDate!: string
+  @Column({ cast: 'date' })
+  startDate!: Date
 
   @Column()
   location!: string | null
@@ -74,6 +74,32 @@ export class Tournament {
   @HasMany(() => Match, 'tournamentId')
   matches?: Match[]
 
-  /** Computed count of registered competitors (not stored in DB). */
-  competitorsCount?: number
+  /** Computed from loaded competitors relation. */
+  get competitorsCount(): number {
+    return this.competitors?.length ?? 0
+  }
+
+  /**
+   * Custom JSON serialization: strips loaded relations (they are returned
+   * separately in API responses), formats dates as YYYY-MM-DD strings, and
+   * includes computed getters so they survive JSON.stringify.
+   */
+  toJSON(): Record<string, any> {
+    const result: Record<string, any> = {}
+
+    for (const key of Object.keys(this as any)) {
+      // Skip relation properties — returned separately by the API
+      if (key === 'owner' || key === 'competitors' || key === 'rounds' || key === 'matches') {
+        continue
+      }
+
+      const value = (this as any)[key]
+
+      result[key] = value instanceof Date ? value.toISOString().slice(0, 10) : value
+    }
+
+    result.competitorsCount = this.competitorsCount
+
+    return result
+  }
 }

@@ -1,4 +1,4 @@
-import type { UserDto } from '@/app/(auth)/models/User'
+import type { User } from '@/app/(auth)/models/User'
 import type { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { executeRequest } from '@/app/actions/api'
 
@@ -11,14 +11,14 @@ export interface JoinTournamentInput {
 }
 
 /** Searches platform users by name, nickname or email (for partner selection). */
-export async function searchUsers(query: string): Promise<UserDto[]> {
+export async function searchUsers(query: string): Promise<User[]> {
   const normalized = query.trim()
 
   if (normalized.length < 2) {
     return []
   }
 
-  return executeRequest<UserDto[]>('/users/search', { query: normalized })
+  return executeRequest<User[]>('/users/search', { query: normalized })
 }
 
 /** Searches joinable/visible tournaments by name. */

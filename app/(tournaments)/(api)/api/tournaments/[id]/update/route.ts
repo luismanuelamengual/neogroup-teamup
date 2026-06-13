@@ -23,7 +23,7 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
   tournament.name = name
   tournament.description = input.description?.trim() || null
   tournament.location = input.location?.trim() || null
-  tournament.startDate = input.startDate
+  tournament.startDate = new Date(input.startDate as any)
   tournament.maxCompetitors = input.maxCompetitors
   tournament.updatedAt = new Date()
   await Repository.get(Tournament).save(tournament)
