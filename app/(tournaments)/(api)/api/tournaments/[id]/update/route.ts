@@ -1,4 +1,5 @@
-import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { Repository } from '@neogroup/neorm'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
@@ -6,7 +7,7 @@ import { withAuth } from '@/app/utils/api-server'
 /** POST /api/tournaments/[id]/update — updates the editable attributes (owner only). */
 export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
   const { id } = await context.params
-  const input = (await request.json()) as Partial<TournamentDto>
+  const input = (await request.json()) as Partial<Tournament>
   const tournament = await requireOwnedTournament(Number(id), userId)
 
   if (!tournament) {
@@ -25,5 +26,5 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
   tournament.startDate = input.startDate
   tournament.maxCompetitors = input.maxCompetitors
   tournament.updatedAt = new Date()
-  await tournament.save()
+  await Repository.get(Tournament).save(tournament)
 })

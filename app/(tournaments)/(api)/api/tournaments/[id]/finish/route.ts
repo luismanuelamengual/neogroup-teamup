@@ -1,3 +1,5 @@
+import { Repository } from '@neogroup/neorm'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
 import { ApiException } from '@/app/models/ApiException'
@@ -14,5 +16,5 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
 
   tournament.status = TournamentStatus.FINISHED
   tournament.updatedAt = new Date()
-  await tournament.save()
+  await Repository.get(Tournament).save(tournament)
 })

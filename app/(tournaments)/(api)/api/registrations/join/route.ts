@@ -1,3 +1,4 @@
+import { Repository } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { JoinTournamentInput } from '@/app/(tournaments)/actions/registration'
@@ -11,7 +12,7 @@ import { withAuth } from '@/app/utils/api-server'
 /** POST /api/registrations/join — registers the signed-in user (optionally with a partner) into a tournament. */
 export const POST = withAuth(async (request, context, userId) => {
   const { tournamentId, ...input } = (await request.json()) as JoinTournamentInput & { tournamentId: number }
-  const tournament: Tournament | null = await Tournament.where('id', Number(tournamentId)).with('competitors').first()
+  const tournament: Tournament | null = await Repository.get(Tournament).where('id', Number(tournamentId)).with('competitors').first()
 
   if (!tournament) {
     throw new ApiException('notFound')
@@ -28,7 +29,7 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   const alreadyRegistered = competitors.some(
-    (competitor: any) =>
+    (competitor) =>
       competitor.userId === userId ||
       competitor.partnerUserId === userId ||
       (input.partnerUserId &&
@@ -39,7 +40,7 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('alreadyRegistered')
   }
 
-  const user = await User.find(userId)
+  const user = await Repository.get(User).find(userId)
 
   if (!user) {
     throw new ApiException('unauthorized')
@@ -57,7 +58,7 @@ export const POST = withAuth(async (request, context, userId) => {
 
   if (needsPartner) {
     if (input.partnerUserId) {
-      const partner = await User.find(input.partnerUserId)
+      const partner = await Repository.get(User).find(input.partnerUserId)
 
       if (!partner) {
         throw new ApiException('partnerNotFound')
@@ -83,5 +84,5 @@ export const POST = withAuth(async (request, context, userId) => {
     ? `${getUserDisplayName(user)} / ${partnerDisplayName}`
     : getUserDisplayName(user)
   competitor.createdAt = new Date()
-  await competitor.save()
+  await Repository.get(Competitor).save(competitor)
 })

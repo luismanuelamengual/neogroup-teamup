@@ -1,3 +1,4 @@
+import { Repository } from '@neogroup/neorm'
 import { Competitor } from '@/app/(tournaments)/models/Competitor'
 import { Match } from '@/app/(tournaments)/models/Match'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
@@ -16,7 +17,7 @@ import { withAuth } from '@/app/utils/api-server'
 export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
   const { id } = await context.params
   const { score } = (await request.json()) as { score: MatchScore }
-  const match: Match | null = await Match.where('id', Number(id)).with('tournament', 'round').first()
+  const match: Match | null = await Repository.get(Match).where('id', Number(id)).with('tournament', 'round').first()
 
   if (!match || !match.awayCompetitorIds) {
     throw new ApiException('notFound')
@@ -38,9 +39,9 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
 
   if (!isOwner) {
     const competitorIds = [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]
-    const participants = await Competitor.whereIn('id', competitorIds).get()
+    const participants = await Repository.get(Competitor).whereIn('id', competitorIds).get()
     const isParticipant = participants.some(
-      (competitor: any) => competitor.userId === userId || competitor.partnerUserId === userId
+      (competitor) => competitor.userId === userId || competitor.partnerUserId === userId
     )
 
     if (!isParticipant) {
@@ -63,5 +64,5 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
   }
 
   match.updatedAt = new Date()
-  await match.save()
+  await Repository.get(Match).save(match)
 })

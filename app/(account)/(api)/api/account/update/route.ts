@@ -1,3 +1,4 @@
+import { Repository } from '@neogroup/neorm'
 import { AccountInput } from '@/app/(account)/actions/account'
 import { User } from '@/app/(auth)/models/User'
 import { unstable_update } from '@/app/(auth)/services/auth'
@@ -14,7 +15,7 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('missingFields')
   }
 
-  const user = await User.find(userId)
+  const user = await Repository.get(User).find(userId)
 
   if (!user) {
     throw new ApiException('unauthorized', 401)
@@ -23,6 +24,6 @@ export const POST = withAuth(async (request, context, userId) => {
   user.firstName = firstName
   user.lastName = lastName
   user.nickname = input.nickname.trim() || null
-  await user.save()
+  await Repository.get(User).save(user)
   await unstable_update({})
 })

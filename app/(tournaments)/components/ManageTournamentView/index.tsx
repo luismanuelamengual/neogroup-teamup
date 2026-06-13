@@ -31,7 +31,7 @@ import FixtureView from '@/app/(tournaments)/components/FixtureView'
 import ScoreDialog from '@/app/(tournaments)/components/ScoreDialog'
 import StandingsTable from '@/app/(tournaments)/components/StandingsTable'
 import StatusChip from '@/app/(tournaments)/components/StatusChip'
-import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { Match } from '@/app/(tournaments)/models/Match'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
@@ -58,7 +58,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   const [detail, setDetail] = useState<TournamentDetailWithEntry | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
-  const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
+  const [scoreMatch, setScoreMatch] = useState<Match | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
   const loadDetail = useCallback(async () => {

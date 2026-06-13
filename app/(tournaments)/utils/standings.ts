@@ -1,7 +1,7 @@
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(tournaments)/models/AmericanoSettings'
-import { CompetitorDto } from '@/app/(tournaments)/models/Competitor'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(tournaments)/models/LeagueSettings'
-import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { Match } from '@/app/(tournaments)/models/Match'
 import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
@@ -19,8 +19,8 @@ export function computeStandings(
   type: TournamentType,
   scoreFormat: ScoreFormat,
   settings: TournamentSettings,
-  competitors: CompetitorDto[],
-  matches: MatchDto[]
+  competitors: Competitor[],
+  matches: Match[]
 ): StandingsRowDto[] {
   const rows = new Map<number, StandingsRowDto>()
 

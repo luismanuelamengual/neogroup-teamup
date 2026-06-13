@@ -1,19 +1,19 @@
-import type { CompetitorDto } from '@/app/(tournaments)/models/Competitor'
+import type { Competitor } from '@/app/(tournaments)/models/Competitor'
 import type { MatchScore } from '@/app/(tournaments)/models/MatchScore'
-import type { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import type { Tournament } from '@/app/(tournaments)/models/Tournament'
 import type { OrganizerTournamentFilters, TournamentDetail } from '@/app/(tournaments)/services/tournaments'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side tournament actions: thin wrappers around the REST API. */
 
 export interface TournamentDetailWithEntry extends TournamentDetail {
-  userEntry: CompetitorDto | null
+  userEntry: Competitor | null
   isOwner: boolean
 }
 
 /** Tournaments owned by the signed-in user (organizer view). */
-export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<TournamentDto[]> {
-  return executeRequest<TournamentDto[]>('/tournaments/list', filters)
+export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<Tournament[]> {
+  return executeRequest<Tournament[]>('/tournaments/list', filters)
 }
 
 /** Full tournament detail plus the signed-in user competitor entry (if any). */
@@ -26,12 +26,12 @@ export async function getTournamentDetail(tournamentId: number): Promise<Tournam
 }
 
 /** Creates a new tournament in stand_by status. Returns the new tournament id. */
-export async function createTournament(tournament: Partial<TournamentDto>): Promise<{ id: number }> {
+export async function createTournament(tournament: Partial<Tournament>): Promise<{ id: number }> {
   return executeRequest<{ id: number }>('/tournaments/create', tournament)
 }
 
 /** Updates the editable attributes of a tournament. */
-export async function updateTournament(tournamentId: number, tournament: Partial<TournamentDto>): Promise<void> {
+export async function updateTournament(tournamentId: number, tournament: Partial<Tournament>): Promise<void> {
   await executeRequest(`/tournaments/${tournamentId}/update`, tournament)
 }
 

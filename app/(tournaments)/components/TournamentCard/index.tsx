@@ -8,11 +8,11 @@ import Paper from '@mui/material/Paper'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import StatusChip from '@/app/(tournaments)/components/StatusChip'
-import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { DISCIPLINE_KEYS, SUB_DISCIPLINE_KEYS, TOURNAMENT_TYPE_KEYS } from '@/app/(tournaments)/utils/labels'
 
 interface TournamentCardProps {
-  tournament: TournamentDto
+  tournament: Tournament
   href: string
 }
 

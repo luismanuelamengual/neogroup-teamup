@@ -1,4 +1,4 @@
-import { MatchDto } from '@/app/(tournaments)/models/Match'
+import { Match } from '@/app/(tournaments)/models/Match'
 import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
 import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
@@ -118,7 +118,7 @@ function generateAmericanoSwapRound(competitorIds: number[], roundNumber: number
 function generatePlayoffRound(
   competitorIds: number[],
   roundNumber: number,
-  previousRoundMatches: MatchDto[]
+  previousRoundMatches: Match[]
 ): Pairing[] {
   if (roundNumber === 1) {
     const bracketSize = Math.pow(2, Math.ceil(Math.log2(Math.max(competitorIds.length, 2))))
@@ -209,7 +209,7 @@ export function generateRoundPairings(
   settings: TournamentSettings,
   competitorIds: number[],
   roundNumber: number,
-  previousRoundMatches: MatchDto[]
+  previousRoundMatches: Match[]
 ): Pairing[] {
   switch (type) {
     case TournamentType.LEAGUE:

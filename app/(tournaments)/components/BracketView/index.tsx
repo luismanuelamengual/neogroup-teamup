@@ -3,18 +3,18 @@
 import './index.scss'
 import { useTranslations } from 'next-intl'
 import MatchCard from '@/app/(tournaments)/components/MatchCard'
-import { MatchDto } from '@/app/(tournaments)/models/Match'
-import { RoundDto } from '@/app/(tournaments)/models/Round'
+import { Match } from '@/app/(tournaments)/models/Match'
+import { Round } from '@/app/(tournaments)/models/Round'
 import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
 
 interface BracketViewProps {
-  rounds: RoundDto[]
-  matches: MatchDto[]
+  rounds: Round[]
+  matches: Match[]
   competitorNames: Record<number, string>
   scoreFormat: ScoreFormat
   highlightedMatchIds?: number[]
   editableMatchIds?: number[]
-  onEditMatch?: (match: MatchDto) => void
+  onEditMatch?: (match: Match) => void
 }
 
 /** Horizontal playoff bracket: one column per round. */

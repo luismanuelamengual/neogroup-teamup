@@ -1,4 +1,4 @@
-import { DB } from '@neogroup/neorm'
+import { DB, Repository } from '@neogroup/neorm'
 import { User, UserDto } from '@/app/(auth)/models/User'
 import { withAuth } from '@/app/utils/api-server'
 
@@ -29,7 +29,7 @@ export const POST = withAuth(async (request, context, userId) => {
   const bindings = isSqlite ? [pattern, pattern, pattern, pattern, userId] : [pattern, userId]
   const rows = await DB.query(sql, bindings)
   const users: UserDto[] = rows.map((row: Record<string, unknown>) => {
-    const { passwordHash: _passwordHash, ...dto } = User.fromRow(row).toDto()
+    const { passwordHash: _passwordHash, ...dto } = Repository.get(User).fromRow(row)
 
     return dto
   })

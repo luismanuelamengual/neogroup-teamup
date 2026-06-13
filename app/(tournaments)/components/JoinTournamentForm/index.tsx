@@ -19,7 +19,7 @@ import { useEffect, useState } from 'react'
 import { UserDto } from '@/app/(auth)/models/User'
 import { joinTournament, searchUsers } from '@/app/(tournaments)/actions/registration'
 import { getTournamentDetail } from '@/app/(tournaments)/actions/tournament'
-import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { registersAsPairs } from '@/app/(tournaments)/utils/discipline'
 import { DISCIPLINE_KEYS, SUB_DISCIPLINE_KEYS, TOURNAMENT_TYPE_KEYS } from '@/app/(tournaments)/utils/labels'
@@ -34,7 +34,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
   const router = useRouter()
-  const [tournament, setTournament] = useState<TournamentDto | null>(null)
+  const [tournament, setTournament] = useState<Tournament | null>(null)
   const [initializing, setInitializing] = useState(true)
   const [partnerMode, setPartnerMode] = useState<PartnerMode>('search')
   const [partnerQuery, setPartnerQuery] = useState('')

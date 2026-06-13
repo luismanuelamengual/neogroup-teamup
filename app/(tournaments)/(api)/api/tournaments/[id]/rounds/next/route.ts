@@ -1,3 +1,4 @@
+import { Repository } from '@neogroup/neorm'
 import { Competitor } from '@/app/(tournaments)/models/Competitor'
 import { Round } from '@/app/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
@@ -17,7 +18,7 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
     throw new ApiException('invalidStatus')
   }
 
-  const currentRound: Round | null = await Round.where('tournamentId', tournamentId)
+  const currentRound: Round | null = await Repository.get(Round).where('tournamentId', tournamentId)
     .where('number', tournament.currentRound)
     .first()
 
@@ -25,7 +26,7 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
     throw new ApiException('roundStillOpen')
   }
 
-  const competitorsCount = (await Competitor.where('tournamentId', tournamentId).get()).length
+  const competitorsCount = (await Repository.get(Competitor).where('tournamentId', tournamentId).get()).length
   const totalRounds = getTotalRounds(tournament.type, tournament.settings ?? {}, competitorsCount)
 
   if (tournament.currentRound >= totalRounds) {

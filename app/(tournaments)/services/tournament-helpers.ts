@@ -1,3 +1,4 @@
+import { Repository } from '@neogroup/neorm'
 import { Competitor } from '@/app/(tournaments)/models/Competitor'
 import { Match } from '@/app/(tournaments)/models/Match'
 import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
@@ -12,7 +13,7 @@ import { ApiException } from '@/app/models/ApiException'
 
 /** Returns the tournament only when it exists and belongs to the user. */
 export async function requireOwnedTournament(tournamentId: number, userId: number): Promise<Tournament | null> {
-  const tournament: Tournament | null = await Tournament.find(tournamentId)
+  const tournament: Tournament | null = await Repository.get(Tournament).find(tournamentId)
 
   if (!tournament || tournament.ownerId !== userId) {
     return null
@@ -23,8 +24,8 @@ export async function requireOwnedTournament(tournamentId: number, userId: numbe
 
 /** Generates and persists the pairings/matches of a round. Throws ApiException when not possible. */
 export async function createRound(tournament: Tournament, roundNumber: number): Promise<void> {
-  const competitors = await Competitor.where('tournamentId', tournament.id).orderBy('id').get()
-  const competitorIds: number[] = competitors.map((competitor: any) => competitor.id)
+  const competitors = await Repository.get(Competitor).where('tournamentId', tournament.id).orderBy('id').get()
+  const competitorIds: number[] = competitors.map((competitor) => competitor.id)
 
   if (competitorIds.length < 2) {
     throw new ApiException('notEnoughCompetitors')
@@ -33,7 +34,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   let previousRoundMatches: Match[] = []
 
   if (roundNumber > 1) {
-    const previousRound: Round | null = await Round.where('tournamentId', tournament.id)
+    const previousRound: Round | null = await Repository.get(Round).where('tournamentId', tournament.id)
       .where('number', roundNumber - 1)
       .with('matches')
       .first()
@@ -48,7 +49,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
     tournament.settings ?? {},
     competitorIds,
     roundNumber,
-    previousRoundMatches.map((match) => match.toDto())
+    previousRoundMatches
   )
 
   if (pairings.length === 0) {
@@ -61,7 +62,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   round.number = roundNumber
   round.status = RoundStatus.OPEN
   round.createdAt = new Date()
-  await round.save()
+  await Repository.get(Round).save(round)
 
   for (const pairing of pairings) {
     const match = new Match()
@@ -84,10 +85,10 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
 
     match.createdAt = new Date()
     match.updatedAt = new Date()
-    await match.save()
+    await Repository.get(Match).save(match)
   }
 
   tournament.currentRound = roundNumber
   tournament.updatedAt = new Date()
-  await tournament.save()
+  await Repository.get(Tournament).save(tournament)
 }

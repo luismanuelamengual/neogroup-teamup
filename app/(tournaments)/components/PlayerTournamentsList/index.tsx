@@ -9,11 +9,11 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { getPlayerActiveTournaments } from '@/app/(tournaments)/actions/registration'
 import TournamentCard from '@/app/(tournaments)/components/TournamentCard'
-import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 
 export default function PlayerTournamentsList() {
   const t = useTranslations('player')
-  const [tournaments, setTournaments] = useState<TournamentDto[]>([])
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

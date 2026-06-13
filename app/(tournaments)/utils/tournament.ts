@@ -1,15 +1,16 @@
-import { Tournament, TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 
-/** Builds the serializable DTO of a tournament (relations are not included). */
-export function toTournamentDto(tournament: Tournament, competitorsCount?: number): TournamentDto {
+/** Returns a plain tournament object with relations stripped and startDate normalized. */
+export function toTournamentDto(tournament: Tournament, competitorsCount?: number): Tournament {
   // The database driver may return DATE columns as Date objects.
   const startDate: unknown = tournament.startDate
-  const { owner: _owner, competitors: _competitors, rounds: _rounds, matches: _matches, ...dto } = tournament.toDto()
+  // Strip eagerly-loaded relations; they are not needed in client-side tournament objects.
+  const { owner: _owner, competitors: _competitors, rounds: _rounds, matches: _matches, ...fields } = tournament as any
 
   return {
-    ...dto,
+    ...fields,
     startDate: startDate instanceof Date ? startDate.toISOString().slice(0, 10) : String(startDate).slice(0, 10),
     settings: tournament.settings ?? {},
     competitorsCount
-  }
+  } as Tournament
 }

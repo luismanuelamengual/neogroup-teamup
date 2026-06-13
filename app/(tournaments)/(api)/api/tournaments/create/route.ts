@@ -1,7 +1,8 @@
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(tournaments)/models/AmericanoSettings'
 import { Discipline } from '@/app/(tournaments)/models/Discipline'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(tournaments)/models/LeagueSettings'
-import { Tournament, TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { Repository } from '@neogroup/neorm'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
@@ -10,7 +11,7 @@ import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/tournaments/create — creates a new tournament in stand_by status. */
 export const POST = withAuth(async (request, context, userId) => {
-  const input = (await request.json()) as Partial<TournamentDto>
+  const input = (await request.json()) as Partial<Tournament>
   const name = input.name?.trim() ?? ''
 
   if (!name || !input.discipline || !input.type || !input.scoreFormat) {
@@ -54,7 +55,7 @@ export const POST = withAuth(async (request, context, userId) => {
   tournament.currentRound = 0
   tournament.createdAt = new Date()
   tournament.updatedAt = new Date()
-  await tournament.save()
+  await Repository.get(Tournament).save(tournament)
 
   return { id: tournament.id }
 })

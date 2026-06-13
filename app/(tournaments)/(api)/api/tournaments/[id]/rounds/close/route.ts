@@ -1,3 +1,4 @@
+import { Repository } from '@neogroup/neorm'
 import { Match } from '@/app/(tournaments)/models/Match'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { Round } from '@/app/(tournaments)/models/Round'
@@ -17,7 +18,7 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
     throw new ApiException('invalidStatus')
   }
 
-  const round: Round | null = await Round.where('tournamentId', tournamentId)
+  const round: Round | null = await Repository.get(Round).where('tournamentId', tournamentId)
     .where('number', tournament.currentRound)
     .first()
 
@@ -25,12 +26,12 @@ export const POST = withAuth<{ id: string }>(async (request, context, userId) =>
     throw new ApiException('invalidStatus')
   }
 
-  const pendingMatches = await Match.where('roundId', round.id).where('status', MatchStatus.PENDING).get()
+  const pendingMatches = await Repository.get(Match).where('roundId', round.id).where('status', MatchStatus.PENDING).get()
 
   if (pendingMatches.length > 0) {
     throw new ApiException('pendingMatches')
   }
 
   round.status = RoundStatus.CLOSED
-  await round.save()
+  await Repository.get(Round).save(round)
 })

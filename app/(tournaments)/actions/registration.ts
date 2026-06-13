@@ -1,5 +1,5 @@
 import type { UserDto } from '@/app/(auth)/models/User'
-import type { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import type { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side registration actions: thin wrappers around the REST API. */
@@ -22,13 +22,13 @@ export async function searchUsers(query: string): Promise<UserDto[]> {
 }
 
 /** Searches joinable/visible tournaments by name. */
-export async function searchTournaments(name: string): Promise<TournamentDto[]> {
-  return executeRequest<TournamentDto[]>('/tournaments/search', { name })
+export async function searchTournaments(name: string): Promise<Tournament[]> {
+  return executeRequest<Tournament[]>('/tournaments/search', { name })
 }
 
 /** Tournaments in stand_by or ongoing where the signed-in user participates. */
-export async function getPlayerActiveTournaments(): Promise<TournamentDto[]> {
-  return executeRequest<TournamentDto[]>('/tournaments/active')
+export async function getPlayerActiveTournaments(): Promise<Tournament[]> {
+  return executeRequest<Tournament[]>('/tournaments/active')
 }
 
 /** Registers the signed-in user (optionally with a partner) into a tournament. */

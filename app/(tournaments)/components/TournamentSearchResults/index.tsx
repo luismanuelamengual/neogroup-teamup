@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { searchTournaments } from '@/app/(tournaments)/actions/registration'
 import TournamentCard from '@/app/(tournaments)/components/TournamentCard'
-import { TournamentDto } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 
 interface TournamentSearchResultsProps {
   query: string
@@ -14,7 +14,7 @@ interface TournamentSearchResultsProps {
 
 export default function TournamentSearchResults({ query }: TournamentSearchResultsProps) {
   const t = useTranslations('player')
-  const [tournaments, setTournaments] = useState<TournamentDto[]>([])
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
