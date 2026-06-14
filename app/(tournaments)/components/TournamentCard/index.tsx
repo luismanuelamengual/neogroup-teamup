@@ -29,9 +29,7 @@ export default function TournamentCard({ tournament, href }: TournamentCardProps
         <div className="tags">
           <span className="tag">{t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)}</span>
           {tournament.subDiscipline && (
-            <span className="tag">
-              {t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)}
-            </span>
+            <span className="tag">{t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)}</span>
           )}
           <span className="tag">{t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)}</span>
         </div>

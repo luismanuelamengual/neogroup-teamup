@@ -102,12 +102,7 @@ export default function AccountForm(props: AccountFormProps) {
       </Typography>
       <div className="avatar-section">
         <Tooltip title={t('avatarEdit')}>
-          <ButtonBase
-            onClick={handleAvatarClick}
-            className="avatar-button"
-            aria-label={t('avatarEdit')}
-            focusRipple
-          >
+          <ButtonBase onClick={handleAvatarClick} className="avatar-button" aria-label={t('avatarEdit')} focusRipple>
             <Avatar
               src={`${props.avatarUrl}${avatarVersion ? `&t=${avatarVersion}` : ''}`}
               alt={firstName}

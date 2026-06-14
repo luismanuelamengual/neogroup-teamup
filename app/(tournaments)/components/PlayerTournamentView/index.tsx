@@ -181,24 +181,26 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           )}
         </div>
         {tournament.status === TournamentStatus.STAND_BY && (
-          <div className="actions">
-            {userEntry ? (
-              <>
-                <Chip icon={<CheckCircleIcon />} color="success" label={tPlayer('registered')} />
+          <div className="footer">
+            <div className="info-area">
+              {userEntry ? <Chip icon={<CheckCircleIcon />} color="success" label={tPlayer('registered')} /> : <></>}
+            </div>
+            <div className="actions-area">
+              {userEntry ? (
                 <Button color="error" variant="outlined" onClick={handleLeave} disabled={working}>
                   {tPlayer('leave')}
                 </Button>
-              </>
-            ) : (
-              <Button
-                component={Link}
-                href={`/tournaments/${tournament.id}/join`}
-                variant="contained"
-                startIcon={<HowToRegIcon />}
-              >
-                {tPlayer('join')}
-              </Button>
-            )}
+              ) : (
+                <Button
+                  component={Link}
+                  href={`/tournaments/${tournament.id}/join`}
+                  variant="contained"
+                  startIcon={<HowToRegIcon />}
+                >
+                  {tPlayer('join')}
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </Paper>

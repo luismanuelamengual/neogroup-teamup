@@ -31,7 +31,9 @@ export async function getTournaments({
     .when(id, (query) => query.where('id', id))
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) =>
-      query.whereHas('competitors', (q) => q.where('userId', playerId).orWhere('partnerUserId', playerId))
+      query.whereHas('competitors', (q) =>
+        q.where((q) => q.where('userId', playerId).orWhere('partnerUserId', playerId))
+      )
     )
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
     .when(onlyActive, (query) => query.whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING]))
