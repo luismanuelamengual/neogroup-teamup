@@ -1,0 +1,20 @@
+import { Repository } from '@neogroup/neorm'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
+import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
+import { ApiException } from '@/app/models/ApiException'
+import { withAuth } from '@/app/utils/api-server'
+
+/** POST /api/finishTournament — marks the tournament as finished. */
+export const POST = withAuth(async (request, context, userId) => {
+  const { id } = (await request.json()) as { id: number }
+  const tournament = await requireOwnedTournament(Number(id), userId)
+
+  if (!tournament || tournament.status !== TournamentStatus.ONGOING) {
+    throw new ApiException('invalidStatus')
+  }
+
+  tournament.status = TournamentStatus.FINISHED
+  tournament.updatedAt = new Date()
+  await Repository.get(Tournament).save(tournament)
+})

@@ -18,25 +18,25 @@ export async function searchUsers(query: string): Promise<User[]> {
     return []
   }
 
-  return executeRequest<User[]>('/users/search', { query: normalized })
+  return executeRequest<User[]>('/searchUsers', { query: normalized })
 }
 
 /** Searches joinable/visible tournaments by name. */
 export async function searchTournaments(name: string): Promise<Tournament[]> {
-  return executeRequest<Tournament[]>('/tournaments/search', { name })
+  return executeRequest<Tournament[]>('/searchTournaments', { name })
 }
 
 /** Tournaments in stand_by or ongoing where the signed-in user participates. */
 export async function getPlayerActiveTournaments(): Promise<Tournament[]> {
-  return executeRequest<Tournament[]>('/tournaments/active')
+  return executeRequest<Tournament[]>('/getActiveTournaments')
 }
 
 /** Registers the signed-in user (optionally with a partner) into a tournament. */
 export async function joinTournament(tournamentId: number, input: JoinTournamentInput): Promise<void> {
-  await executeRequest('/registrations/join', { tournamentId, ...input })
+  await executeRequest('/joinTournament', { tournamentId, ...input })
 }
 
 /** Removes the signed-in user registration while the tournament is in stand_by. */
 export async function leaveTournament(tournamentId: number): Promise<void> {
-  await executeRequest('/registrations/leave', { tournamentId })
+  await executeRequest('/leaveTournament', { tournamentId })
 }

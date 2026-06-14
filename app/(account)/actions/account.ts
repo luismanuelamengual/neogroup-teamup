@@ -12,15 +12,15 @@ export interface AccountInput {
 
 /** Updates the personal information of the signed-in user. */
 export async function updateAccount(input: AccountInput): Promise<void> {
-  await executeRequest('/account/update', input)
+  await executeRequest('/updateAccount', input)
 }
 
 /** Assigns the user role once (first login without a role). It cannot be changed afterwards. */
 export async function setRole(roleId: UserRoleId): Promise<void> {
-  await executeRequest('/account/role', { roleId })
+  await executeRequest('/updateAccountRole', { roleId })
 }
 
 /** Changes the interface language (stored in a cookie). */
 export async function setLocale(locale: string): Promise<void> {
-  await executeRequest('/account/locale', { locale })
+  await executeRequest('/updateAccountLocale', { locale })
 }

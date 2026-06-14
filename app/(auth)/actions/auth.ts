@@ -14,5 +14,5 @@ export interface RegisterInput {
 
 /** Creates a new user with email/password credentials. Returns the new user id. */
 export async function registerUser(input: RegisterInput): Promise<{ id: number }> {
-  return executeRequest<{ id: number }>('/users/register', input)
+  return executeRequest<{ id: number }>('/registerUser', input)
 }
