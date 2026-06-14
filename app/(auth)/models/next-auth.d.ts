@@ -1,11 +1,11 @@
 import { DefaultSession } from 'next-auth'
-import { UserRoleId } from '@/app/(auth)/models/UserRoles'
+import { Role } from '@/app/(auth)/models/Role'
 
 declare module 'next-auth' {
   interface Session {
     user: {
       id: string
-      roleId: UserRoleId | null
+      roleId: Role | null
       firstName: string | null
       lastName: string | null
       nickname: string | null
@@ -16,7 +16,7 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     userId?: number
-    roleId?: UserRoleId | null
+    roleId?: Role | null
     firstName?: string | null
     lastName?: string | null
     nickname?: string | null

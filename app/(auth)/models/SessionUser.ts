@@ -1,13 +1,7 @@
-import { UserRoleId } from '@/app/(auth)/models/UserRoles'
+import type { User } from '@/app/(auth)/models/User'
 
-/** The signed-in user, as stored in the user store and the session. */
-export interface SessionUser {
-  id: number
-  email: string
-  firstName: string | null
-  lastName: string | null
-  nickname: string | null
-  displayName: string
-  avatarUrl: string
-  roleId: UserRoleId | null
-}
+/** Serializable subset of User — safe to pass server→client and store in the user store. */
+export type SessionUser = Pick<
+  User,
+  'id' | 'email' | 'firstName' | 'lastName' | 'nickname' | 'roleId' | 'displayName' | 'avatarUrl'
+>

@@ -1,4 +1,4 @@
-import type { UserRoleId } from '@/app/(auth)/models/UserRoles'
+import type { Role } from '@/app/(auth)/models/Role'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side auth actions: thin wrappers around the REST API. */
@@ -9,7 +9,7 @@ export interface RegisterInput {
   password: string
   firstName: string
   lastName: string
-  roleId: UserRoleId
+  roleId: Role
 }
 
 /** Creates a new user with email/password credentials. Returns the new user id. */

@@ -1,5 +1,5 @@
 import { Column, Entity, HasMany } from '@neogroup/neorm'
-import { UserRoleId } from '@/app/(auth)/models/UserRoles'
+import { Role } from '@/app/(auth)/models/Role'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { Competitor } from '@/app/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
@@ -27,7 +27,7 @@ export class User {
 
   /** Role of the user: 1 = organizer, 2 = player. Assigned once, cannot be switched. */
   @Column()
-  roleId!: UserRoleId | null
+  roleId!: Role | null
 
   @Column({ cast: 'date' })
   createdAt!: Date
@@ -48,4 +48,3 @@ export class User {
     return getGravatarUrl(this.email, 80)
   }
 }
-

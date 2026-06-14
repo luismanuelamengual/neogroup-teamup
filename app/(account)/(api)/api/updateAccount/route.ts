@@ -1,15 +1,15 @@
 import { Repository } from '@neogroup/neorm'
 import { cookies } from 'next/headers'
 import { AccountInput } from '@/app/(account)/actions/account'
+import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
-import { UserRoleId } from '@/app/(auth)/models/UserRoles'
 import { auth, unstable_update } from '@/app/(auth)/services/auth'
-import { isValidRoleId } from '@/app/(auth)/utils/user'
+import { isValidRole } from '@/app/(auth)/utils/user'
 import { ApiException } from '@/app/models/ApiException'
 import { withApi } from '@/app/utils/api-server'
 import { LOCALE_COOKIE, SUPPORTED_LOCALES, SupportedLocale } from '@/app/utils/lang'
 
-type UpdateAccountBody = Partial<AccountInput & { roleId: UserRoleId; locale: string }>
+type UpdateAccountBody = Partial<AccountInput & { roleId: Role; locale: string }>
 
 /**
  * POST /api/updateAccount — unified account update endpoint.
@@ -49,7 +49,7 @@ export const POST = withApi(async (request) => {
   if ('roleId' in body) {
     const { roleId } = body
 
-    if (!isValidRoleId(roleId!)) {
+    if (!isValidRole(roleId!)) {
       throw new ApiException('invalidRole')
     }
 

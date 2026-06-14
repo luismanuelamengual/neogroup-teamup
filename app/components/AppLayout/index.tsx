@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
 import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
+import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
-import { UserRoleId } from '@/app/(auth)/models/UserRoles'
 import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/components/AppShell'
 
@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     nickname: session.user.nickname,
     displayName: session.user.name ?? '',
     avatarUrl: session.user.image ?? '',
-    roleId: session.user.roleId as UserRoleId
+    roleId: session.user.roleId as Role
   }
 
   return (

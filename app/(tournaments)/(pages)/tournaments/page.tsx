@@ -3,7 +3,7 @@ import AddIcon from '@mui/icons-material/Add'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import { getTranslations } from 'next-intl/server'
-import { UserRoles } from '@/app/(auth)/models/UserRoles'
+import { Role } from '@/app/(auth)/models/Role'
 import { auth } from '@/app/(auth)/services/auth'
 import OrganizerTournamentsList from '@/app/(tournaments)/components/OrganizerTournamentsList'
 import PlayerTournamentsList from '@/app/(tournaments)/components/PlayerTournamentsList'
@@ -17,7 +17,7 @@ export default async function TournamentsPage({
 }) {
   const session = await auth()
 
-  if (session?.user?.roleId === UserRoles.ORGANIZER) {
+  if (session?.user?.roleId === Role.ORGANIZER) {
     const { name, active } = await searchParams
     const t = await getTranslations('organizer')
 

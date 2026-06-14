@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { UserRoles } from '@/app/(auth)/models/UserRoles'
+import { Role } from '@/app/(auth)/models/Role'
 import { auth } from '@/app/(auth)/services/auth'
 import JoinTournamentForm from '@/app/(tournaments)/components/JoinTournamentForm'
 
@@ -8,7 +8,7 @@ export default async function JoinTournamentPage({ params }: { params: Promise<{
   const { id } = await params
   const session = await auth()
 
-  if (session?.user?.roleId !== UserRoles.PLAYER) {
+  if (session?.user?.roleId !== Role.PLAYER) {
     redirect(`/tournaments/${id}`)
   }
 

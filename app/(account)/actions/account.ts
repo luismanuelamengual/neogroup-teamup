@@ -1,4 +1,4 @@
-import type { UserRoleId } from '@/app/(auth)/models/UserRoles'
+import type { Role } from '@/app/(auth)/models/Role'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side account actions: thin wrappers around the REST API. */
@@ -16,7 +16,7 @@ export async function updateAccount(input: AccountInput): Promise<void> {
 }
 
 /** Assigns the user role once (first login without a role). It cannot be changed afterwards. */
-export async function setRole(roleId: UserRoleId): Promise<void> {
+export async function setRole(roleId: Role): Promise<void> {
   await executeRequest('/updateAccount', { roleId })
 }
 

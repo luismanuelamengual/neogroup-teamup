@@ -15,7 +15,7 @@ import { signIn } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
 import { registerUser } from '@/app/(auth)/actions/auth'
-import { UserRoleId, UserRoles } from '@/app/(auth)/models/UserRoles'
+import { Role } from '@/app/(auth)/models/Role'
 
 interface RegisterFormProps {
   callbackUrl: string | null
@@ -28,7 +28,7 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [roleId, setRoleId] = useState<UserRoleId>(UserRoles.PLAYER)
+  const [roleId, setRoleId] = useState<Role>(Role.PLAYER)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const targetUrl = callbackUrl ? `/?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/'
@@ -103,17 +103,17 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
             exclusive
             fullWidth
             value={roleId}
-            onChange={(_, value: UserRoleId | null) => {
+            onChange={(_, value: Role | null) => {
               if (value) {
                 setRoleId(value)
               }
             }}
           >
-            <ToggleButton value={UserRoles.PLAYER}>
+            <ToggleButton value={Role.PLAYER}>
               <SportsTennisIcon fontSize="small" sx={{ mr: 1 }} />
               {t('rolePlayer')}
             </ToggleButton>
-            <ToggleButton value={UserRoles.ORGANIZER}>
+            <ToggleButton value={Role.ORGANIZER}>
               <EmojiEventsIcon fontSize="small" sx={{ mr: 1 }} />
               {t('roleOrganizer')}
             </ToggleButton>

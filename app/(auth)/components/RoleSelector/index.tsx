@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { setRole } from '@/app/(account)/actions/account'
-import { UserRoleId, UserRoles } from '@/app/(auth)/models/UserRoles'
+import { Role } from '@/app/(auth)/models/Role'
 
 interface RoleSelectorProps {
   callbackUrl: string | null
@@ -20,7 +20,7 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
   const t = useTranslations('roleSelect')
   const tCommon = useTranslations('common')
   const router = useRouter()
-  const [selected, setSelected] = useState<UserRoleId | null>(null)
+  const [selected, setSelected] = useState<Role | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -57,8 +57,8 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
       <div className="options">
         <button
           type="button"
-          className={`option ${selected === UserRoles.ORGANIZER ? 'selected' : ''}`}
-          onClick={() => setSelected(UserRoles.ORGANIZER)}
+          className={`option ${selected === Role.ORGANIZER ? 'selected' : ''}`}
+          onClick={() => setSelected(Role.ORGANIZER)}
         >
           <EmojiEventsIcon className="option-icon" />
           <span className="option-title">{t('organizerTitle')}</span>
@@ -66,8 +66,8 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
         </button>
         <button
           type="button"
-          className={`option ${selected === UserRoles.PLAYER ? 'selected' : ''}`}
-          onClick={() => setSelected(UserRoles.PLAYER)}
+          className={`option ${selected === Role.PLAYER ? 'selected' : ''}`}
+          onClick={() => setSelected(Role.PLAYER)}
         >
           <SportsTennisIcon className="option-icon" />
           <span className="option-title">{t('playerTitle')}</span>

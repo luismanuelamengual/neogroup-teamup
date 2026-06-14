@@ -1,6 +1,6 @@
 import { create } from 'zustand'
+import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
-import { UserRoleId, UserRoles } from '@/app/(auth)/models/UserRoles'
 
 /**
  * Store with the signed-in user. It is hydrated from the session by
@@ -18,11 +18,11 @@ export const useUserStore = create<UserState>()((set) => ({
 }))
 
 /** Role of the signed-in user (null while the store is not hydrated). */
-export function useUserRole(): UserRoleId | null {
+export function useUserRole(): Role | null {
   return useUserStore((state) => state.user?.roleId ?? null)
 }
 
 /** True when the signed-in user is an organizer. */
 export function useIsOrganizer(): boolean {
-  return useUserStore((state) => state.user?.roleId === UserRoles.ORGANIZER)
+  return useUserStore((state) => state.user?.roleId === Role.ORGANIZER)
 }

@@ -21,7 +21,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { MouseEvent, ReactNode, useState } from 'react'
-import { UserRoles } from '@/app/(auth)/models/UserRoles'
+import { Role } from '@/app/(auth)/models/Role'
 import { useUserStore } from '@/app/(auth)/stores/user.store'
 
 interface NavItem {
@@ -37,7 +37,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const user = useUserStore((state) => state.user)
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
-  const isOrganizer = user?.roleId === UserRoles.ORGANIZER
+  const isOrganizer = user?.roleId === Role.ORGANIZER
   const navItems: NavItem[] = isOrganizer
     ? [
         {

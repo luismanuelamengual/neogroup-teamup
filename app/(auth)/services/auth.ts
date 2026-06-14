@@ -3,8 +3,8 @@ import bcrypt from 'bcryptjs'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
+import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
-import { UserRoleId } from '@/app/(auth)/models/UserRoles'
 import { authConfig } from '@/app/(auth)/services/auth.config'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { getGravatarUrl } from '@/app/utils/gravatar'
@@ -93,7 +93,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async session({ session, token }) {
       if (token.userId) {
         session.user.id = String(token.userId)
-        session.user.roleId = (token.roleId as UserRoleId | undefined) ?? null
+        session.user.roleId = (token.roleId as Role | undefined) ?? null
         session.user.firstName = (token.firstName as string | undefined) ?? null
         session.user.lastName = (token.lastName as string | undefined) ?? null
         session.user.nickname = (token.nickname as string | undefined) ?? null
