@@ -44,8 +44,8 @@ export async function getTournaments({
     .get()
 }
 
-export async function getTournament(id: number, options: TournamentOptions = {}): Promise<Tournament | null> {
-  const [tournament = null] = await getTournaments({ ...options, id, pageSize: 1 })
+export async function getTournament(options: TournamentOptions = {}): Promise<Tournament | null> {
+  const [tournament = null] = await getTournaments({ ...options, pageSize: 1 })
 
   if (tournament) {
     if (tournament.competitors) {

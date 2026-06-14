@@ -10,7 +10,12 @@ import { withAuth } from '@/app/utils/api-server'
 export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
   const { id } = await context.params
   const tournamentId = Number(id)
-  const tournament = await getTournament(tournamentId, { withCompetitors: true, withRounds: true, withMatches: true })
+  const tournament = await getTournament({
+    id: tournamentId,
+    withCompetitors: true,
+    withRounds: true,
+    withMatches: true
+  })
 
   if (!tournament) {
     throw new ApiException('notFound', 404)
