@@ -17,6 +17,10 @@ export class Round {
   @Column({ cast: 'number' })
   status!: RoundStatus
 
+  /** Category this round belongs to (null when the tournament has none). */
+  @Column()
+  category!: string | null
+
   @Column({ cast: 'date' })
   createdAt!: Date
 

@@ -6,7 +6,7 @@ import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { Round } from '@/app/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
-import { generateRoundPairings } from '@/app/(tournaments)/services/tournament-engine'
+import { generateRoundPairings, getTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
 import { ApiException } from '@/app/models/ApiException'
 
 /** Helpers shared by the /api/tournaments/[id]/* route handlers. */
@@ -22,29 +22,22 @@ export async function requireOwnedTournament(tournamentId: number, userId: numbe
   return tournament
 }
 
-/** Generates and persists the pairings/matches of a round. Throws ApiException when not possible. */
-export async function createRound(tournament: Tournament, roundNumber: number): Promise<void> {
-  const competitors = await Repository.get(Competitor).where('tournamentId', tournament.id).orderBy('id').get()
-  const competitorIds: number[] = competitors.map((competitor) => competitor.id)
+/**
+ * Category keys a tournament runs in parallel. Returns the configured category
+ * names, or `[null]` (a single group) when the tournament has no categories.
+ */
+export function getTournamentCategoryKeys(tournament: Tournament): (string | null)[] {
+  return tournament.categories && tournament.categories.length > 0 ? tournament.categories : [null]
+}
 
-  if (competitorIds.length < 2) {
-    throw new ApiException('notEnoughCompetitors')
-  }
-
-  let previousRoundMatches: Match[] = []
-
-  if (roundNumber > 1) {
-    const previousRound: Round | null = await Repository.get(Round)
-      .where('tournamentId', tournament.id)
-      .where('number', roundNumber - 1)
-      .with('matches')
-      .first()
-
-    if (previousRound) {
-      previousRoundMatches = previousRound.matches ?? []
-    }
-  }
-
+/** Persists the pairings/matches of a single category group within a round. */
+async function createCategoryRound(
+  tournament: Tournament,
+  roundNumber: number,
+  category: string | null,
+  competitorIds: number[],
+  previousRoundMatches: Match[]
+): Promise<boolean> {
   const pairings = generateRoundPairings(
     tournament.type,
     tournament.settings ?? {},
@@ -54,7 +47,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   )
 
   if (pairings.length === 0) {
-    throw new ApiException('noMatchesGenerated')
+    return false
   }
 
   const round = new Round()
@@ -62,6 +55,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   round.tournamentId = tournament.id
   round.number = roundNumber
   round.status = RoundStatus.OPEN
+  round.category = category
   round.createdAt = new Date()
   await Repository.get(Round).save(round)
 
@@ -87,6 +81,64 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
     match.createdAt = new Date()
     match.updatedAt = new Date()
     await Repository.get(Match).save(match)
+  }
+
+  return true
+}
+
+/**
+ * Generates and persists the pairings/matches of a round. When the tournament
+ * has categories, every category that still has rounds left is generated in
+ * parallel. Throws ApiException when no matches could be generated at all.
+ */
+export async function createRound(tournament: Tournament, roundNumber: number): Promise<void> {
+  const competitors = await Repository.get(Competitor).where('tournamentId', tournament.id).orderBy('id').get()
+  const categoryKeys = getTournamentCategoryKeys(tournament)
+
+  if (competitors.length < 2) {
+    throw new ApiException('notEnoughCompetitors')
+  }
+
+  // Previous round rows (with matches) are needed to seed playoff brackets.
+  let previousRounds: Round[] = []
+
+  if (roundNumber > 1) {
+    previousRounds = await Repository.get(Round)
+      .where('tournamentId', tournament.id)
+      .where('number', roundNumber - 1)
+      .with('matches')
+      .get()
+  }
+
+  let anyCreated = false
+
+  for (const category of categoryKeys) {
+    const groupCompetitors = category === null ? competitors : competitors.filter((c) => c.category === category)
+    const competitorIds = groupCompetitors.map((competitor) => competitor.id)
+
+    if (competitorIds.length < 2) {
+      continue
+    }
+
+    // Skip categories that already played all their rounds.
+    if (roundNumber > getTotalRounds(tournament.type, tournament.settings ?? {}, competitorIds.length)) {
+      continue
+    }
+
+    const previousRound = previousRounds.find((round) => (round.category ?? null) === category)
+    const created = await createCategoryRound(
+      tournament,
+      roundNumber,
+      category,
+      competitorIds,
+      previousRound?.matches ?? []
+    )
+
+    anyCreated = anyCreated || created
+  }
+
+  if (!anyCreated) {
+    throw new ApiException('noMatchesGenerated')
   }
 
   tournament.currentRound = roundNumber

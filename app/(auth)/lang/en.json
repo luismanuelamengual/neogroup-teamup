@@ -28,7 +28,7 @@
   },
   "roleSelect": {
     "title": "How will you use TeamUp?",
-    "subtitle": "You can switch profiles later from your account menu.",
+    "subtitle": "Select the role you want to have in the platform.",
     "organizerTitle": "Organizer",
     "organizerDescription": "I create and manage tournaments and leagues",
     "playerTitle": "Player",

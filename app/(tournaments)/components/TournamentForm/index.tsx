@@ -1,9 +1,12 @@
 'use client'
 
 import './index.scss'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Switch from '@mui/material/Switch'
@@ -37,7 +40,9 @@ export default function TournamentForm() {
   const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
   const [scoreFormat, setScoreFormat] = useState<ScoreFormat>(ScoreFormat.THREE_SETS)
   const [startDate, setStartDate] = useState('')
+  const [startTime, setStartTime] = useState('')
   const [location, setLocation] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
   const [maxCompetitors, setMaxCompetitors] = useState(8)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
@@ -72,7 +77,9 @@ export default function TournamentForm() {
         type,
         scoreFormat,
         startDate,
+        startTime: startTime || null,
         location,
+        categories: categories.map((value) => value.trim()).filter((value) => value !== ''),
         maxCompetitors,
         settings:
           type === TournamentType.LEAGUE ? leagueSettings : type === TournamentType.AMERICANO ? americanoSettings : {}
@@ -88,6 +95,14 @@ export default function TournamentForm() {
 
     router.push(`/tournaments/${createdId}`)
   }
+
+  const handleAddCategory = () => setCategories((prev) => [...prev, ''])
+
+  const handleCategoryChange = (index: number, value: string) =>
+    setCategories((prev) => prev.map((category, i) => (i === index ? value : category)))
+
+  const handleRemoveCategory = (index: number) =>
+    setCategories((prev) => prev.filter((_, i) => i !== index))
 
   const isDoubles = isDoublesDiscipline(discipline, discipline === Discipline.TENNIS ? subDiscipline : null)
 
@@ -157,11 +172,41 @@ export default function TournamentForm() {
           slotProps={{ inputLabel: { shrink: true } }}
         />
         <TextField
+          label={t('startTime')}
+          type="time"
+          value={startTime}
+          onChange={(event) => setStartTime(event.target.value)}
+          fullWidth
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <TextField
           label={t('location')}
           value={location}
           onChange={(event) => setLocation(event.target.value)}
           fullWidth
         />
+      </div>
+      <div className="settings categories">
+        <Typography variant="subtitle2">{t('categories')}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t('categoriesHint')}
+        </Typography>
+        {categories.map((category, index) => (
+          <div key={index} className="category-row">
+            <TextField
+              label={t('categoryNumber', { number: index + 1 })}
+              value={category}
+              onChange={(event) => handleCategoryChange(index, event.target.value)}
+              fullWidth
+            />
+            <IconButton aria-label={tCommon('delete')} onClick={() => handleRemoveCategory(index)}>
+              <DeleteOutlineIcon />
+            </IconButton>
+          </div>
+        ))}
+        <Button startIcon={<AddIcon />} onClick={handleAddCategory}>
+          {t('addCategory')}
+        </Button>
       </div>
       <div className="row">
         <TextField

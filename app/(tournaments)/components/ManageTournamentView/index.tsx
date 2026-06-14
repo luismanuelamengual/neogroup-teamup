@@ -37,7 +37,7 @@ import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
-import { getTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
+import { getMaxTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
 import {
   DISCIPLINE_KEYS,
   SCORE_FORMAT_KEYS,
@@ -85,12 +85,9 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
     return names
   }, [competitors])
-  const standings = useMemo(
-    () =>
-      tournament && tournament.type !== TournamentType.PLAYOFF
-        ? computeStandings(tournament.type, tournament.scoreFormat, tournament.settings ?? {}, competitors, matches)
-        : [],
-    [tournament, competitors, matches]
+  const categoryKeys = useMemo<(string | null)[]>(
+    () => (tournament?.categories && tournament.categories.length > 0 ? tournament.categories : [null]),
+    [tournament]
   )
 
   if (loading) {
@@ -105,13 +102,42 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
     return <Alert severity="error">{tOrganizer('errors.notFound')}</Alert>
   }
 
-  const currentRound = rounds.find((round) => round.number === tournament.currentRound) ?? null
-  const currentRoundMatches = currentRound ? matches.filter((match) => match.roundId === currentRound.id) : []
-  const roundIsOpen = currentRound?.status === RoundStatus.OPEN
+  const hasCategories = categoryKeys.some((key) => key !== null)
+  const currentRounds = rounds.filter((round) => round.number === tournament.currentRound)
+  const currentRoundIds = new Set(currentRounds.map((round) => round.id))
+  const currentRoundMatches = matches.filter((match) => currentRoundIds.has(match.roundId))
+  const roundIsOpen = currentRounds.some((round) => round.status === RoundStatus.OPEN)
   const allResolved = currentRoundMatches.every((match) => match.status !== MatchStatus.PENDING)
-  const totalRounds = getTotalRounds(tournament.type, tournament.settings ?? {}, competitors.length)
+  const groupSizes = categoryKeys.map((key) =>
+    key === null ? competitors.length : competitors.filter((competitor) => competitor.category === key).length
+  )
+  const totalRounds = getMaxTotalRounds(tournament.type, tournament.settings ?? {}, groupSizes)
   const hasMoreRounds = tournament.currentRound < totalRounds
-  const editableMatchIds = roundIsOpen ? currentRoundMatches.map((match) => match.id) : []
+  const editableMatchIds = roundIsOpen
+    ? currentRoundMatches
+        .filter((match) => currentRounds.find((round) => round.id === match.roundId)?.status === RoundStatus.OPEN)
+        .map((match) => match.id)
+    : []
+  // Per-category fixture/standings data (a single null group when there are no categories).
+  const categoryGroups = categoryKeys.map((key) => {
+    const groupCompetitors =
+      key === null ? competitors : competitors.filter((competitor) => competitor.category === key)
+    const groupRounds = rounds.filter((round) => (round.category ?? null) === key)
+    const groupRoundIds = new Set(groupRounds.map((round) => round.id))
+    const groupMatches = matches.filter((match) => groupRoundIds.has(match.roundId))
+    const standings =
+      tournament.type !== TournamentType.PLAYOFF
+        ? computeStandings(
+            tournament.type,
+            tournament.scoreFormat,
+            tournament.settings ?? {},
+            groupCompetitors,
+            groupMatches
+          )
+        : []
+
+    return { key, groupCompetitors, groupRounds, groupMatches, standings }
+  })
 
   const runAction = async (action: () => Promise<void>) => {
     setWorking(true)
@@ -196,14 +222,15 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           )}
           <Chip size="small" label={t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)} />
           <Chip size="small" label={t(`scoreFormat.${SCORE_FORMAT_KEYS[tournament.scoreFormat]}`)} />
-          <span className="meta-item">
-            <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
-          </span>
           {tournament.location && (
             <span className="meta-item">
               <PlaceIcon fontSize="inherit" /> {tournament.location}
             </span>
           )}
+          <span className="meta-item">
+            <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
+            {tournament.startTime ? ` · ${tournament.startTime}` : ''}
+          </span>
         </div>
         <div className="actions">
           {tournament.status === TournamentStatus.STAND_BY && (
@@ -256,50 +283,65 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             {tOrganizer('manage.noCompetitors')}
           </Typography>
         ) : (
-          <div className="competitors">
-            {competitors.map((competitor) => (
-              <Chip key={competitor.id} label={competitor.displayName} variant="outlined" />
-            ))}
-          </div>
+          categoryGroups.map(({ key, groupCompetitors }) => (
+            <div key={key ?? '__all__'} className="competitors-group">
+              {key !== null && (
+                <Typography variant="subtitle2" className="category-label">
+                  {key} ({groupCompetitors.length})
+                </Typography>
+              )}
+              <div className="competitors">
+                {groupCompetitors.map((competitor) => (
+                  <Chip key={competitor.id} label={competitor.displayName} variant="outlined" />
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </Paper>
 
-      {rounds.length > 0 && (
-        <Paper className="section">
-          <Typography variant="h6" className="section-title">
-            {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
-          </Typography>
-          {tournament.type === TournamentType.PLAYOFF ? (
-            <BracketView
-              rounds={rounds}
-              matches={matches}
-              competitorNames={competitorNames}
-              scoreFormat={tournament.scoreFormat}
-              editableMatchIds={editableMatchIds}
-              onEditMatch={setScoreMatch}
-            />
-          ) : (
-            <FixtureView
-              type={tournament.type}
-              rounds={rounds}
-              matches={matches}
-              competitorNames={competitorNames}
-              scoreFormat={tournament.scoreFormat}
-              editableMatchIds={editableMatchIds}
-              onEditMatch={setScoreMatch}
-            />
+      {categoryGroups.map(({ key, groupRounds, groupMatches, standings }) => (
+        <div key={key ?? '__all__'}>
+          {groupRounds.length > 0 && (
+            <Paper className="section">
+              <Typography variant="h6" className="section-title">
+                {hasCategories ? `${key} · ` : ''}
+                {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
+              </Typography>
+              {tournament.type === TournamentType.PLAYOFF ? (
+                <BracketView
+                  rounds={groupRounds}
+                  matches={groupMatches}
+                  competitorNames={competitorNames}
+                  scoreFormat={tournament.scoreFormat}
+                  editableMatchIds={editableMatchIds}
+                  onEditMatch={setScoreMatch}
+                />
+              ) : (
+                <FixtureView
+                  type={tournament.type}
+                  rounds={groupRounds}
+                  matches={groupMatches}
+                  competitorNames={competitorNames}
+                  scoreFormat={tournament.scoreFormat}
+                  editableMatchIds={editableMatchIds}
+                  onEditMatch={setScoreMatch}
+                />
+              )}
+            </Paper>
           )}
-        </Paper>
-      )}
 
-      {standings.length > 0 && rounds.length > 0 && (
-        <Paper className="section">
-          <Typography variant="h6" className="section-title">
-            {t('standings')}
-          </Typography>
-          <StandingsTable type={tournament.type} rows={standings} />
-        </Paper>
-      )}
+          {standings.length > 0 && groupRounds.length > 0 && (
+            <Paper className="section">
+              <Typography variant="h6" className="section-title">
+                {hasCategories ? `${key} · ` : ''}
+                {t('standings')}
+              </Typography>
+              <StandingsTable type={tournament.type} rows={standings} />
+            </Paper>
+          )}
+        </div>
+      ))}
 
       <EditTournamentDialog
         open={editOpen}

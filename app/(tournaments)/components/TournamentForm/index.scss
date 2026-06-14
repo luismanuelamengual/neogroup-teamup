@@ -18,6 +18,14 @@
     border-radius: var(--radius-md);
   }
 
+  .categories {
+    .category-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
   .actions {
     display: flex;
     justify-content: flex-end;

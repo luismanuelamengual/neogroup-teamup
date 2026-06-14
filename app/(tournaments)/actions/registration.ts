@@ -7,7 +7,7 @@ import { executeRequest } from '@/app/actions/api'
 /** Payload to register the signed-in user (optionally with a partner) into a tournament. */
 export interface JoinTournamentInput {
   partnerUserId?: number | null
-  partnerName?: string | null
+  category?: string | null
 }
 
 /** Searches platform users by name, nickname or email (for partner selection). */

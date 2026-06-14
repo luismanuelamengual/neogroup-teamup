@@ -30,7 +30,13 @@
       "basic_count": "Contador básico"
     },
     "startDate": "Fecha de inicio",
+    "startTime": "Hora de inicio",
     "location": "Lugar",
+    "categories": "Categorías",
+    "categoriesHint": "Opcional. Si agregás categorías, cada jugador deberá elegir una al inscribirse y cada categoría se juega por separado.",
+    "category": "Categoría",
+    "categoryNumber": "Categoría {number}",
+    "addCategory": "Agregar categoría",
     "maxCompetitors": "Cantidad máxima de competidores",
     "maxTeams": "Cantidad máxima de equipos",
     "competitors": "Competidores",
@@ -100,7 +106,8 @@
       "invalidScore": "El resultado no es válido",
       "roundClosed": "La ronda ya fue cerrada",
       "noMatchesGenerated": "No se pudieron generar los partidos",
-      "missingFields": "Completá todos los campos obligatorios"
+      "missingFields": "Completá todos los campos obligatorios",
+      "invalidTime": "La hora debe tener el formato HH:mm"
     }
   },
   "player": {
@@ -116,10 +123,8 @@
     "registered": "Estás inscripto",
     "joinTitle": "Inscripción",
     "partnerTitle": "Tu compañero/a",
-    "partnerSearchOption": "Buscar usuario de la plataforma",
-    "partnerFreeTextOption": "Ingresar nombre libre",
     "partnerSearchPlaceholder": "Buscá por nombre o email...",
-    "partnerNamePlaceholder": "Nombre de tu compañero/a",
+    "selectCategory": "Elegí una categoría",
     "confirmRegistration": "Confirmar inscripción",
     "yourMatch": "Tu partido",
     "loadResult": "Cargar resultado",
@@ -133,6 +138,8 @@
       "alreadyRegistered": "Ya estás inscripto en este torneo",
       "partnerRequired": "Tenés que indicar un compañero/a",
       "partnerNotFound": "No se encontró el usuario seleccionado",
+      "categoryRequired": "Tenés que elegir una categoría",
+      "invalidCategory": "La categoría seleccionada no es válida",
       "notRegistered": "No estás inscripto en este torneo",
       "invalidStatus": "El torneo no está en un estado válido para esta acción",
       "invalidScore": "El resultado no es válido",

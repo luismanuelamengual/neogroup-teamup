@@ -6,6 +6,7 @@ import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
+import { normalizeCategories, normalizeStartTime } from '@/app/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
@@ -30,6 +31,14 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('americanoOnlyPadel')
   }
 
+  const startTime = normalizeStartTime(input.startTime)
+
+  if (startTime === false) {
+    throw new ApiException('invalidTime')
+  }
+
+  const categories = normalizeCategories(input.categories)
+
   let settings: TournamentSettings = {}
 
   if (input.type === TournamentType.LEAGUE) {
@@ -49,7 +58,9 @@ export const POST = withAuth(async (request, context, userId) => {
   tournament.type = input.type
   tournament.scoreFormat = input.scoreFormat
   tournament.startDate = new Date(input.startDate as any)
+  tournament.startTime = startTime
   tournament.location = input.location?.trim() || null
+  tournament.categories = categories
   tournament.maxCompetitors = input.maxCompetitors
   tournament.settings = settings
   tournament.currentRound = 0

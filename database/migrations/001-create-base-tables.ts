@@ -42,7 +42,9 @@ export default {
         type INTEGER NOT NULL,
         scoreFormat INTEGER NOT NULL,
         startDate DATE NOT NULL,
+        startTime VARCHAR(5),
         location VARCHAR(255),
+        categories TEXT,
         maxCompetitors INTEGER NOT NULL,
         settings TEXT,
         currentRound INTEGER NOT NULL DEFAULT 0,
@@ -59,6 +61,7 @@ export default {
         partnerUserId INTEGER REFERENCES users (id),
         partnerName VARCHAR(150),
         displayName VARCHAR(255) NOT NULL,
+        category VARCHAR(150),
         createdAt ${TIMESTAMP}
       )
     `)
@@ -69,6 +72,7 @@ export default {
         tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
         number INTEGER NOT NULL,
         status INTEGER NOT NULL DEFAULT 1,
+        category VARCHAR(150),
         createdAt ${TIMESTAMP}
       )
     `)
@@ -93,7 +97,9 @@ export default {
     await DB.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments (status)')
     await DB.execute('CREATE INDEX IF NOT EXISTS idx_competitors_tournament ON competitors (tournamentId)')
     await DB.execute('CREATE INDEX IF NOT EXISTS idx_competitors_user ON competitors (userId)')
+    await DB.execute('CREATE INDEX IF NOT EXISTS idx_competitors_category ON competitors (tournamentId, category)')
     await DB.execute('CREATE INDEX IF NOT EXISTS idx_rounds_tournament ON rounds (tournamentId)')
+    await DB.execute('CREATE INDEX IF NOT EXISTS idx_rounds_category ON rounds (tournamentId, category)')
     await DB.execute('CREATE INDEX IF NOT EXISTS idx_matches_tournament ON matches (tournamentId)')
     await DB.execute('CREATE INDEX IF NOT EXISTS idx_matches_round ON matches (roundId)')
   }

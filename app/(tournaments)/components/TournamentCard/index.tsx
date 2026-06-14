@@ -37,16 +37,17 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         <span className="tag">{t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)}</span>
       </div>
       <div className="details">
-        <span className="detail">
-          <CalendarMonthIcon fontSize="inherit" />
-          {tournament.startDate}
-        </span>
         {tournament.location && (
           <span className="detail">
             <PlaceIcon fontSize="inherit" />
             {tournament.location}
           </span>
         )}
+        <span className="detail">
+          <CalendarMonthIcon fontSize="inherit" />
+          {tournament.startDate}
+          {tournament.startTime ? ` · ${tournament.startTime}` : ''}
+        </span>
         {tournament.competitorsCount != null && (
           <span className="detail">
             <GroupsIcon fontSize="inherit" />

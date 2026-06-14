@@ -43,8 +43,16 @@ export class Tournament {
   @Column({ cast: 'date' })
   startDate!: Date
 
+  /** Optional start time in "HH:mm" format. */
+  @Column()
+  startTime!: string | null
+
   @Column()
   location!: string | null
+
+  /** Optional free-text category names defined by the organizer. */
+  @Column({ cast: 'json' })
+  categories!: string[] | null
 
   @Column({ cast: 'number' })
   maxCompetitors!: number

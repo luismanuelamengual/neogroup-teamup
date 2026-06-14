@@ -1,6 +1,7 @@
 import { Repository } from '@neogroup/neorm'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
+import { normalizeStartTime } from '@/app/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
@@ -19,10 +20,17 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('missingFields')
   }
 
+  const startTime = normalizeStartTime(input.startTime)
+
+  if (startTime === false) {
+    throw new ApiException('invalidTime')
+  }
+
   tournament.name = name
   tournament.description = input.description?.trim() || null
   tournament.location = input.location?.trim() || null
   tournament.startDate = new Date(input.startDate as any)
+  tournament.startTime = startTime
   tournament.maxCompetitors = input.maxCompetitors
   tournament.updatedAt = new Date()
   await Repository.get(Tournament).save(tournament)

@@ -18,24 +18,30 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('invalidStatus')
   }
 
-  const round: Round | null = await Repository.get(Round)
+  // A round number may span several rounds (one per category); close them all.
+  const rounds: Round[] = await Repository.get(Round)
     .where('tournamentId', tournamentId)
     .where('number', tournament.currentRound)
-    .first()
+    .get()
+  const openRounds = rounds.filter((round) => round.status === RoundStatus.OPEN)
 
-  if (!round || round.status !== RoundStatus.OPEN) {
+  if (openRounds.length === 0) {
     throw new ApiException('invalidStatus')
   }
 
-  const pendingMatches = await Repository.get(Match)
-    .where('roundId', round.id)
-    .where('status', MatchStatus.PENDING)
-    .get()
+  for (const round of openRounds) {
+    const pendingMatches = await Repository.get(Match)
+      .where('roundId', round.id)
+      .where('status', MatchStatus.PENDING)
+      .get()
 
-  if (pendingMatches.length > 0) {
-    throw new ApiException('pendingMatches')
+    if (pendingMatches.length > 0) {
+      throw new ApiException('pendingMatches')
+    }
   }
 
-  round.status = RoundStatus.CLOSED
-  await Repository.get(Round).save(round)
+  for (const round of openRounds) {
+    round.status = RoundStatus.CLOSED
+    await Repository.get(Round).save(round)
+  }
 })

@@ -31,6 +31,23 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('tournamentFull')
   }
 
+  // Category is mandatory when the tournament defines categories.
+  let category: string | null = null
+
+  if (tournament.categories && tournament.categories.length > 0) {
+    const requested = input.category?.trim()
+
+    if (!requested) {
+      throw new ApiException('categoryRequired')
+    }
+
+    category = tournament.categories.find((name) => name === requested) ?? null
+
+    if (!category) {
+      throw new ApiException('invalidCategory')
+    }
+  }
+
   const alreadyRegistered = competitors.some(
     (competitor) =>
       competitor.userId === userId ||
@@ -56,25 +73,22 @@ export const POST = withAuth(async (request, context, userId) => {
     tournament.settings ?? {}
   )
   let partnerUserId: number | null = null
-  let partnerName: string | null = null
   let partnerDisplayName = ''
 
   if (needsPartner) {
-    if (input.partnerUserId) {
-      const partner = await Repository.get(User).find(input.partnerUserId)
-
-      if (!partner) {
-        throw new ApiException('partnerNotFound')
-      }
-
-      partnerUserId = partner.id
-      partnerDisplayName = getUserDisplayName(partner)
-    } else if (input.partnerName?.trim()) {
-      partnerName = input.partnerName.trim()
-      partnerDisplayName = partnerName
-    } else {
+    // The partner must be a registered platform user (free-text names removed).
+    if (!input.partnerUserId) {
       throw new ApiException('partnerRequired')
     }
+
+    const partner = await Repository.get(User).find(input.partnerUserId)
+
+    if (!partner) {
+      throw new ApiException('partnerNotFound')
+    }
+
+    partnerUserId = partner.id
+    partnerDisplayName = getUserDisplayName(partner)
   }
 
   const competitor = new Competitor()
@@ -82,10 +96,11 @@ export const POST = withAuth(async (request, context, userId) => {
   competitor.tournamentId = tournament.id
   competitor.userId = userId
   competitor.partnerUserId = partnerUserId
-  competitor.partnerName = partnerName
+  competitor.partnerName = null
   competitor.displayName = needsPartner
     ? `${getUserDisplayName(user)} / ${partnerDisplayName}`
     : getUserDisplayName(user)
+  competitor.category = category
   competitor.createdAt = new Date()
   await Repository.get(Competitor).save(competitor)
 })

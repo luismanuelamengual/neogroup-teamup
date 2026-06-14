@@ -7,10 +7,8 @@ import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
-import FormControlLabel from '@mui/material/FormControlLabel'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
-import Radio from '@mui/material/Radio'
-import RadioGroup from '@mui/material/RadioGroup'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
@@ -28,19 +26,16 @@ interface JoinTournamentFormProps {
   tournamentId: number
 }
 
-type PartnerMode = 'search' | 'free'
-
 export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormProps) {
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
   const router = useRouter()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [initializing, setInitializing] = useState(true)
-  const [partnerMode, setPartnerMode] = useState<PartnerMode>('search')
   const [partnerQuery, setPartnerQuery] = useState('')
   const [partnerOptions, setPartnerOptions] = useState<User[]>([])
   const [partnerUser, setPartnerUser] = useState<User | null>(null)
-  const [partnerName, setPartnerName] = useState('')
+  const [category, setCategory] = useState('')
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -81,7 +76,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
 
   // Debounced platform user search.
   useEffect(() => {
-    if (partnerMode !== 'search' || partnerQuery.trim().length < 2) {
+    if (partnerQuery.trim().length < 2) {
       setPartnerOptions([])
 
       return
@@ -97,7 +92,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
     }, 350)
 
     return () => clearTimeout(timeout)
-  }, [partnerQuery, partnerMode])
+  }, [partnerQuery])
 
   if (initializing) {
     return (
@@ -111,14 +106,17 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
     return <Alert severity="error">{tPlayer('errors.notFound')}</Alert>
   }
 
+  const categories = tournament.categories ?? []
+  const hasCategories = categories.length > 0
+
   const handleJoin = async () => {
     setError(null)
     setLoading(true)
 
     try {
       await joinTournament(tournament.id, {
-        partnerUserId: needsPartner && partnerMode === 'search' ? partnerUser?.id ?? null : null,
-        partnerName: needsPartner && partnerMode === 'free' ? partnerName : null
+        partnerUserId: needsPartner ? partnerUser?.id ?? null : null,
+        category: hasCategories ? category : null
       })
     } catch (requestError) {
       setLoading(false)
@@ -153,56 +151,64 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
         </div>
       </div>
       {error && <Alert severity="error">{error}</Alert>}
+      {hasCategories && (
+        <div className="category">
+          <Typography variant="subtitle1" className="category-title">
+            {t('category')}
+          </Typography>
+          <TextField
+            select
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+            placeholder={tPlayer('selectCategory')}
+            size="small"
+            fullWidth
+            required
+          >
+            {categories.map((name) => (
+              <MenuItem key={name} value={name}>
+                {name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </div>
+      )}
       {needsPartner && (
         <div className="partner">
           <Typography variant="subtitle1" className="partner-title">
             {tPlayer('partnerTitle')}
           </Typography>
-          <RadioGroup value={partnerMode} onChange={(event) => setPartnerMode(event.target.value as PartnerMode)}>
-            <FormControlLabel value="search" control={<Radio />} label={tPlayer('partnerSearchOption')} />
-            <FormControlLabel value="free" control={<Radio />} label={tPlayer('partnerFreeTextOption')} />
-          </RadioGroup>
-          {partnerMode === 'search' ? (
-            <Autocomplete
-              options={partnerOptions}
-              value={partnerUser}
-              loading={searching}
-              onChange={(_, value) => setPartnerUser(value)}
-              onInputChange={(_, value) => setPartnerQuery(value)}
-              getOptionLabel={(option) => option.displayName}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              filterOptions={(options) => options}
-              renderOption={(props, option) => (
-                <li {...props} key={option.id}>
-                  <div className="join-tournament-user-option">
-                    <Avatar src={option.avatarUrl} className="avatar" />
-                    <div>
-                      <div className="name">{option.displayName}</div>
-                      <div className="email">{option.email}</div>
-                    </div>
+          <Autocomplete
+            options={partnerOptions}
+            value={partnerUser}
+            loading={searching}
+            onChange={(_, value) => setPartnerUser(value)}
+            onInputChange={(_, value) => setPartnerQuery(value)}
+            getOptionLabel={(option) => option.displayName}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            filterOptions={(options) => options}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                <div className="join-tournament-user-option">
+                  <Avatar src={option.avatarUrl} className="avatar" />
+                  <div>
+                    <div className="name">{option.displayName}</div>
+                    <div className="email">{option.email}</div>
                   </div>
-                </li>
-              )}
-              renderInput={(params) => (
-                <TextField {...params} placeholder={tPlayer('partnerSearchPlaceholder')} size="small" />
-              )}
-            />
-          ) : (
-            <TextField
-              placeholder={tPlayer('partnerNamePlaceholder')}
-              value={partnerName}
-              onChange={(event) => setPartnerName(event.target.value)}
-              size="small"
-              fullWidth
-            />
-          )}
+                </div>
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField {...params} placeholder={tPlayer('partnerSearchPlaceholder')} size="small" />
+            )}
+          />
         </div>
       )}
       <Button
         variant="contained"
         size="large"
         onClick={handleJoin}
-        disabled={loading || (needsPartner && (partnerMode === 'search' ? !partnerUser : !partnerName.trim()))}
+        disabled={loading || (needsPartner && !partnerUser) || (hasCategories && !category)}
       >
         {tPlayer('confirmRegistration')}
       </Button>

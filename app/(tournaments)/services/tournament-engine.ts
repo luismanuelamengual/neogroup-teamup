@@ -43,6 +43,15 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
 }
 
 /**
+ * Maximum number of rounds across every category group. When a tournament has
+ * categories each one runs in parallel and they may have different sizes, so
+ * the tournament lasts as long as its largest group.
+ */
+export function getMaxTotalRounds(type: TournamentType, settings: TournamentSettings, groupSizes: number[]): number {
+  return groupSizes.reduce((max, size) => Math.max(max, getTotalRounds(type, settings, size)), 0)
+}
+
+/**
  * Circle-method round robin. Returns the pairs for a 1-based round number.
  * With an odd number of participants a null "bye" slot is added; pairs that
  * include the bye are skipped.

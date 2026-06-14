@@ -26,6 +26,10 @@ export class Competitor {
   @Column()
   displayName!: string
 
+  /** Category this entry is registered in (null when the tournament has none). */
+  @Column()
+  category!: string | null
+
   @Column({ cast: 'date' })
   createdAt!: Date
 

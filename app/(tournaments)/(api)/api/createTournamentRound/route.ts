@@ -3,8 +3,12 @@ import { Competitor } from '@/app/(tournaments)/models/Competitor'
 import { Round } from '@/app/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
-import { getTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
-import { createRound, requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
+import { getMaxTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
+import {
+  createRound,
+  getTournamentCategoryKeys,
+  requireOwnedTournament
+} from '@/app/(tournaments)/services/tournament-helpers'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
@@ -18,17 +22,22 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('invalidStatus')
   }
 
-  const currentRound: Round | null = await Repository.get(Round)
+  const currentRounds: Round[] = await Repository.get(Round)
     .where('tournamentId', tournamentId)
     .where('number', tournament.currentRound)
-    .first()
+    .get()
 
-  if (!currentRound || currentRound.status !== RoundStatus.CLOSED) {
+  if (currentRounds.length === 0 || currentRounds.some((round) => round.status !== RoundStatus.CLOSED)) {
     throw new ApiException('roundStillOpen')
   }
 
-  const competitorsCount = (await Repository.get(Competitor).where('tournamentId', tournamentId).get()).length
-  const totalRounds = getTotalRounds(tournament.type, tournament.settings ?? {}, competitorsCount)
+  const competitors = await Repository.get(Competitor).where('tournamentId', tournamentId).get()
+  const groupSizes = getTournamentCategoryKeys(tournament).map((category) =>
+    category === null
+      ? competitors.length
+      : competitors.filter((competitor) => competitor.category === category).length
+  )
+  const totalRounds = getMaxTotalRounds(tournament.type, tournament.settings ?? {}, groupSizes)
 
   if (tournament.currentRound >= totalRounds) {
     throw new ApiException('noMoreRounds')

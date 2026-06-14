@@ -30,7 +30,13 @@
       "basic_count": "Basic counter"
     },
     "startDate": "Start date",
+    "startTime": "Start time",
     "location": "Location",
+    "categories": "Categories",
+    "categoriesHint": "Optional. If you add categories, each player must pick one when registering and each category is played separately.",
+    "category": "Category",
+    "categoryNumber": "Category {number}",
+    "addCategory": "Add category",
     "maxCompetitors": "Maximum competitors",
     "maxTeams": "Maximum teams",
     "competitors": "Competitors",
@@ -100,7 +106,8 @@
       "invalidScore": "The score is not valid",
       "roundClosed": "The round has already been closed",
       "noMatchesGenerated": "Matches could not be generated",
-      "missingFields": "Please fill in all required fields"
+      "missingFields": "Please fill in all required fields",
+      "invalidTime": "Time must use the HH:mm format"
     }
   },
   "player": {
@@ -116,10 +123,8 @@
     "registered": "You are registered",
     "joinTitle": "Registration",
     "partnerTitle": "Your partner",
-    "partnerSearchOption": "Search a platform user",
-    "partnerFreeTextOption": "Enter a free name",
     "partnerSearchPlaceholder": "Search by name or email...",
-    "partnerNamePlaceholder": "Your partner's name",
+    "selectCategory": "Choose a category",
     "confirmRegistration": "Confirm registration",
     "yourMatch": "Your match",
     "loadResult": "Load result",
@@ -133,6 +138,8 @@
       "alreadyRegistered": "You are already registered in this tournament",
       "partnerRequired": "You need to choose a partner",
       "partnerNotFound": "The selected user was not found",
+      "categoryRequired": "You need to choose a category",
+      "invalidCategory": "The selected category is not valid",
       "notRegistered": "You are not registered in this tournament",
       "invalidStatus": "The tournament is not in a valid status for this action",
       "invalidScore": "The score is not valid",
