@@ -36,7 +36,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <UserStoreHydrator user={user} />
-      <AppShell>{children}</AppShell>
+      <AppShell user={user}>{children}</AppShell>
     </>
   )
 }

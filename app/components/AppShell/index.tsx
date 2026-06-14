@@ -22,6 +22,7 @@ import { signOut } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { MouseEvent, ReactNode, useState } from 'react'
 import { Role } from '@/app/(auth)/models/Role'
+import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { useUserStore } from '@/app/(auth)/stores/users'
 
 interface NavItem {
@@ -31,11 +32,12 @@ interface NavItem {
   icon: ReactNode
 }
 
-export default function AppShell({ children }: { children: ReactNode }) {
+export default function AppShell({ children, user: initialUser }: { children: ReactNode; user: SessionUser }) {
   const t = useTranslations('nav')
   const router = useRouter()
   const pathname = usePathname()
-  const user = useUserStore((state) => state.user)
+  const storeUser = useUserStore((state) => state.user)
+  const user = storeUser ?? initialUser
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
   const isOrganizer = user?.roleId === Role.ORGANIZER
   const navItems: NavItem[] = isOrganizer
