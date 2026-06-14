@@ -23,7 +23,7 @@ export interface TournamentDetailWithEntry {
 
 /** Tournaments owned by the signed-in user (organizer view). */
 export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<Tournament[]> {
-  return executeRequest<Tournament[]>('/listTournaments', filters)
+  return executeRequest<Tournament[]>('/getTournaments', { scope: 'owned', ...filters })
 }
 
 /** Full tournament detail plus the signed-in user competitor entry (if any). */
@@ -52,12 +52,12 @@ export async function startTournament(tournamentId: number): Promise<void> {
 
 /** Closes the current round once every match has a result. */
 export async function closeCurrentRound(tournamentId: number): Promise<void> {
-  await executeRequest('/closeRound', { id: tournamentId })
+  await executeRequest('/closeTournamentRound', { id: tournamentId })
 }
 
 /** Starts the next round (the current one must be closed). */
 export async function startNextRound(tournamentId: number): Promise<void> {
-  await executeRequest('/nextRound', { id: tournamentId })
+  await executeRequest('/createTournamentRound', { id: tournamentId })
 }
 
 /** Marks the tournament as finished. */

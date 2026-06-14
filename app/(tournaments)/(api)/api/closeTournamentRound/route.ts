@@ -8,7 +8,7 @@ import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
-/** POST /api/closeRound — closes the current round. */
+/** POST /api/closeTournamentRound — closes the current round. */
 export const POST = withAuth(async (request, context, userId) => {
   const { id } = (await request.json()) as { id: number }
   const tournamentId = Number(id)

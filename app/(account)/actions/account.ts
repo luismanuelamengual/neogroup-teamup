@@ -17,10 +17,10 @@ export async function updateAccount(input: AccountInput): Promise<void> {
 
 /** Assigns the user role once (first login without a role). It cannot be changed afterwards. */
 export async function setRole(roleId: UserRoleId): Promise<void> {
-  await executeRequest('/updateAccountRole', { roleId })
+  await executeRequest('/updateAccount', { roleId })
 }
 
 /** Changes the interface language (stored in a cookie). */
 export async function setLocale(locale: string): Promise<void> {
-  await executeRequest('/updateAccountLocale', { locale })
+  await executeRequest('/updateAccount', { locale })
 }

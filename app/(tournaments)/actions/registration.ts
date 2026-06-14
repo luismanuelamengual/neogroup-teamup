@@ -18,17 +18,17 @@ export async function searchUsers(query: string): Promise<User[]> {
     return []
   }
 
-  return executeRequest<User[]>('/searchUsers', { query: normalized })
+  return executeRequest<User[]>('/getUsers', { query: normalized })
 }
 
 /** Searches joinable/visible tournaments by name. */
 export async function searchTournaments(name: string): Promise<Tournament[]> {
-  return executeRequest<Tournament[]>('/searchTournaments', { name })
+  return executeRequest<Tournament[]>('/getTournaments', { scope: 'search', name })
 }
 
 /** Tournaments in stand_by or ongoing where the signed-in user participates. */
 export async function getPlayerActiveTournaments(): Promise<Tournament[]> {
-  return executeRequest<Tournament[]>('/getActiveTournaments')
+  return executeRequest<Tournament[]>('/getTournaments', { scope: 'active' })
 }
 
 /** Registers the signed-in user (optionally with a partner) into a tournament. */

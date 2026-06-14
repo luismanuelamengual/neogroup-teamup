@@ -2,7 +2,7 @@ import { Repository } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
 import { withAuth } from '@/app/utils/api-server'
 
-/** POST /api/searchUsers — searches users by name, nickname or email (partner selection). */
+/** POST /api/getUsers — searches users by name, nickname or email (partner selection). */
 export const POST = withAuth(async (request, context, userId) => {
   const { query } = (await request.json()) as { query?: string }
   const normalized = (query ?? '').trim()
