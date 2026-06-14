@@ -12,7 +12,10 @@ import { withAuth } from '@/app/utils/api-server'
 /** POST /api/joinTournament — registers the signed-in user (optionally with a partner) into a tournament. */
 export const POST = withAuth(async (request, context, userId) => {
   const { tournamentId, ...input } = (await request.json()) as JoinTournamentInput & { tournamentId: number }
-  const tournament: Tournament | null = await Repository.get(Tournament).where('id', Number(tournamentId)).with('competitors').first()
+  const tournament: Tournament | null = await Repository.get(Tournament)
+    .where('id', Number(tournamentId))
+    .with('competitors')
+    .first()
 
   if (!tournament) {
     throw new ApiException('notFound')

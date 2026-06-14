@@ -17,7 +17,6 @@ type GetTournamentsBody =
  */
 export const POST = withAuth(async (request, context, userId) => {
   const body = (await request.json()) as GetTournamentsBody
-
   const options: TournamentOptions = { withCompetitors: true }
 
   if (body.scope === 'owned') {

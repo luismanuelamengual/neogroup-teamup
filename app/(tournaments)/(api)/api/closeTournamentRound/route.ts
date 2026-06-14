@@ -18,7 +18,8 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('invalidStatus')
   }
 
-  const round: Round | null = await Repository.get(Round).where('tournamentId', tournamentId)
+  const round: Round | null = await Repository.get(Round)
+    .where('tournamentId', tournamentId)
     .where('number', tournament.currentRound)
     .first()
 
@@ -26,7 +27,10 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('invalidStatus')
   }
 
-  const pendingMatches = await Repository.get(Match).where('roundId', round.id).where('status', MatchStatus.PENDING).get()
+  const pendingMatches = await Repository.get(Match)
+    .where('roundId', round.id)
+    .where('status', MatchStatus.PENDING)
+    .get()
 
   if (pendingMatches.length > 0) {
     throw new ApiException('pendingMatches')

@@ -1,7 +1,7 @@
+import { Repository } from '@neogroup/neorm'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(tournaments)/models/AmericanoSettings'
 import { Discipline } from '@/app/(tournaments)/models/Discipline'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(tournaments)/models/LeagueSettings'
-import { Repository } from '@neogroup/neorm'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
