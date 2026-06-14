@@ -5,5 +5,5 @@ import { withAuth } from '@/app/utils/api-server'
 export const POST = withAuth(async (request) => {
   const { name } = (await request.json()) as { name?: string }
 
-  return getTournaments({ name, withCompetitors: true, limit: 100 })
+  return getTournaments({ name, withCompetitors: true })
 })

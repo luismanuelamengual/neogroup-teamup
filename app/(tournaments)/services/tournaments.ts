@@ -1,5 +1,4 @@
-import { OrderByDirection, Repository } from '@neogroup/neorm'
-import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Repository } from '@neogroup/neorm'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 
@@ -12,47 +11,41 @@ export interface TournamentOptions {
   withCompetitors?: boolean
   withRounds?: boolean
   withMatches?: boolean
-  limit?: number
+  page?: number
+  pageSize?: number
 }
 
-const DEFAULT_TOURNAMENT_OPTIONS: TournamentOptions = {}
-
-export async function getTournaments(options: TournamentOptions = DEFAULT_TOURNAMENT_OPTIONS): Promise<Tournament[]> {
-  let tournamentIds: number[] | undefined
-
-  if (options.playerId !== undefined) {
-    const entries: Competitor[] = await Repository.get(Competitor)
-      .where((group: any) => group.where('userId', options.playerId).orWhere('partnerUserId', options.playerId))
-      .get()
-
-    tournamentIds = [...new Set(entries.map((e) => e.tournamentId))]
-
-    if (tournamentIds.length === 0) {
-      return []
-    }
-  }
-
-  const tournaments: Tournament[] = await Repository.get(Tournament)
-    .when(options.id, (query) => query.where('id', options.id))
-    .when(options.ownerId, (query) => query.where('ownerId', options.ownerId))
-    .when(tournamentIds, (query) => query.whereIn('id', tournamentIds!))
-    .when(options.name, (query) => query.whereLike('name', '%' + options.name + '%'))
-    .when(options.onlyActive, (query) => query.whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING]))
-    .when(options.withCompetitors, (query) => query.with('competitors'))
-    .when(options.withRounds, (query) => query.with('rounds'))
-    .when(options.withMatches, (query) => query.with('matches'))
-    .when(options.limit, (query) => query.limit(options.limit!))
-    .orderBy('id', OrderByDirection.DESC)
+export async function getTournaments({
+  id,
+  ownerId,
+  playerId,
+  name,
+  onlyActive = false,
+  withCompetitors = false,
+  withRounds = false,
+  withMatches = false,
+  page = 1,
+  pageSize = 100
+}: TournamentOptions = {}): Promise<Tournament[]> {
+  return await Repository.get(Tournament)
+    .when(id, (query) => query.where('id', id))
+    .when(ownerId, (query) => query.where('ownerId', ownerId))
+    .when(playerId, (query) =>
+      query.whereHas('competitors', (q) => q.where('userId', playerId).orWhere('partnerUserId', playerId))
+    )
+    .when(name, (query) => query.whereLike('name', '%' + name + '%'))
+    .when(onlyActive, (query) => query.whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING]))
+    .when(withCompetitors, (query) => query.with('competitors'))
+    .when(withRounds, (query) => query.with('rounds'))
+    .when(withMatches, (query) => query.with('matches'))
+    .when(page, (query) => query.offset((page - 1) * pageSize))
+    .when(pageSize, (query) => query.limit(pageSize!))
+    .orderByDesc('id')
     .get()
-
-  return tournaments
 }
 
-export async function getTournament(
-  id: number,
-  options: TournamentOptions = DEFAULT_TOURNAMENT_OPTIONS
-): Promise<Tournament | null> {
-  const [tournament = null] = await getTournaments({ ...options, id, limit: 1 })
+export async function getTournament(id: number, options: TournamentOptions = {}): Promise<Tournament | null> {
+  const [tournament = null] = await getTournaments({ ...options, id, pageSize: 1 })
 
   if (tournament) {
     if (tournament.competitors) {

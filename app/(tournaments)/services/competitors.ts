@@ -5,10 +5,8 @@ export interface CompetitorOptions {
   tournamentId?: number
 }
 
-const DEFAULT_COMPETITOR_OPTIONS: CompetitorOptions = {}
-
-export async function getCompetitors(options: CompetitorOptions = DEFAULT_COMPETITOR_OPTIONS): Promise<Competitor[]> {
+export async function getCompetitors({ tournamentId }: CompetitorOptions = {}): Promise<Competitor[]> {
   return Repository.get(Competitor)
-    .when(options.tournamentId, (query) => query.where('tournamentId', options.tournamentId))
+    .when(tournamentId, (query) => query.where('tournamentId', tournamentId))
     .get()
 }
