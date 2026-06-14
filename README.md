@@ -98,7 +98,7 @@ Imports stay clean thanks to the folder + index resolution: `import CustomCompon
 
 A user has a **`roleId`** assigned once — `1` = Organizer, `2` = Player (constants in `UserRoles`, `app/(auth)/models/user.ts`) — and **it cannot be switched**. The role is chosen in the registration form; users signing in without a role (e.g. first Google login) pick it once at `/select-role`.
 
-The signed-in user (including its `roleId`) lives in a **zustand store**: `useUserStore` in `app/(auth)/stores/user.store.ts`, hydrated by `AppLayout` through `UserStoreHydrator`. Any client component that needs to take a decision based on the role reads it from this store (see also the `useUserRole` / `useIsOrganizer` helpers). Server components and API handlers read the role from the session (`session.user.roleId`).
+The signed-in user (including its `roleId`) lives in a **zustand store**: `useUserStore` in `app/(auth)/stores/users.ts`, hydrated by `AppLayout` through `UserStoreHydrator`. Any client component that needs to take a decision based on the role reads it from this store (see also the `useUserRole` / `useIsOrganizer` helpers). Server components and API handlers read the role from the session (`session.user.roleId`).
 
 Pages are shared between roles: the same `/tournaments` routes render the organizer or the player experience based on the role.
 

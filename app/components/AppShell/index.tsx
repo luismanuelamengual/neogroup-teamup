@@ -22,7 +22,7 @@ import { signOut } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { MouseEvent, ReactNode, useState } from 'react'
 import { Role } from '@/app/(auth)/models/Role'
-import { useUserStore } from '@/app/(auth)/stores/user.store'
+import { useUserStore } from '@/app/(auth)/stores/users'
 
 interface NavItem {
   key: string
