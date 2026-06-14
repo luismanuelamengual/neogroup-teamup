@@ -1,99 +1,72 @@
-import { Repository } from '@neogroup/neorm'
-import { OrderByDirection } from '@neogroup/neorm'
+import { OrderByDirection, Repository } from '@neogroup/neorm'
 import { Competitor } from '@/app/(tournaments)/models/Competitor'
-import { Match } from '@/app/(tournaments)/models/Match'
-import { Round } from '@/app/(tournaments)/models/Round'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 
-/** Server-side data fetching helpers shared by pages and actions. */
-
-export interface TournamentDetail {
-  tournament: Tournament
-  competitors: Competitor[]
-  rounds: Round[]
-  matches: Match[]
-}
-
-export async function getTournamentDetail(tournamentId: number): Promise<TournamentDetail | null> {
-  const tournament: Tournament | null = await Repository.get(Tournament)
-    .where('id', tournamentId)
-    .with('competitors', 'rounds', 'matches')
-    .first()
-
-  if (!tournament) {
-    return null
-  }
-
-  const competitors = [...(tournament.competitors ?? [])].sort((a, b) => a.id - b.id)
-  const rounds = [...(tournament.rounds ?? [])].sort((a, b) => a.number - b.number)
-  const matches = [...(tournament.matches ?? [])].sort((a, b) => a.roundId - b.roundId || a.position - b.position)
-
-  return { tournament, competitors, rounds, matches }
-}
-
-export interface OrganizerTournamentFilters {
+export interface TournamentOptions {
+  id?: number
   name?: string
+  ownerId?: number
+  playerId?: number
   onlyActive?: boolean
+  withCompetitors?: boolean
+  withRounds?: boolean
+  withMatches?: boolean
+  limit?: number
 }
 
-export async function getOrganizerTournaments(
-  ownerId: number,
-  filters: OrganizerTournamentFilters
-): Promise<Tournament[]> {
-  const tournaments: Tournament[] = await Repository.get(Tournament)
-    .where('ownerId', ownerId)
-    .with('competitors')
-    .when(!!filters.onlyActive, (query) =>
-      query.whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING])
-    )
-    .orderBy('id', OrderByDirection.DESC)
-    .get()
+const DEFAULT_TOURNAMENT_OPTIONS: TournamentOptions = {}
 
-  return filters.name
-    ? tournaments.filter((t) => t.name.toLowerCase().includes(filters.name!.toLowerCase()))
-    : tournaments
-}
+export async function getTournaments(options: TournamentOptions = DEFAULT_TOURNAMENT_OPTIONS): Promise<Tournament[]> {
+  let tournamentIds: number[] | undefined
 
-export async function searchTournaments(name: string): Promise<Tournament[]> {
-  const tournaments: Tournament[] = await Repository.get(Tournament)
-    .with('competitors')
-    .orderBy('id', OrderByDirection.DESC)
-    .limit(100)
-    .get()
+  if (options.playerId !== undefined) {
+    const entries: Competitor[] = await Repository.get(Competitor)
+      .where((group: any) => group.where('userId', options.playerId).orWhere('partnerUserId', options.playerId))
+      .get()
 
-  const normalized = name.trim().toLowerCase()
-  const filtered = normalized
-    ? tournaments.filter((t) => t.name.toLowerCase().includes(normalized))
-    : tournaments
+    tournamentIds = [...new Set(entries.map((e) => e.tournamentId))]
 
-  return filtered.slice(0, 30)
-}
-
-/** Tournaments in stand_by or ongoing where the user participates (as player or partner). */
-export async function getPlayerActiveTournaments(userId: number): Promise<Tournament[]> {
-  const entries: Competitor[] = await Repository.get(Competitor)
-    .where((group: any) => group.where('userId', userId).orWhere('partnerUserId', userId))
-    .get()
-
-  const tournamentIds = [...new Set(entries.map((entry) => entry.tournamentId))]
-
-  if (tournamentIds.length === 0) {
-    return []
+    if (tournamentIds.length === 0) {
+      return []
+    }
   }
 
-  return Repository.get(Tournament)
-    .whereIn('id', tournamentIds)
-    .with('competitors')
-    .whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING])
+  const tournaments: Tournament[] = await Repository.get(Tournament)
+    .when(options.id, (query) => query.where('id', options.id))
+    .when(options.ownerId, (query) => query.where('ownerId', options.ownerId))
+    .when(tournamentIds, (query) => query.whereIn('id', tournamentIds!))
+    .when(options.name, (query) => query.whereLike('name', '%' + options.name + '%'))
+    .when(options.onlyActive, (query) => query.whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING]))
+    .when(options.withCompetitors, (query) => query.with('competitors'))
+    .when(options.withRounds, (query) => query.with('rounds'))
+    .when(options.withMatches, (query) => query.with('matches'))
+    .when(options.limit, (query) => query.limit(options.limit!))
     .orderBy('id', OrderByDirection.DESC)
     .get()
+
+  return tournaments
 }
 
-/** The competitor entry of a user inside a tournament (as main player or partner). */
-export async function getUserCompetitorEntry(tournamentId: number, userId: number): Promise<Competitor | null> {
-  return Repository.get(Competitor)
-    .where('tournamentId', tournamentId)
-    .where((group: any) => group.where('userId', userId).orWhere('partnerUserId', userId))
-    .first()
+export async function getTournament(
+  id: number,
+  options: TournamentOptions = DEFAULT_TOURNAMENT_OPTIONS
+): Promise<Tournament | null> {
+  const [tournament = null] = await getTournaments({ ...options, id, limit: 1 })
+
+  if (tournament) {
+    if (tournament.competitors) {
+      tournament.competitors = [...tournament.competitors].sort((a, b) => a.id - b.id)
+    }
+
+    if (tournament.rounds) {
+      tournament.rounds = [...tournament.rounds].sort((a, b) => a.number - b.number)
+    }
+
+    if (tournament.matches) {
+      tournament.matches = [...tournament.matches].sort((a, b) => a.roundId - b.roundId || a.position - b.position)
+    }
+  }
+
+  return tournament
 }

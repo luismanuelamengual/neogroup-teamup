@@ -34,7 +34,8 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   let previousRoundMatches: Match[] = []
 
   if (roundNumber > 1) {
-    const previousRound: Round | null = await Repository.get(Round).where('tournamentId', tournament.id)
+    const previousRound: Round | null = await Repository.get(Round)
+      .where('tournamentId', tournament.id)
       .where('number', roundNumber - 1)
       .with('matches')
       .first()

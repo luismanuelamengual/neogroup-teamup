@@ -1,4 +1,5 @@
-import { getTournamentDetail, getUserCompetitorEntry } from '@/app/(tournaments)/services/tournaments'
+import { getCompetitors } from '@/app/(tournaments)/services/competitors'
+import { getTournament } from '@/app/(tournaments)/services/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
@@ -9,13 +10,21 @@ import { withAuth } from '@/app/utils/api-server'
 export const POST = withAuth<{ id: string }>(async (request, context, userId) => {
   const { id } = await context.params
   const tournamentId = Number(id)
-  const detail = await getTournamentDetail(tournamentId)
+  const tournament = await getTournament(tournamentId, { withCompetitors: true, withRounds: true, withMatches: true })
 
-  if (!detail) {
+  if (!tournament) {
     throw new ApiException('notFound', 404)
   }
 
-  const userEntry = await getUserCompetitorEntry(tournamentId, userId)
+  const competitors = await getCompetitors({ tournamentId })
+  const userEntry = competitors.find((c) => c.userId === userId || c.partnerUserId === userId) ?? null
 
-  return { ...detail, userEntry, isOwner: detail.tournament.ownerId === userId }
+  return {
+    tournament,
+    competitors: tournament.competitors ?? [],
+    rounds: tournament.rounds ?? [],
+    matches: tournament.matches ?? [],
+    userEntry,
+    isOwner: tournament.ownerId === userId
+  }
 })

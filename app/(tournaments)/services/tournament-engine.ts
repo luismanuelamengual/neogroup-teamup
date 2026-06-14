@@ -115,11 +115,7 @@ function generateAmericanoSwapRound(competitorIds: number[], roundNumber: number
  * winners of the two previous matches at adjacent bracket positions.
  * Bye matches must be persisted as already played with winner "home".
  */
-function generatePlayoffRound(
-  competitorIds: number[],
-  roundNumber: number,
-  previousRoundMatches: Match[]
-): Pairing[] {
+function generatePlayoffRound(competitorIds: number[], roundNumber: number, previousRoundMatches: Match[]): Pairing[] {
   if (roundNumber === 1) {
     const bracketSize = Math.pow(2, Math.ceil(Math.log2(Math.max(competitorIds.length, 2))))
     const seeds: (number | null)[] = new Array(bracketSize).fill(null)

@@ -1,12 +1,22 @@
 import type { Competitor } from '@/app/(tournaments)/models/Competitor'
+import type { Match } from '@/app/(tournaments)/models/Match'
 import type { MatchScore } from '@/app/(tournaments)/models/MatchScore'
+import type { Round } from '@/app/(tournaments)/models/Round'
 import type { Tournament } from '@/app/(tournaments)/models/Tournament'
-import type { OrganizerTournamentFilters, TournamentDetail } from '@/app/(tournaments)/services/tournaments'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side tournament actions: thin wrappers around the REST API. */
 
-export interface TournamentDetailWithEntry extends TournamentDetail {
+export interface OrganizerTournamentFilters {
+  name?: string
+  onlyActive?: boolean
+}
+
+export interface TournamentDetailWithEntry {
+  tournament: Tournament
+  competitors: Competitor[]
+  rounds: Round[]
+  matches: Match[]
   userEntry: Competitor | null
   isOwner: boolean
 }
