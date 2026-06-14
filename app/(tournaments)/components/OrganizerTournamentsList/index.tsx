@@ -53,7 +53,7 @@ export default function OrganizerTournamentsList({ name, onlyActive }: Organizer
   return (
     <div className="list">
       {tournaments.map((tournament) => (
-        <TournamentCard key={tournament.id} tournament={tournament} href={`/tournaments/${tournament.id}`} />
+        <TournamentCard key={tournament.id} tournament={tournament} />
       ))}
     </div>
   )

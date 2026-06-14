@@ -1,17 +1,13 @@
-.tournament-card-link {
-  display: block;
-}
-
 .tournament-card {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 16px 18px;
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  border: 2px solid white;
+  cursor: pointer;
 
   &:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+    border-color: var(--color-primary);
   }
 
   .header {
