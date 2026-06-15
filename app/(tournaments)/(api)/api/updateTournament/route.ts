@@ -29,7 +29,7 @@ export const POST = withAuth(async (request, context, userId) => {
   tournament.name = name
   tournament.description = input.description?.trim() || null
   tournament.location = input.location?.trim() || null
-  tournament.startDate = new Date(input.startDate as any)
+  tournament.startDate = input.startDate
   tournament.startTime = startTime
   tournament.maxCompetitors = input.maxCompetitors
   tournament.updatedAt = new Date()

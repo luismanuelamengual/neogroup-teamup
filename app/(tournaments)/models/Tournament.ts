@@ -40,8 +40,9 @@ export class Tournament {
   @Column({ cast: 'number' })
   scoreFormat!: ScoreFormat
 
-  @Column({ cast: 'date' })
-  startDate!: Date
+  /** Calendar start date as a "YYYY-MM-DD" string (no time/timezone component). */
+  @Column()
+  startDate!: string
 
   /** Optional start time in "HH:mm" format. */
   @Column()
@@ -85,6 +86,27 @@ export class Tournament {
   /** Computed from loaded competitors relation. */
   get competitorsCount(): number {
     return this.competitors?.length ?? 0
+  }
+
+  /**
+   * Rebuilds a Tournament instance from its JSON representation. Computed
+   * getters keep their serialized values (e.g. competitorsCount) and the
+   * timestamp columns are restored as Date objects. `startDate` is kept as the
+   * "YYYY-MM-DD" string it is transported as (a calendar date used directly by
+   * date inputs and display, with no time/timezone component).
+   */
+  static fromJSON(json: Record<string, any>): Tournament {
+    const tournament = Object.setPrototypeOf(json, Tournament.prototype) as Tournament
+
+    if (typeof json.createdAt === 'string') {
+      tournament.createdAt = new Date(json.createdAt)
+    }
+
+    if (typeof json.updatedAt === 'string') {
+      tournament.updatedAt = new Date(json.updatedAt)
+    }
+
+    return tournament
   }
 
   /**

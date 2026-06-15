@@ -51,5 +51,20 @@ export class Match {
 
   @BelongsTo(() => Round, 'roundId')
   round?: Round
+
+  /** Rebuilds a Match instance from its JSON representation. */
+  static fromJSON(json: Record<string, any>): Match {
+    const match = Object.setPrototypeOf(json, Match.prototype) as Match
+
+    if (typeof json.createdAt === 'string') {
+      match.createdAt = new Date(json.createdAt)
+    }
+
+    if (typeof json.updatedAt === 'string') {
+      match.updatedAt = new Date(json.updatedAt)
+    }
+
+    return match
+  }
 }
 

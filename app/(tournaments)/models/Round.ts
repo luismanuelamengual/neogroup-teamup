@@ -29,5 +29,16 @@ export class Round {
 
   @HasMany(() => Match, 'roundId')
   matches?: Match[]
+
+  /** Rebuilds a Round instance from its JSON representation. */
+  static fromJSON(json: Record<string, any>): Round {
+    const round = Object.setPrototypeOf(json, Round.prototype) as Round
+
+    if (typeof json.createdAt === 'string') {
+      round.createdAt = new Date(json.createdAt)
+    }
+
+    return round
+  }
 }
 

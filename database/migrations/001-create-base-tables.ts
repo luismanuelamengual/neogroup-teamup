@@ -41,7 +41,7 @@ export default {
         subDiscipline INTEGER,
         type INTEGER NOT NULL,
         scoreFormat INTEGER NOT NULL,
-        startDate DATE NOT NULL,
+        startDate VARCHAR(10) NOT NULL,
         startTime VARCHAR(5),
         location VARCHAR(255),
         categories TEXT,

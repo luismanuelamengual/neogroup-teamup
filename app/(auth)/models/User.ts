@@ -47,4 +47,44 @@ export class User {
   get avatarUrl(): string {
     return getGravatarUrl(this.email, 80)
   }
+
+  /**
+   * Rebuilds a User instance from its JSON representation (see toJSON) so the
+   * client works with a real entity: computed getters keep their serialized
+   * values and date columns are restored as Date objects.
+   */
+  static fromJSON(json: Record<string, any>): User {
+    const user = Object.setPrototypeOf(json, User.prototype) as User
+
+    if (typeof json.createdAt === 'string') {
+      user.createdAt = new Date(json.createdAt)
+    }
+
+    return user
+  }
+
+  /**
+   * Custom JSON serialization: strips loaded relations and the password hash,
+   * formats dates, and includes computed getters (displayName, avatarUrl) so
+   * they survive JSON.stringify in API responses.
+   */
+  toJSON(): Record<string, any> {
+    const result: Record<string, any> = {}
+
+    for (const key of Object.keys(this as any)) {
+      // Skip relations (returned separately) and never expose the password hash.
+      if (key === 'tournaments' || key === 'competitorEntries' || key === 'passwordHash') {
+        continue
+      }
+
+      const value = (this as any)[key]
+
+      result[key] = value instanceof Date ? value.toISOString() : value
+    }
+
+    result.displayName = this.displayName
+    result.avatarUrl = this.avatarUrl
+
+    return result
+  }
 }

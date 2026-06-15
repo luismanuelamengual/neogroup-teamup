@@ -43,5 +43,16 @@ export class Competitor {
   /** Partner platform user (doubles disciplines only). */
   @BelongsTo(() => User, 'partnerUserId')
   partnerUser?: User
+
+  /** Rebuilds a Competitor instance from its JSON representation. */
+  static fromJSON(json: Record<string, any>): Competitor {
+    const competitor = Object.setPrototypeOf(json, Competitor.prototype) as Competitor
+
+    if (typeof json.createdAt === 'string') {
+      competitor.createdAt = new Date(json.createdAt)
+    }
+
+    return competitor
+  }
 }
 

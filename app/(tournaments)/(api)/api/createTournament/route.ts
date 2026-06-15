@@ -57,7 +57,7 @@ export const POST = withAuth(async (request, context, userId) => {
   tournament.subDiscipline = input.discipline === Discipline.TENNIS ? input.subDiscipline ?? null : null
   tournament.type = input.type
   tournament.scoreFormat = input.scoreFormat
-  tournament.startDate = new Date(input.startDate as any)
+  tournament.startDate = input.startDate
   tournament.startTime = startTime
   tournament.location = input.location?.trim() || null
   tournament.categories = categories

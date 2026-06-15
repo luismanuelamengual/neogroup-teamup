@@ -1,8 +1,8 @@
-import type { Competitor } from '@/app/(tournaments)/models/Competitor'
-import type { Match } from '@/app/(tournaments)/models/Match'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Match } from '@/app/(tournaments)/models/Match'
 import type { MatchScore } from '@/app/(tournaments)/models/MatchScore'
-import type { Round } from '@/app/(tournaments)/models/Round'
-import type { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { Round } from '@/app/(tournaments)/models/Round'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side tournament actions: thin wrappers around the REST API. */
@@ -23,13 +23,24 @@ export interface TournamentDetailWithEntry {
 
 /** Tournaments owned by the signed-in user (organizer view). */
 export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<Tournament[]> {
-  return executeRequest<Tournament[]>('/getTournaments', { scope: 'owned', ...filters })
+  const tournaments = await executeRequest<Record<string, any>[]>('/getTournaments', { scope: 'owned', ...filters })
+
+  return tournaments.map(Tournament.fromJSON)
 }
 
 /** Full tournament detail plus the signed-in user competitor entry (if any). */
 export async function getTournamentDetail(tournamentId: number): Promise<TournamentDetailWithEntry | null> {
   try {
-    return await executeRequest<TournamentDetailWithEntry>('/getTournament', { id: tournamentId })
+    const detail = await executeRequest<Record<string, any>>('/getTournament', { id: tournamentId })
+
+    return {
+      tournament: Tournament.fromJSON(detail.tournament),
+      competitors: (detail.competitors ?? []).map(Competitor.fromJSON),
+      rounds: (detail.rounds ?? []).map(Round.fromJSON),
+      matches: (detail.matches ?? []).map(Match.fromJSON),
+      userEntry: detail.userEntry ? Competitor.fromJSON(detail.userEntry) : null,
+      isOwner: detail.isOwner
+    }
   } catch (_error) {
     return null
   }
