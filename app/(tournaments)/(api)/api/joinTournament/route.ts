@@ -22,25 +22,34 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   const competitors = tournament.competitors ?? []
-
-  if (competitors.length >= tournament.maxCompetitors) {
-    throw new ApiException('tournamentFull')
-  }
+  const hasCategories = tournament.categories && tournament.categories.length > 0
 
   // Category is mandatory when the tournament defines categories.
   let category: string | null = null
 
-  if (tournament.categories && tournament.categories.length > 0) {
+  if (hasCategories) {
     const requested = input.category?.trim()
 
     if (!requested) {
       throw new ApiException('categoryRequired')
     }
 
-    category = tournament.categories.find((name) => name === requested) ?? null
+    category = tournament.categories!.find((name) => name === requested) ?? null
 
     if (!category) {
       throw new ApiException('invalidCategory')
+    }
+
+    // When categories exist, the limit applies per category.
+    const categoryCount = competitors.filter((c) => c.category === category).length
+
+    if (categoryCount >= tournament.maxCompetitors) {
+      throw new ApiException('tournamentFull')
+    }
+  } else {
+    // No categories: the limit applies to the whole tournament.
+    if (competitors.length >= tournament.maxCompetitors) {
+      throw new ApiException('tournamentFull')
     }
   }
 

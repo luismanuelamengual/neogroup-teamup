@@ -3,6 +3,8 @@
 import './index.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import EditIcon from '@mui/icons-material/Edit'
+import Tooltip from '@mui/material/Tooltip'
+import IconButton from '@mui/material/IconButton'
 import FlagIcon from '@mui/icons-material/Flag'
 import PlaceIcon from '@mui/icons-material/Place'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -200,14 +202,18 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
     <div className="manage-tournament">
       <Paper className="header">
         <div className="title-row">
-          <Typography variant="h5" component="h1" className="name">
-            {tournament.name}
-          </Typography>
+          <div className="name-with-edit">
+            <Typography variant="h5" component="h1" className="name">
+              {tournament.name}
+            </Typography>
+            <Tooltip title={tOrganizer('manage.edit')}>
+              <IconButton size="small" onClick={() => setEditOpen(true)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </div>
           <div className="title-actions">
             <StatusChip status={tournament.status} />
-            <Button size="small" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
-              {tOrganizer('manage.edit')}
-            </Button>
           </div>
         </div>
         {tournament.description && (
@@ -276,7 +282,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
       <Paper className="section">
         <Typography variant="h6" className="section-title">
-          {tOrganizer('manage.registeredCompetitors')} ({competitors.length} / {tournament.maxCompetitors})
+          {tOrganizer('manage.registeredCompetitors')}
+          {!hasCategories && ` (${competitors.length} / ${tournament.maxCompetitors})`}
         </Typography>
         {competitors.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
@@ -287,7 +294,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             <div key={key ?? '__all__'} className="competitors-group">
               {key !== null && (
                 <Typography variant="subtitle2" className="category-label">
-                  {key} ({groupCompetitors.length})
+                  {key} ({groupCompetitors.length} / {tournament.maxCompetitors})
                 </Typography>
               )}
               <div className="competitors">

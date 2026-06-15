@@ -29,7 +29,6 @@ export default function EditTournamentDialog({ open, tournament, onClose, onSave
   const [location, setLocation] = useState(tournament.location ?? '')
   const [startDate, setStartDate] = useState(tournament.startDate)
   const [startTime, setStartTime] = useState(tournament.startTime ?? '')
-  const [maxCompetitors, setMaxCompetitors] = useState(tournament.maxCompetitors)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -40,7 +39,6 @@ export default function EditTournamentDialog({ open, tournament, onClose, onSave
       setLocation(tournament.location ?? '')
       setStartDate(tournament.startDate)
       setStartTime(tournament.startTime ?? '')
-      setMaxCompetitors(tournament.maxCompetitors)
       setError(null)
     }
   }, [open, tournament])
@@ -55,8 +53,7 @@ export default function EditTournamentDialog({ open, tournament, onClose, onSave
         description,
         location,
         startDate,
-        startTime: startTime || null,
-        maxCompetitors
+        startTime: startTime || null
       })
     } catch (requestError) {
       setLoading(false)
@@ -110,14 +107,6 @@ export default function EditTournamentDialog({ open, tournament, onClose, onSave
           onChange={(event) => setStartTime(event.target.value)}
           fullWidth
           slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <TextField
-          label={t('maxCompetitors')}
-          type="number"
-          value={maxCompetitors}
-          onChange={(event) => setMaxCompetitors(Math.max(2, Number(event.target.value)))}
-          fullWidth
-          slotProps={{ htmlInput: { min: 2 } }}
         />
       </DialogContent>
       <DialogActions>

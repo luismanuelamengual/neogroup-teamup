@@ -15,7 +15,7 @@ export const POST = withAuth(async (request, context, userId) => {
 
   const name = input.name?.trim() ?? ''
 
-  if (!name || !input.startDate || !input.maxCompetitors || input.maxCompetitors < 2) {
+  if (!name || !input.startDate) {
     throw new ApiException('missingFields')
   }
 
@@ -30,7 +30,6 @@ export const POST = withAuth(async (request, context, userId) => {
   tournament.location = input.location?.trim() || null
   tournament.startDate = input.startDate
   tournament.startTime = startTime
-  tournament.maxCompetitors = input.maxCompetitors
   tournament.updatedAt = new Date()
   await tournament.save()
 })

@@ -119,7 +119,7 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
             </ToggleButton>
           </ToggleButtonGroup>
         </div>
-        <Button type="submit" variant="contained" fullWidth disabled={loading}>
+        <Button type="submit" variant="contained" fullWidth loading={loading} disabled={loading}>
           {t('createAccount')}
         </Button>
       </form>

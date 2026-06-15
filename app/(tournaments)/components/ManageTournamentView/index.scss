@@ -24,6 +24,12 @@
     gap: 8px;
   }
 
+  .name-with-edit {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
   .name {
     font-weight: 700;
   }
