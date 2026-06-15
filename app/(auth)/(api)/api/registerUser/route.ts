@@ -1,7 +1,6 @@
-import { Repository } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
 import { RegisterInput } from '@/app/(auth)/actions/auth'
-import { User } from '@/app/(auth)/models/User'
+import { User } from '@/app/(auth)/entities/User'
 import { isValidRole } from '@/app/(auth)/utils/user'
 import { ApiException } from '@/app/models/ApiException'
 import { withApi } from '@/app/utils/api-server'
@@ -30,7 +29,7 @@ export const POST = withApi(async (request) => {
     throw new ApiException('invalidRole')
   }
 
-  const existing = await Repository.get(User).where('email', email).first()
+  const existing = await User.where('email', email).first()
 
   if (existing) {
     throw new ApiException('emailAlreadyRegistered')
@@ -44,7 +43,7 @@ export const POST = withApi(async (request) => {
   user.lastName = lastName
   user.nickname = null
   user.roleId = input.roleId
-  await Repository.get(User).save(user)
+  await user.save()
 
   return { id: user.id }
 })

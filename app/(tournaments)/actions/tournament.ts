@@ -1,8 +1,8 @@
-import { Competitor } from '@/app/(tournaments)/models/Competitor'
-import { Match } from '@/app/(tournaments)/models/Match'
+import { CompetitorDto } from '@/app/(tournaments)/models/CompetitorDto'
+import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import type { MatchScore } from '@/app/(tournaments)/models/MatchScore'
-import { Round } from '@/app/(tournaments)/models/Round'
-import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { RoundDto } from '@/app/(tournaments)/models/RoundDto'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side tournament actions: thin wrappers around the REST API. */
@@ -13,46 +13,35 @@ export interface OrganizerTournamentFilters {
 }
 
 export interface TournamentDetailWithEntry {
-  tournament: Tournament
-  competitors: Competitor[]
-  rounds: Round[]
-  matches: Match[]
-  userEntry: Competitor | null
+  tournament: TournamentDto
+  competitors: CompetitorDto[]
+  rounds: RoundDto[]
+  matches: MatchDto[]
+  userEntry: CompetitorDto | null
   isOwner: boolean
 }
 
 /** Tournaments owned by the signed-in user (organizer view). */
-export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<Tournament[]> {
-  const tournaments = await executeRequest<Record<string, any>[]>('/getTournaments', { scope: 'owned', ...filters })
-
-  return tournaments.map(Tournament.fromJSON)
+export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<TournamentDto[]> {
+  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'owned', ...filters })
 }
 
 /** Full tournament detail plus the signed-in user competitor entry (if any). */
 export async function getTournamentDetail(tournamentId: number): Promise<TournamentDetailWithEntry | null> {
   try {
-    const detail = await executeRequest<Record<string, any>>('/getTournament', { id: tournamentId })
-
-    return {
-      tournament: Tournament.fromJSON(detail.tournament),
-      competitors: (detail.competitors ?? []).map(Competitor.fromJSON),
-      rounds: (detail.rounds ?? []).map(Round.fromJSON),
-      matches: (detail.matches ?? []).map(Match.fromJSON),
-      userEntry: detail.userEntry ? Competitor.fromJSON(detail.userEntry) : null,
-      isOwner: detail.isOwner
-    }
+    return await executeRequest<TournamentDetailWithEntry>('/getTournament', { id: tournamentId })
   } catch (_error) {
     return null
   }
 }
 
 /** Creates a new tournament in stand_by status. Returns the new tournament id. */
-export async function createTournament(tournament: Partial<Tournament>): Promise<{ id: number }> {
+export async function createTournament(tournament: Partial<TournamentDto>): Promise<{ id: number }> {
   return executeRequest<{ id: number }>('/createTournament', tournament)
 }
 
 /** Updates the editable attributes of a tournament. */
-export async function updateTournament(tournamentId: number, tournament: Partial<Tournament>): Promise<void> {
+export async function updateTournament(tournamentId: number, tournament: Partial<TournamentDto>): Promise<void> {
   await executeRequest('/updateTournament', { id: tournamentId, ...tournament })
 }
 

@@ -1,5 +1,5 @@
-import { Repository } from '@neogroup/neorm'
-import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
 import { normalizeStartTime } from '@/app/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
@@ -7,7 +7,7 @@ import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/updateTournament — updates the editable attributes (owner only). */
 export const POST = withAuth(async (request, context, userId) => {
-  const { id, ...input } = (await request.json()) as Partial<Tournament> & { id: number }
+  const { id, ...input } = (await request.json()) as Partial<TournamentDto> & { id: number }
   const tournament = await requireOwnedTournament(Number(id), userId)
 
   if (!tournament) {
@@ -33,5 +33,5 @@ export const POST = withAuth(async (request, context, userId) => {
   tournament.startTime = startTime
   tournament.maxCompetitors = input.maxCompetitors
   tournament.updatedAt = new Date()
-  await Repository.get(Tournament).save(tournament)
+  await tournament.save()
 })

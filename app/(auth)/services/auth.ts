@@ -1,10 +1,9 @@
-import { Repository } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
+import { User } from '@/app/(auth)/entities/User'
 import { Role } from '@/app/(auth)/models/Role'
-import { User } from '@/app/(auth)/models/User'
 import { authConfig } from '@/app/(auth)/services/auth.config'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { getGravatarUrl } from '@/app/utils/gravatar'
@@ -30,7 +29,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
-        const user = await Repository.get(User).where('email', email).first()
+        const user = await User.where('email', email).first()
 
         if (!user?.passwordHash) {
           return null
@@ -52,7 +51,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       // First sign-in with Google: find or create the application user.
       if (account?.provider === 'google' && token.email) {
         const email = token.email.toLowerCase()
-        let dbUser = await Repository.get(User).where('email', email).first()
+        let dbUser = await User.where('email', email).first()
 
         if (!dbUser) {
           dbUser = new User()
@@ -62,7 +61,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           dbUser.lastName = (profile?.family_name as string | undefined) ?? null
           dbUser.nickname = null
           dbUser.roleId = null
-          await Repository.get(User).save(dbUser)
+          await dbUser.save()
         }
 
         token.userId = Number(dbUser.id)
@@ -77,7 +76,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
       // Load (or reload after an update) the user attributes into the token.
       if (token.userId && (!token.userLoaded || trigger === 'update')) {
-        const dbUser = await Repository.get(User).find(token.userId)
+        const dbUser = await User.find(token.userId)
 
         if (dbUser) {
           token.roleId = dbUser.roleId

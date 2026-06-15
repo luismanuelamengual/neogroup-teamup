@@ -1,12 +1,9 @@
-import { Repository } from '@neogroup/neorm'
-import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Competitor } from '@/app/(tournaments)/entities/Competitor'
 
 export interface CompetitorOptions {
   tournamentId?: number
 }
 
 export async function getCompetitors({ tournamentId }: CompetitorOptions = {}): Promise<Competitor[]> {
-  return Repository.get(Competitor)
-    .when(tournamentId, (query) => query.where('tournamentId', tournamentId))
-    .get()
+  return Competitor.when(tournamentId, (query) => query.where('tournamentId', tournamentId)).get()
 }

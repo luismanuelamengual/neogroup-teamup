@@ -1,5 +1,4 @@
-import { Repository } from '@neogroup/neorm'
-import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 
 export interface TournamentOptions {
@@ -27,8 +26,7 @@ export async function getTournaments({
   page = 1,
   pageSize = 100
 }: TournamentOptions = {}): Promise<Tournament[]> {
-  return await Repository.get(Tournament)
-    .when(id, (query) => query.where('id', id))
+  return await Tournament.when(id, (query) => query.where('id', id))
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) =>
       query.whereHas('competitors', (q) =>

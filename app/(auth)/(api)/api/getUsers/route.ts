@@ -1,5 +1,4 @@
-import { Repository } from '@neogroup/neorm'
-import { User } from '@/app/(auth)/models/User'
+import { User } from '@/app/(auth)/entities/User'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/getUsers — searches users by name, nickname or email (partner selection). */
@@ -12,14 +11,13 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   const pattern = `%${normalized}%`
-  const users = await Repository.get(User)
-    .where((group) => {
-      group
-        .whereLike('firstName', pattern)
-        .orWhereLike('lastName', pattern)
-        .orWhereLike('nickname', pattern)
-        .orWhereLike('email', pattern)
-    })
+  const users = await User.where((group) => {
+    group
+      .whereLike('firstName', pattern)
+      .orWhereLike('lastName', pattern)
+      .orWhereLike('nickname', pattern)
+      .orWhereLike('email', pattern)
+  })
     .where('id', '<>', userId)
     .orderBy('firstName')
     .orderBy('lastName')

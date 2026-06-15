@@ -4,7 +4,7 @@ import './index.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
 import { useTranslations } from 'next-intl'
-import { Match } from '@/app/(tournaments)/models/Match'
+import { Match } from '@/app/(tournaments)/models/MatchDto'
 import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
@@ -12,12 +12,12 @@ import { MATCH_SIDE_KEYS } from '@/app/(tournaments)/utils/labels'
 import { formatScore } from '@/app/(tournaments)/utils/score'
 
 interface MatchCardProps {
-  match: Match
+  match: MatchDto
   competitorNames: Record<number, string>
   scoreFormat: ScoreFormat
   highlighted?: boolean
   editable?: boolean
-  onEdit?: (match: Match) => void
+  onEdit?: (match: MatchDto) => void
 }
 
 function sideName(ids: number[] | null, names: Record<number, string>): string {

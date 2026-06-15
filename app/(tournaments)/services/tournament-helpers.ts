@@ -1,11 +1,10 @@
-import { Repository } from '@neogroup/neorm'
-import { Competitor } from '@/app/(tournaments)/models/Competitor'
-import { Match } from '@/app/(tournaments)/models/Match'
+import { Competitor } from '@/app/(tournaments)/entities/Competitor'
+import { Match } from '@/app/(tournaments)/entities/Match'
+import { Round } from '@/app/(tournaments)/entities/Round'
+import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
-import { Round } from '@/app/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
-import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { generateRoundPairings, getTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
 import { ApiException } from '@/app/models/ApiException'
 
@@ -13,7 +12,7 @@ import { ApiException } from '@/app/models/ApiException'
 
 /** Returns the tournament only when it exists and belongs to the user. */
 export async function requireOwnedTournament(tournamentId: number, userId: number): Promise<Tournament | null> {
-  const tournament: Tournament | null = await Repository.get(Tournament).find(tournamentId)
+  const tournament = await Tournament.find(tournamentId)
 
   if (!tournament || tournament.ownerId !== userId) {
     return null
@@ -57,7 +56,7 @@ async function createCategoryRound(
   round.status = RoundStatus.OPEN
   round.category = category
   round.createdAt = new Date()
-  await Repository.get(Round).save(round)
+  await round.save()
 
   for (const pairing of pairings) {
     const match = new Match()
@@ -80,7 +79,7 @@ async function createCategoryRound(
 
     match.createdAt = new Date()
     match.updatedAt = new Date()
-    await Repository.get(Match).save(match)
+    await match.save()
   }
 
   return true
@@ -92,7 +91,7 @@ async function createCategoryRound(
  * parallel. Throws ApiException when no matches could be generated at all.
  */
 export async function createRound(tournament: Tournament, roundNumber: number): Promise<void> {
-  const competitors = await Repository.get(Competitor).where('tournamentId', tournament.id).orderBy('id').get()
+  const competitors = await Competitor.where('tournamentId', tournament.id).orderBy('id').get()
   const categoryKeys = getTournamentCategoryKeys(tournament)
 
   if (competitors.length < 2) {
@@ -103,8 +102,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   let previousRounds: Round[] = []
 
   if (roundNumber > 1) {
-    previousRounds = await Repository.get(Round)
-      .where('tournamentId', tournament.id)
+    previousRounds = await Round.where('tournamentId', tournament.id)
       .where('number', roundNumber - 1)
       .with('matches')
       .get()
@@ -143,5 +141,5 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
 
   tournament.currentRound = roundNumber
   tournament.updatedAt = new Date()
-  await Repository.get(Tournament).save(tournament)
+  await tournament.save()
 }

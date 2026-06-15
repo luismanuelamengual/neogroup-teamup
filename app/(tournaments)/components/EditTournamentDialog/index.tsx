@@ -11,11 +11,11 @@ import TextField from '@mui/material/TextField'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { updateTournament } from '@/app/(tournaments)/actions/tournament'
-import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/models/TournamentDto'
 
 interface EditTournamentDialogProps {
   open: boolean
-  tournament: Tournament
+  tournament: TournamentDto
   onClose: () => void
   onSaved: () => void
 }

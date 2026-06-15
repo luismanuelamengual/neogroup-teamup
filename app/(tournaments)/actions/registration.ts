@@ -1,5 +1,5 @@
-import { User } from '@/app/(auth)/models/User'
-import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { UserDto } from '@/app/(auth)/models/UserDto'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { executeRequest } from '@/app/actions/api'
 
 /** Client-side registration actions: thin wrappers around the REST API. */
@@ -11,30 +11,24 @@ export interface JoinTournamentInput {
 }
 
 /** Searches platform users by name, nickname or email (for partner selection). */
-export async function searchUsers(query: string): Promise<User[]> {
+export async function searchUsers(query: string): Promise<UserDto[]> {
   const normalized = query.trim()
 
   if (normalized.length < 2) {
     return []
   }
 
-  const users = await executeRequest<Record<string, any>[]>('/getUsers', { query: normalized })
-
-  return users.map(User.fromJSON)
+  return executeRequest<UserDto[]>('/getUsers', { query: normalized })
 }
 
 /** Searches joinable/visible tournaments by name. */
-export async function searchTournaments(name: string): Promise<Tournament[]> {
-  const tournaments = await executeRequest<Record<string, any>[]>('/getTournaments', { scope: 'search', name })
-
-  return tournaments.map(Tournament.fromJSON)
+export async function searchTournaments(name: string): Promise<TournamentDto[]> {
+  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'search', name })
 }
 
 /** Tournaments in stand_by or ongoing where the signed-in user participates. */
-export async function getPlayerActiveTournaments(): Promise<Tournament[]> {
-  const tournaments = await executeRequest<Record<string, any>[]>('/getTournaments', { scope: 'active' })
-
-  return tournaments.map(Tournament.fromJSON)
+export async function getPlayerActiveTournaments(): Promise<TournamentDto[]> {
+  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'active' })
 }
 
 /** Registers the signed-in user (optionally with a partner) into a tournament. */

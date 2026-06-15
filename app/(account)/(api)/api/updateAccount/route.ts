@@ -1,8 +1,7 @@
-import { Repository } from '@neogroup/neorm'
 import { cookies } from 'next/headers'
 import { AccountInput } from '@/app/(account)/actions/account'
+import { User } from '@/app/(auth)/entities/User'
 import { Role } from '@/app/(auth)/models/Role'
-import { User } from '@/app/(auth)/models/User'
 import { auth, unstable_update } from '@/app/(auth)/services/auth'
 import { isValidRole } from '@/app/(auth)/utils/user'
 import { ApiException } from '@/app/models/ApiException'
@@ -53,7 +52,7 @@ export const POST = withApi(async (request) => {
       throw new ApiException('invalidRole')
     }
 
-    const user = await Repository.get(User).find(userId)
+    const user = await User.find(userId)
 
     if (!user) {
       throw new ApiException('unauthorized', 401)
@@ -64,7 +63,7 @@ export const POST = withApi(async (request) => {
     }
 
     user.roleId = roleId!
-    await Repository.get(User).save(user)
+    await user.save()
     await unstable_update({})
 
     return
@@ -78,7 +77,7 @@ export const POST = withApi(async (request) => {
     throw new ApiException('missingFields')
   }
 
-  const user = await Repository.get(User).find(userId)
+  const user = await User.find(userId)
 
   if (!user) {
     throw new ApiException('unauthorized', 401)
@@ -87,6 +86,6 @@ export const POST = withApi(async (request) => {
   user.firstName = firstName
   user.lastName = lastName
   user.nickname = (body.nickname ?? '').trim() || null
-  await Repository.get(User).save(user)
+  await user.save()
   await unstable_update({})
 })

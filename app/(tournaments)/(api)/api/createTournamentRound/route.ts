@@ -1,6 +1,5 @@
-import { Repository } from '@neogroup/neorm'
-import { Competitor } from '@/app/(tournaments)/models/Competitor'
-import { Round } from '@/app/(tournaments)/models/Round'
+import { Competitor } from '@/app/(tournaments)/entities/Competitor'
+import { Round } from '@/app/(tournaments)/entities/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { getMaxTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
@@ -22,8 +21,7 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('invalidStatus')
   }
 
-  const currentRounds: Round[] = await Repository.get(Round)
-    .where('tournamentId', tournamentId)
+  const currentRounds = await Round.where('tournamentId', tournamentId)
     .where('number', tournament.currentRound)
     .get()
 
@@ -31,7 +29,7 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('roundStillOpen')
   }
 
-  const competitors = await Repository.get(Competitor).where('tournamentId', tournamentId).get()
+  const competitors = await Competitor.where('tournamentId', tournamentId).get()
   const groupSizes = getTournamentCategoryKeys(tournament).map((category) =>
     category === null
       ? competitors.length

@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { getOrganizerTournaments } from '@/app/(tournaments)/actions/tournament'
 import TournamentCard from '@/app/(tournaments)/components/TournamentCard'
-import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { Tournament } from '@/app/(tournaments)/models/TournamentDto'
 
 interface OrganizerTournamentsListProps {
   name: string

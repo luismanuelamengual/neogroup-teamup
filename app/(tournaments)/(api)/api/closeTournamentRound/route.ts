@@ -1,7 +1,6 @@
-import { Repository } from '@neogroup/neorm'
-import { Match } from '@/app/(tournaments)/models/Match'
+import { Match } from '@/app/(tournaments)/entities/Match'
+import { Round } from '@/app/(tournaments)/entities/Round'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
-import { Round } from '@/app/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
@@ -19,8 +18,7 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   // A round number may span several rounds (one per category); close them all.
-  const rounds: Round[] = await Repository.get(Round)
-    .where('tournamentId', tournamentId)
+  const rounds = await Round.where('tournamentId', tournamentId)
     .where('number', tournament.currentRound)
     .get()
   const openRounds = rounds.filter((round) => round.status === RoundStatus.OPEN)
@@ -30,8 +28,7 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   for (const round of openRounds) {
-    const pendingMatches = await Repository.get(Match)
-      .where('roundId', round.id)
+    const pendingMatches = await Match.where('roundId', round.id)
       .where('status', MatchStatus.PENDING)
       .get()
 
@@ -42,6 +39,6 @@ export const POST = withAuth(async (request, context, userId) => {
 
   for (const round of openRounds) {
     round.status = RoundStatus.CLOSED
-    await Repository.get(Round).save(round)
+    await round.save()
   }
 })

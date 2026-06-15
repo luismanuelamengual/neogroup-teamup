@@ -4,21 +4,21 @@ import './index.scss'
 import Chip from '@mui/material/Chip'
 import { useTranslations } from 'next-intl'
 import MatchCard from '@/app/(tournaments)/components/MatchCard'
-import { Match } from '@/app/(tournaments)/models/Match'
-import { Round } from '@/app/(tournaments)/models/Round'
+import { Match } from '@/app/(tournaments)/models/MatchDto'
+import { Round } from '@/app/(tournaments)/models/RoundDto'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 
 interface FixtureViewProps {
   type: TournamentType
-  rounds: Round[]
-  matches: Match[]
+  rounds: RoundDto[]
+  matches: MatchDto[]
   competitorNames: Record<number, string>
   scoreFormat: ScoreFormat
   highlightedMatchIds?: number[]
   editableMatchIds?: number[]
-  onEditMatch?: (match: Match) => void
+  onEditMatch?: (match: MatchDto) => void
 }
 
 /** Rounds + matches list used by leagues and americano tournaments. */
