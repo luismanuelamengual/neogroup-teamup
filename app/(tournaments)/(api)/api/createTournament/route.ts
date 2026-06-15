@@ -1,11 +1,11 @@
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(tournaments)/models/AmericanoSettings'
 import { Discipline } from '@/app/(tournaments)/models/Discipline'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(tournaments)/models/LeagueSettings'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
-import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { normalizeCategories, normalizeStartTime } from '@/app/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
@@ -38,7 +38,6 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   const categories = normalizeCategories(input.categories)
-
   let settings: TournamentSettings = {}
 
   if (input.type === TournamentType.LEAGUE) {

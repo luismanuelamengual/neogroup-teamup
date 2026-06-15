@@ -1,6 +1,6 @@
 import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
-import { User } from '@/app/(auth)/entities/User'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { User } from '@/app/(auth)/models/User'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 
 @Entity({ table: 'competitors' })
 export class Competitor extends BaseEntity {

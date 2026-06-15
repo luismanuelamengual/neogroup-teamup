@@ -1,8 +1,8 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
-import { User } from '@/app/(auth)/entities/User'
+import { User } from '@/app/(auth)/models/User'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { JoinTournamentInput } from '@/app/(tournaments)/actions/registration'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { registersAsPairs } from '@/app/(tournaments)/utils/discipline'
 import { ApiException } from '@/app/models/ApiException'
@@ -11,9 +11,7 @@ import { withAuth } from '@/app/utils/api-server'
 /** POST /api/joinTournament — registers the signed-in user (optionally with a partner) into a tournament. */
 export const POST = withAuth(async (request, context, userId) => {
   const { tournamentId, ...input } = (await request.json()) as JoinTournamentInput & { tournamentId: number }
-  const tournament = await Tournament.where('id', Number(tournamentId))
-    .with('competitors')
-    .first()
+  const tournament = await Tournament.where('id', Number(tournamentId)).with('competitors').first()
 
   if (!tournament) {
     throw new ApiException('notFound')

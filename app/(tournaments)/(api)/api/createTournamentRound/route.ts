@@ -1,5 +1,5 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Round } from '@/app/(tournaments)/entities/Round'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Round } from '@/app/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { getMaxTotalRounds } from '@/app/(tournaments)/services/tournament-engine'

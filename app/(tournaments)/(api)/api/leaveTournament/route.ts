@@ -1,5 +1,5 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'

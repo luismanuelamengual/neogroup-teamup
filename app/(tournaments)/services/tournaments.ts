@@ -1,4 +1,4 @@
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 
 export interface TournamentOptions {

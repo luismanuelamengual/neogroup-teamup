@@ -1,4 +1,3 @@
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { createRound, requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
 import { ApiException } from '@/app/models/ApiException'

@@ -1,5 +1,5 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
-import { Match } from '@/app/(tournaments)/entities/Match'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
+import { Match } from '@/app/(tournaments)/models/Match'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'

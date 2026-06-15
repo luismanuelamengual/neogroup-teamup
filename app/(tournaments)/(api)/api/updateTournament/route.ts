@@ -1,4 +1,3 @@
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
 import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
 import { normalizeStartTime } from '@/app/(tournaments)/utils/tournament'

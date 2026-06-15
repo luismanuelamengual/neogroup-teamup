@@ -1,4 +1,4 @@
-import { BaseEntity, Column, Entity, HasMany } from '@neogroup/neorm'
+import { BaseEntity, Column, Entity } from '@neogroup/neorm'
 import { Role } from '@/app/(auth)/models/Role'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { getGravatarUrl } from '@/app/utils/gravatar'
@@ -42,8 +42,12 @@ export class User extends BaseEntity {
     const result: Record<string, any> = {}
 
     for (const key of Object.keys(this as any)) {
-      if (key === 'passwordHash') continue
+      if (key === 'passwordHash') {
+        continue
+      }
+
       const value = (this as any)[key]
+
       result[key] = value instanceof Date ? value.toISOString() : value
     }
 

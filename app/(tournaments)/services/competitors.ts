@@ -1,4 +1,4 @@
-import { Competitor } from '@/app/(tournaments)/entities/Competitor'
+import { Competitor } from '@/app/(tournaments)/models/Competitor'
 
 export interface CompetitorOptions {
   tournamentId?: number

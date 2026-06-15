@@ -1,7 +1,7 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
-import { Match } from '@/app/(tournaments)/entities/Match'
-import { Tournament } from '@/app/(tournaments)/entities/Tournament'
+import { Match } from '@/app/(tournaments)/models/Match'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { Tournament } from '@/app/(tournaments)/models/Tournament'
 
 @Entity({ table: 'rounds' })
 export class Round extends BaseEntity {

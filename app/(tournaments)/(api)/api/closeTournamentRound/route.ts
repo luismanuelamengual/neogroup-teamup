@@ -1,6 +1,6 @@
-import { Match } from '@/app/(tournaments)/entities/Match'
-import { Round } from '@/app/(tournaments)/entities/Round'
+import { Match } from '@/app/(tournaments)/models/Match'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
+import { Round } from '@/app/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { requireOwnedTournament } from '@/app/(tournaments)/services/tournament-helpers'
@@ -18,9 +18,7 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   // A round number may span several rounds (one per category); close them all.
-  const rounds = await Round.where('tournamentId', tournamentId)
-    .where('number', tournament.currentRound)
-    .get()
+  const rounds = await Round.where('tournamentId', tournamentId).where('number', tournament.currentRound).get()
   const openRounds = rounds.filter((round) => round.status === RoundStatus.OPEN)
 
   if (openRounds.length === 0) {
@@ -28,9 +26,7 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   for (const round of openRounds) {
-    const pendingMatches = await Match.where('roundId', round.id)
-      .where('status', MatchStatus.PENDING)
-      .get()
+    const pendingMatches = await Match.where('roundId', round.id).where('status', MatchStatus.PENDING).get()
 
     if (pendingMatches.length > 0) {
       throw new ApiException('pendingMatches')
