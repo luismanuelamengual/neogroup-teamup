@@ -13,7 +13,7 @@ import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { leaveTournament } from '@/app/(tournaments)/actions/registration'
 import { getTournamentDetail, saveMatchResult, TournamentDetailWithEntry } from '@/app/(tournaments)/actions/tournament'
 import BracketView from '@/app/(tournaments)/components/BracketView'
@@ -22,7 +22,7 @@ import MatchCard from '@/app/(tournaments)/components/MatchCard'
 import ScoreDialog from '@/app/(tournaments)/components/ScoreDialog'
 import StandingsTable from '@/app/(tournaments)/components/StandingsTable'
 import StatusChip from '@/app/(tournaments)/components/StatusChip'
-import { Match } from '@/app/(tournaments)/models/MatchDto'
+import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
@@ -46,7 +46,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const tPlayer = useTranslations('player')
   const [detail, setDetail] = useState<TournamentDetailWithEntry | null>(null)
   const [loading, setLoading] = useState(true)
-  const [scoreMatch, setScoreMatch] = useState<Match | null>(null)
+  const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
   const loadDetail = useCallback(async () => {
@@ -78,7 +78,9 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const openCurrentRoundIds = useMemo(
     () =>
       new Set(
-        rounds.filter((round) => round.number === currentRoundNumber && round.status === RoundStatus.OPEN).map((round) => round.id)
+        rounds
+          .filter((round) => round.number === currentRoundNumber && round.status === RoundStatus.OPEN)
+          .map((round) => round.id)
       ),
     [rounds, currentRoundNumber]
   )
@@ -117,7 +119,8 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     const groupRounds = rounds.filter((round) => (round.category ?? null) === key)
     const groupRoundIds = new Set(groupRounds.map((round) => round.id))
     const groupMatches = matches.filter((match) => groupRoundIds.has(match.roundId))
-    const groupCompetitors = key === null ? competitors : competitors.filter((competitor) => competitor.category === key)
+    const groupCompetitors =
+      key === null ? competitors : competitors.filter((competitor) => competitor.category === key)
     const standings =
       tournament.type !== TournamentType.PLAYOFF
         ? computeStandings(
@@ -251,7 +254,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       )}
 
       {categoryGroups.map(({ key, groupRounds, groupMatches, standings }) => (
-        <div key={key ?? '__all__'}>
+        <Fragment key={key ?? '__all__'}>
           {groupRounds.length > 0 && (
             <Paper className="section">
               <Typography variant="h6" className="section-title">
@@ -292,7 +295,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
               <StandingsTable type={tournament.type} rows={standings} />
             </Paper>
           )}
-        </div>
+        </Fragment>
       ))}
 
       <ScoreDialog

@@ -3,8 +3,6 @@
 import './index.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import EditIcon from '@mui/icons-material/Edit'
-import Tooltip from '@mui/material/Tooltip'
-import IconButton from '@mui/material/IconButton'
 import FlagIcon from '@mui/icons-material/Flag'
 import PlaceIcon from '@mui/icons-material/Place'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -14,10 +12,12 @@ import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   closeCurrentRound,
   finishTournament,
@@ -33,7 +33,7 @@ import FixtureView from '@/app/(tournaments)/components/FixtureView'
 import ScoreDialog from '@/app/(tournaments)/components/ScoreDialog'
 import StandingsTable from '@/app/(tournaments)/components/StandingsTable'
 import StatusChip from '@/app/(tournaments)/components/StatusChip'
-import { Match } from '@/app/(tournaments)/models/MatchDto'
+import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
@@ -60,7 +60,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   const [detail, setDetail] = useState<TournamentDetailWithEntry | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
-  const [scoreMatch, setScoreMatch] = useState<Match | null>(null)
+  const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
   const loadDetail = useCallback(async () => {
@@ -308,7 +308,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
       </Paper>
 
       {categoryGroups.map(({ key, groupRounds, groupMatches, standings }) => (
-        <div key={key ?? '__all__'}>
+        <Fragment key={key ?? '__all__'}>
           {groupRounds.length > 0 && (
             <Paper className="section">
               <Typography variant="h6" className="section-title">
@@ -347,7 +347,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
               <StandingsTable type={tournament.type} rows={standings} />
             </Paper>
           )}
-        </div>
+        </Fragment>
       ))}
 
       <EditTournamentDialog

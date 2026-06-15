@@ -8,5 +8,9 @@
     flex: 1;
     min-width: 220px;
     max-width: 360px;
+
+    .MuiInputBase-root {
+      background-color: white;
+    }
   }
 }

@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { getOrganizerTournaments } from '@/app/(tournaments)/actions/tournament'
 import TournamentCard from '@/app/(tournaments)/components/TournamentCard'
-import { Tournament } from '@/app/(tournaments)/models/TournamentDto'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 
 interface OrganizerTournamentsListProps {
   name: string
@@ -15,7 +15,7 @@ interface OrganizerTournamentsListProps {
 
 export default function OrganizerTournamentsList({ name, onlyActive }: OrganizerTournamentsListProps) {
   const t = useTranslations('organizer')
-  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [tournaments, setTournaments] = useState<TournamentDto[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

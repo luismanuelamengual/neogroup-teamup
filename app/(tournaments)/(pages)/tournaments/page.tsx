@@ -27,7 +27,6 @@ export default async function TournamentsPage({
           <Typography variant="h5" component="h1" className="title">
             {t('title')}
           </Typography>
-          {/* Plain href (no component={Link}): functions cannot cross the server → client boundary. */}
           <Button href="/tournaments/new" variant="contained" startIcon={<AddIcon />}>
             {t('create')}
           </Button>

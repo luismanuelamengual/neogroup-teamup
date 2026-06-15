@@ -98,7 +98,11 @@ export default function AppShell({ children, user: initialUser }: { children: Re
             anchorEl={menuAnchor}
             anchorOrigin={{
               vertical: 'bottom',
-              horizontal: 'right'
+              horizontal: 'center'
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'center'
             }}
             open={!!menuAnchor}
             onClose={closeMenu}
