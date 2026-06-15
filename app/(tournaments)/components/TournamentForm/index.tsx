@@ -97,27 +97,14 @@ export default function TournamentForm() {
   }
 
   const handleAddCategory = () => setCategories((prev) => [...prev, ''])
-
   const handleCategoryChange = (index: number, value: string) =>
     setCategories((prev) => prev.map((category, i) => (i === index ? value : category)))
-
-  const handleRemoveCategory = (index: number) =>
-    setCategories((prev) => prev.filter((_, i) => i !== index))
-
+  const handleRemoveCategory = (index: number) => setCategories((prev) => prev.filter((_, i) => i !== index))
   const isDoubles = isDoublesDiscipline(discipline, discipline === Discipline.TENNIS ? subDiscipline : null)
 
   return (
     <Paper component="form" onSubmit={handleSubmit} className="tournament-form">
       {error && <Alert severity="error">{error}</Alert>}
-      <TextField label={t('name')} value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
-      <TextField
-        label={t('description')}
-        value={description}
-        onChange={(event) => setDescription(event.target.value)}
-        multiline
-        minRows={2}
-        fullWidth
-      />
       <div className="row">
         <TextField
           select
@@ -161,7 +148,23 @@ export default function TournamentForm() {
           ))}
         </TextField>
       </div>
+      <TextField label={t('name')} value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
+      <TextField
+        label={t('description')}
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+        multiline
+        minRows={2}
+        fullWidth
+      />
+
       <div className="row">
+        <TextField
+          label={t('location')}
+          value={location}
+          onChange={(event) => setLocation(event.target.value)}
+          fullWidth
+        />
         <TextField
           label={t('startDate')}
           type="date"
@@ -179,34 +182,6 @@ export default function TournamentForm() {
           fullWidth
           slotProps={{ inputLabel: { shrink: true } }}
         />
-        <TextField
-          label={t('location')}
-          value={location}
-          onChange={(event) => setLocation(event.target.value)}
-          fullWidth
-        />
-      </div>
-      <div className="settings categories">
-        <Typography variant="subtitle2">{t('categories')}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t('categoriesHint')}
-        </Typography>
-        {categories.map((category, index) => (
-          <div key={index} className="category-row">
-            <TextField
-              label={t('categoryNumber', { number: index + 1 })}
-              value={category}
-              onChange={(event) => handleCategoryChange(index, event.target.value)}
-              fullWidth
-            />
-            <IconButton aria-label={tCommon('delete')} onClick={() => handleRemoveCategory(index)}>
-              <DeleteOutlineIcon />
-            </IconButton>
-          </div>
-        ))}
-        <Button startIcon={<AddIcon />} onClick={handleAddCategory}>
-          {t('addCategory')}
-        </Button>
       </div>
       <div className="row">
         <TextField
@@ -230,6 +205,7 @@ export default function TournamentForm() {
           slotProps={{ htmlInput: { min: 2 } }}
         />
       </div>
+
       {type === TournamentType.LEAGUE && (
         <div className="settings">
           <Typography variant="subtitle2">{t('settings.title')}</Typography>
@@ -305,6 +281,28 @@ export default function TournamentForm() {
           />
         </div>
       )}
+      <div className="settings categories">
+        <Typography variant="subtitle2">{t('categories')}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t('categoriesHint')}
+        </Typography>
+        {categories.map((category, index) => (
+          <div key={index} className="category-row">
+            <TextField
+              label={t('categoryNumber', { number: index + 1 })}
+              value={category}
+              onChange={(event) => handleCategoryChange(index, event.target.value)}
+              fullWidth
+            />
+            <IconButton aria-label={tCommon('delete')} onClick={() => handleRemoveCategory(index)}>
+              <DeleteOutlineIcon />
+            </IconButton>
+          </div>
+        ))}
+        <Button startIcon={<AddIcon />} onClick={handleAddCategory}>
+          {t('addCategory')}
+        </Button>
+      </div>
       <div className="actions">
         <Button onClick={() => router.back()}>{tCommon('cancel')}</Button>
         <Button type="submit" variant="contained" disabled={loading}>
