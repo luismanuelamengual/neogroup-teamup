@@ -3,10 +3,8 @@
 import './index.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import EditIcon from '@mui/icons-material/Edit'
-import FlagIcon from '@mui/icons-material/Flag'
 import PlaceIcon from '@mui/icons-material/Place'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
-import SkipNextIcon from '@mui/icons-material/SkipNext'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
@@ -19,11 +17,9 @@ import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  closeCurrentRound,
   finishTournament,
   getTournamentDetail,
   saveMatchResult,
-  startNextRound,
   startTournament,
   TournamentDetailWithEntry
 } from '@/app/(tournaments)/actions/tournament'
@@ -35,11 +31,9 @@ import StandingsTable from '@/app/(tournaments)/components/StandingsTable'
 import StatusChip from '@/app/(tournaments)/components/StatusChip'
 import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
-import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
-import { getMaxTotalRounds } from '@/app/(tournaments)/services/tournament-engine'
 import {
   DISCIPLINE_KEYS,
   SCORE_FORMAT_KEYS,
@@ -109,12 +103,6 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   const currentRoundIds = new Set(currentRounds.map((round) => round.id))
   const currentRoundMatches = matches.filter((match) => currentRoundIds.has(match.roundId))
   const roundIsOpen = currentRounds.some((round) => round.status === RoundStatus.OPEN)
-  const allResolved = currentRoundMatches.every((match) => match.status !== MatchStatus.PENDING)
-  const groupSizes = categoryKeys.map((key) =>
-    key === null ? competitors.length : competitors.filter((competitor) => competitor.category === key).length
-  )
-  const totalRounds = getMaxTotalRounds(tournament.type, tournament.settings ?? {}, groupSizes)
-  const hasMoreRounds = tournament.currentRound < totalRounds
   const editableMatchIds = roundIsOpen
     ? currentRoundMatches
         .filter((match) => currentRounds.find((round) => round.id === match.roundId)?.status === RoundStatus.OPEN)
@@ -164,14 +152,6 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
       runAction(() => startTournament(tournament.id))
     }
   }
-
-  const handleCloseRound = () => {
-    if (window.confirm(tOrganizer('manage.closeRoundConfirm'))) {
-      runAction(() => closeCurrentRound(tournament.id))
-    }
-  }
-
-  const handleNextRound = () => runAction(() => startNextRound(tournament.id))
 
   const handleFinish = () => {
     if (window.confirm(tOrganizer('manage.finishConfirm'))) {
@@ -254,29 +234,14 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
               </Button>
             </>
           )}
-          {tournament.status === TournamentStatus.ONGOING && roundIsOpen && (
-            <Button
-              variant="contained"
-              startIcon={<FlagIcon />}
-              onClick={handleCloseRound}
-              disabled={working || !allResolved}
-            >
-              {tOrganizer('manage.closeRound')}
-            </Button>
-          )}
-          {tournament.status === TournamentStatus.ONGOING && !roundIsOpen && hasMoreRounds && (
-            <Button variant="contained" startIcon={<SkipNextIcon />} onClick={handleNextRound} disabled={working}>
-              {tOrganizer('manage.nextRound')}
-            </Button>
-          )}
-          {tournament.status === TournamentStatus.ONGOING && !roundIsOpen && (
+          {tournament.status === TournamentStatus.ONGOING && (
             <Button variant="outlined" color="error" onClick={handleFinish} disabled={working}>
               {tOrganizer('manage.finish')}
             </Button>
           )}
         </div>
-        {tournament.status === TournamentStatus.ONGOING && !roundIsOpen && !hasMoreRounds && (
-          <Alert severity="info">{tOrganizer('manage.allRoundsPlayed')}</Alert>
+        {tournament.status === TournamentStatus.ONGOING && (
+          <Alert severity="info">{tOrganizer('manage.autoProgress')}</Alert>
         )}
       </Paper>
 

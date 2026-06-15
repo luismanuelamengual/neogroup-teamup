@@ -4,6 +4,7 @@ import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
+import { progressTournamentAfterResult } from '@/app/(tournaments)/services/tournament-helpers'
 import { getScoreWinner, isValidScore } from '@/app/(tournaments)/utils/score'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
@@ -63,4 +64,8 @@ export const POST = withAuth(async (request, context, userId) => {
 
   match.updatedAt = new Date()
   await match.save()
+
+  // Automatically drive the tournament forward: update pairings/standings, close
+  // the round and create the next one (or finish) without any organizer action.
+  await progressTournamentAfterResult(tournament, round)
 })

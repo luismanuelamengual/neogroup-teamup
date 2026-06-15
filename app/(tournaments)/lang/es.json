@@ -92,7 +92,8 @@
       "registeredCompetitors": "Inscriptos",
       "noCompetitors": "Aún no hay inscriptos",
       "currentRound": "Ronda actual",
-      "allRoundsPlayed": "Se jugaron todas las rondas"
+      "allRoundsPlayed": "Se jugaron todas las rondas",
+      "autoProgress": "El torneo avanza automáticamente a medida que se cargan los resultados."
     },
     "errors": {
       "unauthorized": "No tenés permisos para esta acción",
