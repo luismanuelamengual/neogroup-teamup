@@ -1,12 +1,13 @@
 import type { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { executeRequest } from '@/app/actions/api'
+import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
-/** Client-side tournament actions: thin wrappers around the REST API. */
-
-export interface OrganizerTournamentFilters {
+export interface TournamentFilters {
   name?: string
   onlyActive?: boolean
+  page?: number
+  pageSize?: number
 }
 
 /** Full tournament detail (competitors, rounds, matches). */
@@ -60,18 +61,51 @@ export interface JoinTournamentInput {
 }
 
 /** Searches joinable/visible tournaments by name. */
-export async function searchTournaments(name: string): Promise<TournamentDto[]> {
-  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'search', name })
+export async function searchTournaments({
+  name = undefined,
+  onlyActive = true,
+  page = 1,
+  pageSize = 10
+}: TournamentFilters = {}): Promise<PaginatedResponse<TournamentDto[]>> {
+  return executeRequest<PaginatedResponse<TournamentDto[]>>('/getTournaments', {
+    scope: 'search',
+    name,
+    onlyActive,
+    page,
+    pageSize
+  })
 }
 
 /** Tournaments in stand_by or ongoing where the signed-in user participates. */
-export async function getPlayerActiveTournaments(): Promise<TournamentDto[]> {
-  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'active' })
+export async function getPlayerActiveTournaments({
+  name = undefined,
+  onlyActive = true,
+  page = 1,
+  pageSize = 10
+}: TournamentFilters = {}): Promise<PaginatedResponse<TournamentDto[]>> {
+  return executeRequest<PaginatedResponse<TournamentDto[]>>('/getTournaments', {
+    scope: 'active',
+    name,
+    onlyActive,
+    page,
+    pageSize
+  })
 }
 
 /** Tournaments owned by the signed-in user (organizer view). */
-export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<TournamentDto[]> {
-  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'owned', ...filters })
+export async function getOrganizerTournaments({
+  name = undefined,
+  onlyActive = true,
+  page = 1,
+  pageSize = 10
+}: TournamentFilters = {}): Promise<PaginatedResponse<TournamentDto[]>> {
+  return executeRequest<PaginatedResponse<TournamentDto[]>>('/getTournaments', {
+    scope: 'owned',
+    name,
+    onlyActive,
+    page,
+    pageSize
+  })
 }
 
 /** Registers the signed-in user (optionally with a partner) into a tournament. */

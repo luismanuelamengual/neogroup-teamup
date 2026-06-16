@@ -1,5 +1,6 @@
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
+import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
 export interface TournamentOptions {
   id?: number
@@ -24,8 +25,8 @@ export async function getTournaments({
   withRounds = false,
   withMatches = false,
   page = 1,
-  pageSize = 100
-}: TournamentOptions = {}): Promise<Tournament[]> {
+  pageSize = 10
+}: TournamentOptions = {}): Promise<PaginatedResponse<Tournament[]>> {
   return await Tournament.when(id, (query) => query.where('id', id))
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) =>
@@ -38,15 +39,15 @@ export async function getTournaments({
     .when(withCompetitors, (query) => query.with('competitors'))
     .when(withRounds, (query) => query.with('rounds'))
     .when(withMatches, (query) => query.with('matches'))
-    .when(page, (query) => query.offset((page - 1) * pageSize))
-    .when(pageSize, (query) => query.limit(pageSize!))
     .orderBy('status')
     .orderByDesc('id')
-    .get()
+    .paginate(pageSize, page)
 }
 
 export async function getTournament(options: TournamentOptions = {}): Promise<Tournament | null> {
-  const [tournament = null] = await getTournaments({ ...options, pageSize: 1 })
+  const {
+    data: [tournament = null]
+  } = await getTournaments({ ...options, pageSize: 1 })
 
   if (tournament) {
     if (tournament.competitors) {

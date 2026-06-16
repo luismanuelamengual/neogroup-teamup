@@ -4,12 +4,11 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Pagination from '@mui/material/Pagination'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { searchTournaments } from '@/app/(tournaments)/actions/tournament'
 import TournamentCard from '@/app/(tournaments)/components/TournamentCard'
 import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
-
-const PAGE_SIZE = 10
+import { useLoadingData } from '@/app/hooks/useLoadingData'
 
 interface TournamentSearchResultsProps {
   query: string
@@ -18,25 +17,21 @@ interface TournamentSearchResultsProps {
 export default function TournamentSearchResults({ query }: TournamentSearchResultsProps) {
   const t = useTranslations('player')
   const [tournaments, setTournaments] = useState<TournamentDto[]>([])
-  const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
-
-  useEffect(() => {
-    let cancelled = false
-
-    setLoading(true)
-    setPage(1)
-    searchTournaments(query).then((data) => {
-      if (!cancelled) {
-        setTournaments(data)
-        setLoading(false)
-      }
+  const [pageCount, setPageCount] = useState(1)
+  const { loading } = useLoadingData(async () => {
+    const { data: tournaments, lastPage } = await searchTournaments({
+      name: query,
+      page
     })
 
-    return () => {
-      cancelled = true
-    }
-  }, [query])
+    setTournaments(tournaments)
+    setPageCount(lastPage)
+  }, [query, page])
+
+  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value)
+  }
 
   if (loading) {
     return (
@@ -54,19 +49,16 @@ export default function TournamentSearchResults({ query }: TournamentSearchResul
     )
   }
 
-  const pageCount = Math.ceil(tournaments.length / PAGE_SIZE)
-  const paginated = tournaments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
   return (
     <>
       <div className="list">
-        {paginated.map((tournament) => (
+        {tournaments.map((tournament) => (
           <TournamentCard key={tournament.id} tournament={tournament} />
         ))}
       </div>
       {pageCount > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-          <Pagination count={pageCount} page={page} onChange={(_, value) => setPage(value)} color="primary" />
+          <Pagination count={pageCount} page={page} onChange={handlePageChange} color="primary" />
         </div>
       )}
     </>
