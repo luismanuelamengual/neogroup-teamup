@@ -3,8 +3,8 @@ export interface PaginatedResponse<T> {
   data: T
   total: number
   lastPage: number
-  currrentPage: number
+  currrentPage?: number
   perPage: number
-  from: number
-  to: number
+  from: number | null
+  to: number | null
 }
