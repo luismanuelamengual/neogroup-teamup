@@ -32,10 +32,12 @@ interface ScoreDialogProps {
   onSave: (score: MatchScore) => void
 }
 
-const EMPTY_SETS: SetScore[] = [
-  { home: 0, away: 0 },
-  { home: 0, away: 0 },
-  { home: 0, away: 0 }
+type SetInput = { home: string; away: string }
+
+const EMPTY_SET_INPUTS: SetInput[] = [
+  { home: '', away: '' },
+  { home: '', away: '' },
+  { home: '', away: '' }
 ]
 
 export default function ScoreDialog({
@@ -52,9 +54,9 @@ export default function ScoreDialog({
   const tCommon = useTranslations('common')
   const [walkover, setWalkover] = useState(false)
   const [walkoverWinner, setWalkoverWinner] = useState<MatchSide>(MatchSide.HOME)
-  const [sets, setSets] = useState<SetScore[]>(EMPTY_SETS)
-  const [homeCount, setHomeCount] = useState(0)
-  const [awayCount, setAwayCount] = useState(0)
+  const [sets, setSets] = useState<SetInput[]>(EMPTY_SET_INPUTS)
+  const [homeCount, setHomeCount] = useState('')
+  const [awayCount, setAwayCount] = useState('')
   const [invalid, setInvalid] = useState(false)
 
   useEffect(() => {
@@ -65,19 +67,25 @@ export default function ScoreDialog({
     setInvalid(false)
     setWalkover(!!initialScore?.walkover)
     setWalkoverWinner(initialScore?.walkover ?? MatchSide.HOME)
-    setSets(initialScore?.sets ? EMPTY_SETS.map((empty, index) => initialScore.sets?.[index] ?? empty) : EMPTY_SETS)
-    setHomeCount(initialScore?.home ?? 0)
-    setAwayCount(initialScore?.away ?? 0)
+    setSets(
+      initialScore?.sets
+        ? EMPTY_SET_INPUTS.map((_, index) => {
+            const s = initialScore.sets?.[index]
+
+            return s ? { home: String(s.home), away: String(s.away) } : { home: '', away: '' }
+          })
+        : EMPTY_SET_INPUTS
+    )
+    setHomeCount(initialScore?.home != null ? String(initialScore.home) : '')
+    setAwayCount(initialScore?.away != null ? String(initialScore.away) : '')
   }, [open, initialScore])
 
   const usesSets = scoreFormat !== ScoreFormat.BASIC_COUNT
 
-  const updateSet = (index: number, side: MatchSide, value: number) => {
-    setSets((current) =>
-      current.map((set, setIndex) =>
-        setIndex === index ? { ...set, [MATCH_SIDE_KEYS[side]]: Math.max(0, value) } : set
-      )
-    )
+  const updateSet = (index: number, side: MatchSide, raw: string) => {
+    const key = MATCH_SIDE_KEYS[side]
+
+    setSets((current) => current.map((set, setIndex) => (setIndex === index ? { ...set, [key]: raw } : set)))
   }
 
   const handleSave = () => {
@@ -86,9 +94,17 @@ export default function ScoreDialog({
     if (walkover) {
       score = { walkover: walkoverWinner }
     } else if (usesSets) {
-      score = { sets: sets.filter((set) => set.home !== 0 || set.away !== 0) }
+      const parsedSets: SetScore[] = sets.map((s) => ({
+        home: s.home === '' ? 0 : Number(s.home),
+        away: s.away === '' ? 0 : Number(s.away)
+      }))
+
+      score = { sets: parsedSets.filter((set) => set.home !== 0 || set.away !== 0) }
     } else {
-      score = { home: homeCount, away: awayCount }
+      score = {
+        home: homeCount === '' ? 0 : Number(homeCount),
+        away: awayCount === '' ? 0 : Number(awayCount)
+      }
     }
 
     if (!isValidScore(score, scoreFormat)) {
@@ -139,7 +155,7 @@ export default function ScoreDialog({
                   type="number"
                   size="small"
                   value={set.home}
-                  onChange={(event) => updateSet(index, MatchSide.HOME, Number(event.target.value))}
+                  onChange={(event) => updateSet(index, MatchSide.HOME, event.target.value)}
                   slotProps={{ htmlInput: { min: 0, 'aria-label': `${setLabel(index)} ${homeName}` } }}
                 />
                 <span className="set-separator">-</span>
@@ -147,7 +163,7 @@ export default function ScoreDialog({
                   type="number"
                   size="small"
                   value={set.away}
-                  onChange={(event) => updateSet(index, MatchSide.AWAY, Number(event.target.value))}
+                  onChange={(event) => updateSet(index, MatchSide.AWAY, event.target.value)}
                   slotProps={{ htmlInput: { min: 0, 'aria-label': `${setLabel(index)} ${awayName}` } }}
                 />
               </div>
@@ -160,7 +176,7 @@ export default function ScoreDialog({
               type="number"
               size="small"
               value={homeCount}
-              onChange={(event) => setHomeCount(Math.max(0, Number(event.target.value)))}
+              onChange={(event) => setHomeCount(event.target.value)}
               slotProps={{ htmlInput: { min: 0 } }}
             />
             <span className="set-separator">-</span>
@@ -168,7 +184,7 @@ export default function ScoreDialog({
               type="number"
               size="small"
               value={awayCount}
-              onChange={(event) => setAwayCount(Math.max(0, Number(event.target.value)))}
+              onChange={(event) => setAwayCount(event.target.value)}
               slotProps={{ htmlInput: { min: 0 } }}
             />
           </div>

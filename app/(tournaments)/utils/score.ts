@@ -77,6 +77,23 @@ export function getGamesWon(score: MatchScore, format: ScoreFormat): { home: num
   return result
 }
 
+/** Returns true if the set score is a valid regular tennis/padel set. */
+function isValidRegularSet(set: SetScore): boolean {
+  const { home, away } = set
+  const [hi, lo] = home > away ? [home, away] : [away, home]
+
+  // 6-x with ≥2 difference (6-0 through 6-4), 7-5, or 7-6 (tiebreak)
+  return (hi === 6 && lo <= 4) || (hi === 7 && (lo === 5 || lo === 6))
+}
+
+/** Returns true if the set score is a valid super tiebreak (first to 10, win by 2). */
+function isValidSuperTiebreak(set: SetScore): boolean {
+  const { home, away } = set
+  const [hi, lo] = home > away ? [home, away] : [away, home]
+
+  return hi >= 10 && hi - lo >= 2
+}
+
 /** Validates a score payload for the given format before persisting it. */
 export function isValidScore(score: MatchScore, format: ScoreFormat): boolean {
   if (score.walkover) {
@@ -93,11 +110,33 @@ export function isValidScore(score: MatchScore, format: ScoreFormat): boolean {
     )
   }
 
-  const sets = (score.sets ?? []).filter((set) => set.home > 0 || set.away > 0 || set.home !== set.away)
-  const playedSets = sets.filter((set: SetScore) => set.home !== set.away)
+  const sets = (score.sets ?? []).filter((set) => set.home !== 0 || set.away !== 0)
+  const playedSets = sets.filter((set) => set.home !== set.away)
 
   if (playedSets.length < 2) {
     return false
+  }
+
+  if (format === ScoreFormat.THREE_SETS || format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK) {
+    if (sets.length > 3) return false
+
+    // Validate first two sets are regular
+    const firstTwo = sets.slice(0, 2)
+    if (!firstTwo.every(isValidRegularSet)) return false
+
+    if (sets.length === 3) {
+      // 3rd set only valid if first two are split 1-1
+      const firstTwoWins = { home: 0, away: 0 }
+      for (const s of firstTwo) {
+        if (s.home > s.away) firstTwoWins.home++
+        else firstTwoWins.away++
+      }
+      if (firstTwoWins.home !== 1 || firstTwoWins.away !== 1) return false
+
+      // Validate 3rd set by format
+      if (format === ScoreFormat.THREE_SETS && !isValidRegularSet(sets[2])) return false
+      if (format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && !isValidSuperTiebreak(sets[2])) return false
+    }
   }
 
   return getScoreWinner(score, format) !== null
