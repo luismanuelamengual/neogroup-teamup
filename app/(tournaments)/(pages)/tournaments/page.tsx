@@ -18,7 +18,7 @@ export default async function TournamentsPage({
   const session = await auth()
 
   if (session?.user?.roleId === Role.ORGANIZER) {
-    const { name, active } = await searchParams
+    const { name, active = '1' } = await searchParams
     const t = await getTranslations('organizer')
 
     return (
@@ -31,8 +31,8 @@ export default async function TournamentsPage({
             {t('create')}
           </Button>
         </div>
-        <TournamentFilters name={name ?? ''} onlyActive={active === '1'} />
-        <OrganizerTournamentsList name={name ?? ''} onlyActive={active === '1'} />
+        <TournamentFilters name={name ?? ''} onlyActive={active !== '0'} />
+        <OrganizerTournamentsList name={name ?? ''} onlyActive={active !== '0'} />
       </div>
     )
   }

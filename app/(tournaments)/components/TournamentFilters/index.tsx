@@ -30,9 +30,7 @@ export default function TournamentFilters({ name, onlyActive }: TournamentFilter
       params.set('name', nextName.trim())
     }
 
-    if (nextOnlyActive) {
-      params.set('active', '1')
-    }
+    params.set('active', nextOnlyActive ? '1' : '0')
 
     router.replace(params.size > 0 ? `${pathname}?${params.toString()}` : pathname)
   }
