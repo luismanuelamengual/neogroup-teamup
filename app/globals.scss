@@ -37,3 +37,17 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+::-webkit-scrollbar {
+  position: absolute;
+  width: 6px;
+  height: 100%;
+}
+
+::-webkit-scrollbar-track {
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ebedef;
+}
