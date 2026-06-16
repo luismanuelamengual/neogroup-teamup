@@ -40,6 +40,7 @@ export async function getTournaments({
     .when(withMatches, (query) => query.with('matches'))
     .when(page, (query) => query.offset((page - 1) * pageSize))
     .when(pageSize, (query) => query.limit(pageSize!))
+    .orderBy('status')
     .orderByDesc('id')
     .get()
 }

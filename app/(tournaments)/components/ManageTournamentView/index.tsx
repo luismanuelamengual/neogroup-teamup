@@ -6,10 +6,16 @@ import EditIcon from '@mui/icons-material/Edit'
 import PlaceIcon from '@mui/icons-material/Place'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import Accordion from '@mui/material/Accordion'
+import AccordionDetails from '@mui/material/AccordionDetails'
+import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
 import Tooltip from '@mui/material/Tooltip'
@@ -246,75 +252,147 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         </div>
       </Paper>
 
-      <Paper className="section">
-        <Typography variant="h6" className="section-title">
-          {tOrganizer('manage.registeredCompetitors')}
-          {!hasCategories && ` (${competitors.length} / ${tournament.maxCompetitors})`}
-        </Typography>
-        {competitors.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            {tOrganizer('manage.noCompetitors')}
-          </Typography>
-        ) : (
-          categoryGroups.map(({ key, groupCompetitors }) => (
-            <div key={key ?? '__all__'} className="competitors-group">
-              {key !== null && (
-                <Typography variant="subtitle2" className="category-label">
-                  {key} ({groupCompetitors.length} / {tournament.maxCompetitors})
+      {hasCategories ? (
+        categoryGroups.map(({ key, groupCompetitors, groupRounds, groupMatches, standings }) => (
+          <Accordion
+            key={key ?? '__all__'}
+            defaultExpanded
+            disableGutters
+            elevation={2}
+            sx={{ borderRadius: '12px !important', overflow: 'hidden', '&:before': { display: 'none' } }}
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.5, minHeight: 56 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography variant="h6" fontWeight={700}>{key}</Typography>
+                <Chip
+                  size="small"
+                  label={`${groupCompetitors.length} / ${tournament.maxCompetitors}`}
+                  color="primary"
+                  variant="outlined"
+                />
+              </Box>
+            </AccordionSummary>
+            <Divider />
+            <AccordionDetails sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
+                  {tOrganizer('manage.registeredCompetitors')}
                 </Typography>
+                {groupCompetitors.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {tOrganizer('manage.noCompetitors')}
+                  </Typography>
+                ) : (
+                  <div className="competitors">
+                    {groupCompetitors.map((competitor) => (
+                      <Chip key={competitor.id} label={competitor.displayName} variant="outlined" />
+                    ))}
+                  </div>
+                )}
+              </Box>
+              {groupRounds.length > 0 && (
+                <>
+                  <Divider />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
+                      {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
+                    </Typography>
+                    {tournament.type === TournamentType.PLAYOFF ? (
+                      <BracketView
+                        rounds={groupRounds}
+                        matches={groupMatches}
+                        competitorNames={competitorNames}
+                        scoreFormat={tournament.scoreFormat}
+                        editableMatchIds={editableMatchIds}
+                        onEditMatch={setScoreMatch}
+                      />
+                    ) : (
+                      <FixtureView
+                        type={tournament.type}
+                        rounds={groupRounds}
+                        matches={groupMatches}
+                        competitorNames={competitorNames}
+                        scoreFormat={tournament.scoreFormat}
+                        editableMatchIds={editableMatchIds}
+                        onEditMatch={setScoreMatch}
+                      />
+                    )}
+                  </Box>
+                </>
               )}
+              {standings.length > 0 && groupRounds.length > 0 && (
+                <>
+                  <Divider />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
+                      {t('standings')}
+                    </Typography>
+                    <StandingsTable type={tournament.type} rows={standings} />
+                  </Box>
+                </>
+              )}
+            </AccordionDetails>
+          </Accordion>
+        ))
+      ) : (
+        <>
+          <Paper className="section">
+            <Typography variant="h6" className="section-title">
+              {tOrganizer('manage.registeredCompetitors')} ({competitors.length} / {tournament.maxCompetitors})
+            </Typography>
+            {competitors.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                {tOrganizer('manage.noCompetitors')}
+              </Typography>
+            ) : (
               <div className="competitors">
-                {groupCompetitors.map((competitor) => (
+                {competitors.map((competitor) => (
                   <Chip key={competitor.id} label={competitor.displayName} variant="outlined" />
                 ))}
               </div>
-            </div>
-          ))
-        )}
-      </Paper>
-
-      {categoryGroups.map(({ key, groupRounds, groupMatches, standings }) => (
-        <Fragment key={key ?? '__all__'}>
-          {groupRounds.length > 0 && (
-            <Paper className="section">
-              <Typography variant="h6" className="section-title">
-                {hasCategories ? `${key} · ` : ''}
-                {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
-              </Typography>
-              {tournament.type === TournamentType.PLAYOFF ? (
-                <BracketView
-                  rounds={groupRounds}
-                  matches={groupMatches}
-                  competitorNames={competitorNames}
-                  scoreFormat={tournament.scoreFormat}
-                  editableMatchIds={editableMatchIds}
-                  onEditMatch={setScoreMatch}
-                />
-              ) : (
-                <FixtureView
-                  type={tournament.type}
-                  rounds={groupRounds}
-                  matches={groupMatches}
-                  competitorNames={competitorNames}
-                  scoreFormat={tournament.scoreFormat}
-                  editableMatchIds={editableMatchIds}
-                  onEditMatch={setScoreMatch}
-                />
+            )}
+          </Paper>
+          {categoryGroups.map(({ key, groupRounds, groupMatches, standings }) => (
+            <Fragment key={key ?? '__all__'}>
+              {groupRounds.length > 0 && (
+                <Paper className="section">
+                  <Typography variant="h6" className="section-title">
+                    {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
+                  </Typography>
+                  {tournament.type === TournamentType.PLAYOFF ? (
+                    <BracketView
+                      rounds={groupRounds}
+                      matches={groupMatches}
+                      competitorNames={competitorNames}
+                      scoreFormat={tournament.scoreFormat}
+                      editableMatchIds={editableMatchIds}
+                      onEditMatch={setScoreMatch}
+                    />
+                  ) : (
+                    <FixtureView
+                      type={tournament.type}
+                      rounds={groupRounds}
+                      matches={groupMatches}
+                      competitorNames={competitorNames}
+                      scoreFormat={tournament.scoreFormat}
+                      editableMatchIds={editableMatchIds}
+                      onEditMatch={setScoreMatch}
+                    />
+                  )}
+                </Paper>
               )}
-            </Paper>
-          )}
-
-          {standings.length > 0 && groupRounds.length > 0 && (
-            <Paper className="section">
-              <Typography variant="h6" className="section-title">
-                {hasCategories ? `${key} · ` : ''}
-                {t('standings')}
-              </Typography>
-              <StandingsTable type={tournament.type} rows={standings} />
-            </Paper>
-          )}
-        </Fragment>
-      ))}
+              {standings.length > 0 && groupRounds.length > 0 && (
+                <Paper className="section">
+                  <Typography variant="h6" className="section-title">
+                    {t('standings')}
+                  </Typography>
+                  <StandingsTable type={tournament.type} rows={standings} />
+                </Paper>
+              )}
+            </Fragment>
+          ))}
+        </>
+      )}
 
       <EditTournamentDialog
         open={editOpen}
