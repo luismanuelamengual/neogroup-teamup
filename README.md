@@ -59,7 +59,9 @@ app/
   (tournaments)/         Tournaments module
 proxy.ts                 Route protection (Next.js proxy — must live at the project root)
 database/migrations/     Database migrations (run with npm run db:migrate)
-scripts/migrate.ts       Migrations runner
+scripts/migrate-database.ts  Migrations runner (npm run db:migrate)
+scripts/reset-database.ts    Drops all tables and re-runs migrations (npm run db:reset)
+scripts/seed-database.ts     Seeds demo/test data (npm run db:seed)
 ```
 
 ### Anatomy of a feature module

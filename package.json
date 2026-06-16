@@ -8,9 +8,9 @@
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed:users": "tsx scripts/createDummyUsers.ts",
-    "db:seed:join": "tsx scripts/bulkJoinTournament.ts"
+    "db:migrate": "tsx scripts/migrate-database.ts",
+    "db:reset": "tsx scripts/reset-database.ts",
+    "db:seed": "tsx scripts/seed-database.ts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
