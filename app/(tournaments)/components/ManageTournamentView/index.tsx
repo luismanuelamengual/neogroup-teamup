@@ -3,10 +3,10 @@
 import './index.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import EditIcon from '@mui/icons-material/Edit'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import PlaceIcon from '@mui/icons-material/Place'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import AccordionSummary from '@mui/material/AccordionSummary'
@@ -263,7 +263,9 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           >
             <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.5, minHeight: 56 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Typography variant="h6" fontWeight={700}>{key}</Typography>
+                <Typography variant="h6" fontWeight={700}>
+                  {key}
+                </Typography>
                 <Chip
                   size="small"
                   label={`${groupCompetitors.length} / ${tournament.maxCompetitors}`}
