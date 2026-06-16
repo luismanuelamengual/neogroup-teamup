@@ -49,11 +49,21 @@
     font-size: 13px;
   }
 
-  .actions {
+  .footer {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
     justify-content: space-between;
+
+    .info-area {
+
+    }
+
+    .actions-area {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
   }
 
   .section {

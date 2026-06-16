@@ -92,8 +92,7 @@
       "registeredCompetitors": "Registered",
       "noCompetitors": "No competitors registered yet",
       "currentRound": "Current round",
-      "allRoundsPlayed": "All rounds have been played",
-      "autoProgress": "The tournament advances automatically as results are loaded."
+      "allRoundsPlayed": "All rounds have been played"
     },
     "errors": {
       "unauthorized": "You are not allowed to perform this action",

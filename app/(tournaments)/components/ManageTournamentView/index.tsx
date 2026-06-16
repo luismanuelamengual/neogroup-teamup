@@ -218,31 +218,31 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             {tournament.startTime ? ` · ${tournament.startTime}` : ''}
           </span>
         </div>
-        <div className="actions">
-          {tournament.status === TournamentStatus.STAND_BY && (
-            <>
-              <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
-                {tOrganizer('manage.share')}
+        <div className="footer">
+          <div className="info-area"></div>
+          <div className="actions-area">
+            {tournament.status === TournamentStatus.STAND_BY && (
+              <>
+                <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
+                  {tOrganizer('manage.share')}
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<PlayArrowIcon />}
+                  onClick={handleStart}
+                  disabled={working || competitors.length < 2}
+                >
+                  {tOrganizer('manage.start')}
+                </Button>
+              </>
+            )}
+            {tournament.status === TournamentStatus.ONGOING && (
+              <Button variant="outlined" color="error" onClick={handleFinish} disabled={working}>
+                {tOrganizer('manage.finish')}
               </Button>
-              <Button
-                variant="contained"
-                startIcon={<PlayArrowIcon />}
-                onClick={handleStart}
-                disabled={working || competitors.length < 2}
-              >
-                {tOrganizer('manage.start')}
-              </Button>
-            </>
-          )}
-          {tournament.status === TournamentStatus.ONGOING && (
-            <Button variant="outlined" color="error" onClick={handleFinish} disabled={working}>
-              {tOrganizer('manage.finish')}
-            </Button>
-          )}
+            )}
+          </div>
         </div>
-        {tournament.status === TournamentStatus.ONGOING && (
-          <Alert severity="info">{tOrganizer('manage.autoProgress')}</Alert>
-        )}
       </Paper>
 
       <Paper className="section">
