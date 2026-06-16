@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation'
-import { ReactNode } from 'react'
+import { ReactNode, Suspense } from 'react'
 import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
 import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/components/AppShell'
+import Loading from '@/app/components/Loading'
 
 /**
  * Shared layout for every authenticated page: requires a session with an
@@ -36,7 +37,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <UserStoreHydrator user={user} />
-      <AppShell user={user}>{children}</AppShell>
+      <AppShell user={user}>
+        <Suspense fallback={<Loading />}>{children}</Suspense>
+      </AppShell>
     </>
   )
 }

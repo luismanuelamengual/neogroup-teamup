@@ -1,0 +1,101 @@
+$color-brand-blue: #0f766e;
+$color-ball-lines: #F9FAFB;
+$color-shadow-floor: #cbd5e1;
+$animation-duration: 1.2s;
+$animation-curve: cubic-bezier(0.28, 0.84, 0.42, 1);
+
+.loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(249, 250, 251, 0.8);
+  backdrop-filter: blur(4px);
+
+  .wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .svg {
+    width: 120px;
+    height: 140px;
+  }
+
+  .racketGroup {
+    animation: squish $animation-duration $animation-curve infinite;
+    transform-origin: 50% 110px;
+    
+    .racketHead, .racketBridge {
+      stroke: $color-brand-blue;
+      stroke-width: 6px;
+      fill: none;
+    }
+    
+    .racketBridge {
+      stroke-linecap: round;
+    }
+    
+    .racketHandle {
+      stroke: $color-brand-blue;
+      stroke-width: 8px;
+      stroke-linecap: round;
+    }
+  }
+
+  .ballGroup {
+    animation: bounce $animation-duration $animation-curve infinite;
+    transform-origin: 50% 45px;
+    
+    .ballBody {
+      fill: $color-brand-blue;
+    }
+    
+    .ballLine {
+      stroke: $color-ball-lines;
+      stroke-width: 1.5px;
+      fill: none;
+    }
+  }
+
+  .shadowPulse {
+    animation: shadow-pulse $animation-duration $animation-curve infinite;
+    fill: $color-shadow-floor;
+    transform-origin: 50% 115px;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0) scaleY(0.9);
+  }
+  50% {
+    transform: translateY(-35px) scaleY(1.05);
+  }
+}
+
+@keyframes squish {
+  0%, 100% {
+    transform: scaleY(0.96) translateY(2px);
+  }
+  40%, 60% {
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+@keyframes shadow-pulse {
+  0%, 100% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.6);
+    opacity: 0.35; // Se desvanece cuando la pelota está arriba
+  }
+}
