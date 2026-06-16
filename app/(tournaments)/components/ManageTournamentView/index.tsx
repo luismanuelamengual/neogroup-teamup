@@ -219,22 +219,23 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           </span>
         </div>
         <div className="footer">
-          <div className="info-area"></div>
+          <div className="info-area">
+            {tournament.status === TournamentStatus.STAND_BY && (
+              <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
+                {tOrganizer('manage.share')}
+              </Button>
+            )}
+          </div>
           <div className="actions-area">
             {tournament.status === TournamentStatus.STAND_BY && (
-              <>
-                <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
-                  {tOrganizer('manage.share')}
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<PlayArrowIcon />}
-                  onClick={handleStart}
-                  disabled={working || competitors.length < 2}
-                >
-                  {tOrganizer('manage.start')}
-                </Button>
-              </>
+              <Button
+                variant="contained"
+                startIcon={<PlayArrowIcon />}
+                onClick={handleStart}
+                disabled={working || competitors.length < 2}
+              >
+                {tOrganizer('manage.start')}
+              </Button>
             )}
             {tournament.status === TournamentStatus.ONGOING && (
               <Button variant="outlined" color="error" onClick={handleFinish} disabled={working}>

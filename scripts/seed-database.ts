@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Database seeder.
  *
@@ -757,6 +758,113 @@ const SPECS: TournamentSpec[] = [
     competitorCount: 8,
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.FINISHED
+  },
+
+  // ---- Torneos grandes (+30 jugadores) ----
+
+  // Padel playoff 32 parejas — en curso (primera ronda jugada, cuadro completo visible)
+  {
+    name: 'Gran Slam de Pádel',
+    description: 'Cuadro de 32 parejas. El torneo más grande del año.',
+    discipline: Discipline.PADEL,
+    subDiscipline: null,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: null,
+    competitorCount: 32,
+    settings: {},
+    status: TournamentStatus.ONGOING,
+    phase: 'mid',
+    completedRounds: 1
+  },
+
+  // Padel playoff 16 parejas — finalizado
+  {
+    name: 'Copa Federación de Pádel',
+    description: 'Cuadro de 16 parejas, ya finalizado.',
+    discipline: Discipline.PADEL,
+    subDiscipline: null,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
+    categories: null,
+    competitorCount: 16,
+    settings: {},
+    status: TournamentStatus.FINISHED
+  },
+
+  // Padel playoff 32 parejas por categorías — stand_by
+  {
+    name: 'Open Nacional de Pádel',
+    description: 'Cuadro de 32 parejas dividido en Categoría A y B. Inscripción abierta.',
+    discipline: Discipline.PADEL,
+    subDiscipline: null,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: ['Categoría A', 'Categoría B'],
+    competitorCount: 32,
+    maxCompetitors: 32,
+    settings: {},
+    status: TournamentStatus.STAND_BY
+  },
+
+  // Tennis singles playoff 32 jugadores — recién iniciado (cuadro completo visible)
+  {
+    name: 'Abierto de Tenis 32 Singles',
+    description: 'Cuadro de 32 jugadores individuales, recién iniciado.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: SubDiscipline.SINGLES,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: null,
+    competitorCount: 32,
+    settings: {},
+    status: TournamentStatus.ONGOING,
+    phase: 'just_started'
+  },
+
+  // Tennis singles playoff 64 jugadores — stand_by, inscripción abierta
+  {
+    name: 'Torneo Nacional de Tenis',
+    description: 'Cuadro de 64 jugadores. Inscripción abierta, ya hay 40 anotados.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: SubDiscipline.SINGLES,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
+    categories: null,
+    competitorCount: 40,
+    maxCompetitors: 64,
+    settings: {},
+    status: TournamentStatus.STAND_BY
+  },
+
+  // Padel Americano 16 jugadores — en curso, mitad del torneo
+  {
+    name: 'Americano de Pádel Copa de Oro',
+    description: 'Americano con 16 jugadores, rotación de parejas.',
+    discipline: Discipline.PADEL,
+    subDiscipline: null,
+    type: TournamentType.AMERICANO,
+    scoreFormat: ScoreFormat.BASIC_COUNT,
+    categories: null,
+    competitorCount: 16,
+    settings: { ...DEFAULT_AMERICANO_SETTINGS, swapPartnersEachRound: true },
+    status: TournamentStatus.ONGOING,
+    phase: 'mid',
+    completedRounds: 3
+  },
+
+  // Tennis doubles playoff 16 parejas — finalizado
+  {
+    name: 'Copa Dobles Aniversario 50',
+    description: 'Cuadro de 16 parejas de dobles, edición especial finalizada.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: SubDiscipline.DOUBLES,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: null,
+    competitorCount: 16,
+    settings: {},
+    status: TournamentStatus.FINISHED
   }
 ]
 
@@ -821,7 +929,7 @@ async function buildTournament(spec: TournamentSpec, organizerId: number, pool: 
 async function run(): Promise<void> {
   console.log('Seeding demo database...\n')
 
-  const { organizer, players } = await createUsers(32)
+  const { organizer, players } = await createUsers(64)
 
   console.log(`\nCreating ${SPECS.length} tournaments...`)
 
