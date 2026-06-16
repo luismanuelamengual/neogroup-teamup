@@ -148,6 +148,20 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   tournament.currentRound = roundNumber
   tournament.updatedAt = new Date()
   await tournament.save()
+
+  // For playoffs: propagate any auto-resolved bye (walkover) matches into the
+  // next round immediately so the bracket is coherent from the moment the
+  // tournament starts. Also close+advance in the unlikely case the whole round
+  // consists of byes (e.g. a 2-competitor bracket with byes everywhere).
+  if (tournament.type === TournamentType.PLAYOFF) {
+    const createdRounds = await Round.where('tournamentId', tournament.id).where('number', roundNumber).get()
+
+    for (const round of createdRounds) {
+      await syncPlayoffNextRound(tournament, round)
+    }
+
+    await closeRoundAndAdvance(tournament)
+  }
 }
 
 /** Competitor ids of the winning side of a resolved match (null when unresolved). */

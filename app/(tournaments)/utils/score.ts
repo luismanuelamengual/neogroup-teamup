@@ -91,7 +91,9 @@ function isValidSuperTiebreak(set: SetScore): boolean {
   const { home, away } = set
   const [hi, lo] = home > away ? [home, away] : [away, home]
 
-  return hi >= 10 && hi - lo >= 2
+  // Winner reaches exactly 10: loser must have ≤ 8 (no extension needed).
+  // Winner goes beyond 10: both must be separated by exactly 2 (deuce extension).
+  return (hi === 10 && lo <= 8) || (hi > 10 && hi - lo === 2)
 }
 
 /** Validates a score payload for the given format before persisting it. */
