@@ -5,7 +5,7 @@ import Pagination from '@mui/material/Pagination'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { searchTournaments } from '@/app/(tournaments)/actions/registration'
+import { searchTournaments } from '@/app/(tournaments)/actions/tournament'
 import TournamentCard from '@/app/(tournaments)/components/TournamentCard'
 import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 

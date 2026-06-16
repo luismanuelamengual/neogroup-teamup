@@ -14,10 +14,11 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { User } from '@/app/(auth)/models/UserDto'
-import { joinTournament, searchUsers } from '@/app/(tournaments)/actions/registration'
-import { getTournamentDetail } from '@/app/(tournaments)/actions/tournament'
-import { Tournament } from '@/app/(tournaments)/models/TournamentDto'
+import { UserDto } from '@/app/(auth)/models/UserDto'
+import { searchUsers } from '@/app/(auth)/services/users'
+import { useUserStore } from '@/app/(auth)/stores/users'
+import { getTournament, joinTournament } from '@/app/(tournaments)/actions/tournament'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { registersAsPairs } from '@/app/(tournaments)/utils/discipline'
 import { DISCIPLINE_KEYS, SUB_DISCIPLINE_KEYS, TOURNAMENT_TYPE_KEYS } from '@/app/(tournaments)/utils/labels'
@@ -30,11 +31,12 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
   const router = useRouter()
-  const [tournament, setTournament] = useState<Tournament | null>(null)
+  const [tournament, setTournament] = useState<TournamentDto | null>(null)
+  const userId = useUserStore((state) => state.user?.id ?? null)
   const [initializing, setInitializing] = useState(true)
   const [partnerQuery, setPartnerQuery] = useState('')
-  const [partnerOptions, setPartnerOptions] = useState<User[]>([])
-  const [partnerUser, setPartnerUser] = useState<User | null>(null)
+  const [partnerOptions, setPartnerOptions] = useState<UserDto[]>([])
+  const [partnerUser, setPartnerUser] = useState<UserDto | null>(null)
   const [category, setCategory] = useState('')
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +46,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   useEffect(() => {
     let cancelled = false
 
-    getTournamentDetail(tournamentId).then((detail) => {
+    getTournament(tournamentId).then((detail) => {
       if (cancelled) {
         return
       }
@@ -55,13 +57,16 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
         return
       }
 
-      if (detail.userEntry || detail.tournament.status !== TournamentStatus.STAND_BY) {
+      const alreadyRegistered =
+        detail.competitors?.some((c) => c.userId === userId || c.partnerUserId === userId) ?? false
+
+      if (alreadyRegistered || detail.status !== TournamentStatus.STAND_BY) {
         router.replace(`/tournaments/${tournamentId}`)
 
         return
       }
 
-      setTournament(detail.tournament)
+      setTournament(detail)
       setInitializing(false)
     })
 

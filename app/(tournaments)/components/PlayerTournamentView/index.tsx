@@ -20,8 +20,9 @@ import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { leaveTournament } from '@/app/(tournaments)/actions/registration'
-import { getTournamentDetail, saveMatchResult, TournamentDetailWithEntry } from '@/app/(tournaments)/actions/tournament'
+import { useUserStore } from '@/app/(auth)/stores/users'
+import { leaveTournament } from '@/app/(tournaments)/actions/tournament'
+import { getTournament, saveMatchResult } from '@/app/(tournaments)/actions/tournament'
 import BracketView from '@/app/(tournaments)/components/BracketView'
 import FixtureView from '@/app/(tournaments)/components/FixtureView'
 import MatchCard from '@/app/(tournaments)/components/MatchCard'
@@ -32,6 +33,7 @@ import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 import {
@@ -50,15 +52,16 @@ interface PlayerTournamentViewProps {
 export default function PlayerTournamentView({ tournamentId }: PlayerTournamentViewProps) {
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
-  const [detail, setDetail] = useState<TournamentDetailWithEntry | null>(null)
+  const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
+  const userId = useUserStore((state) => state.user?.id ?? null)
   const loadDetail = useCallback(async () => {
-    const data = await getTournamentDetail(tournamentId)
+    const data = await getTournament(tournamentId)
 
-    setDetail(data)
+    setTournament(data)
     setLoading(false)
   }, [tournamentId])
 
@@ -66,11 +69,13 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     loadDetail()
   }, [loadDetail])
 
-  const tournament = detail?.tournament ?? null
-  const competitors = useMemo(() => detail?.competitors ?? [], [detail])
-  const rounds = detail?.rounds ?? []
-  const matches = useMemo(() => detail?.matches ?? [], [detail])
-  const userEntry = detail?.userEntry ?? null
+  const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
+  const rounds = tournament?.rounds ?? []
+  const matches = useMemo(() => tournament?.matches ?? [], [tournament])
+  const userEntry = useMemo(
+    () => competitors.find((c) => c.userId === userId || c.partnerUserId === userId) ?? null,
+    [competitors, userId]
+  )
   const competitorNames = useMemo(() => {
     const names: Record<number, string> = {}
 

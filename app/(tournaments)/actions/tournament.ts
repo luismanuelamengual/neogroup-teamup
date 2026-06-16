@@ -1,7 +1,4 @@
-import { CompetitorDto } from '@/app/(tournaments)/models/CompetitorDto'
-import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import type { MatchScore } from '@/app/(tournaments)/models/MatchScore'
-import { RoundDto } from '@/app/(tournaments)/models/RoundDto'
 import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { executeRequest } from '@/app/actions/api'
 
@@ -12,24 +9,10 @@ export interface OrganizerTournamentFilters {
   onlyActive?: boolean
 }
 
-export interface TournamentDetailWithEntry {
-  tournament: TournamentDto
-  competitors: CompetitorDto[]
-  rounds: RoundDto[]
-  matches: MatchDto[]
-  userEntry: CompetitorDto | null
-  isOwner: boolean
-}
-
-/** Tournaments owned by the signed-in user (organizer view). */
-export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<TournamentDto[]> {
-  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'owned', ...filters })
-}
-
-/** Full tournament detail plus the signed-in user competitor entry (if any). */
-export async function getTournamentDetail(tournamentId: number): Promise<TournamentDetailWithEntry | null> {
+/** Full tournament detail (competitors, rounds, matches). */
+export async function getTournament(tournamentId: number): Promise<TournamentDto | null> {
   try {
-    return await executeRequest<TournamentDetailWithEntry>('/getTournament', { id: tournamentId })
+    return await executeRequest<TournamentDto>('/getTournament', { id: tournamentId })
   } catch (_error) {
     return null
   }
@@ -68,4 +51,35 @@ export async function finishTournament(tournamentId: number): Promise<void> {
 /** Saves (or edits) a match result. */
 export async function saveMatchResult(matchId: number, score: MatchScore): Promise<void> {
   await executeRequest('/setMatchResult', { id: matchId, score })
+}
+
+/** Payload to register the signed-in user (optionally with a partner) into a tournament. */
+export interface JoinTournamentInput {
+  partnerUserId?: number | null
+  category?: string | null
+}
+
+/** Searches joinable/visible tournaments by name. */
+export async function searchTournaments(name: string): Promise<TournamentDto[]> {
+  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'search', name })
+}
+
+/** Tournaments in stand_by or ongoing where the signed-in user participates. */
+export async function getPlayerActiveTournaments(): Promise<TournamentDto[]> {
+  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'active' })
+}
+
+/** Tournaments owned by the signed-in user (organizer view). */
+export async function getOrganizerTournaments(filters: OrganizerTournamentFilters = {}): Promise<TournamentDto[]> {
+  return executeRequest<TournamentDto[]>('/getTournaments', { scope: 'owned', ...filters })
+}
+
+/** Registers the signed-in user (optionally with a partner) into a tournament. */
+export async function joinTournament(tournamentId: number, input: JoinTournamentInput): Promise<void> {
+  await executeRequest('/joinTournament', { tournamentId, ...input })
+}
+
+/** Removes the signed-in user registration while the tournament is in stand_by. */
+export async function leaveTournament(tournamentId: number): Promise<void> {
+  await executeRequest('/leaveTournament', { tournamentId })
 }

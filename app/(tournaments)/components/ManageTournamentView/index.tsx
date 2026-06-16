@@ -22,12 +22,12 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useUserStore } from '@/app/(auth)/stores/users'
 import {
   finishTournament,
-  getTournamentDetail,
+  getTournament,
   saveMatchResult,
-  startTournament,
-  TournamentDetailWithEntry
+  startTournament
 } from '@/app/(tournaments)/actions/tournament'
 import BracketView from '@/app/(tournaments)/components/BracketView'
 import EditTournamentDialog from '@/app/(tournaments)/components/EditTournamentDialog'
@@ -38,6 +38,7 @@ import StatusChip from '@/app/(tournaments)/components/StatusChip'
 import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { RoundStatus } from '@/app/(tournaments)/models/RoundStatus'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 import {
@@ -57,16 +58,18 @@ interface ManageTournamentViewProps {
 export default function ManageTournamentView({ tournamentId, appUrl }: ManageTournamentViewProps) {
   const t = useTranslations('tournaments')
   const tOrganizer = useTranslations('organizer')
-  const [detail, setDetail] = useState<TournamentDetailWithEntry | null>(null)
+  const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const notify = useNotificationsStore((state) => state.notify)
+  const userId = useUserStore((state) => state.user?.id ?? null)
+  const isOwner = tournament != null && userId != null && tournament.ownerId === userId
   const loadDetail = useCallback(async () => {
-    const data = await getTournamentDetail(tournamentId)
+    const data = await getTournament(tournamentId)
 
-    setDetail(data && data.isOwner ? data : null)
+    setTournament(data)
     setLoading(false)
   }, [tournamentId])
 
@@ -74,10 +77,9 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
     loadDetail()
   }, [loadDetail])
 
-  const tournament = detail?.tournament ?? null
-  const competitors = useMemo(() => detail?.competitors ?? [], [detail])
-  const rounds = detail?.rounds ?? []
-  const matches = useMemo(() => detail?.matches ?? [], [detail])
+  const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
+  const rounds = tournament?.rounds ?? []
+  const matches = useMemo(() => tournament?.matches ?? [], [tournament])
   const competitorNames = useMemo(() => {
     const names: Record<number, string> = {}
 
@@ -100,7 +102,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
     )
   }
 
-  if (!tournament) {
+  if (!tournament || !isOwner) {
     return <Alert severity="error">{tOrganizer('errors.notFound')}</Alert>
   }
 

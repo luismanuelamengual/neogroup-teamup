@@ -48,10 +48,10 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
           {tournament.startDate}
           {tournament.startTime ? ` · ${tournament.startTime}` : ''}
         </span>
-        {tournament.competitorsCount != null && (
+        {tournament.competitors != null && (
           <span className="detail">
             <GroupsIcon fontSize="inherit" />
-            {tournament.competitorsCount} / {tournament.maxCompetitors}
+            {tournament.competitors.length} / {tournament.maxCompetitors}
           </span>
         )}
       </div>

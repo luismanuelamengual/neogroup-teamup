@@ -82,25 +82,4 @@ export class Tournament extends BaseEntity {
   @HasMany(() => Match, 'tournamentId')
   matches?: Match[]
 
-  get competitorsCount(): number {
-    return this.competitors?.length ?? 0
-  }
-
-  toJSON(): Record<string, any> {
-    const result: Record<string, any> = {}
-
-    for (const key of Object.keys(this as any)) {
-      if (['owner', 'competitors', 'rounds', 'matches'].includes(key)) {
-        continue
-      }
-
-      const value = (this as any)[key]
-
-      result[key] = value instanceof Date ? value.toISOString().slice(0, 10) : value
-    }
-
-    result.competitorsCount = this.competitorsCount
-
-    return result
-  }
 }

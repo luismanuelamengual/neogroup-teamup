@@ -1,4 +1,7 @@
+import { CompetitorDto } from '@/app/(tournaments)/models/CompetitorDto'
 import { Discipline } from '@/app/(tournaments)/models/Discipline'
+import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
+import { RoundDto } from '@/app/(tournaments)/models/RoundDto'
 import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(tournaments)/models/SubDiscipline'
 import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
@@ -25,5 +28,7 @@ export interface TournamentDto {
   currentRound: number
   createdAt: string
   updatedAt: string
-  competitorsCount: number
+  competitors?: CompetitorDto[]
+  rounds?: RoundDto[]
+  matches?: MatchDto[]
 }

@@ -1,6 +1,6 @@
 import { User } from '@/app/(auth)/models/User'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
-import { JoinTournamentInput } from '@/app/(tournaments)/actions/registration'
+import { JoinTournamentInput } from '@/app/(tournaments)/actions/tournament'
 import { Competitor } from '@/app/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
@@ -23,7 +23,6 @@ export const POST = withAuth(async (request, context, userId) => {
 
   const competitors = tournament.competitors ?? []
   const hasCategories = tournament.categories && tournament.categories.length > 0
-
   // Category is mandatory when the tournament defines categories.
   let category: string | null = null
 
