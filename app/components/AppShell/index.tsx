@@ -75,7 +75,7 @@ export default function AppShell({ children, user: initialUser }: { children: Re
 
   return (
     <div className="app-shell">
-      <AppBar position="sticky" className="appbar">
+      <AppBar className="appbar">
         <Toolbar className="toolbar">
           <Link href="/" className="brand">
             <Image src="/logo-white.png" alt="TeamUp" width={158} height={26} priority />
@@ -128,7 +128,9 @@ export default function AppShell({ children, user: initialUser }: { children: Re
           </Menu>
         </Toolbar>
       </AppBar>
-      <main className="content">{children}</main>
+      <div className="content-wrapper">
+        <main className="content">{children}</main>
+      </div>
       <BottomNavigation
         showLabels
         className="bottom-nav"
