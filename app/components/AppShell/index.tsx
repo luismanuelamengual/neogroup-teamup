@@ -6,7 +6,6 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import PersonIcon from '@mui/icons-material/Person'
 import SearchIcon from '@mui/icons-material/Search'
 import AppBar from '@mui/material/AppBar'
-import Avatar from '@mui/material/Avatar'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import ButtonBase from '@mui/material/ButtonBase'
@@ -24,6 +23,7 @@ import { MouseEvent, ReactNode, useState } from 'react'
 import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { useUserStore } from '@/app/(auth)/stores/users'
+import Avatar from '@/app/components/Avatar'
 
 interface NavItem {
   key: string
@@ -89,7 +89,7 @@ export default function AppShell({ children, user: initialUser }: { children: Re
           </nav>
           <div className="spacer" />
           <ButtonBase onClick={openMenu} className="user" focusRipple>
-            <Avatar src={user?.avatarUrl ?? ''} alt={user?.displayName ?? ''} className="avatar" />
+            <Avatar email={user?.email ?? ''} name={user?.displayName ?? ''} size="sm" className="avatar" />
             <span className="user-name">
               {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.displayName}
             </span>

@@ -1,12 +1,8 @@
 'use client'
 
 import './index.scss'
-import { GravatarQuickEditorCore } from '@gravatar-com/quick-editor'
-import EditIcon from '@mui/icons-material/Edit'
 import Alert from '@mui/material/Alert'
-import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
-import ButtonBase from '@mui/material/ButtonBase'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
@@ -14,15 +10,15 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { ChangeEvent, FormEvent, useRef, useState } from 'react'
+import { ChangeEvent, FormEvent, useState } from 'react'
 import { setLocale, updateAccount } from '@/app/(account)/actions/account'
+import Avatar from '@/app/components/Avatar'
 
 interface AccountFormProps {
   email: string
   firstName: string
   lastName: string
   nickname: string
-  avatarUrl: string
 }
 
 export default function AccountForm(props: AccountFormProps) {
@@ -34,7 +30,6 @@ export default function AccountForm(props: AccountFormProps) {
   const [lastName, setLastName] = useState(props.lastName)
   const [nickname, setNickname] = useState(props.nickname)
   const [language, setLanguage] = useState(locale)
-  const [avatarVersion, setAvatarVersion] = useState(0)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -42,20 +37,6 @@ export default function AccountForm(props: AccountFormProps) {
     { value: 'es', label: t('spanish'), flag: '🇪🇸' },
     { value: 'en', label: t('english'), flag: '🇬🇧' }
   ]
-  const quickEditorRef = useRef<GravatarQuickEditorCore | null>(null)
-
-  const handleAvatarClick = () => {
-    quickEditorRef.current ??= new GravatarQuickEditorCore({
-      email: props.email,
-      scope: ['avatars'],
-      locale,
-      onProfileUpdated: () => {
-        setAvatarVersion(Date.now())
-        router.refresh()
-      }
-    })
-    quickEditorRef.current.open()
-  }
 
   const handleLanguageChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const newLocale = event.target.value
@@ -102,16 +83,13 @@ export default function AccountForm(props: AccountFormProps) {
       </Typography>
       <div className="avatar-section">
         <Tooltip title={t('avatarEdit')}>
-          <ButtonBase onClick={handleAvatarClick} className="avatar-button" aria-label={t('avatarEdit')} focusRipple>
-            <Avatar
-              src={`${props.avatarUrl}${avatarVersion ? `&t=${avatarVersion}` : ''}`}
-              alt={firstName}
-              className="avatar"
-            />
-            <span className="avatar-overlay">
-              <EditIcon fontSize="small" />
-            </span>
-          </ButtonBase>
+          <Avatar
+            email={props.email}
+            name={[firstName, lastName].filter(Boolean).join(' ') || props.email}
+            size="lg"
+            editable
+            onUpdated={() => router.refresh()}
+          />
         </Tooltip>
         <div className="avatar-info">
           <Typography variant="body2">{props.email}</Typography>

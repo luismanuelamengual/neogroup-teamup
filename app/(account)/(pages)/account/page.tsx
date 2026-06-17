@@ -15,7 +15,6 @@ export default async function AccountPage() {
       firstName={session.user.firstName ?? ''}
       lastName={session.user.lastName ?? ''}
       nickname={session.user.nickname ?? ''}
-      avatarUrl={session.user.image ?? ''}
     />
   )
 }

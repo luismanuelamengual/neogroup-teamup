@@ -3,7 +3,6 @@
 import './index.scss'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
-import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -22,6 +21,7 @@ import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(tournaments)/models/TournamentStatus'
 import { registersAsPairs } from '@/app/(tournaments)/utils/discipline'
 import { DISCIPLINE_KEYS, SUB_DISCIPLINE_KEYS, TOURNAMENT_TYPE_KEYS } from '@/app/(tournaments)/utils/labels'
+import Avatar from '@/app/components/Avatar'
 
 interface JoinTournamentFormProps {
   tournamentId: number
@@ -73,7 +73,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
     return () => {
       cancelled = true
     }
-  }, [tournamentId, router])
+  }, [tournamentId, router, userId])
 
   const needsPartner = tournament
     ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type, tournament.settings ?? {})
@@ -195,7 +195,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
             renderOption={(props, option) => (
               <li {...props} key={option.id}>
                 <div className="join-tournament-user-option">
-                  <Avatar src={option.avatarUrl} className="avatar" />
+                  <Avatar email={option.email} name={option.displayName} size="sm" />
                   <div>
                     <div className="name">{option.displayName}</div>
                     <div className="email">{option.email}</div>

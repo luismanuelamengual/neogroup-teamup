@@ -1,0 +1,53 @@
+.app-avatar {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: inline-flex;
+
+  &__initials {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    user-select: none;
+    font-family: inherit;
+  }
+
+  &__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  &--editable {
+    cursor: pointer;
+
+    &:hover .app-avatar__overlay {
+      opacity: 1;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary, #3d8c39);
+      outline-offset: 2px;
+    }
+  }
+}

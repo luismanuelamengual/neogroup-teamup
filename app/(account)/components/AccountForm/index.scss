@@ -15,36 +15,10 @@
     align-items: center;
     gap: 16px;
     margin-bottom: 20px;
-  }
 
-  .avatar-button {
-    position: relative;
-    border-radius: 50% !important;
-    overflow: hidden;
-    aspect-ratio: 1;
-    flex-shrink: 0;
-
-    &:hover .avatar-overlay {
-      opacity: 1;
+    .app-avatar {
+      border: 2px solid rgb(61, 140, 57);
     }
-  }
-
-  .avatar {
-    width: 60px !important;
-    height: 60px !important;
-    border: 2px solid rgb(61, 140, 57);
-  }
-
-  .avatar-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(0, 0, 0, 0.45);
-    color: #fff;
-    opacity: 0;
-    transition: opacity 0.15s ease;
   }
 
   .avatar-info {
