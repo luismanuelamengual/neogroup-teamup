@@ -78,15 +78,6 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
   const rounds = tournament?.rounds ?? []
-  const competitorNames = useMemo(() => {
-    const names: Record<number, string> = {}
-
-    for (const competitor of competitors) {
-      names[competitor.id] = competitor.displayName
-    }
-
-    return names
-  }, [competitors])
   const categoryKeys = useMemo<(string | null)[]>(
     () => (tournament?.categories && tournament.categories.length > 0 ? tournament.categories : [null]),
     [tournament]
@@ -346,12 +337,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
       />
       <ScoreDialog
         open={!!scoreMatch}
-        scoreFormat={tournament.scoreFormat}
-        homeName={scoreMatch ? scoreMatch.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ') : ''}
-        awayName={
-          scoreMatch ? (scoreMatch.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ') : ''
-        }
-        initialScore={scoreMatch?.score ?? null}
+        tournament={tournament}
+        match={scoreMatch!}
         saving={working}
         onClose={() => setScoreMatch(null)}
         onSave={handleSaveScore}

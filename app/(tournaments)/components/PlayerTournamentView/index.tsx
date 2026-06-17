@@ -74,15 +74,6 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     () => competitors.find((c) => c.userId === userId || c.partnerUserId === userId) ?? null,
     [competitors, userId]
   )
-  const competitorNames = useMemo(() => {
-    const names: Record<number, string> = {}
-
-    for (const competitor of competitors) {
-      names[competitor.id] = competitor.displayName
-    }
-
-    return names
-  }, [competitors])
   const currentRoundNumber = tournament?.currentRound ?? 0
   const openCurrentRoundIds = useMemo(
     () =>
@@ -311,12 +302,8 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
 
       <ScoreDialog
         open={!!scoreMatch}
-        scoreFormat={tournament.scoreFormat}
-        homeName={scoreMatch ? scoreMatch.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ') : ''}
-        awayName={
-          scoreMatch ? (scoreMatch.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ') : ''
-        }
-        initialScore={scoreMatch?.score ?? null}
+        tournament={tournament}
+        match={scoreMatch!}
         saving={working}
         onClose={() => setScoreMatch(null)}
         onSave={handleSaveScore}

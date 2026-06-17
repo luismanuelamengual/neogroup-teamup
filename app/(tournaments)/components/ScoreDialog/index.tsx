@@ -14,19 +14,19 @@ import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
+import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
 import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
 import { SetScore } from '@/app/(tournaments)/models/SetScore'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { MATCH_SIDE_KEYS } from '@/app/(tournaments)/utils/labels'
 import { isValidScore } from '@/app/(tournaments)/utils/score'
 
 interface ScoreDialogProps {
   open: boolean
-  scoreFormat: ScoreFormat
-  homeName: string
-  awayName: string
-  initialScore: MatchScore | null
+  tournament: TournamentDto
+  match: MatchDto
   saving?: boolean
   onClose: () => void
   onSave: (score: MatchScore) => void
@@ -40,16 +40,12 @@ const EMPTY_SET_INPUTS: SetInput[] = [
   { home: '', away: '' }
 ]
 
-export default function ScoreDialog({
-  open,
-  scoreFormat,
-  homeName,
-  awayName,
-  initialScore,
-  saving = false,
-  onClose,
-  onSave
-}: ScoreDialogProps) {
+export default function ScoreDialog({ open, tournament, match, saving = false, onClose, onSave }: ScoreDialogProps) {
+  const competitorNames = Object.fromEntries((tournament.competitors ?? []).map((c) => [c.id, c.displayName]))
+  const scoreFormat = tournament.scoreFormat
+  const homeName = match.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ')
+  const awayName = (match.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ')
+  const initialScore = match.score ?? null
   const t = useTranslations('score')
   const tCommon = useTranslations('common')
   const [walkover, setWalkover] = useState(false)
