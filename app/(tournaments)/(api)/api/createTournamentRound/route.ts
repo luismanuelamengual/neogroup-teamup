@@ -21,9 +21,7 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('invalidStatus')
   }
 
-  const currentRounds = await Round.where('tournamentId', tournamentId)
-    .where('number', tournament.currentRound)
-    .get()
+  const currentRounds = await Round.where('tournamentId', tournamentId).where('number', tournament.currentRound).get()
 
   if (currentRounds.length === 0 || currentRounds.some((round) => round.status !== RoundStatus.CLOSED)) {
     throw new ApiException('roundStillOpen')
@@ -31,9 +29,7 @@ export const POST = withAuth(async (request, context, userId) => {
 
   const competitors = await Competitor.where('tournamentId', tournamentId).get()
   const groupSizes = getTournamentCategoryKeys(tournament).map((category) =>
-    category === null
-      ? competitors.length
-      : competitors.filter((competitor) => competitor.category === category).length
+    category === null ? competitors.length : competitors.filter((competitor) => competitor.category === category).length
   )
   const totalRounds = getMaxTotalRounds(tournament.type, tournament.settings ?? {}, groupSizes)
 

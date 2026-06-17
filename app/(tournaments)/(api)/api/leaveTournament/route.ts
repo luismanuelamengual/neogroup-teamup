@@ -17,9 +17,7 @@ export const POST = withAuth(async (request, context, userId) => {
     throw new ApiException('registrationClosed')
   }
 
-  const entry = await Competitor.where('tournamentId', tournament.id)
-    .where('userId', userId)
-    .first()
+  const entry = await Competitor.where('tournamentId', tournament.id).where('userId', userId).first()
 
   if (!entry) {
     throw new ApiException('notRegistered')

@@ -120,24 +120,41 @@ export function isValidScore(score: MatchScore, format: ScoreFormat): boolean {
   }
 
   if (format === ScoreFormat.THREE_SETS || format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK) {
-    if (sets.length > 3) return false
+    if (sets.length > 3) {
+      return false
+    }
 
     // Validate first two sets are regular
     const firstTwo = sets.slice(0, 2)
-    if (!firstTwo.every(isValidRegularSet)) return false
+
+    if (!firstTwo.every(isValidRegularSet)) {
+      return false
+    }
 
     if (sets.length === 3) {
       // 3rd set only valid if first two are split 1-1
       const firstTwoWins = { home: 0, away: 0 }
+
       for (const s of firstTwo) {
-        if (s.home > s.away) firstTwoWins.home++
-        else firstTwoWins.away++
+        if (s.home > s.away) {
+          firstTwoWins.home++
+        } else {
+          firstTwoWins.away++
+        }
       }
-      if (firstTwoWins.home !== 1 || firstTwoWins.away !== 1) return false
+
+      if (firstTwoWins.home !== 1 || firstTwoWins.away !== 1) {
+        return false
+      }
 
       // Validate 3rd set by format
-      if (format === ScoreFormat.THREE_SETS && !isValidRegularSet(sets[2])) return false
-      if (format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && !isValidSuperTiebreak(sets[2])) return false
+      if (format === ScoreFormat.THREE_SETS && !isValidRegularSet(sets[2])) {
+        return false
+      }
+
+      if (format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && !isValidSuperTiebreak(sets[2])) {
+        return false
+      }
     }
   }
 
