@@ -9,16 +9,19 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import { useTranslations } from 'next-intl'
-import { StandingsRowDto } from '@/app/(tournaments)/models/StandingsRowDto'
+import { useMemo } from 'react'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
+import { computeStandings } from '@/app/(tournaments)/utils/standings'
 
 interface StandingsTableProps {
-  type: TournamentType
-  rows: StandingsRowDto[]
+  tournament: TournamentDto
+  category?: string
 }
 
-export default function StandingsTable({ type, rows }: StandingsTableProps) {
+export default function StandingsTable({ tournament, category }: StandingsTableProps) {
   const t = useTranslations('tournaments.standingsTable')
+  const rows = useMemo(() => computeStandings(tournament, category), [tournament, category])
 
   return (
     <TableContainer component={Paper} className="standings-table">
@@ -29,8 +32,8 @@ export default function StandingsTable({ type, rows }: StandingsTableProps) {
             <TableCell>{t('competitor')}</TableCell>
             <TableCell align="center">{t('played')}</TableCell>
             <TableCell align="center">{t('won')}</TableCell>
-            {type === TournamentType.LEAGUE && <TableCell align="center">{t('setsWon')}</TableCell>}
-            {type === TournamentType.AMERICANO && <TableCell align="center">{t('gamesWon')}</TableCell>}
+            {tournament.type === TournamentType.LEAGUE && <TableCell align="center">{t('setsWon')}</TableCell>}
+            {tournament.type === TournamentType.AMERICANO && <TableCell align="center">{t('gamesWon')}</TableCell>}
             <TableCell align="center" className="points-cell">
               {t('points')}
             </TableCell>
@@ -43,8 +46,10 @@ export default function StandingsTable({ type, rows }: StandingsTableProps) {
               <TableCell>{row.displayName}</TableCell>
               <TableCell align="center">{row.played}</TableCell>
               <TableCell align="center">{row.won}</TableCell>
-              {type === TournamentType.LEAGUE && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
-              {type === TournamentType.AMERICANO && <TableCell align="center">{row.gamesWon ?? 0}</TableCell>}
+              {tournament.type === TournamentType.LEAGUE && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
+              {tournament.type === TournamentType.AMERICANO && (
+                <TableCell align="center">{row.gamesWon ?? 0}</TableCell>
+              )}
               <TableCell align="center" className="points-cell">
                 {row.points}
               </TableCell>

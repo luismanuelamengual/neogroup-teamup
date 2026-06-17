@@ -21,8 +21,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
-import { leaveTournament } from '@/app/(tournaments)/actions/tournament'
-import { getTournament, saveMatchResult } from '@/app/(tournaments)/actions/tournament'
+import { getTournament, leaveTournament, saveMatchResult } from '@/app/(tournaments)/actions/tournament'
 import BracketView from '@/app/(tournaments)/components/BracketView'
 import FixtureView from '@/app/(tournaments)/components/FixtureView'
 import MatchCard from '@/app/(tournaments)/components/MatchCard'
@@ -42,7 +41,6 @@ import {
   SUB_DISCIPLINE_KEYS,
   TOURNAMENT_TYPE_KEYS
 } from '@/app/(tournaments)/utils/labels'
-import { computeStandings } from '@/app/(tournaments)/utils/standings'
 import { useNotificationsStore } from '@/app/stores/notifications.store'
 
 interface PlayerTournamentViewProps {
@@ -70,7 +68,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   }, [loadDetail])
 
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
-  const rounds = tournament?.rounds ?? []
+  const rounds = useMemo(() => tournament?.rounds ?? [], [tournament])
   const matches = useMemo(() => tournament?.matches ?? [], [tournament])
   const userEntry = useMemo(
     () => competitors.find((c) => c.userId === userId || c.partnerUserId === userId) ?? null,
@@ -128,22 +126,8 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const hasCategories = categoryKeys.some((key) => key !== null)
   const categoryGroups = categoryKeys.map((key) => {
     const groupRounds = rounds.filter((round) => (round.category ?? null) === key)
-    const groupRoundIds = new Set(groupRounds.map((round) => round.id))
-    const groupMatches = matches.filter((match) => groupRoundIds.has(match.roundId))
-    const groupCompetitors =
-      key === null ? competitors : competitors.filter((competitor) => competitor.category === key)
-    const standings =
-      tournament.type !== TournamentType.PLAYOFF
-        ? computeStandings(
-            tournament.type,
-            tournament.scoreFormat,
-            tournament.settings ?? {},
-            groupCompetitors,
-            groupMatches
-          )
-        : []
 
-    return { key, groupRounds, groupMatches, standings }
+    return { key, groupRounds }
   })
 
   const handleLeave = async () => {
@@ -265,7 +249,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       )}
 
       {hasCategories
-        ? categoryGroups.map(({ key, groupRounds, groupMatches, standings }) => (
+        ? categoryGroups.map(({ key, groupRounds }) => (
             <Accordion
               key={key ?? '__all__'}
               defaultExpanded
@@ -286,44 +270,27 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
                       {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
                     </Typography>
                     {tournament.type === TournamentType.PLAYOFF ? (
-                      <BracketView
-                        rounds={groupRounds}
-                        matches={groupMatches}
-                        competitorNames={competitorNames}
-                        scoreFormat={tournament.scoreFormat}
-                        highlightedMatchIds={editableMatchIds}
-                        editableMatchIds={editableMatchIds}
-                        onEditMatch={setScoreMatch}
-                      />
+                      <BracketView tournament={tournament} category={key ?? undefined} onEditMatch={setScoreMatch} />
                     ) : (
-                      <FixtureView
-                        type={tournament.type}
-                        rounds={groupRounds}
-                        matches={groupMatches}
-                        competitorNames={competitorNames}
-                        scoreFormat={tournament.scoreFormat}
-                        highlightedMatchIds={editableMatchIds}
-                        editableMatchIds={editableMatchIds}
-                        onEditMatch={setScoreMatch}
-                      />
+                      <FixtureView tournament={tournament} category={key ?? undefined} onEditMatch={setScoreMatch} />
                     )}
                   </Box>
                 )}
-                {standings.length > 0 && groupRounds.length > 0 && (
+                {tournament.type !== TournamentType.PLAYOFF && groupRounds.length > 0 && (
                   <>
                     <Divider />
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
                         {t('standings')}
                       </Typography>
-                      <StandingsTable type={tournament.type} rows={standings} />
+                      <StandingsTable tournament={tournament} category={key ?? undefined} />
                     </Box>
                   </>
                 )}
               </AccordionDetails>
             </Accordion>
           ))
-        : categoryGroups.map(({ key, groupRounds, groupMatches, standings }) => (
+        : categoryGroups.map(({ key, groupRounds }) => (
             <Fragment key={key ?? '__all__'}>
               {groupRounds.length > 0 && (
                 <Paper className="section">
@@ -331,35 +298,18 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
                     {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
                   </Typography>
                   {tournament.type === TournamentType.PLAYOFF ? (
-                    <BracketView
-                      rounds={groupRounds}
-                      matches={groupMatches}
-                      competitorNames={competitorNames}
-                      scoreFormat={tournament.scoreFormat}
-                      highlightedMatchIds={editableMatchIds}
-                      editableMatchIds={editableMatchIds}
-                      onEditMatch={setScoreMatch}
-                    />
+                    <BracketView tournament={tournament} onEditMatch={setScoreMatch} />
                   ) : (
-                    <FixtureView
-                      type={tournament.type}
-                      rounds={groupRounds}
-                      matches={groupMatches}
-                      competitorNames={competitorNames}
-                      scoreFormat={tournament.scoreFormat}
-                      highlightedMatchIds={editableMatchIds}
-                      editableMatchIds={editableMatchIds}
-                      onEditMatch={setScoreMatch}
-                    />
+                    <FixtureView tournament={tournament} onEditMatch={setScoreMatch} />
                   )}
                 </Paper>
               )}
-              {standings.length > 0 && groupRounds.length > 0 && (
+              {tournament.type !== TournamentType.PLAYOFF && groupRounds.length > 0 && (
                 <Paper className="section">
                   <Typography variant="h6" className="section-title">
                     {t('standings')}
                   </Typography>
-                  <StandingsTable type={tournament.type} rows={standings} />
+                  <StandingsTable tournament={tournament} />
                 </Paper>
               )}
             </Fragment>

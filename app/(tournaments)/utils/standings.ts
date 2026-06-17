@@ -1,12 +1,9 @@
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(tournaments)/models/AmericanoSettings'
-import { CompetitorDto } from '@/app/(tournaments)/models/CompetitorDto'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(tournaments)/models/LeagueSettings'
-import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
 import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
-import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
 import { StandingsRowDto } from '@/app/(tournaments)/models/StandingsRowDto'
-import { TournamentSettings } from '@/app/(tournaments)/models/TournamentSettings'
+import { TournamentDto } from '@/app/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(tournaments)/models/TournamentType'
 import { getGamesWon, getSetsWon } from '@/app/(tournaments)/utils/score'
 
@@ -15,13 +12,19 @@ import { getGamesWon, getSetsWon } from '@/app/(tournaments)/utils/score'
  * - League: points per presented match + per set won + per match won.
  * - Americano: points per game won + per match won (per individual when partners swap).
  */
-export function computeStandings(
-  type: TournamentType,
-  scoreFormat: ScoreFormat,
-  settings: TournamentSettings,
-  competitors: CompetitorDto[],
-  matches: MatchDto[]
-): StandingsRowDto[] {
+export function computeStandings(tournament: TournamentDto, category?: string | null): StandingsRowDto[] {
+  if (tournament.type === TournamentType.PLAYOFF) {
+    return []
+  }
+
+  const allCompetitors = tournament.competitors ?? []
+  const competitors = category != null ? allCompetitors.filter((c) => c.category === category) : allCompetitors
+  const allRounds = tournament.rounds ?? []
+  const roundIds = new Set(
+    (category != null ? allRounds.filter((r) => (r.category ?? null) === category) : allRounds).map((r) => r.id)
+  )
+  const matches = (tournament.matches ?? []).filter((m) => roundIds.has(m.roundId))
+  const { type, scoreFormat, settings } = tournament
   const rows = new Map<number, StandingsRowDto>()
 
   for (const competitor of competitors) {
@@ -36,8 +39,8 @@ export function computeStandings(
     })
   }
 
-  const leagueSettings = { ...DEFAULT_LEAGUE_SETTINGS, ...settings }
-  const americanoSettings = { ...DEFAULT_AMERICANO_SETTINGS, ...settings }
+  const leagueSettings = { ...DEFAULT_LEAGUE_SETTINGS, ...(settings ?? {}) }
+  const americanoSettings = { ...DEFAULT_AMERICANO_SETTINGS, ...(settings ?? {}) }
 
   const addToSide = (ids: number[] | null, updater: (row: StandingsRowDto) => void) => {
     for (const id of ids ?? []) {
