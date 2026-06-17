@@ -30,6 +30,7 @@ import {
   startTournament
 } from '@/app/(tournaments)/actions/tournament'
 import BracketView from '@/app/(tournaments)/components/BracketView'
+import CompetitorsList from '@/app/(tournaments)/components/CompetitorsList'
 import EditTournamentDialog from '@/app/(tournaments)/components/EditTournamentDialog'
 import FixtureView from '@/app/(tournaments)/components/FixtureView'
 import ScoreDialog from '@/app/(tournaments)/components/ScoreDialog'
@@ -282,17 +283,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
                 <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
                   {tOrganizer('manage.registeredCompetitors')}
                 </Typography>
-                {groupCompetitors.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {tOrganizer('manage.noCompetitors')}
-                  </Typography>
-                ) : (
-                  <div className="competitors">
-                    {groupCompetitors.map((competitor) => (
-                      <Chip key={competitor.id} label={competitor.displayName} variant="outlined" />
-                    ))}
-                  </div>
-                )}
+                <CompetitorsList tournament={tournament} category={key ?? undefined} />
               </Box>
               {groupRounds.length > 0 && (
                 <>
@@ -344,17 +335,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             <Typography variant="h6" className="section-title">
               {tOrganizer('manage.registeredCompetitors')} ({competitors.length} / {tournament.maxCompetitors})
             </Typography>
-            {competitors.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {tOrganizer('manage.noCompetitors')}
-              </Typography>
-            ) : (
-              <div className="competitors">
-                {competitors.map((competitor) => (
-                  <Chip key={competitor.id} label={competitor.displayName} variant="outlined" />
-                ))}
-              </div>
-            )}
+            <CompetitorsList tournament={tournament} />
           </Paper>
           {categoryGroups.map(({ key, groupRounds, groupMatches, standings }) => (
             <Fragment key={key ?? '__all__'}>
