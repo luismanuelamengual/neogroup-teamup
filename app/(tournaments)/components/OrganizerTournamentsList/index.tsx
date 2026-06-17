@@ -1,5 +1,6 @@
 'use client'
 
+import './index.scss'
 import CircularProgress from '@mui/material/CircularProgress'
 import Pagination from '@mui/material/Pagination'
 import Typography from '@mui/material/Typography'
@@ -52,17 +53,15 @@ export default function OrganizerTournamentsList({ name, onlyActive }: Organizer
   }
 
   return (
-    <>
+    <div className="organizer-tournaments-list">
       <div className="list">
         {tournaments.map((tournament) => (
           <TournamentCard key={tournament.id} tournament={tournament} />
         ))}
       </div>
       {pageCount > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-          <Pagination count={pageCount} page={page} onChange={handlePageChange} color="primary" />
-        </div>
+        <Pagination className="paginator" count={pageCount} page={page} onChange={handlePageChange} color="primary" />
       )}
-    </>
+    </div>
   )
 }

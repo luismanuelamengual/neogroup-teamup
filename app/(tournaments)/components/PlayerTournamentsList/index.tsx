@@ -1,5 +1,6 @@
 'use client'
 
+import './index.scss'
 import SearchIcon from '@mui/icons-material/Search'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -51,17 +52,15 @@ export default function PlayerTournamentsList() {
   }
 
   return (
-    <>
+    <div className="player-tournaments-list">
       <div className="list">
         {tournaments.map((tournament) => (
           <TournamentCard key={tournament.id} tournament={tournament} />
         ))}
       </div>
       {pageCount > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-          <Pagination count={pageCount} page={page} onChange={handlePageChange} color="primary" />
-        </div>
+        <Pagination className="paginator" count={pageCount} page={page} onChange={handlePageChange} color="primary" />
       )}
-    </>
+    </div>
   )
 }

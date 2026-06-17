@@ -1,5 +1,6 @@
 'use client'
 
+import './index.scss'
 import CircularProgress from '@mui/material/CircularProgress'
 import Pagination from '@mui/material/Pagination'
 import Typography from '@mui/material/Typography'
@@ -50,17 +51,15 @@ export default function TournamentSearchResults({ query }: TournamentSearchResul
   }
 
   return (
-    <>
+    <div className="tournament-search-results">
       <div className="list">
         {tournaments.map((tournament) => (
           <TournamentCard key={tournament.id} tournament={tournament} />
         ))}
       </div>
       {pageCount > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-          <Pagination count={pageCount} page={page} onChange={handlePageChange} color="primary" />
-        </div>
+        <Pagination className="paginator" count={pageCount} page={page} onChange={handlePageChange} color="primary" />
       )}
-    </>
+    </div>
   )
 }
