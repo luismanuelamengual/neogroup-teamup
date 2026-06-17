@@ -39,17 +39,7 @@ export class User extends BaseEntity {
   }
 
   toJSON(): Record<string, any> {
-    const result: Record<string, any> = {}
-
-    for (const key of Object.keys(this as any)) {
-      if (key === 'passwordHash') {
-        continue
-      }
-
-      const value = (this as any)[key]
-
-      result[key] = value instanceof Date ? value.toISOString() : value
-    }
+    const result = super.toJSON()
 
     result.displayName = this.displayName
     result.avatarUrl = this.avatarUrl

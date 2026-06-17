@@ -81,5 +81,4 @@ export class Tournament extends BaseEntity {
 
   @HasMany(() => Match, 'tournamentId')
   matches?: Match[]
-
 }
