@@ -6,15 +6,14 @@ import IconButton from '@mui/material/IconButton'
 import { useTranslations } from 'next-intl'
 import { MatchSide } from '@/app/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(tournaments)/models/MatchStatus'
-import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
 import { MATCH_SIDE_KEYS } from '@/app/(tournaments)/utils/labels'
 import { formatScore } from '@/app/(tournaments)/utils/score'
 import { MatchDto } from '../../models/MatchDto'
+import { TournamentDto } from '../../models/TournamentDto'
 
 interface MatchCardProps {
+  tournament: TournamentDto
   match: MatchDto
-  competitorNames: Record<number, string>
-  scoreFormat: ScoreFormat
   highlighted?: boolean
   editable?: boolean
   onEdit?: (match: MatchDto) => void
@@ -30,13 +29,16 @@ function sideName(ids: number[] | null, names: Record<number, string>): string {
 
 export default function MatchCard({
   match,
-  competitorNames,
-  scoreFormat,
+  tournament,
   highlighted = false,
   editable = false,
   onEdit
 }: MatchCardProps) {
   const t = useTranslations('tournaments')
+  const competitorNames: Record<number, string> = Object.fromEntries(
+    (tournament.competitors ?? []).map((c) => [c.id, c.displayName])
+  )
+  const scoreFormat = tournament.scoreFormat
   const isBye = match.awayCompetitorIds === null
   const winner: MatchSide | null = match.winner
   const renderSide = (side: MatchSide, ids: number[] | null) => (

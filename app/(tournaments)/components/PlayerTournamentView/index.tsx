@@ -105,7 +105,6 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         (match.homeCompetitorIds.includes(userEntry.id) || match.awayCompetitorIds.includes(userEntry.id))
     )
   }, [matches, userEntry, openCurrentRoundIds])
-  const editableMatchIds = myMatches.map((match) => match.id)
   const categoryKeys = useMemo<(string | null)[]>(
     () => (tournament?.categories && tournament.categories.length > 0 ? tournament.categories : [null]),
     [tournament]
@@ -234,12 +233,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           </Typography>
           {myMatches.map((match) => (
             <div key={match.id} className="my-match-row">
-              <MatchCard
-                match={match}
-                competitorNames={competitorNames}
-                scoreFormat={tournament.scoreFormat}
-                highlighted
-              />
+              <MatchCard match={match} tournament={tournament} highlighted />
               <Button variant="contained" size="small" onClick={() => setScoreMatch(match)}>
                 {match.status === MatchStatus.PENDING ? tPlayer('loadResult') : tPlayer('editResult')}
               </Button>

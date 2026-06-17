@@ -22,15 +22,6 @@ interface FixtureViewProps {
 export default function FixtureView({ tournament, category, organizerMode = false, onEditMatch }: FixtureViewProps) {
   const userId = useUserStore((state) => state.user?.id ?? null)
   const t = useTranslations('tournaments')
-  const competitorNames = useMemo(() => {
-    const names: Record<number, string> = {}
-
-    for (const competitor of tournament.competitors ?? []) {
-      names[competitor.id] = competitor.displayName
-    }
-
-    return names
-  }, [tournament.competitors])
   const rounds = useMemo(() => {
     const all = tournament.rounds ?? []
     const filtered = category != null ? all.filter((r) => (r.category ?? null) === category) : all
@@ -110,8 +101,7 @@ export default function FixtureView({ tournament, category, organizerMode = fals
                 <MatchCard
                   key={match.id}
                   match={match}
-                  competitorNames={competitorNames}
-                  scoreFormat={tournament.scoreFormat}
+                  tournament={tournament}
                   highlighted={highlightedMatchIds.includes(match.id)}
                   editable={editableMatchIds.includes(match.id)}
                   onEdit={onEditMatch}
