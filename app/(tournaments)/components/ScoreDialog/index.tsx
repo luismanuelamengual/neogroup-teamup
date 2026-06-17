@@ -43,9 +43,9 @@ const EMPTY_SET_INPUTS: SetInput[] = [
 export default function ScoreDialog({ open, tournament, match, saving = false, onClose, onSave }: ScoreDialogProps) {
   const competitorNames = Object.fromEntries((tournament.competitors ?? []).map((c) => [c.id, c.displayName]))
   const scoreFormat = tournament.scoreFormat
-  const homeName = match.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ')
-  const awayName = (match.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ')
-  const initialScore = match.score ?? null
+  const homeName = match?.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ')
+  const awayName = (match?.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ')
+  const initialScore = match?.score ?? null
   const t = useTranslations('score')
   const tCommon = useTranslations('common')
   const [walkover, setWalkover] = useState(false)

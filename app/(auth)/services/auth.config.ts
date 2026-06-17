@@ -1,6 +1,10 @@
 import type { NextAuthConfig } from 'next-auth'
 
 const PUBLIC_PATHS = ['/login', '/register']
+// Session timeout in seconds. Defaults to 30 days if not set.
+const SESSION_MAX_AGE = process.env.AUTH_SESSION_MAX_AGE
+  ? parseInt(process.env.AUTH_SESSION_MAX_AGE, 10)
+  : 30 * 24 * 60 * 60
 
 /**
  * Edge-safe Auth.js configuration (no database access) shared between
@@ -11,7 +15,8 @@ export const authConfig = {
     signIn: '/login'
   },
   session: {
-    strategy: 'jwt'
+    strategy: 'jwt',
+    maxAge: SESSION_MAX_AGE
   },
   providers: [],
   callbacks: {
