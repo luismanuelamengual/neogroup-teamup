@@ -3,8 +3,8 @@
 import './index.scss'
 import { useTranslations } from 'next-intl'
 import MatchCard from '@/app/(tournaments)/components/MatchCard'
-import { Match } from '@/app/(tournaments)/models/MatchDto'
-import { Round } from '@/app/(tournaments)/models/RoundDto'
+import { MatchDto } from '@/app/(tournaments)/models/MatchDto'
+import { RoundDto } from '@/app/(tournaments)/models/RoundDto'
 import { ScoreFormat } from '@/app/(tournaments)/models/ScoreFormat'
 
 interface BracketViewProps {
