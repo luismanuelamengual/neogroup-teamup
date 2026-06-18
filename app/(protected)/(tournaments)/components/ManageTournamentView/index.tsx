@@ -11,7 +11,6 @@ import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
@@ -84,13 +83,13 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         <Paper className="header">
           <div className="title-row">
             <Skeleton variant="text" width="50%" height={36} />
-            <Skeleton variant="rounded" width={80} height={26} sx={{ borderRadius: 12 }} />
+            <Skeleton variant="rounded" width={80} height={26} className="skeleton-chip" />
           </div>
           <Skeleton variant="text" width="70%" height={20} />
-          <div className="meta" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Skeleton variant="rounded" width={90} height={24} sx={{ borderRadius: 8 }} />
-            <Skeleton variant="rounded" width={70} height={24} sx={{ borderRadius: 8 }} />
-            <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 8 }} />
+          <div className="meta">
+            <Skeleton variant="rounded" width={90} height={24} className="skeleton-meta-item" />
+            <Skeleton variant="rounded" width={70} height={24} className="skeleton-meta-item" />
+            <Skeleton variant="rounded" width={80} height={24} className="skeleton-meta-item" />
             <Skeleton variant="text" width={120} height={20} />
           </div>
         </Paper>
@@ -231,16 +230,10 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
       {hasCategories ? (
         categoryGroups.map(({ key, groupCompetitors, groupRounds }) => (
-          <Accordion
-            key={key ?? '__all__'}
-            defaultExpanded
-            disableGutters
-            elevation={2}
-            sx={{ borderRadius: '12px !important', overflow: 'hidden', '&:before': { display: 'none' } }}
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.5, minHeight: 56 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Typography variant="h6" fontWeight={700}>
+          <Accordion key={key ?? '__all__'} defaultExpanded disableGutters elevation={2} className="category-accordion">
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
+              <div className="category-header">
+                <Typography variant="h6" className="category-title">
                   {key}
                 </Typography>
                 <Chip
@@ -249,16 +242,16 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
                   color="primary"
                   variant="outlined"
                 />
-              </Box>
+              </div>
             </AccordionSummary>
             <Divider />
-            <AccordionDetails sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
+            <AccordionDetails className="category-details">
+              <div className="category-section">
+                <Typography variant="subtitle1" className="category-subtitle">
                   {tOrganizer('manage.registeredCompetitors')}
                 </Typography>
                 <CompetitorsList tournament={tournament} category={key ?? undefined} />
-              </Box>
+              </div>
               {groupRounds.length > 0 && (
                 <>
                   <Divider />
