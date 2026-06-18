@@ -19,21 +19,38 @@ export default {
   async up(): Promise<void> {
     await DB.withConnection(async (conn) => {
       await conn.execute(`
+        CREATE TABLE IF NOT EXISTS organizations (
+          id ${ID},
+          name VARCHAR(150) NOT NULL,
+          domainName VARCHAR(100) NOT NULL UNIQUE,
+          createdAt ${TIMESTAMP}
+        )
+      `)
+
+      // Seed the three initial organizations.
+      await conn.execute(`INSERT INTO organizations (name, domainName) VALUES ('Demo', 'demo')`)
+      await conn.execute(`INSERT INTO organizations (name, domainName) VALUES ('Club Alemán', 'club-aleman')`)
+      await conn.execute(`INSERT INTO organizations (name, domainName) VALUES ('Punto Deporte', 'punto-deporte')`)
+
+      await conn.execute(`
         CREATE TABLE IF NOT EXISTS users (
           id ${ID},
-          email VARCHAR(255) NOT NULL UNIQUE,
+          organizationId INTEGER NOT NULL REFERENCES organizations (id),
+          email VARCHAR(255) NOT NULL,
           passwordHash VARCHAR(255),
           firstName VARCHAR(100),
           lastName VARCHAR(100),
           nickname VARCHAR(100),
           roleId INTEGER,
-          createdAt ${TIMESTAMP}
+          createdAt ${TIMESTAMP},
+          UNIQUE (organizationId, email)
         )
       `)
 
       await conn.execute(`
         CREATE TABLE IF NOT EXISTS tournaments (
           id ${ID},
+          organizationId INTEGER NOT NULL REFERENCES organizations (id),
           ownerId INTEGER NOT NULL REFERENCES users (id),
           name VARCHAR(150) NOT NULL,
           description TEXT,
@@ -95,6 +112,8 @@ export default {
         )
       `)
 
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_organization ON users (organizationId)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_organization ON tournaments (organizationId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_owner ON tournaments (ownerId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments (status)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_competitors_tournament ON competitors (tournamentId)')

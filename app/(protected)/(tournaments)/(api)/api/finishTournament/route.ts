@@ -4,7 +4,7 @@ import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/finishTournament — marks the tournament as finished. */
-export const POST = withAuth(async (request, context, userId) => {
+export const POST = withAuth(async (request, context, userId, _organizationId) => {
   const { id } = (await request.json()) as { id: number }
   const tournament = await requireOwnedTournament(Number(id), userId)
 

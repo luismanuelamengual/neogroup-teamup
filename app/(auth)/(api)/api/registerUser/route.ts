@@ -6,7 +6,7 @@ import { ApiException } from '@/app/models/ApiException'
 import { withApi } from '@/app/utils/api-server'
 
 /** POST /api/registerUser — creates a new user with email/password credentials (public). */
-export const POST = withApi(async (request) => {
+export const POST = withApi(async (request, context, organizationId) => {
   const input = (await request.json()) as RegisterInput
   const email = input.email.trim().toLowerCase()
   const password = input.password
@@ -29,7 +29,7 @@ export const POST = withApi(async (request) => {
     throw new ApiException('invalidRole')
   }
 
-  const existing = await User.where('email', email).first()
+  const existing = await User.where('organizationId', organizationId).where('email', email).first()
 
   if (existing) {
     throw new ApiException('emailAlreadyRegistered')
@@ -37,6 +37,7 @@ export const POST = withApi(async (request) => {
 
   const user = new User()
 
+  user.organizationId = organizationId
   user.email = email
   user.passwordHash = await bcrypt.hash(password, 10)
   user.firstName = firstName

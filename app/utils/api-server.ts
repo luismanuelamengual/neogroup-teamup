@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Organization } from '@/app/(auth)/models/Organization'
 import { auth } from '@/app/(auth)/services/auth'
 import { ApiException } from '@/app/models/ApiException'
 import { ApiResponse } from '@/app/models/ApiResponse'
@@ -9,8 +10,13 @@ interface RouteContext<P> {
   params: Promise<P>
 }
 
-type ApiHandler<P> = (request: NextRequest, context: RouteContext<P>) => Promise<unknown>
-type AuthenticatedApiHandler<P> = (request: NextRequest, context: RouteContext<P>, userId: number) => Promise<unknown>
+type ApiHandler<P> = (request: NextRequest, context: RouteContext<P>, organizationId: number) => Promise<unknown>
+type AuthenticatedApiHandler<P> = (
+  request: NextRequest,
+  context: RouteContext<P>,
+  userId: number,
+  organizationId: number
+) => Promise<unknown>
 
 function successResponse(data: unknown): NextResponse {
   const body: ApiResponse = { success: true, data: data ?? null }
@@ -31,13 +37,32 @@ function errorResponse(error: unknown): NextResponse {
 }
 
 /**
+ * Resolves the organizationId from the x-org-domain header set by the middleware.
+ * Falls back to DEFAULT_ORG_DOMAIN env var (default: "demo") for requests that
+ * bypass the middleware (e.g. direct API calls in local dev without the header).
+ */
+async function resolveOrganizationId(request: NextRequest): Promise<number> {
+  const orgDomain = request.headers.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
+  const organization = await Organization.where('domainName', orgDomain).first()
+
+  if (!organization) {
+    throw new ApiException('organizationNotFound', 404)
+  }
+
+  return organization.id
+}
+
+/**
  * Wraps an API handler with the standard response shape: whatever the handler
  * returns is sent as `data`, and any thrown error becomes an error response.
+ * Resolves and injects the organizationId from the current subdomain.
  */
 export function withApi<P = Record<string, string>>(handler: ApiHandler<P>) {
   return async (request: NextRequest, context: RouteContext<P>): Promise<NextResponse> => {
     try {
-      return successResponse(await handler(request, context))
+      const organizationId = await resolveOrganizationId(request)
+
+      return successResponse(await handler(request, context, organizationId))
     } catch (error) {
       return errorResponse(error)
     }
@@ -55,7 +80,9 @@ export function withAuth<P = Record<string, string>>(handler: AuthenticatedApiHa
     }
 
     try {
-      return successResponse(await handler(request, context, userId))
+      const organizationId = await resolveOrganizationId(request)
+
+      return successResponse(await handler(request, context, userId, organizationId))
     } catch (error) {
       return errorResponse(error)
     }

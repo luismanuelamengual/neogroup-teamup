@@ -16,6 +16,9 @@ export class Tournament extends BaseEntity {
   id!: number
 
   @Column({ cast: 'number' })
+  organizationId!: number
+
+  @Column({ cast: 'number' })
   ownerId!: number
 
   @Column()

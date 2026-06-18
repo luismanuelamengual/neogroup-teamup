@@ -40,6 +40,7 @@ execSync('yarn run db:reset', { stdio: 'inherit' })
 
 import { DB } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
+import { Organization } from '@/app/(auth)/models/Organization'
 import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
@@ -200,11 +201,12 @@ interface SeededUsers {
   players: User[]
 }
 
-async function createUsers(playerCount: number): Promise<SeededUsers> {
+async function createUsers(playerCount: number, organizationId: number): Promise<SeededUsers> {
   const passwordHash = await bcrypt.hash(PASSWORD, 10)
   // Organizer first so it gets id = 1 on a freshly migrated database.
   const organizer = new User()
 
+  organizer.organizationId = organizationId
   organizer.email = 'demo-organizer@gmail.com'
   organizer.passwordHash = passwordHash
   organizer.firstName = 'Demo'
@@ -222,6 +224,7 @@ async function createUsers(playerCount: number): Promise<SeededUsers> {
   for (let i = 0; i < playerCount; i++) {
     const player = new User()
 
+    player.organizationId = organizationId
     player.firstName = randomItem(FIRST_NAMES)
     player.lastName = randomItem(LAST_NAMES)
     player.nickname = null
@@ -975,9 +978,15 @@ const SPECS: TournamentSpec[] = [
 // Tournament creation + simulation
 // ---------------------------------------------------------------------------
 
-async function buildTournament(spec: TournamentSpec, organizerId: number, pool: User[]): Promise<void> {
+async function buildTournament(
+  spec: TournamentSpec,
+  organizerId: number,
+  organizationId: number,
+  pool: User[]
+): Promise<void> {
   const tournament = new Tournament()
 
+  tournament.organizationId = organizationId
   tournament.ownerId = organizerId
   tournament.name = spec.name
   tournament.description = spec.description
@@ -1032,7 +1041,16 @@ async function buildTournament(spec: TournamentSpec, organizerId: number, pool: 
 async function run(): Promise<void> {
   console.log('Seeding demo database...\n')
 
-  const { organizer, players } = await createUsers(64)
+  // Resolve the "demo" organization (inserted by the migration).
+  const demoOrg = await Organization.where('domainName', 'demo').first()
+
+  if (!demoOrg) {
+    throw new Error('Organization "demo" not found. Run "yarn run db:reset" to re-apply migrations.')
+  }
+
+  const organizationId = demoOrg.id
+
+  const { organizer, players } = await createUsers(64, organizationId)
 
   console.log(`\nCreating ${SPECS.length} tournaments...`)
 
@@ -1040,7 +1058,7 @@ async function run(): Promise<void> {
 
   for (const spec of SPECS) {
     index++
-    await buildTournament(spec, organizer.id, players)
+    await buildTournament(spec, organizer.id, organizationId, players)
     console.log(`  [${index}/${SPECS.length}] ${spec.name}`)
   }
 

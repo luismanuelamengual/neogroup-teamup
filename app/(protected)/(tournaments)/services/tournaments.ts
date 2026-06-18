@@ -4,6 +4,7 @@ import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
 export interface TournamentOptions {
   id?: number
+  organizationId?: number
   name?: string
   ownerId?: number
   playerId?: number
@@ -17,6 +18,7 @@ export interface TournamentOptions {
 
 export async function getTournaments({
   id,
+  organizationId,
   ownerId,
   playerId,
   name,
@@ -28,6 +30,7 @@ export async function getTournaments({
   pageSize = 10
 }: TournamentOptions = {}): Promise<PaginatedResponse<Tournament[]>> {
   return await Tournament.when(id, (query) => query.where('id', id))
+    .when(organizationId, (query) => query.where('organizationId', organizationId))
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) =>
       query.whereHas('competitors', (q) =>

@@ -9,7 +9,7 @@ import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/joinTournament — registers the signed-in user (optionally with a partner) into a tournament. */
-export const POST = withAuth(async (request, context, userId) => {
+export const POST = withAuth(async (request, context, userId, _organizationId) => {
   const { tournamentId, ...input } = (await request.json()) as JoinTournamentInput & { tournamentId: number }
   const tournament = await Tournament.where('id', Number(tournamentId)).with('competitors').first()
 

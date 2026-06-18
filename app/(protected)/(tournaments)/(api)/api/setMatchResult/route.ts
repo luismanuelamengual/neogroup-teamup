@@ -14,7 +14,7 @@ import { withAuth } from '@/app/utils/api-server'
  * Allowed for the tournament owner and for players taking part in the match,
  * while the match round is open.
  */
-export const POST = withAuth(async (request, context, userId) => {
+export const POST = withAuth(async (request, context, userId, _organizationId) => {
   const { id, score } = (await request.json()) as { id: number; score: MatchScore }
   const match = await Match.where('id', Number(id)).with('tournament', 'round').first()
 

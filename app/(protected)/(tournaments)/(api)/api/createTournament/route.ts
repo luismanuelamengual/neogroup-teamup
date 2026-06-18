@@ -13,7 +13,7 @@ import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/createTournament — creates a new tournament in stand_by status. */
-export const POST = withAuth(async (request, context, userId) => {
+export const POST = withAuth(async (request, context, userId, organizationId) => {
   const input = (await request.json()) as Partial<TournamentDto>
   const name = input.name?.trim() ?? ''
 
@@ -65,6 +65,7 @@ export const POST = withAuth(async (request, context, userId) => {
 
   const tournament = new Tournament()
 
+  tournament.organizationId = organizationId
   tournament.ownerId = userId
   tournament.name = name
   tournament.description = input.description?.trim() || null

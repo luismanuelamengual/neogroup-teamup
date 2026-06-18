@@ -5,7 +5,7 @@ import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/leaveTournament — removes the signed-in user registration (stand_by only). */
-export const POST = withAuth(async (request, context, userId) => {
+export const POST = withAuth(async (request, context, userId, _organizationId) => {
   const { tournamentId } = (await request.json()) as { tournamentId: number }
   const tournament = await Tournament.find(Number(tournamentId))
 

@@ -5,10 +5,11 @@ import { withAuth } from '@/app/utils/api-server'
 /**
  * POST /api/getTournament — full tournament detail (competitors, rounds, matches).
  */
-export const POST = withAuth(async (request, _context, _userId) => {
+export const POST = withAuth(async (request, _context, _userId, organizationId) => {
   const { id } = (await request.json()) as { id: number }
   const tournament = await getTournament({
     id: Number(id),
+    organizationId,
     withCompetitors: true,
     withRounds: true,
     withMatches: true

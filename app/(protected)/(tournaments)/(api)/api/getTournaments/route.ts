@@ -18,9 +18,9 @@ type GetTournamentsBody =
  * Supports server-side pagination via `page` and `pageSize`.
  * Returns `{ data: Tournament[], total: number }`.
  */
-export const POST = withAuth(async (request, context, userId) => {
+export const POST = withAuth(async (request, context, userId, organizationId) => {
   const body = (await request.json()) as GetTournamentsBody
-  const options: TournamentOptions = { withCompetitors: true, page: body.page, pageSize: body.pageSize }
+  const options: TournamentOptions = { organizationId, withCompetitors: true, page: body.page, pageSize: body.pageSize }
 
   if (body.scope === 'owned') {
     options.ownerId = userId

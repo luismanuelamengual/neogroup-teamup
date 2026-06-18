@@ -5,7 +5,7 @@ import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/updateTournament — updates the editable attributes (owner only). */
-export const POST = withAuth(async (request, context, userId) => {
+export const POST = withAuth(async (request, context, userId, _organizationId) => {
   const { id, ...input } = (await request.json()) as Partial<TournamentDto> & { id: number }
   const tournament = await requireOwnedTournament(Number(id), userId)
 
