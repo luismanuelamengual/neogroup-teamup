@@ -26,6 +26,8 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
     router.push(`/tournaments/${tournament.id}`)
   }
 
+  const hasCategories = tournament.categories != null && tournament.categories.length > 0
+
   return (
     <Paper className="tournament-card" onClick={handleClick}>
       <div className="header">
@@ -38,6 +40,12 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
           <span className="tag">{t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)}</span>
         )}
         <span className="tag">{t(`type.${TournamentTypeNames[tournament.type]}`)}</span>
+        {tournament.settings?.consolationBracket && (
+          <span className="tag tag--config">{t('chips.consolationBracket')}</span>
+        )}
+        {tournament.settings?.swapPartnersEachRound && (
+          <span className="tag tag--config">{t('chips.swapPartners')}</span>
+        )}
       </div>
       <div className="details">
         {tournament.location && (
@@ -51,11 +59,29 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
           {tournament.startDate}
           {tournament.startTime ? ` · ${tournament.startTime}` : ''}
         </span>
-        {tournament.competitors != null && (
+        {tournament.competitors != null && !hasCategories && (
           <span className="detail">
             <GroupsIcon fontSize="inherit" />
             {tournament.competitors.length} / {tournament.maxCompetitors}
           </span>
+        )}
+        {hasCategories && (
+          <div className="categories">
+            {tournament.categories!.map((category) => {
+              const count = tournament.competitors?.filter((c) => c.category === category).length
+
+              return (
+                <span key={category} className="category-item">
+                  <span className="category-name">{category}</span>
+                  {count != null && (
+                    <span className="category-count">
+                      ({count} / {tournament.maxCompetitors})
+                    </span>
+                  )}
+                </span>
+              )
+            })}
+          </div>
         )}
       </div>
     </Paper>

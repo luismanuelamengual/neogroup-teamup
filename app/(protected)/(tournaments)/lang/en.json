@@ -21,7 +21,7 @@
       "label": "Tournament type",
       "league": "League",
       "americano": "Americano",
-      "playoff": "Knockout (play-off)",
+      "playoff": "Knockout",
       "groups_playoff": "Groups + Knockout"
     },
     "scoreFormat": {
@@ -75,6 +75,10 @@
       "setsWon": "Sets",
       "gamesWon": "Games",
       "points": "Pts"
+    },
+    "chips": {
+      "consolationBracket": "With consolation bracket",
+      "swapPartners": "With partner swap"
     },
     "bye": "Advances",
     "pendingResult": "Pending",

@@ -21,7 +21,7 @@
       "label": "Tipo de torneo",
       "league": "Liga",
       "americano": "Americana",
-      "playoff": "Eliminatoria (play-off)",
+      "playoff": "Eliminatoria",
       "groups_playoff": "Grupos + Eliminatoria"
     },
     "scoreFormat": {
@@ -75,6 +75,10 @@
       "setsWon": "Sets",
       "gamesWon": "Games",
       "points": "Pts"
+    },
+    "chips": {
+      "consolationBracket": "Con cuadro consuelo",
+      "swapPartners": "Con intercambio de parejas"
     },
     "bye": "Pasa de ronda",
     "pendingResult": "Pendiente",

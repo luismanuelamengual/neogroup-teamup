@@ -38,11 +38,42 @@ $card-hover-color: rgb(239, 249, 251);
     color: var(--color-primary-dark);
     font-size: 12px;
     font-weight: 600;
+
+    &--config {
+      background-color: rgba(99, 102, 241, 0.1);
+      color: #4338ca;
+    }
+  }
+
+  .categories {
+    flex-direction: row;
+    gap: 0 16px;
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .category-item {
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    display: flex;
+    white-space: nowrap;
+  }
+
+  .category-name {
+    color: var(--color-text-primary);
+    font-weight: 500;
+  }
+
+  .category-count {
+    color: var(--color-text-secondary);
+    font-weight: 400;
   }
 
   .details {
     display: flex;
-    gap: 16px;
+    gap: 8px 16px;
     flex-wrap: wrap;
   }
 
