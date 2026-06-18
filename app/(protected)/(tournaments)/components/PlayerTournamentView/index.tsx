@@ -101,13 +101,13 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         <Paper className="header">
           <div className="title-row">
             <Skeleton variant="text" width="50%" height={36} />
-            <Skeleton variant="rounded" width={80} height={26} sx={{ borderRadius: 12 }} />
+            <Skeleton variant="rounded" width={80} height={26} className="skeleton-chip" />
           </div>
           <Skeleton variant="text" width="70%" height={20} />
-          <div className="meta" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Skeleton variant="rounded" width={90} height={24} sx={{ borderRadius: 8 }} />
-            <Skeleton variant="rounded" width={70} height={24} sx={{ borderRadius: 8 }} />
-            <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 8 }} />
+          <div className="meta">
+            <Skeleton variant="rounded" width={90} height={24} className="skeleton-meta-item" />
+            <Skeleton variant="rounded" width={70} height={24} className="skeleton-meta-item" />
+            <Skeleton variant="rounded" width={80} height={24} className="skeleton-meta-item" />
             <Skeleton variant="text" width={120} height={20} />
           </div>
         </Paper>
@@ -246,15 +246,15 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
               defaultExpanded
               disableGutters
               elevation={2}
-              sx={{ borderRadius: '12px !important', overflow: 'hidden', '&:before': { display: 'none' } }}
+              className="category-accordion"
             >
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.5, minHeight: 56 }}>
-                <Typography variant="h6" fontWeight={700}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
+                <Typography variant="h6" className="category-title">
                   {key}
                 </Typography>
               </AccordionSummary>
               <Divider />
-              <AccordionDetails sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <AccordionDetails className="category-details">
                 {groupRounds.length > 0 && (
                   <TournamentRoundsView
                     tournament={tournament}
