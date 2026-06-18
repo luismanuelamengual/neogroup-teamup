@@ -17,9 +17,9 @@ import Toolbar from '@mui/material/Toolbar'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { signOut } from 'next-auth/react'
+import { getSession, signOut } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
-import { MouseEvent, ReactNode, useState } from 'react'
+import { MouseEvent, ReactNode, useEffect, useState } from 'react'
 import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { useUserStore } from '@/app/(auth)/stores/users'
@@ -39,6 +39,22 @@ export default function AppShell({ children, user: initialUser }: { children: Re
   const storeUser = useUserStore((state) => state.user)
   const user = storeUser ?? initialUser
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        const session = await getSession()
+
+        if (!session) {
+          router.push('/login')
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [router])
   const isOrganizer = user?.roleId === Role.ORGANIZER
   const navItems: NavItem[] = isOrganizer
     ? [
