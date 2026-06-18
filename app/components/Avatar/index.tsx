@@ -3,6 +3,7 @@
 import './index.scss'
 import { GravatarQuickEditorCore } from '@gravatar-com/quick-editor'
 import EditIcon from '@mui/icons-material/Edit'
+import Image from 'next/image'
 import { useLocale } from 'next-intl'
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 
@@ -146,7 +147,7 @@ export default function Avatar({ email, name, size = 'md', className, editable =
       </div>
 
       {gravatarUrl && (
-        <img
+        <Image
           className="app-avatar__image"
           src={gravatarUrl}
           alt={name}

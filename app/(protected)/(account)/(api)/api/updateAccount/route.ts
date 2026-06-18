@@ -18,7 +18,7 @@ type UpdateAccountBody = Partial<AccountInput & { roleId: Role; locale: string }
  * - { roleId }                        → assigns the user role once (auth required)
  * - { firstName, lastName, nickname } → updates personal information (auth required)
  */
-export const POST = withApi(async (request, context, _organizationId) => {
+export const POST = withApi(async (request, _context, _organizationId) => {
   const body = (await request.json()) as UpdateAccountBody
 
   // — Locale (no auth required) —

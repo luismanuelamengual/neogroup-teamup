@@ -1049,7 +1049,6 @@ async function run(): Promise<void> {
   }
 
   const organizationId = demoOrg.id
-
   const { organizer, players } = await createUsers(64, organizationId)
 
   console.log(`\nCreating ${SPECS.length} tournaments...`)
