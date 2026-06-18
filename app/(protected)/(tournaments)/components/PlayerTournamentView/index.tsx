@@ -28,20 +28,17 @@ import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
 import StandingsTable from '@/app/(protected)/(tournaments)/components/StandingsTable'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
+import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
+import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import {
-  DISCIPLINE_KEYS,
-  SCORE_FORMAT_KEYS,
-  SUB_DISCIPLINE_KEYS,
-  TOURNAMENT_TYPE_KEYS
-} from '@/app/(protected)/(tournaments)/utils/labels'
+import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { useNotificationsStore } from '@/app/stores/notifications.store'
+import { SubDisciplineNames } from '../../models/SubDiscipline'
 
 interface PlayerTournamentViewProps {
   tournamentId: number
@@ -188,12 +185,12 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           </Typography>
         )}
         <div className="meta">
-          <Chip size="small" label={t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)} />
+          <Chip size="small" label={t(`discipline.${DisciplineNames[tournament.discipline]}`)} />
           {tournament.subDiscipline && (
-            <Chip size="small" label={t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)} />
+            <Chip size="small" label={t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)} />
           )}
-          <Chip size="small" label={t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)} />
-          <Chip size="small" label={t(`scoreFormat.${SCORE_FORMAT_KEYS[tournament.scoreFormat]}`)} />
+          <Chip size="small" label={t(`type.${TournamentTypeNames[tournament.type]}`)} />
+          <Chip size="small" label={t(`scoreFormat.${ScoreFormatNames[tournament.scoreFormat]}`)} />
           <span className="meta-item">
             <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
             {tournament.startTime ? ` · ${tournament.startTime}` : ''}

@@ -17,15 +17,13 @@ import { UserDto } from '@/app/(auth)/models/UserDto'
 import { searchUsers } from '@/app/(auth)/services/users'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import { getTournament, joinTournament } from '@/app/(protected)/(tournaments)/actions/tournament'
+import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
-import {
-  DISCIPLINE_KEYS,
-  SUB_DISCIPLINE_KEYS,
-  TOURNAMENT_TYPE_KEYS
-} from '@/app/(protected)/(tournaments)/utils/labels'
 import Avatar from '@/app/components/Avatar'
+import { SubDisciplineNames } from '../../models/SubDiscipline'
 
 interface JoinTournamentFormProps {
   tournamentId: number
@@ -152,11 +150,11 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
           </Typography>
         )}
         <div className="tags">
-          <Chip size="small" label={t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)} />
+          <Chip size="small" label={t(`discipline.${DisciplineNames[tournament.discipline]}`)} />
           {tournament.subDiscipline && (
-            <Chip size="small" label={t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)} />
+            <Chip size="small" label={t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)} />
           )}
-          <Chip size="small" label={t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)} />
+          <Chip size="small" label={t(`type.${TournamentTypeNames[tournament.type]}`)} />
         </div>
       </div>
       {error && <Alert severity="error">{error}</Alert>}

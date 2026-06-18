@@ -3,3 +3,8 @@ export enum Discipline {
   PADEL = 1,
   TENNIS = 2
 }
+
+export const DisciplineNames: Record<Discipline, string> = {
+  [Discipline.PADEL]: 'padel',
+  [Discipline.TENNIS]: 'tennis'
+}

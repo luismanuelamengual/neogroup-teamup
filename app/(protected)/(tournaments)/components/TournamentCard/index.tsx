@@ -9,11 +9,9 @@ import MuiSkeleton from '@mui/material/Skeleton'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
-import {
-  DISCIPLINE_KEYS,
-  SUB_DISCIPLINE_KEYS,
-  TOURNAMENT_TYPE_KEYS
-} from '@/app/(protected)/(tournaments)/utils/labels'
+import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { TournamentDto } from '../../models/TournamentDto'
 
 interface TournamentCardProps {
@@ -35,11 +33,11 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         <StatusChip status={tournament.status} />
       </div>
       <div className="tags">
-        <span className="tag">{t(`discipline.${DISCIPLINE_KEYS[tournament.discipline]}`)}</span>
+        <span className="tag">{t(`discipline.${DisciplineNames[tournament.discipline]}`)}</span>
         {tournament.subDiscipline && (
-          <span className="tag">{t(`subDiscipline.${SUB_DISCIPLINE_KEYS[tournament.subDiscipline]}`)}</span>
+          <span className="tag">{t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)}</span>
         )}
-        <span className="tag">{t(`type.${TOURNAMENT_TYPE_KEYS[tournament.type]}`)}</span>
+        <span className="tag">{t(`type.${TournamentTypeNames[tournament.type]}`)}</span>
       </div>
       <div className="details">
         {tournament.location && (

@@ -16,11 +16,10 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
-import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
+import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SetScore } from '@/app/(protected)/(tournaments)/models/SetScore'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { MATCH_SIDE_KEYS } from '@/app/(protected)/(tournaments)/utils/labels'
 import { isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
 
 interface ScoreDialogProps {
@@ -79,7 +78,7 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
   const usesSets = scoreFormat !== ScoreFormat.BASIC_COUNT
 
   const updateSet = (index: number, side: MatchSide, raw: string) => {
-    const key = MATCH_SIDE_KEYS[side]
+    const key = MatchSideNames[side]
 
     setSets((current) => current.map((set, setIndex) => (setIndex === index ? { ...set, [key]: raw } : set)))
   }

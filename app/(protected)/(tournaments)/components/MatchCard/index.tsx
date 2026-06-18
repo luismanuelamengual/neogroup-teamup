@@ -4,9 +4,8 @@ import './index.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
 import { useTranslations } from 'next-intl'
-import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
+import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { MATCH_SIDE_KEYS } from '@/app/(protected)/(tournaments)/utils/labels'
 import { formatScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { MatchDto } from '../../models/MatchDto'
 import { TournamentDto } from '../../models/TournamentDto'
@@ -43,7 +42,7 @@ export default function MatchCard({
   const winner: MatchSide | null = match.winner
   const renderSide = (side: MatchSide, ids: number[] | null) => (
     <div className={`side ${winner === side ? 'winner' : ''} ${winner && winner !== side ? 'loser' : ''}`}>
-      <span className={`side-dot ${MATCH_SIDE_KEYS[side]}`} />
+      <span className={`side-dot ${MatchSideNames[side]}`} />
       <span className="side-name">{sideName(ids, competitorNames)}</span>
     </div>
   )

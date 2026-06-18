@@ -4,3 +4,9 @@ export enum TournamentType {
   AMERICANO = 2,
   PLAYOFF = 3
 }
+
+export const TournamentTypeNames: Record<TournamentType, string> = {
+  [TournamentType.LEAGUE]: 'league',
+  [TournamentType.AMERICANO]: 'americano',
+  [TournamentType.PLAYOFF]: 'playoff'
+}

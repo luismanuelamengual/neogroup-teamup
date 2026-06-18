@@ -17,17 +17,12 @@ import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
 import { createTournament } from '@/app/(protected)/(tournaments)/actions/tournament'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
-import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { SubDiscipline, SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { isDoublesDiscipline } from '@/app/(protected)/(tournaments)/utils/discipline'
-import {
-  DISCIPLINE_KEYS,
-  SUB_DISCIPLINE_KEYS,
-  TOURNAMENT_TYPE_KEYS
-} from '@/app/(protected)/(tournaments)/utils/labels'
 
 const DISCIPLINES: Discipline[] = [Discipline.PADEL, Discipline.TENNIS]
 const SUB_DISCIPLINES: SubDiscipline[] = [SubDiscipline.SINGLES, SubDiscipline.DOUBLES]
@@ -119,7 +114,7 @@ export default function TournamentForm() {
         >
           {DISCIPLINES.map((value) => (
             <MenuItem key={value} value={value}>
-              {t(`discipline.${DISCIPLINE_KEYS[value]}`)}
+              {t(`discipline.${DisciplineNames[value]}`)}
             </MenuItem>
           ))}
         </TextField>
@@ -133,7 +128,7 @@ export default function TournamentForm() {
           >
             {SUB_DISCIPLINES.map((value) => (
               <MenuItem key={value} value={value}>
-                {t(`subDiscipline.${SUB_DISCIPLINE_KEYS[value]}`)}
+                {t(`subDiscipline.${SubDisciplineNames[value]}`)}
               </MenuItem>
             ))}
           </TextField>
@@ -147,7 +142,7 @@ export default function TournamentForm() {
         >
           {availableTypes.map((value) => (
             <MenuItem key={value} value={value}>
-              {t(`type.${TOURNAMENT_TYPE_KEYS[value]}`)}
+              {t(`type.${TournamentTypeNames[value]}`)}
             </MenuItem>
           ))}
         </TextField>

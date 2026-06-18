@@ -6,3 +6,8 @@ export enum SubDiscipline {
   SINGLES = 1,
   DOUBLES = 2
 }
+
+export const SubDisciplineNames: Record<SubDiscipline, string> = {
+  [SubDiscipline.SINGLES]: 'singles',
+  [SubDiscipline.DOUBLES]: 'doubles'
+}
