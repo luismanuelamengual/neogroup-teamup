@@ -29,6 +29,10 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 config({ path: '.env' })
 
+import { execSync } from 'child_process'
+
+execSync('yarn run db:reset', { stdio: 'inherit' })
+
 import { DB } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
 import { Role } from '@/app/(auth)/models/Role'

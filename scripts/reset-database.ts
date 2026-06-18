@@ -18,6 +18,18 @@ config({ path: '.env' })
 
 import { DB } from '@neogroup/neorm'
 import { execSync } from 'child_process'
+import * as readline from 'readline'
+
+function confirm(question: string): Promise<boolean> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close()
+      resolve(answer.trim().toLowerCase() === 'y')
+    })
+  })
+}
 
 const IS_SQLITE = (process.env.DB_DRIVER ?? 'postgres') === 'sqlite'
 
@@ -62,6 +74,14 @@ async function dropAllTables(): Promise<void> {
 }
 
 async function run(): Promise<void> {
+  const ok = await confirm('⚠️  This will drop ALL tables and re-run migrations. Continue? (y/N) ')
+
+  if (!ok) {
+    console.log('Aborted.')
+
+    return
+  }
+
   console.log(`Resetting ${IS_SQLITE ? 'SQLite' : 'PostgreSQL'} database...`)
   await dropAllTables()
 
