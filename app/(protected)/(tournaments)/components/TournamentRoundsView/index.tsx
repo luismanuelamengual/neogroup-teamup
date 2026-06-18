@@ -1,6 +1,6 @@
 'use client'
 
-import Box from '@mui/material/Box'
+import './index.scss'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
@@ -22,7 +22,7 @@ interface TournamentRoundsViewProps {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
+    <Typography variant="subtitle1" className="section-title">
       {children}
     </Typography>
   )
@@ -51,8 +51,8 @@ export default function TournamentRoundsView({
 
   if (tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.AMERICANO) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <div className="rounds-view">
+        <div className="rounds-section">
           <SectionTitle>{t('fixture')}</SectionTitle>
           <FixtureView
             tournament={tournament}
@@ -60,19 +60,19 @@ export default function TournamentRoundsView({
             organizerMode={organizerMode}
             onEditMatch={onEditMatch}
           />
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        </div>
+        <div className="rounds-section">
           <SectionTitle>{t('standings')}</SectionTitle>
           <StandingsTable tournament={tournament} category={category} />
-        </Box>
-      </Box>
+        </div>
+      </div>
     )
   }
 
   if (tournament.type === TournamentType.PLAYOFF) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <div className="rounds-view">
+        <div className="rounds-section">
           <SectionTitle>{hasConsolation ? t('mainBracket') : t('bracket')}</SectionTitle>
           <BracketView
             tournament={tournament}
@@ -80,9 +80,9 @@ export default function TournamentRoundsView({
             organizerMode={organizerMode}
             onEditMatch={onEditMatch}
           />
-        </Box>
+        </div>
         {hasConsolation && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <div className="rounds-section">
             <SectionTitle>{t('consolationBracketTitle')}</SectionTitle>
             <BracketView
               tournament={tournament}
@@ -91,16 +91,16 @@ export default function TournamentRoundsView({
               organizerMode={organizerMode}
               onEditMatch={onEditMatch}
             />
-          </Box>
+          </div>
         )}
-      </Box>
+      </div>
     )
   }
 
   // GROUPS_PLAYOFF
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <div className="rounds-view">
+      <div className="rounds-section">
         <SectionTitle>{t('groupPhase')}</SectionTitle>
         <GroupsView
           tournament={tournament}
@@ -108,9 +108,9 @@ export default function TournamentRoundsView({
           organizerMode={organizerMode}
           onEditMatch={onEditMatch}
         />
-      </Box>
+      </div>
       {hasKnockout && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <div className="rounds-section">
           <SectionTitle>{t('knockoutPhase')}</SectionTitle>
           <BracketView
             tournament={tournament}
@@ -119,8 +119,8 @@ export default function TournamentRoundsView({
             organizerMode={organizerMode}
             onEditMatch={onEditMatch}
           />
-        </Box>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }
