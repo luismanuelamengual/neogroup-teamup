@@ -1,7 +1,7 @@
 .tournament-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
   padding: 24px;
 
   .row {
@@ -9,20 +9,30 @@
     gap: 16px;
   }
 
-  .settings {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    border: 1px dashed var(--color-divider);
-    border-radius: var(--radius-md);
-  }
+  .form-section {
+    border: 1px solid var(--color-divider) !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: 12px !important;
 
-  .categories {
-    .category-row {
+    .title {
+      font-weight: 800;
+    }
+
+    &::before {
+      display: none;
+    }
+
+    .section-content {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      gap: 16px;
+      padding-top: 10px;
+
+      .category-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
     }
   }
 
@@ -30,6 +40,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+    margin-top: 12px;
   }
 }
 

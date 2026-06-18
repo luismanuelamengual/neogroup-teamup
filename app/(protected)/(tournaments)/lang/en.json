@@ -33,6 +33,10 @@
     "startDate": "Start date",
     "startTime": "Start time",
     "location": "Location",
+    "sections": {
+      "generalData": "General data",
+      "advancedSettings": "Advanced settings"
+    },
     "categories": "Categories",
     "categoriesHint": "Optional. If you add categories, each player must pick one when registering and each category is played separately.",
     "category": "Category",

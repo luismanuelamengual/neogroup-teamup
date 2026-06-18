@@ -3,6 +3,10 @@
 import './index.scss'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import Accordion from '@mui/material/Accordion'
+import AccordionDetails from '@mui/material/AccordionDetails'
+import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import FormControlLabel from '@mui/material/FormControlLabel'
@@ -116,253 +120,285 @@ export default function TournamentForm() {
   return (
     <Paper component="form" onSubmit={handleSubmit} className="tournament-form">
       {error && <Alert severity="error">{error}</Alert>}
-      <div className="row">
-        <TextField
-          select
-          label={t('discipline.label')}
-          value={discipline}
-          onChange={(event) => handleDisciplineChange(Number(event.target.value) as Discipline)}
-          fullWidth
-        >
-          {DISCIPLINES.map((value) => (
-            <MenuItem key={value} value={value}>
-              {t(`discipline.${DisciplineNames[value]}`)}
-            </MenuItem>
-          ))}
-        </TextField>
-        {discipline === Discipline.TENNIS && (
-          <TextField
-            select
-            label={t('subDiscipline.label')}
-            value={subDiscipline}
-            onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
-            fullWidth
-          >
-            {SUB_DISCIPLINES.map((value) => (
-              <MenuItem key={value} value={value}>
-                {t(`subDiscipline.${SubDisciplineNames[value]}`)}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
-        <TextField
-          select
-          label={t('type.label')}
-          value={type}
-          onChange={(event) => setType(Number(event.target.value) as TournamentType)}
-          fullWidth
-        >
-          {availableTypes.map((value) => (
-            <MenuItem key={value} value={value}>
-              {t(`type.${TournamentTypeNames[value]}`)}
-            </MenuItem>
-          ))}
-        </TextField>
-      </div>
-      <TextField label={t('name')} value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
-      <TextField
-        label={t('description')}
-        value={description}
-        onChange={(event) => setDescription(event.target.value)}
-        multiline
-        minRows={2}
-        fullWidth
-      />
 
-      <div className="row">
-        <TextField
-          label={t('location')}
-          value={location}
-          onChange={(event) => setLocation(event.target.value)}
-          fullWidth
-        />
-        <TextField
-          label={t('startDate')}
-          type="date"
-          value={startDate}
-          onChange={(event) => setStartDate(event.target.value)}
-          required
-          fullWidth
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <TextField
-          label={t('startTime')}
-          type="time"
-          value={startTime}
-          onChange={(event) => setStartTime(event.target.value)}
-          fullWidth
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-      </div>
-      <div className="row">
-        <TextField
-          select
-          label={t('scoreFormat.label')}
-          value={scoreFormat}
-          onChange={(event) => setScoreFormat(Number(event.target.value) as ScoreFormat)}
-          fullWidth
-        >
-          <MenuItem value={ScoreFormat.THREE_SETS}>{t('scoreFormat.three_sets')}</MenuItem>
-          <MenuItem value={ScoreFormat.TWO_SETS_SUPER_TIEBREAK}>{t('scoreFormat.two_sets_super_tiebreak')}</MenuItem>
-          <MenuItem value={ScoreFormat.BASIC_COUNT}>{t('scoreFormat.basic_count')}</MenuItem>
-        </TextField>
-        <TextField
-          label={isDoubles ? t('maxTeams') : t('maxCompetitors')}
-          type="number"
-          value={maxCompetitors}
-          onChange={(event) => setMaxCompetitors(Math.max(2, Number(event.target.value)))}
-          required
-          fullWidth
-          slotProps={{ htmlInput: { min: 2 } }}
-        />
-      </div>
-
-      {type === TournamentType.LEAGUE && (
-        <div className="settings">
-          <Typography variant="subtitle2">{t('settings.title')}</Typography>
-          <div className="row">
-            <TextField
-              label={t('settings.pointsPerPresent')}
-              type="number"
-              value={leagueSettings.pointsPerPresent}
-              onChange={(event) =>
-                setLeagueSettings({ ...leagueSettings, pointsPerPresent: Number(event.target.value) })
-              }
-              fullWidth
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
-            <TextField
-              label={t('settings.pointsPerSetWon')}
-              type="number"
-              value={leagueSettings.pointsPerSetWon}
-              onChange={(event) =>
-                setLeagueSettings({ ...leagueSettings, pointsPerSetWon: Number(event.target.value) })
-              }
-              fullWidth
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
-            <TextField
-              label={t('settings.pointsPerMatchWon')}
-              type="number"
-              value={leagueSettings.pointsPerMatchWon}
-              onChange={(event) =>
-                setLeagueSettings({ ...leagueSettings, pointsPerMatchWon: Number(event.target.value) })
-              }
-              fullWidth
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
-          </div>
-        </div>
-      )}
-      {type === TournamentType.AMERICANO && (
-        <div className="settings">
-          <Typography variant="subtitle2">{t('settings.title')}</Typography>
-          <div className="row">
-            <TextField
-              label={t('settings.pointsPerGameWon')}
-              type="number"
-              value={americanoSettings.pointsPerGameWon}
-              onChange={(event) =>
-                setAmericanoSettings({ ...americanoSettings, pointsPerGameWon: Number(event.target.value) })
-              }
-              fullWidth
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
-            <TextField
-              label={t('settings.pointsPerMatchWon')}
-              type="number"
-              value={americanoSettings.pointsPerMatchWon}
-              onChange={(event) =>
-                setAmericanoSettings({ ...americanoSettings, pointsPerMatchWon: Number(event.target.value) })
-              }
-              fullWidth
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
-          </div>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={americanoSettings.swapPartnersEachRound}
-                onChange={(event) =>
-                  setAmericanoSettings({ ...americanoSettings, swapPartnersEachRound: event.target.checked })
-                }
-              />
-            }
-            label={t('settings.swapPartnersEachRound')}
-          />
-        </div>
-      )}
-      {type === TournamentType.PLAYOFF && (
-        <div className="settings">
-          <Typography variant="subtitle2">{t('settings.title')}</Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={playoffSettings.consolationBracket}
-                onChange={(event) =>
-                  setPlayoffSettings({ ...playoffSettings, consolationBracket: event.target.checked })
-                }
-              />
-            }
-            label={t('settings.consolationBracket')}
-          />
-          <Typography variant="body2" color="text.secondary">
-            {t('settings.consolationBracketHint')}
+      <Accordion defaultExpanded disableGutters elevation={0} className="form-section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1" className="title">
+            {t('sections.generalData')}
           </Typography>
-        </div>
-      )}
-      {type === TournamentType.GROUPS_PLAYOFF && (
-        <div className="settings">
-          <Typography variant="subtitle2">{t('settings.title')}</Typography>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
           <div className="row">
             <TextField
-              label={t('settings.competitorsPerGroup')}
+              select
+              label={t('discipline.label')}
+              value={discipline}
+              onChange={(event) => handleDisciplineChange(Number(event.target.value) as Discipline)}
+              fullWidth
+            >
+              {DISCIPLINES.map((value) => (
+                <MenuItem key={value} value={value}>
+                  {t(`discipline.${DisciplineNames[value]}`)}
+                </MenuItem>
+              ))}
+            </TextField>
+            {discipline === Discipline.TENNIS && (
+              <TextField
+                select
+                label={t('subDiscipline.label')}
+                value={subDiscipline}
+                onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
+                fullWidth
+              >
+                {SUB_DISCIPLINES.map((value) => (
+                  <MenuItem key={value} value={value}>
+                    {t(`subDiscipline.${SubDisciplineNames[value]}`)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+            <TextField
+              select
+              label={t('type.label')}
+              value={type}
+              onChange={(event) => setType(Number(event.target.value) as TournamentType)}
+              fullWidth
+            >
+              {availableTypes.map((value) => (
+                <MenuItem key={value} value={value}>
+                  {t(`type.${TournamentTypeNames[value]}`)}
+                </MenuItem>
+              ))}
+            </TextField>
+          </div>
+          <TextField
+            label={t('name')}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+            fullWidth
+          />
+          <TextField
+            label={t('description')}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            multiline
+            minRows={2}
+            fullWidth
+          />
+          <TextField
+            label={t('location')}
+            value={location}
+            onChange={(event) => setLocation(event.target.value)}
+            fullWidth
+          />
+          <div className="row">
+            <TextField
+              label={t('startDate')}
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              required
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label={t('startTime')}
+              type="time"
+              value={startTime}
+              onChange={(event) => setStartTime(event.target.value)}
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </div>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion disableGutters elevation={0} className="form-section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1" className="title">
+            {t('sections.advancedSettings')}
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
+          {type === TournamentType.GROUPS_PLAYOFF && <Alert severity="info">{t('settings.groupsPlayoffHint')}</Alert>}
+
+          <div className="row">
+            <TextField
+              select
+              label={t('scoreFormat.label')}
+              value={scoreFormat}
+              onChange={(event) => setScoreFormat(Number(event.target.value) as ScoreFormat)}
+              fullWidth
+            >
+              <MenuItem value={ScoreFormat.THREE_SETS}>{t('scoreFormat.three_sets')}</MenuItem>
+              <MenuItem value={ScoreFormat.TWO_SETS_SUPER_TIEBREAK}>
+                {t('scoreFormat.two_sets_super_tiebreak')}
+              </MenuItem>
+              <MenuItem value={ScoreFormat.BASIC_COUNT}>{t('scoreFormat.basic_count')}</MenuItem>
+            </TextField>
+            <TextField
+              label={isDoubles ? t('maxTeams') : t('maxCompetitors')}
               type="number"
-              value={groupsSettings.competitorsPerGroup}
-              onChange={(event) =>
-                setGroupsSettings({ ...groupsSettings, competitorsPerGroup: Math.max(2, Number(event.target.value)) })
-              }
+              value={maxCompetitors}
+              onChange={(event) => setMaxCompetitors(Math.max(2, Number(event.target.value)))}
+              required
               fullWidth
               slotProps={{ htmlInput: { min: 2 } }}
             />
-            <TextField
-              label={t('settings.qualifiersPerGroup')}
-              type="number"
-              value={groupsSettings.qualifiersPerGroup}
-              onChange={(event) =>
-                setGroupsSettings({ ...groupsSettings, qualifiersPerGroup: Math.max(1, Number(event.target.value)) })
-              }
-              fullWidth
-              slotProps={{ htmlInput: { min: 1 } }}
-            />
           </div>
-          <Typography variant="body2" color="text.secondary">
-            {t('settings.groupsPlayoffHint')}
+
+          {type === TournamentType.LEAGUE && (
+            <div className="row">
+              <TextField
+                label={t('settings.pointsPerPresent')}
+                type="number"
+                value={leagueSettings.pointsPerPresent}
+                onChange={(event) =>
+                  setLeagueSettings({ ...leagueSettings, pointsPerPresent: Number(event.target.value) })
+                }
+                fullWidth
+                slotProps={{ htmlInput: { min: 0 } }}
+              />
+              <TextField
+                label={t('settings.pointsPerSetWon')}
+                type="number"
+                value={leagueSettings.pointsPerSetWon}
+                onChange={(event) =>
+                  setLeagueSettings({ ...leagueSettings, pointsPerSetWon: Number(event.target.value) })
+                }
+                fullWidth
+                slotProps={{ htmlInput: { min: 0 } }}
+              />
+              <TextField
+                label={t('settings.pointsPerMatchWon')}
+                type="number"
+                value={leagueSettings.pointsPerMatchWon}
+                onChange={(event) =>
+                  setLeagueSettings({ ...leagueSettings, pointsPerMatchWon: Number(event.target.value) })
+                }
+                fullWidth
+                slotProps={{ htmlInput: { min: 0 } }}
+              />
+            </div>
+          )}
+          {type === TournamentType.AMERICANO && (
+            <>
+              <div className="row">
+                <TextField
+                  label={t('settings.pointsPerGameWon')}
+                  type="number"
+                  value={americanoSettings.pointsPerGameWon}
+                  onChange={(event) =>
+                    setAmericanoSettings({ ...americanoSettings, pointsPerGameWon: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+                <TextField
+                  label={t('settings.pointsPerMatchWon')}
+                  type="number"
+                  value={americanoSettings.pointsPerMatchWon}
+                  onChange={(event) =>
+                    setAmericanoSettings({ ...americanoSettings, pointsPerMatchWon: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+              </div>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={americanoSettings.swapPartnersEachRound}
+                    onChange={(event) =>
+                      setAmericanoSettings({ ...americanoSettings, swapPartnersEachRound: event.target.checked })
+                    }
+                  />
+                }
+                label={t('settings.swapPartnersEachRound')}
+              />
+            </>
+          )}
+          {type === TournamentType.PLAYOFF && (
+            <>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={playoffSettings.consolationBracket}
+                    onChange={(event) =>
+                      setPlayoffSettings({ ...playoffSettings, consolationBracket: event.target.checked })
+                    }
+                  />
+                }
+                label={t('settings.consolationBracket')}
+              />
+              <Typography variant="body2" color="text.secondary">
+                {t('settings.consolationBracketHint')}
+              </Typography>
+            </>
+          )}
+          {type === TournamentType.GROUPS_PLAYOFF && (
+            <>
+              <div className="row">
+                <TextField
+                  label={t('settings.competitorsPerGroup')}
+                  type="number"
+                  value={groupsSettings.competitorsPerGroup}
+                  onChange={(event) =>
+                    setGroupsSettings({
+                      ...groupsSettings,
+                      competitorsPerGroup: Math.max(2, Number(event.target.value))
+                    })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 2 } }}
+                />
+                <TextField
+                  label={t('settings.qualifiersPerGroup')}
+                  type="number"
+                  value={groupsSettings.qualifiersPerGroup}
+                  onChange={(event) =>
+                    setGroupsSettings({
+                      ...groupsSettings,
+                      qualifiersPerGroup: Math.max(1, Number(event.target.value))
+                    })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 1 } }}
+                />
+              </div>
+            </>
+          )}
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion disableGutters elevation={0} className="form-section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1" className="title">
+            {t('categories')}
           </Typography>
-        </div>
-      )}
-      <div className="settings categories">
-        <Typography variant="subtitle2">{t('categories')}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t('categoriesHint')}
-        </Typography>
-        {categories.map((category, index) => (
-          <div key={index} className="category-row">
-            <TextField
-              label={t('categoryNumber', { number: index + 1 })}
-              value={category}
-              onChange={(event) => handleCategoryChange(index, event.target.value)}
-              fullWidth
-            />
-            <IconButton aria-label={tCommon('delete')} onClick={() => handleRemoveCategory(index)}>
-              <DeleteOutlineIcon />
-            </IconButton>
-          </div>
-        ))}
-        <Button startIcon={<AddIcon />} onClick={handleAddCategory}>
-          {t('addCategory')}
-        </Button>
-      </div>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
+          <Alert severity="info">{t('categoriesHint')}</Alert>
+          {categories.map((category, index) => (
+            <div key={index} className="category-row">
+              <TextField
+                label={t('categoryNumber', { number: index + 1 })}
+                value={category}
+                onChange={(event) => handleCategoryChange(index, event.target.value)}
+                fullWidth
+              />
+              <IconButton aria-label={tCommon('delete')} onClick={() => handleRemoveCategory(index)}>
+                <DeleteOutlineIcon />
+              </IconButton>
+            </div>
+          ))}
+          <Button startIcon={<AddIcon />} onClick={handleAddCategory}>
+            {t('addCategory')}
+          </Button>
+        </AccordionDetails>
+      </Accordion>
+
       <div className="actions">
         <Button onClick={() => router.back()}>{tCommon('cancel')}</Button>
         <Button type="submit" variant="contained" disabled={loading}>

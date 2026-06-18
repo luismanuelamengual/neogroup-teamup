@@ -33,6 +33,10 @@
     "startDate": "Fecha de inicio",
     "startTime": "Hora de inicio",
     "location": "Lugar",
+    "sections": {
+      "generalData": "Datos generales",
+      "advancedSettings": "Configuración avanzada"
+    },
     "categories": "Categorías",
     "categoriesHint": "Opcional. Si agregás categorías, cada jugador deberá elegir una al inscribirse y cada categoría se juega por separado.",
     "category": "Categoría",
