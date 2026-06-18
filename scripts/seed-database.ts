@@ -9,12 +9,17 @@
  *   - 32 player accounts (email "demo{id}@gmail.com", password "123qwe") with realistic names.
  *   - A broad catalogue of tournaments exercising every feature of the app:
  *       · every discipline / sub-discipline (padel, tennis singles, tennis doubles)
- *       · every type (league, americano, playoff)
+ *       · every type (league, americano, playoff, groups + playoff)
+ *       · playoffs with and without a consolation bracket
  *       · every status (stand_by, ongoing, finished)
  *       · several development phases (just started, mid-round, advanced)
  *       · every score format (3 sets, 2 sets + super tie-break, basic count)
  *       · different scoring settings (custom league/americano points, partner swap)
  *       · tournaments with and without categories
+ *
+ * Knockout brackets (playoff, consolation and the groups+playoff knockout phase)
+ * are fully materialised up to the final the moment they are created, so even a
+ * just-started playoff shows its whole bracket.
  *
  * Tournaments that are ongoing or finished are driven through the real tournament
  * engine (rounds and match results are generated the same way the app does), so
@@ -869,6 +874,100 @@ const SPECS: TournamentSpec[] = [
     competitorCount: 16,
     settings: {},
     status: TournamentStatus.FINISHED
+  },
+
+  // ---- Playoff con cuadro consuelo ----
+
+  // Padel playoff 8 parejas con consuelo — finalizado (consuelo completo)
+  {
+    name: 'Copa Consuelo de Pádel',
+    description: 'Eliminación directa de 8 parejas con cuadro de consuelo para los que pierden su primer partido.',
+    discipline: Discipline.PADEL,
+    subDiscipline: null,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
+    categories: null,
+    competitorCount: 8,
+    settings: { consolationBracket: true },
+    status: TournamentStatus.FINISHED
+  },
+
+  // Padel playoff 6 parejas (con byes) y consuelo — en curso
+  {
+    name: 'Copa Repechaje de Pádel',
+    description: 'Llave de 6 parejas con byes y cuadro de consuelo. Los que pasan con bye esperan a su primer partido.',
+    discipline: Discipline.PADEL,
+    subDiscipline: null,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: null,
+    competitorCount: 6,
+    settings: { consolationBracket: true },
+    status: TournamentStatus.ONGOING,
+    phase: 'mid',
+    completedRounds: 2
+  },
+
+  // Tenis singles playoff 16 con consuelo — inscripción abierta
+  {
+    name: 'Abierto de Tenis con Consuelo',
+    description: 'Cuadro de 16 jugadores con cuadro de consuelo. Inscripción abierta.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: SubDiscipline.SINGLES,
+    type: TournamentType.PLAYOFF,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
+    categories: null,
+    competitorCount: 15,
+    maxCompetitors: 15,
+    settings: { consolationBracket: true, competitorsPerGroup: 3 },
+    status: TournamentStatus.STAND_BY
+  },
+
+  // ---- Grupos + Eliminatoria ----
+
+  // Padel grupos+eliminatoria 16 parejas (4 grupos de 4, pasan 2) — finalizado
+  {
+    name: 'Master de Pádel Grupos + Llave',
+    description: '16 parejas en 4 grupos de 4; los 2 mejores de cada grupo avanzan a la eliminatoria.',
+    discipline: Discipline.PADEL,
+    subDiscipline: null,
+    type: TournamentType.GROUPS_PLAYOFF,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
+    categories: null,
+    competitorCount: 16,
+    settings: { competitorsPerGroup: 4, qualifiersPerGroup: 2 },
+    status: TournamentStatus.FINISHED
+  },
+
+  // Padel grupos+eliminatoria 12 parejas — en curso (fase de grupos)
+  {
+    name: 'Copa Mundialito de Pádel',
+    description: '12 parejas en grupos de 4; pasan 2 por grupo a la fase eliminatoria. En fase de grupos.',
+    discipline: Discipline.PADEL,
+    subDiscipline: null,
+    type: TournamentType.GROUPS_PLAYOFF,
+    scoreFormat: ScoreFormat.BASIC_COUNT,
+    categories: null,
+    competitorCount: 12,
+    settings: { competitorsPerGroup: 4, qualifiersPerGroup: 2 },
+    status: TournamentStatus.ONGOING,
+    phase: 'mid',
+    completedRounds: 2
+  },
+
+  // Tenis singles grupos+eliminatoria 20 jugadores — inscripción abierta
+  {
+    name: 'Torneo Tenis Fase de Grupos',
+    description: '20 jugadores en grupos de 5; pasan 2 por grupo a la eliminatoria. Inscripción abierta.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: SubDiscipline.SINGLES,
+    type: TournamentType.GROUPS_PLAYOFF,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: null,
+    competitorCount: 20,
+    maxCompetitors: 24,
+    settings: { competitorsPerGroup: 5, qualifiersPerGroup: 2 },
+    status: TournamentStatus.STAND_BY
   }
 ]
 

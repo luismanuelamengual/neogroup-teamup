@@ -18,7 +18,9 @@ import { FormEvent, useState } from 'react'
 import { createTournament } from '@/app/(protected)/(tournaments)/actions/tournament'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
+import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline, SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -45,12 +47,14 @@ export default function TournamentForm() {
   const [maxCompetitors, setMaxCompetitors] = useState(8)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
+  const [playoffSettings, setPlayoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
+  const [groupsSettings, setGroupsSettings] = useState(DEFAULT_GROUPS_PLAYOFF_SETTINGS)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const availableTypes: TournamentType[] =
     discipline === Discipline.PADEL
-      ? [TournamentType.LEAGUE, TournamentType.AMERICANO, TournamentType.PLAYOFF]
-      : [TournamentType.LEAGUE, TournamentType.PLAYOFF]
+      ? [TournamentType.LEAGUE, TournamentType.AMERICANO, TournamentType.PLAYOFF, TournamentType.GROUPS_PLAYOFF]
+      : [TournamentType.LEAGUE, TournamentType.PLAYOFF, TournamentType.GROUPS_PLAYOFF]
 
   const handleDisciplineChange = (value: Discipline) => {
     setDiscipline(value)
@@ -81,7 +85,15 @@ export default function TournamentForm() {
         categories: categories.map((value) => value.trim()).filter((value) => value !== ''),
         maxCompetitors,
         settings:
-          type === TournamentType.LEAGUE ? leagueSettings : type === TournamentType.AMERICANO ? americanoSettings : {}
+          type === TournamentType.LEAGUE
+            ? leagueSettings
+            : type === TournamentType.AMERICANO
+            ? americanoSettings
+            : type === TournamentType.PLAYOFF
+            ? playoffSettings
+            : type === TournamentType.GROUPS_PLAYOFF
+            ? groupsSettings
+            : {}
       })
 
       createdId = created.id
@@ -278,6 +290,55 @@ export default function TournamentForm() {
             }
             label={t('settings.swapPartnersEachRound')}
           />
+        </div>
+      )}
+      {type === TournamentType.PLAYOFF && (
+        <div className="settings">
+          <Typography variant="subtitle2">{t('settings.title')}</Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={playoffSettings.consolationBracket}
+                onChange={(event) =>
+                  setPlayoffSettings({ ...playoffSettings, consolationBracket: event.target.checked })
+                }
+              />
+            }
+            label={t('settings.consolationBracket')}
+          />
+          <Typography variant="body2" color="text.secondary">
+            {t('settings.consolationBracketHint')}
+          </Typography>
+        </div>
+      )}
+      {type === TournamentType.GROUPS_PLAYOFF && (
+        <div className="settings">
+          <Typography variant="subtitle2">{t('settings.title')}</Typography>
+          <div className="row">
+            <TextField
+              label={t('settings.competitorsPerGroup')}
+              type="number"
+              value={groupsSettings.competitorsPerGroup}
+              onChange={(event) =>
+                setGroupsSettings({ ...groupsSettings, competitorsPerGroup: Math.max(2, Number(event.target.value)) })
+              }
+              fullWidth
+              slotProps={{ htmlInput: { min: 2 } }}
+            />
+            <TextField
+              label={t('settings.qualifiersPerGroup')}
+              type="number"
+              value={groupsSettings.qualifiersPerGroup}
+              onChange={(event) =>
+                setGroupsSettings({ ...groupsSettings, qualifiersPerGroup: Math.max(1, Number(event.target.value)) })
+              }
+              fullWidth
+              slotProps={{ htmlInput: { min: 1 } }}
+            />
+          </div>
+          <Typography variant="body2" color="text.secondary">
+            {t('settings.groupsPlayoffHint')}
+          </Typography>
         </div>
       )}
       <div className="settings categories">

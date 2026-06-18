@@ -7,5 +7,6 @@ export interface RoundDto {
   number: number
   status: RoundStatus
   category: string | null
+  bracket: string | null
   createdAt: string
 }

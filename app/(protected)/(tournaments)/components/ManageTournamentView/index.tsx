@@ -29,13 +29,11 @@ import {
   saveMatchResult,
   startTournament
 } from '@/app/(protected)/(tournaments)/actions/tournament'
-import BracketView from '@/app/(protected)/(tournaments)/components/BracketView'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import EditTournamentDialog from '@/app/(protected)/(tournaments)/components/EditTournamentDialog'
-import FixtureView from '@/app/(protected)/(tournaments)/components/FixtureView'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
-import StandingsTable from '@/app/(protected)/(tournaments)/components/StandingsTable'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
+import TournamentRoundsView from '@/app/(protected)/(tournaments)/components/TournamentRoundsView'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
@@ -43,7 +41,7 @@ import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFo
 import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { useNotificationsStore } from '@/app/stores/notifications.store'
 
 interface ManageTournamentViewProps {
@@ -264,37 +262,12 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
               {groupRounds.length > 0 && (
                 <>
                   <Divider />
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
-                      {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
-                    </Typography>
-                    {tournament.type === TournamentType.PLAYOFF ? (
-                      <BracketView
-                        tournament={tournament}
-                        category={key ?? undefined}
-                        organizerMode
-                        onEditMatch={setScoreMatch}
-                      />
-                    ) : (
-                      <FixtureView
-                        tournament={tournament}
-                        category={key ?? undefined}
-                        organizerMode
-                        onEditMatch={setScoreMatch}
-                      />
-                    )}
-                  </Box>
-                </>
-              )}
-              {tournament.type !== TournamentType.PLAYOFF && groupRounds.length > 0 && (
-                <>
-                  <Divider />
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
-                      {t('standings')}
-                    </Typography>
-                    <StandingsTable tournament={tournament} category={key ?? undefined} />
-                  </Box>
+                  <TournamentRoundsView
+                    tournament={tournament}
+                    category={key ?? undefined}
+                    organizerMode
+                    onEditMatch={setScoreMatch}
+                  />
                 </>
               )}
             </AccordionDetails>
@@ -312,22 +285,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             <Fragment key={key ?? '__all__'}>
               {groupRounds.length > 0 && (
                 <Paper className="section">
-                  <Typography variant="h6" className="section-title">
-                    {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
-                  </Typography>
-                  {tournament.type === TournamentType.PLAYOFF ? (
-                    <BracketView tournament={tournament} organizerMode onEditMatch={setScoreMatch} />
-                  ) : (
-                    <FixtureView tournament={tournament} organizerMode onEditMatch={setScoreMatch} />
-                  )}
-                </Paper>
-              )}
-              {tournament.type !== TournamentType.PLAYOFF && groupRounds.length > 0 && (
-                <Paper className="section">
-                  <Typography variant="h6" className="section-title">
-                    {t('standings')}
-                  </Typography>
-                  <StandingsTable tournament={tournament} />
+                  <TournamentRoundsView tournament={tournament} organizerMode onEditMatch={setScoreMatch} />
                 </Paper>
               )}
             </Fragment>

@@ -12,20 +12,29 @@ import { TournamentDto } from '@/app/(protected)/(tournaments)/models/Tournament
 interface BracketViewProps {
   tournament: TournamentDto
   category?: string
+  bracket?: string | null
   organizerMode?: boolean
   onEditMatch?: (match: MatchDto) => void
 }
 
-/** Horizontal playoff bracket: one column per round. */
-export default function BracketView({ tournament, category, organizerMode = false, onEditMatch }: BracketViewProps) {
+/** Horizontal knockout bracket: one column per round. */
+export default function BracketView({
+  tournament,
+  category,
+  bracket,
+  organizerMode = false,
+  onEditMatch
+}: BracketViewProps) {
   const userId = useUserStore((state) => state.user?.id ?? null)
   const t = useTranslations('tournaments')
   const rounds = useMemo(() => {
     const all = tournament.rounds ?? []
-    const filtered = category != null ? all.filter((r) => (r.category ?? null) === category) : all
+    const filtered = all.filter(
+      (r) => (category == null || (r.category ?? null) === category) && (r.bracket ?? null) === (bracket ?? null)
+    )
 
     return [...filtered].sort((a, b) => a.number - b.number)
-  }, [tournament.rounds, category])
+  }, [tournament.rounds, category, bracket])
   const matchesByRound = useMemo(() => {
     const roundIds = new Set(rounds.map((r) => r.id))
     const map: Record<number, typeof tournament.matches> = {}
@@ -82,12 +91,14 @@ export default function BracketView({ tournament, category, organizerMode = fals
   return (
     <div className="bracket-view">
       <div className="scroller">
-        {rounds.map((round) => {
+        {rounds.map((round, index) => {
           const roundMatches = (matchesByRound[round.id] ?? []).slice().sort((a, b) => a.position - b.position)
+          const isFinal = index === rounds.length - 1 && roundMatches.length <= 1
+          const title = isFinal ? t('finalRound') : t('playoffRound', { number: index + 1 })
 
           return (
             <div key={round.id} className="column">
-              <h3 className="round-title">{t('playoffRound', { number: round.number })}</h3>
+              <h3 className="round-title">{title}</h3>
               <div className="matches">
                 {roundMatches.map((match) => (
                   <div key={match.id} className="match">

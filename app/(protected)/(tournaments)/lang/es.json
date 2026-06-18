@@ -21,7 +21,8 @@
       "label": "Tipo de torneo",
       "league": "Liga",
       "americano": "Americana",
-      "playoff": "Eliminatoria (play-off)"
+      "playoff": "Eliminatoria (play-off)",
+      "groups_playoff": "Grupos + Eliminatoria"
     },
     "scoreFormat": {
       "label": "Formato de resultados",
@@ -46,6 +47,12 @@
     "fixture": "Fixture",
     "standings": "Posiciones",
     "bracket": "Llave",
+    "mainBracket": "Cuadro principal",
+    "consolationBracketTitle": "Cuadro consuelo",
+    "groupPhase": "Fase de grupos",
+    "knockoutPhase": "Fase eliminatoria",
+    "group": "Grupo {number}",
+    "finalRound": "Final",
     "info": "Información",
     "settings": {
       "title": "Configuración",
@@ -53,7 +60,12 @@
       "pointsPerSetWon": "Puntos por ganar set",
       "pointsPerMatchWon": "Puntos por ganar partido",
       "pointsPerGameWon": "Puntos por ganar game",
-      "swapPartnersEachRound": "Intercambiar parejas luego de cada ronda"
+      "swapPartnersEachRound": "Intercambiar parejas luego de cada ronda",
+      "consolationBracket": "Con cuadro consuelo",
+      "consolationBracketHint": "Los competidores que pierden en la primera ronda del cuadro principal juegan un cuadro de consuelo en paralelo.",
+      "competitorsPerGroup": "Cantidad de competidores x grupo",
+      "qualifiersPerGroup": "Cantidad de competidores que pasan a eliminatoria",
+      "groupsPlayoffHint": "Los inscriptos se reparten en grupos que juegan todos contra todos; los mejores de cada grupo avanzan a la fase eliminatoria."
     },
     "standingsTable": {
       "position": "#",
@@ -103,6 +115,7 @@
       "noMoreRounds": "No quedan rondas por jugar",
       "notEnoughCompetitors": "Se necesitan al menos 2 competidores",
       "americanoOnlyPadel": "La americana solo está disponible para pádel",
+      "invalidGroupsSettings": "La configuración de grupos no es válida (los que pasan deben ser menos que los competidores por grupo)",
       "invalidScore": "El resultado no es válido",
       "roundClosed": "La ronda ya fue cerrada",
       "noMatchesGenerated": "No se pudieron generar los partidos",

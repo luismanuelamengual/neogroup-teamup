@@ -11,20 +11,58 @@ import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/s
  * Computes the standings table from the resolved matches of a tournament.
  * - League: points per presented match + per set won + per match won.
  * - Americano: points per game won + per match won (per individual when partners swap).
+ * - Groups + playoff: each group (pass its `bracket`) ranks like a league.
+ *
+ * `bracket` narrows the table to a single parallel structure (e.g. a group of a
+ * groups+playoff tournament). When omitted every bracket of the category counts.
  */
-export function computeStandings(tournament: TournamentDto, category?: string | null): StandingsRowDto[] {
+export function computeStandings(
+  tournament: TournamentDto,
+  category?: string | null,
+  bracket?: string | null
+): StandingsRowDto[] {
   if (tournament.type === TournamentType.PLAYOFF) {
     return []
   }
 
-  const allCompetitors = tournament.competitors ?? []
-  const competitors = category != null ? allCompetitors.filter((c) => c.category === category) : allCompetitors
+  // Groups+playoff: only the round-robin group phase has standings.
+  const isGroups = tournament.type === TournamentType.GROUPS_PLAYOFF
+
+  if (isGroups && !(bracket && bracket.startsWith('group:'))) {
+    return []
+  }
+
   const allRounds = tournament.rounds ?? []
   const roundIds = new Set(
-    (category != null ? allRounds.filter((r) => (r.category ?? null) === category) : allRounds).map((r) => r.id)
+    allRounds
+      .filter(
+        (r) =>
+          (category == null || (r.category ?? null) === category) &&
+          (bracket == null || (r.bracket ?? null) === bracket)
+      )
+      .map((r) => r.id)
   )
   const matches = (tournament.matches ?? []).filter((m) => roundIds.has(m.roundId))
-  const { type, scoreFormat, settings } = tournament
+  // League/americano rank every category competitor; groups rank only the ones
+  // that actually play in the group (derived from the group matches).
+  const allCompetitors = tournament.competitors ?? []
+  const groupCompetitorIds = new Set<number>()
+
+  if (isGroups) {
+    for (const match of matches) {
+      match.homeCompetitorIds.forEach((id) => groupCompetitorIds.add(id))
+      match.awayCompetitorIds?.forEach((id) => groupCompetitorIds.add(id))
+    }
+  }
+
+  const competitors = isGroups
+    ? allCompetitors.filter((c) => groupCompetitorIds.has(c.id))
+    : category != null
+    ? allCompetitors.filter((c) => c.category === category)
+    : allCompetitors
+  // Groups score like a league (sets + match wins).
+  const type = isGroups ? TournamentType.LEAGUE : tournament.type
+  const { scoreFormat, settings } = tournament
   const rows = new Map<number, StandingsRowDto>()
 
   for (const competitor of competitors) {

@@ -21,6 +21,15 @@ export class Round extends BaseEntity {
   @Column()
   category!: string | null
 
+  /**
+   * Parallel structure this round belongs to inside its category. Null is the
+   * main bracket / the single league or americano flow. Other values:
+   * 'consolation' (playoff consolation bracket), 'group:N' (a group of a
+   * groups+playoff tournament) and 'playoff' (its knockout phase).
+   */
+  @Column()
+  bracket!: string | null
+
   @Column({ cast: 'date' })
   createdAt!: Date
 

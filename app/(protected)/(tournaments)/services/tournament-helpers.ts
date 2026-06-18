@@ -1,4 +1,7 @@
+import { BRACKET_CONSOLATION, BRACKET_PLAYOFF, groupBracket } from '@/app/(protected)/(tournaments)/models/Bracket'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
+import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
+import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -8,13 +11,30 @@ import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import {
+  assignGroups,
   generateRoundPairings,
-  getMaxTotalRounds,
-  getTotalRounds
+  generateRoundRobinRound,
+  getBracketSize,
+  getGroupPhaseRounds,
+  getKnockoutRounds,
+  getTotalRounds,
+  Pairing,
+  seedFromGroups,
+  seedPlayoffPairings
 } from '@/app/(protected)/(tournaments)/services/tournament-engine'
+import { getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { ApiException } from '@/app/models/ApiException'
 
 /** Helpers shared by the /api/tournaments/[id]/* route handlers. */
+
+/** Round-robin rounds (circle method) needed for `size` competitors. */
+function roundRobinRoundsFor(size: number): number {
+  if (size < 2) {
+    return 0
+  }
+
+  return size % 2 === 0 ? size - 1 : size
+}
 
 /** Returns the tournament only when it exists and belongs to the user. */
 export async function requireOwnedTournament(tournamentId: number, userId: number): Promise<Tournament | null> {
@@ -35,32 +55,61 @@ export function getTournamentCategoryKeys(tournament: Tournament): (string | nul
   return tournament.categories && tournament.categories.length > 0 ? tournament.categories : [null]
 }
 
-/** Persists the pairings/matches of a single category group within a round. */
-async function createCategoryRound(
+/** Whether a round belongs to a knockout bracket (so winners advance). */
+function isKnockoutRound(tournament: Tournament, round: Round): boolean {
+  if (tournament.type === TournamentType.PLAYOFF) {
+    return true
+  }
+
+  if (tournament.type === TournamentType.GROUPS_PLAYOFF) {
+    return round.bracket === BRACKET_PLAYOFF
+  }
+
+  return false
+}
+
+/** All rounds of a single (category, bracket) structure, ordered by number. */
+async function getBracketRounds(
+  tournamentId: number,
+  category: string | null,
+  bracket: string | null
+): Promise<Round[]> {
+  const rounds = await Round.where('tournamentId', tournamentId).get()
+
+  return rounds
+    .filter((round) => (round.category ?? null) === (category ?? null) && (round.bracket ?? null) === (bracket ?? null))
+    .sort((a, b) => a.number - b.number)
+}
+
+/** Whether a (category, bracket) round already exists at the given number. */
+async function roundExists(
+  tournamentId: number,
+  roundNumber: number,
+  category: string | null,
+  bracket: string | null
+): Promise<boolean> {
+  const rounds = await Round.where('tournamentId', tournamentId).where('number', roundNumber).get()
+
+  return rounds.some(
+    (round) => (round.category ?? null) === (category ?? null) && (round.bracket ?? null) === (bracket ?? null)
+  )
+}
+
+/** Persists a round and its matches from the given pairings. */
+async function persistRound(
   tournament: Tournament,
   roundNumber: number,
   category: string | null,
-  competitorIds: number[],
-  previousRoundMatches: Match[]
-): Promise<boolean> {
-  const pairings = generateRoundPairings(
-    tournament.type,
-    tournament.settings ?? {},
-    competitorIds,
-    roundNumber,
-    previousRoundMatches
-  )
-
-  if (pairings.length === 0) {
-    return false
-  }
-
+  bracket: string | null,
+  pairings: Pairing[]
+): Promise<Round> {
   const round = new Round()
 
   round.tournamentId = tournament.id
   round.number = roundNumber
   round.status = RoundStatus.OPEN
   round.category = category
+  round.bracket = bracket
   round.createdAt = new Date()
   await round.save()
 
@@ -74,8 +123,8 @@ async function createCategoryRound(
     match.awayCompetitorIds = pairing.away
     match.score = null
 
-    // Byes (playoff only) are stored as already resolved in favor of "home".
-    if (pairing.away === null) {
+    // Byes (knockout only) are stored as already resolved in favor of "home".
+    if (pairing.away === null && pairing.home.length > 0) {
       match.status = MatchStatus.WALKOVER
       match.winner = MatchSide.HOME
     } else {
@@ -88,105 +137,61 @@ async function createCategoryRound(
     await match.save()
   }
 
-  return true
+  return round
 }
 
 /**
- * Generates and persists the pairings/matches of a round. When the tournament
- * has categories, every category that still has rounds left is generated in
- * parallel. Throws ApiException when no matches could be generated at all.
+ * Creates a full knockout bracket up to the final: round 1 is seeded from
+ * `seededIds` (top seeds get the byes) and every later round is materialised as
+ * empty "to be defined" matches. Known winners (byes) are then propagated
+ * forward so the bracket is coherent from the start. Returns 1 when a bracket
+ * was created, 0 when there were not enough competitors.
  */
-export async function createRound(tournament: Tournament, roundNumber: number): Promise<void> {
-  const competitors = await Competitor.where('tournamentId', tournament.id).orderBy('id').get()
-  const categoryKeys = getTournamentCategoryKeys(tournament)
-
-  if (competitors.length < 2) {
-    throw new ApiException('notEnoughCompetitors')
+async function createKnockoutBracket(
+  tournament: Tournament,
+  category: string | null,
+  bracket: string | null,
+  seededIds: number[],
+  startRound: number
+): Promise<number> {
+  if (seededIds.length < 2) {
+    return 0
   }
 
-  // Previous round rows (with matches) are needed to seed playoff brackets.
-  let previousRounds: Round[] = []
+  const bracketSize = getBracketSize(seededIds.length)
+  const totalRounds = getKnockoutRounds(seededIds.length)
 
-  if (roundNumber > 1) {
-    previousRounds = await Round.where('tournamentId', tournament.id)
-      .where('number', roundNumber - 1)
-      .with('matches')
-      .get()
-  }
+  await persistRound(tournament, startRound, category, bracket, seedPlayoffPairings(seededIds))
 
-  let anyCreated = false
+  for (let roundIndex = 2; roundIndex <= totalRounds; roundIndex++) {
+    const matchCount = bracketSize / Math.pow(2, roundIndex)
+    const placeholders: Pairing[] = []
 
-  for (const category of categoryKeys) {
-    const groupCompetitors = category === null ? competitors : competitors.filter((c) => c.category === category)
-    const competitorIds = groupCompetitors.map((competitor) => competitor.id)
-
-    if (competitorIds.length < 2) {
-      continue
+    for (let position = 0; position < matchCount; position++) {
+      placeholders.push({ home: [], away: [], position })
     }
 
-    // Skip categories that already played all their rounds.
-    if (roundNumber > getTotalRounds(tournament.type, tournament.settings ?? {}, competitorIds.length)) {
-      continue
-    }
-
-    const previousRound = previousRounds.find((round) => (round.category ?? null) === category)
-    const created = await createCategoryRound(
-      tournament,
-      roundNumber,
-      category,
-      competitorIds,
-      previousRound?.matches ?? []
-    )
-
-    anyCreated = anyCreated || created
+    await persistRound(tournament, startRound + roundIndex - 1, category, bracket, placeholders)
   }
 
-  if (!anyCreated) {
-    throw new ApiException('noMatchesGenerated')
+  // Propagate byes / already-known winners into the following rounds.
+  const rounds = await getBracketRounds(tournament.id, category, bracket)
+
+  for (const round of rounds.slice(0, -1)) {
+    await syncKnockoutNextRound(tournament, round)
   }
 
-  tournament.currentRound = roundNumber
-  tournament.updatedAt = new Date()
-  await tournament.save()
-
-  // For playoffs: propagate any auto-resolved bye (walkover) matches into the
-  // next round immediately so the bracket is coherent from the moment the
-  // tournament starts. Also close+advance in the unlikely case the whole round
-  // consists of byes (e.g. a 2-competitor bracket with byes everywhere).
-  if (tournament.type === TournamentType.PLAYOFF) {
-    const createdRounds = await Round.where('tournamentId', tournament.id).where('number', roundNumber).get()
-
-    for (const round of createdRounds) {
-      await syncPlayoffNextRound(tournament, round)
-    }
-
-    await closeRoundAndAdvance(tournament)
-  }
-}
-
-/** Competitor ids of the winning side of a resolved match (null when unresolved). */
-function matchWinnerIds(match: Match): number[] | null {
-  if (match.winner === MatchSide.HOME) {
-    return match.homeCompetitorIds
-  }
-
-  if (match.winner === MatchSide.AWAY && match.awayCompetitorIds) {
-    return match.awayCompetitorIds
-  }
-
-  return null
+  return 1
 }
 
 /**
- * Playoff: incrementally builds the next bracket round from the winners known so
- * far. Runs after every result so organizers/players can watch competitors
- * advance live. The next round (and its matches) is created on demand the first
- * time a winner is available, and each still-pending next-round match is kept in
- * sync with the current winners. Matches that already hold a result (i.e. the
- * next round has become the active one) are never overwritten. Unknown sides are
- * stored as an empty competitor list so they render as "to be defined".
+ * Knockout: keeps the next bracket round in sync with the winners known so far.
+ * The next round already exists (materialised up front), so each still-pending
+ * next-round match is refreshed with the current winners. Matches that already
+ * hold a result are never overwritten. Unknown sides are stored as an empty
+ * competitor list so they render as "to be defined".
  */
-async function syncPlayoffNextRound(tournament: Tournament, currentRound: Round): Promise<void> {
+async function syncKnockoutNextRound(tournament: Tournament, currentRound: Round): Promise<void> {
   const currentMatches = await Match.where('roundId', currentRound.id).orderBy('position').get()
 
   // A single match means this is the final: there is no round beyond it.
@@ -195,8 +200,12 @@ async function syncPlayoffNextRound(tournament: Tournament, currentRound: Round)
   }
 
   const nextNumber = currentRound.number + 1
-  const candidateRounds = await Round.where('tournamentId', tournament.id).where('number', nextNumber).get()
-  let nextRound = candidateRounds.find((round) => (round.category ?? null) === (currentRound.category ?? null)) ?? null
+  const bracketRounds = await getBracketRounds(
+    tournament.id,
+    currentRound.category ?? null,
+    currentRound.bracket ?? null
+  )
+  let nextRound = bracketRounds.find((round) => round.number === nextNumber) ?? null
 
   if (!nextRound) {
     nextRound = new Round()
@@ -204,6 +213,7 @@ async function syncPlayoffNextRound(tournament: Tournament, currentRound: Round)
     nextRound.number = nextNumber
     nextRound.status = RoundStatus.OPEN
     nextRound.category = currentRound.category
+    nextRound.bracket = currentRound.bracket
     nextRound.createdAt = new Date()
     await nextRound.save()
   }
@@ -243,58 +253,396 @@ async function syncPlayoffNextRound(tournament: Tournament, currentRound: Round)
   }
 }
 
+/** Competitor ids of the winning side of a resolved match (null when unresolved). */
+function matchWinnerIds(match: Match): number[] | null {
+  if (match.winner === MatchSide.HOME) {
+    return match.homeCompetitorIds
+  }
+
+  if (match.winner === MatchSide.AWAY && match.awayCompetitorIds) {
+    return match.awayCompetitorIds
+  }
+
+  return null
+}
+
 /**
- * Closes the current round (every category sharing the round number) and starts
- * the next one — but only once every match of the round is resolved. When no
- * round is left the tournament is finished. For playoffs the next round was
- * already materialised incrementally, so we just advance the pointer.
+ * Computes the entrants of the consolation bracket: every competitor that lost
+ * their FIRST real match in the main bracket. A bye (away === null) is not a
+ * real match, so competitors who advanced on a bye are only considered once they
+ * play (and lose) their actual first match — which happens in round 2.
+ *
+ * Returns `ready: false` while any competitor still has an unresolved first real
+ * match (i.e. the bye players have not played round 2 yet), so the consolation
+ * bracket is only built once every entrant is known.
+ */
+async function computeConsolationSeeds(
+  tournament: Tournament,
+  category: string | null
+): Promise<{ ready: boolean; losers: number[] }> {
+  const competitors = (await Competitor.where('tournamentId', tournament.id).orderBy('id').get()).filter(
+    (competitor) => category == null || competitor.category === category
+  )
+  const mainRounds = await getBracketRounds(tournament.id, category, null)
+  const roundNumberById = new Map(mainRounds.map((round) => [round.id, round.number]))
+  const roundIds = mainRounds.map((round) => round.id)
+  const matches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
+  // Real matches (an actual opponent) ordered by round then bracket position.
+  const realMatches = matches
+    .filter((match) => match.awayCompetitorIds && match.awayCompetitorIds.length > 0)
+    .sort((a, b) => roundNumberById.get(a.roundId)! - roundNumberById.get(b.roundId)! || a.position - b.position)
+  const losers: number[] = []
+
+  for (const competitor of competitors) {
+    const firstRealMatch = realMatches.find(
+      (match) =>
+        match.homeCompetitorIds.includes(competitor.id) || (match.awayCompetitorIds ?? []).includes(competitor.id)
+    )
+
+    // No real match yet (a bye player whose round 2 is not even drawn) → wait.
+    if (!firstRealMatch || firstRealMatch.status === MatchStatus.PENDING) {
+      return { ready: false, losers: [] }
+    }
+
+    const lostAsHome =
+      firstRealMatch.winner === MatchSide.AWAY && firstRealMatch.homeCompetitorIds.includes(competitor.id)
+    const lostAsAway =
+      firstRealMatch.winner === MatchSide.HOME && (firstRealMatch.awayCompetitorIds ?? []).includes(competitor.id)
+
+    if (lostAsHome || lostAsAway) {
+      losers.push(competitor.id)
+    }
+  }
+
+  return { ready: true, losers }
+}
+
+/** Ranks the competitors of a round-robin group from its resolved matches. */
+function rankGroup(competitorIds: number[], matches: Match[]): number[] {
+  const league = DEFAULT_LEAGUE_SETTINGS
+  const stats = new Map(competitorIds.map((id) => [id, { points: 0, won: 0, setsWon: 0, gamesWon: 0 }]))
+
+  const add = (
+    ids: number[] | null,
+    updater: (row: { points: number; won: number; setsWon: number; gamesWon: number }) => void
+  ) => {
+    for (const id of ids ?? []) {
+      const row = stats.get(id)
+
+      if (row) {
+        updater(row)
+      }
+    }
+  }
+
+  for (const match of matches) {
+    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      continue
+    }
+
+    const score = match.score ?? {}
+    const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
+    const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
+
+    add(match.homeCompetitorIds, (row) => {
+      row.setsWon += sets.home
+      row.points += sets.home * league.pointsPerSetWon
+
+      if (match.winner === MatchSide.HOME) {
+        row.won++
+        row.points += league.pointsPerMatchWon
+      }
+    })
+    add(match.awayCompetitorIds, (row) => {
+      row.setsWon += sets.away
+      row.points += sets.away * league.pointsPerSetWon
+
+      if (match.winner === MatchSide.AWAY) {
+        row.won++
+        row.points += league.pointsPerMatchWon
+      }
+    })
+  }
+
+  return [...competitorIds].sort((a, b) => {
+    const rowA = stats.get(a)!
+    const rowB = stats.get(b)!
+
+    return (
+      rowB.points - rowA.points || rowB.won - rowA.won || rowB.setsWon - rowA.setsWon || rowB.gamesWon - rowA.gamesWon
+    )
+  })
+}
+
+/**
+ * Computes the cross-seeded knockout lineup from the final group standings of a
+ * groups+playoff category.
+ */
+async function computeGroupsKnockoutSeeds(
+  tournament: Tournament,
+  category: string | null,
+  competitorIds: number[],
+  settings: Tournament['settings']
+): Promise<number[]> {
+  const safeSettings = settings ?? {}
+  const groupSize = safeSettings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+  const qualifiersPerGroup = Math.max(
+    1,
+    safeSettings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
+  )
+  const groups = assignGroups(competitorIds, groupSize)
+  const allRounds = await getCategoryRounds(tournament.id, category)
+  const qualifiers: number[][] = []
+
+  for (let index = 0; index < groups.length; index++) {
+    const group = groups[index]
+
+    if (group.length === 0) {
+      continue
+    }
+
+    const bracket = groupBracket(index)
+    const roundIds = allRounds.filter((round) => (round.bracket ?? null) === bracket).map((round) => round.id)
+    const matches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
+    const ranked = rankGroup(group, matches)
+
+    qualifiers.push(ranked.slice(0, Math.min(qualifiersPerGroup, group.length)))
+  }
+
+  return seedFromGroups(qualifiers)
+}
+
+/** All rounds of a category (any bracket). */
+async function getCategoryRounds(tournamentId: number, category: string | null): Promise<Round[]> {
+  const rounds = await Round.where('tournamentId', tournamentId).get()
+
+  return rounds.filter((round) => (round.category ?? null) === (category ?? null))
+}
+
+/**
+ * Creates the matches of round `roundNumber` for a single category, across every
+ * bracket/phase that applies. Returns how many rounds were created. Idempotent:
+ * skips (category, bracket) rounds that already exist.
+ */
+async function materializeCategoryRound(
+  tournament: Tournament,
+  roundNumber: number,
+  category: string | null,
+  competitorIds: number[]
+): Promise<number> {
+  const settings = tournament.settings ?? {}
+
+  switch (tournament.type) {
+    case TournamentType.LEAGUE:
+
+    case TournamentType.AMERICANO: {
+      if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
+        return 0
+      }
+
+      if (await roundExists(tournament.id, roundNumber, category, null)) {
+        return 0
+      }
+
+      const pairings = generateRoundPairings(tournament.type, settings, competitorIds, roundNumber, [])
+
+      if (pairings.length === 0) {
+        return 0
+      }
+
+      await persistRound(tournament, roundNumber, category, null, pairings)
+
+      return 1
+    }
+
+    case TournamentType.PLAYOFF: {
+      let created = 0
+
+      if (roundNumber === 1 && !(await roundExists(tournament.id, 1, category, null))) {
+        created += await createKnockoutBracket(tournament, category, null, competitorIds, 1)
+      }
+
+      // The consolation bracket is seeded once every competitor has played (and
+      // possibly lost) their first real match — i.e. byes have played round 2.
+      // It then starts at the current round, in parallel with the main bracket.
+      if (settings.consolationBracket && roundNumber > 1) {
+        const categoryRounds = await getCategoryRounds(tournament.id, category)
+        const consolationExists = categoryRounds.some((round) => round.bracket === BRACKET_CONSOLATION)
+
+        if (!consolationExists) {
+          const { ready, losers } = await computeConsolationSeeds(tournament, category)
+
+          if (ready && losers.length >= 2) {
+            created += await createKnockoutBracket(tournament, category, BRACKET_CONSOLATION, losers, roundNumber)
+          }
+        }
+      }
+
+      return created
+    }
+
+    case TournamentType.GROUPS_PLAYOFF: {
+      const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length)
+
+      if (roundNumber <= groupPhaseRounds) {
+        const groupSize = settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+        const groups = assignGroups(competitorIds, groupSize)
+        let created = 0
+
+        for (let index = 0; index < groups.length; index++) {
+          const group = groups[index]
+
+          if (group.length < 2 || roundNumber > roundRobinRoundsFor(group.length)) {
+            continue
+          }
+
+          const bracket = groupBracket(index)
+
+          if (await roundExists(tournament.id, roundNumber, category, bracket)) {
+            continue
+          }
+
+          const pairings = generateRoundRobinRound(group, roundNumber)
+
+          if (pairings.length === 0) {
+            continue
+          }
+
+          await persistRound(tournament, roundNumber, category, bracket, pairings)
+          created++
+        }
+
+        return created
+      }
+
+      // First knockout round: build the whole bracket from the group standings.
+      if (roundNumber === groupPhaseRounds + 1) {
+        if (await roundExists(tournament.id, roundNumber, category, BRACKET_PLAYOFF)) {
+          return 0
+        }
+
+        const seeded = await computeGroupsKnockoutSeeds(tournament, category, competitorIds, settings)
+
+        return createKnockoutBracket(tournament, category, BRACKET_PLAYOFF, seeded, groupPhaseRounds + 1)
+      }
+
+      return 0
+    }
+  }
+}
+
+/**
+ * Creates the content of round `roundNumber` across every category. Returns how
+ * many rounds were created (0 means nothing new — e.g. a knockout round whose
+ * matches were already materialised up front).
+ */
+async function materializeRound(tournament: Tournament, roundNumber: number): Promise<number> {
+  const competitors = await Competitor.where('tournamentId', tournament.id).orderBy('id').get()
+
+  if (competitors.length < 2) {
+    return 0
+  }
+
+  let created = 0
+
+  for (const category of getTournamentCategoryKeys(tournament)) {
+    const groupCompetitors = category === null ? competitors : competitors.filter((c) => c.category === category)
+    const competitorIds = groupCompetitors.map((competitor) => competitor.id)
+
+    if (competitorIds.length < 2) {
+      continue
+    }
+
+    created += await materializeCategoryRound(tournament, roundNumber, category, competitorIds)
+  }
+
+  return created
+}
+
+/**
+ * Generates and persists the first round of a tournament (and, for knockouts,
+ * the whole bracket up to the final). Throws when no matches could be generated.
+ */
+export async function createRound(tournament: Tournament, roundNumber: number): Promise<void> {
+  const competitors = await Competitor.where('tournamentId', tournament.id).get()
+
+  if (competitors.length < 2) {
+    throw new ApiException('notEnoughCompetitors')
+  }
+
+  const created = await materializeRound(tournament, roundNumber)
+
+  if (created === 0 && roundNumber === 1) {
+    throw new ApiException('noMatchesGenerated')
+  }
+
+  tournament.currentRound = roundNumber
+  tournament.updatedAt = new Date()
+  await tournament.save()
+
+  // Resolve any round made entirely of byes/walkovers and advance accordingly.
+  await closeRoundAndAdvance(tournament)
+}
+
+/** Whether any round exists at the given number (across categories/brackets). */
+async function hasRoundAtNumber(tournamentId: number, roundNumber: number): Promise<boolean> {
+  const rounds = await Round.where('tournamentId', tournamentId).where('number', roundNumber).get()
+
+  return rounds.length > 0
+}
+
+/**
+ * Closes the current round (every category/bracket sharing the round number)
+ * once all its matches are resolved, then materialises and advances to the next
+ * round. Loops so that rounds made entirely of byes/walkovers cascade through.
+ *
+ * The tournament is finished when, after closing a round, there is no next round
+ * to play: nothing new was materialised and no round (e.g. a pre-built knockout
+ * round) exists at the next number. This structural check naturally supports
+ * variable-length structures like the consolation bracket, whose size depends on
+ * how many competitors lose their first match.
  */
 async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
-  const rounds = await Round.where('tournamentId', tournament.id)
-    .where('number', tournament.currentRound)
-    .with('matches')
-    .get()
-  const openRounds = rounds.filter((round) => round.status === RoundStatus.OPEN)
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const rounds = await Round.where('tournamentId', tournament.id)
+      .where('number', tournament.currentRound)
+      .with('matches')
+      .get()
+    const openRounds = rounds.filter((round) => round.status === RoundStatus.OPEN)
 
-  if (openRounds.length === 0) {
-    return
-  }
+    if (openRounds.length === 0) {
+      return
+    }
 
-  // The round is complete only when no match across any category is pending.
-  const hasPending = openRounds.some((round) =>
-    (round.matches ?? []).some((match) => match.status === MatchStatus.PENDING)
-  )
+    const hasPending = openRounds.some((round) =>
+      (round.matches ?? []).some((match) => match.status === MatchStatus.PENDING)
+    )
 
-  if (hasPending) {
-    return
-  }
+    if (hasPending) {
+      return
+    }
 
-  for (const round of openRounds) {
-    round.status = RoundStatus.CLOSED
-    await round.save()
-  }
+    for (const round of openRounds) {
+      round.status = RoundStatus.CLOSED
+      await round.save()
+    }
 
-  const competitors = await Competitor.where('tournamentId', tournament.id).get()
-  const groupSizes = getTournamentCategoryKeys(tournament).map((category) =>
-    category === null ? competitors.length : competitors.filter((competitor) => competitor.category === category).length
-  )
-  const totalRounds = getMaxTotalRounds(tournament.type, tournament.settings ?? {}, groupSizes)
+    const nextNumber = tournament.currentRound + 1
 
-  if (tournament.currentRound >= totalRounds) {
-    tournament.status = TournamentStatus.FINISHED
+    await materializeRound(tournament, nextNumber)
+
+    if (!(await hasRoundAtNumber(tournament.id, nextNumber))) {
+      tournament.status = TournamentStatus.FINISHED
+      tournament.updatedAt = new Date()
+      await tournament.save()
+
+      return
+    }
+
+    tournament.currentRound = nextNumber
     tournament.updatedAt = new Date()
     await tournament.save()
-
-    return
-  }
-
-  if (tournament.type === TournamentType.PLAYOFF) {
-    // Next-round matches already exist (built as results came in); just advance.
-    tournament.currentRound = tournament.currentRound + 1
-    tournament.updatedAt = new Date()
-    await tournament.save()
-  } else {
-    await createRound(tournament, tournament.currentRound + 1)
   }
 }
 
@@ -302,12 +650,14 @@ async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
  * Drives the whole tournament flow after a single result is saved or edited, so
  * organizers never have to close rounds or trigger the next ones by hand.
  *
- * - League / Americano: scores are reflected immediately (standings are computed
- *   from the matches), and the next round is generated automatically once the
- *   last result of the current round is loaded.
- * - Playoff: every result propagates the winners into the next round (created on
- *   demand) so the upcoming bracket fills in live; the round closes and the
- *   pointer advances once all its matches are resolved.
+ * - League / Americano: scores are reflected immediately and the next round is
+ *   generated automatically once the last result of the round is loaded.
+ * - Playoff (and groups+playoff knockout / consolation brackets): every result
+ *   propagates the winners into the next bracket round (already materialised) so
+ *   the upcoming rounds fill in live; the round closes and advances once all of
+ *   its matches are resolved.
+ * - Groups+playoff group phase: behaves like a league; when the last group
+ *   match is loaded the knockout phase is seeded from the group standings.
  *
  * When the final round completes the tournament is marked as finished.
  */
@@ -316,8 +666,8 @@ export async function progressTournamentAfterResult(tournament: Tournament, roun
     return
   }
 
-  if (tournament.type === TournamentType.PLAYOFF) {
-    await syncPlayoffNextRound(tournament, round)
+  if (isKnockoutRound(tournament, round)) {
+    await syncKnockoutNextRound(tournament, round)
   }
 
   await closeRoundAndAdvance(tournament)

@@ -10,7 +10,6 @@ import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
@@ -22,12 +21,10 @@ import { useTranslations } from 'next-intl'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import { getTournament, leaveTournament, saveMatchResult } from '@/app/(protected)/(tournaments)/actions/tournament'
-import BracketView from '@/app/(protected)/(tournaments)/components/BracketView'
-import FixtureView from '@/app/(protected)/(tournaments)/components/FixtureView'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
-import StandingsTable from '@/app/(protected)/(tournaments)/components/StandingsTable'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
+import TournamentRoundsView from '@/app/(protected)/(tournaments)/components/TournamentRoundsView'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
@@ -36,7 +33,7 @@ import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { useNotificationsStore } from '@/app/stores/notifications.store'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 
@@ -259,27 +256,11 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
               <Divider />
               <AccordionDetails sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {groupRounds.length > 0 && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
-                      {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
-                    </Typography>
-                    {tournament.type === TournamentType.PLAYOFF ? (
-                      <BracketView tournament={tournament} category={key ?? undefined} onEditMatch={setScoreMatch} />
-                    ) : (
-                      <FixtureView tournament={tournament} category={key ?? undefined} onEditMatch={setScoreMatch} />
-                    )}
-                  </Box>
-                )}
-                {tournament.type !== TournamentType.PLAYOFF && groupRounds.length > 0 && (
-                  <>
-                    <Divider />
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <Typography variant="subtitle1" fontWeight={700} fontSize={15}>
-                        {t('standings')}
-                      </Typography>
-                      <StandingsTable tournament={tournament} category={key ?? undefined} />
-                    </Box>
-                  </>
+                  <TournamentRoundsView
+                    tournament={tournament}
+                    category={key ?? undefined}
+                    onEditMatch={setScoreMatch}
+                  />
                 )}
               </AccordionDetails>
             </Accordion>
@@ -288,22 +269,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
             <Fragment key={key ?? '__all__'}>
               {groupRounds.length > 0 && (
                 <Paper className="section">
-                  <Typography variant="h6" className="section-title">
-                    {tournament.type === TournamentType.PLAYOFF ? t('bracket') : t('fixture')}
-                  </Typography>
-                  {tournament.type === TournamentType.PLAYOFF ? (
-                    <BracketView tournament={tournament} onEditMatch={setScoreMatch} />
-                  ) : (
-                    <FixtureView tournament={tournament} onEditMatch={setScoreMatch} />
-                  )}
-                </Paper>
-              )}
-              {tournament.type !== TournamentType.PLAYOFF && groupRounds.length > 0 && (
-                <Paper className="section">
-                  <Typography variant="h6" className="section-title">
-                    {t('standings')}
-                  </Typography>
-                  <StandingsTable tournament={tournament} />
+                  <TournamentRoundsView tournament={tournament} onEditMatch={setScoreMatch} />
                 </Paper>
               )}
             </Fragment>

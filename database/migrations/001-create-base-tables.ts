@@ -74,6 +74,7 @@ export default {
           number INTEGER NOT NULL,
           status INTEGER NOT NULL DEFAULT 1,
           category VARCHAR(150),
+          bracket VARCHAR(50),
           createdAt ${TIMESTAMP}
         )
       `)
@@ -101,6 +102,7 @@ export default {
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_competitors_category ON competitors (tournamentId, category)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_tournament ON rounds (tournamentId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_category ON rounds (tournamentId, category)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_bracket ON rounds (tournamentId, bracket)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_tournament ON matches (tournamentId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_round ON matches (roundId)')
     })

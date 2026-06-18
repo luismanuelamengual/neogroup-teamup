@@ -14,20 +14,31 @@ import { TournamentType } from '@/app/(protected)/(tournaments)/models/Tournamen
 interface FixtureViewProps {
   tournament: TournamentDto
   category?: string
+  bracket?: string | null
   organizerMode?: boolean
   onEditMatch?: (match: MatchDto) => void
 }
 
-/** Rounds + matches list used by leagues and americano tournaments. */
-export default function FixtureView({ tournament, category, organizerMode = false, onEditMatch }: FixtureViewProps) {
+/** Rounds + matches list used by leagues, americano and group-phase fixtures. */
+export default function FixtureView({
+  tournament,
+  category,
+  bracket,
+  organizerMode = false,
+  onEditMatch
+}: FixtureViewProps) {
   const userId = useUserStore((state) => state.user?.id ?? null)
   const t = useTranslations('tournaments')
   const rounds = useMemo(() => {
     const all = tournament.rounds ?? []
-    const filtered = category != null ? all.filter((r) => (r.category ?? null) === category) : all
+    const filtered = all.filter(
+      (r) =>
+        (category == null || (r.category ?? null) === category) &&
+        (bracket === undefined || (r.bracket ?? null) === (bracket ?? null))
+    )
 
     return [...filtered].sort((a, b) => b.number - a.number)
-  }, [tournament.rounds, category])
+  }, [tournament.rounds, category, bracket])
   const matchesByRound = useMemo(() => {
     const roundIds = new Set(rounds.map((r) => r.id))
     const map: Record<number, typeof tournament.matches> = {}
@@ -90,7 +101,12 @@ export default function FixtureView({ tournament, category, organizerMode = fals
           <section key={round.id} className="round">
             <header className="round-header">
               <h3 className="round-title">
-                {t(tournament.type === TournamentType.LEAGUE ? 'round' : 'playoffRound', { number: round.number })}
+                {t(
+                  tournament.type === TournamentType.LEAGUE || (round.bracket ?? '').startsWith('group:')
+                    ? 'round'
+                    : 'playoffRound',
+                  { number: round.number }
+                )}
               </h3>
               {round.status === RoundStatus.OPEN && (
                 <Chip size="small" color="success" variant="outlined" label={t('status.ongoing')} />

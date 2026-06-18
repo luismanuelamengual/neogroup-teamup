@@ -21,7 +21,8 @@
       "label": "Tournament type",
       "league": "League",
       "americano": "Americano",
-      "playoff": "Knockout (play-off)"
+      "playoff": "Knockout (play-off)",
+      "groups_playoff": "Groups + Knockout"
     },
     "scoreFormat": {
       "label": "Score format",
@@ -46,6 +47,12 @@
     "fixture": "Fixture",
     "standings": "Standings",
     "bracket": "Bracket",
+    "mainBracket": "Main bracket",
+    "consolationBracketTitle": "Consolation bracket",
+    "groupPhase": "Group phase",
+    "knockoutPhase": "Knockout phase",
+    "group": "Group {number}",
+    "finalRound": "Final",
     "info": "Info",
     "settings": {
       "title": "Settings",
@@ -53,7 +60,12 @@
       "pointsPerSetWon": "Points per set won",
       "pointsPerMatchWon": "Points per match won",
       "pointsPerGameWon": "Points per game won",
-      "swapPartnersEachRound": "Swap partners after each round"
+      "swapPartnersEachRound": "Swap partners after each round",
+      "consolationBracket": "With consolation bracket",
+      "consolationBracketHint": "Competitors who lose in the first round of the main bracket play a parallel consolation bracket.",
+      "competitorsPerGroup": "Competitors per group",
+      "qualifiersPerGroup": "Competitors advancing to the knockout",
+      "groupsPlayoffHint": "Registrants are split into round-robin groups; the best of each group advance to the knockout phase."
     },
     "standingsTable": {
       "position": "#",
@@ -103,6 +115,7 @@
       "noMoreRounds": "There are no rounds left to play",
       "notEnoughCompetitors": "At least 2 competitors are required",
       "americanoOnlyPadel": "Americano is only available for padel",
+      "invalidGroupsSettings": "Invalid groups settings (qualifiers must be fewer than competitors per group)",
       "invalidScore": "The score is not valid",
       "roundClosed": "The round has already been closed",
       "noMatchesGenerated": "Matches could not be generated",

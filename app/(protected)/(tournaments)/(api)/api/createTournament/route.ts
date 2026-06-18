@@ -1,6 +1,8 @@
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
+import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
@@ -44,6 +46,21 @@ export const POST = withAuth(async (request, context, userId) => {
     settings = { ...DEFAULT_LEAGUE_SETTINGS, ...input.settings }
   } else if (input.type === TournamentType.AMERICANO) {
     settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
+  } else if (input.type === TournamentType.PLAYOFF) {
+    settings = { ...DEFAULT_PLAYOFF_SETTINGS, consolationBracket: !!input.settings?.consolationBracket }
+  } else if (input.type === TournamentType.GROUPS_PLAYOFF) {
+    const competitorsPerGroup = Math.floor(
+      input.settings?.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+    )
+    const qualifiersPerGroup = Math.floor(
+      input.settings?.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
+    )
+
+    if (competitorsPerGroup < 2 || qualifiersPerGroup < 1 || qualifiersPerGroup >= competitorsPerGroup) {
+      throw new ApiException('invalidGroupsSettings')
+    }
+
+    settings = { competitorsPerGroup, qualifiersPerGroup }
   }
 
   const tournament = new Tournament()

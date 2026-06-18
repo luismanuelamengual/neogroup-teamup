@@ -17,11 +17,13 @@ import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standing
 interface StandingsTableProps {
   tournament: TournamentDto
   category?: string
+  bracket?: string
 }
 
-export default function StandingsTable({ tournament, category }: StandingsTableProps) {
+export default function StandingsTable({ tournament, category, bracket }: StandingsTableProps) {
   const t = useTranslations('tournaments.standingsTable')
-  const rows = useMemo(() => computeStandings(tournament, category), [tournament, category])
+  const rows = useMemo(() => computeStandings(tournament, category, bracket), [tournament, category, bracket])
+  const showSets = tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.GROUPS_PLAYOFF
 
   return (
     <TableContainer component={Paper} className="standings-table">
@@ -32,7 +34,7 @@ export default function StandingsTable({ tournament, category }: StandingsTableP
             <TableCell>{t('competitor')}</TableCell>
             <TableCell align="center">{t('played')}</TableCell>
             <TableCell align="center">{t('won')}</TableCell>
-            {tournament.type === TournamentType.LEAGUE && <TableCell align="center">{t('setsWon')}</TableCell>}
+            {showSets && <TableCell align="center">{t('setsWon')}</TableCell>}
             {tournament.type === TournamentType.AMERICANO && <TableCell align="center">{t('gamesWon')}</TableCell>}
             <TableCell align="center" className="points-cell">
               {t('points')}
@@ -46,7 +48,7 @@ export default function StandingsTable({ tournament, category }: StandingsTableP
               <TableCell>{row.displayName}</TableCell>
               <TableCell align="center">{row.played}</TableCell>
               <TableCell align="center">{row.won}</TableCell>
-              {tournament.type === TournamentType.LEAGUE && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
+              {showSets && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
               {tournament.type === TournamentType.AMERICANO && (
                 <TableCell align="center">{row.gamesWon ?? 0}</TableCell>
               )}
