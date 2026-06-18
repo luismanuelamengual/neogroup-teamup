@@ -9,8 +9,8 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
-import { setRole } from '@/app/(account)/actions/account'
 import { Role } from '@/app/(auth)/models/Role'
+import { setRole } from '@/app/(protected)/(account)/actions/account'
 
 interface RoleSelectorProps {
   callbackUrl: string | null

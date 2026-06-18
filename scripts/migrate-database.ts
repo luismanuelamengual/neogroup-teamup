@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-assign-module-variable */
+/* eslint-disable no-console */
 /**
  * Database migrations runner.
  *

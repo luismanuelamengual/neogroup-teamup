@@ -28,6 +28,33 @@ async function readLangFile(filePath: string): Promise<Record<string, unknown> |
   }
 }
 
+async function findLangDirs(dir: string): Promise<string[]> {
+  const results: string[] = []
+  let entries: import('fs').Dirent[]
+
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true })
+  } catch {
+    return results
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue
+    }
+
+    const fullPath = path.join(dir, entry.name)
+
+    if (entry.name === 'lang') {
+      results.push(fullPath)
+    } else {
+      results.push(...(await findLangDirs(fullPath)))
+    }
+  }
+
+  return results
+}
+
 async function loadMessages(locale: SupportedLocale): Promise<Record<string, unknown>> {
   const cached = messagesCache[locale]
 
@@ -36,11 +63,7 @@ async function loadMessages(locale: SupportedLocale): Promise<Record<string, unk
   }
 
   const appDir = path.join(process.cwd(), 'app')
-  const entries = await fs.readdir(appDir, { withFileTypes: true })
-  const langDirs = [
-    path.join(appDir, 'lang'),
-    ...entries.filter((entry) => entry.isDirectory()).map((entry) => path.join(appDir, entry.name, 'lang'))
-  ]
+  const langDirs = await findLangDirs(appDir)
   const messages: Record<string, unknown> = {}
 
   for (const langDir of langDirs) {

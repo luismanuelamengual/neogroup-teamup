@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Database reset runner.
  *
