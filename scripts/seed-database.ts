@@ -941,9 +941,13 @@ async function run(): Promise<void> {
     console.log(`  [${index}/${SPECS.length}] ${spec.name}`)
   }
 
-  const [{ tournaments }] = await DB.query('SELECT COUNT(*) AS tournaments FROM tournaments')
-  const [{ competitors }] = await DB.query('SELECT COUNT(*) AS competitors FROM competitors')
-  const [{ matches }] = await DB.query('SELECT COUNT(*) AS matches FROM matches')
+  const [{ tournaments }, { competitors }, { matches }] = await DB.withConnection(async (conn) => {
+    return Promise.all([
+      conn.query('SELECT COUNT(*) AS tournaments FROM tournaments').then((r) => r[0]),
+      conn.query('SELECT COUNT(*) AS competitors FROM competitors').then((r) => r[0]),
+      conn.query('SELECT COUNT(*) AS matches FROM matches').then((r) => r[0])
+    ])
+  })
 
   console.log(
     `\nDone. ${
