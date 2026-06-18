@@ -5,6 +5,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import GroupsIcon from '@mui/icons-material/Groups'
 import PlaceIcon from '@mui/icons-material/Place'
 import Paper from '@mui/material/Paper'
+import MuiSkeleton from '@mui/material/Skeleton'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
@@ -58,6 +59,26 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
             {tournament.competitors.length} / {tournament.maxCompetitors}
           </span>
         )}
+      </div>
+    </Paper>
+  )
+}
+
+export function TournamentCardSkeleton() {
+  return (
+    <Paper className="tournament-card" sx={{ pointerEvents: 'none' }}>
+      <div className="header">
+        <MuiSkeleton variant="text" width="55%" height={22} />
+        <MuiSkeleton variant="rounded" width={72} height={24} sx={{ borderRadius: 12 }} />
+      </div>
+      <div className="tags">
+        <MuiSkeleton variant="rounded" width={80} height={20} sx={{ borderRadius: 8 }} />
+        <MuiSkeleton variant="rounded" width={60} height={20} sx={{ borderRadius: 8 }} />
+        <MuiSkeleton variant="rounded" width={70} height={20} sx={{ borderRadius: 8 }} />
+      </div>
+      <div className="details">
+        <MuiSkeleton variant="text" width="40%" height={18} />
+        <MuiSkeleton variant="text" width="35%" height={18} />
       </div>
     </Paper>
   )

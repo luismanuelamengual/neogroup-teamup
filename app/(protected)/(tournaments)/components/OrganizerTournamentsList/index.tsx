@@ -1,13 +1,12 @@
 'use client'
 
 import './index.scss'
-import CircularProgress from '@mui/material/CircularProgress'
 import Pagination from '@mui/material/Pagination'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { getOrganizerTournaments } from '@/app/(protected)/(tournaments)/actions/tournament'
-import TournamentCard from '@/app/(protected)/(tournaments)/components/TournamentCard'
+import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
@@ -38,8 +37,12 @@ export default function OrganizerTournamentsList({ name, onlyActive }: Organizer
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-        <CircularProgress />
+      <div className="organizer-tournaments-list">
+        <div className="list">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <TournamentCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     )
   }

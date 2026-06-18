@@ -3,14 +3,13 @@
 import './index.scss'
 import SearchIcon from '@mui/icons-material/Search'
 import Button from '@mui/material/Button'
-import CircularProgress from '@mui/material/CircularProgress'
 import Pagination from '@mui/material/Pagination'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { getPlayerActiveTournaments } from '@/app/(protected)/(tournaments)/actions/tournament'
-import TournamentCard from '@/app/(protected)/(tournaments)/components/TournamentCard'
+import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
@@ -34,8 +33,12 @@ export default function PlayerTournamentsList() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-        <CircularProgress />
+      <div className="player-tournaments-list">
+        <div className="list">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <TournamentCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     )
   }

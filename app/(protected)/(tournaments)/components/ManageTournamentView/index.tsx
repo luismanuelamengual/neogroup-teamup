@@ -14,10 +14,10 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
-import CircularProgress from '@mui/material/CircularProgress'
 import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
+import Skeleton from '@mui/material/Skeleton'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
@@ -85,8 +85,20 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
   if (loading) {
     return (
-      <div className="manage-tournament" style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-        <CircularProgress />
+      <div className="manage-tournament">
+        <Paper className="header">
+          <div className="title-row">
+            <Skeleton variant="text" width="50%" height={36} />
+            <Skeleton variant="rounded" width={80} height={26} sx={{ borderRadius: 12 }} />
+          </div>
+          <Skeleton variant="text" width="70%" height={20} />
+          <div className="meta" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Skeleton variant="rounded" width={90} height={24} sx={{ borderRadius: 8 }} />
+            <Skeleton variant="rounded" width={70} height={24} sx={{ borderRadius: 8 }} />
+            <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 8 }} />
+            <Skeleton variant="text" width={120} height={20} />
+          </div>
+        </Paper>
       </div>
     )
   }
