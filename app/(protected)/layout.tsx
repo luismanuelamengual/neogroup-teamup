@@ -5,7 +5,7 @@ import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
 import { Organization } from '@/app/(auth)/models/Organization'
 import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
-import { auth } from '@/app/(auth)/services/auth'
+import { auth, signOut } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/(protected)/components/AppShell'
 import Loading from '@/app/components/Loading'
 
@@ -30,12 +30,14 @@ export default async function Layout({ children }: { children: ReactNode }) {
   }
 
   // Verify the logged-in user belongs to the organization of the current subdomain.
+  // If they don't, sign them out entirely — a plain redirect to /login would
+  // loop forever because the authorized callback would bounce them back to /.
   const headersList = await headers()
   const orgDomain = headersList.get('x-org-domain') ?? ''
   const organization = await Organization.where('domainName', orgDomain).first()
 
   if (!organization || session.user.organizationId !== organization.id) {
-    redirect('/login')
+    await signOut({ redirectTo: '/login' })
   }
 
   const user: SessionUser = {
