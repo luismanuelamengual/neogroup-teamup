@@ -6,16 +6,20 @@ const { auth } = NextAuth(authConfig)
 
 /**
  * Returns true when the request comes from the root domain (e.g. "teamup.ar")
- * with no subdomain. Localhost is never treated as the root domain.
+ * with no subdomain. Also treats "www.teamup.ar" as root. Localhost is never
+ * treated as the root domain.
  */
 function isRootDomain(host: string): boolean {
   if (!host || host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
     return false
   }
 
-  // "teamup.ar"          → ['teamup', 'ar']          → 2 parts → root domain
-  // "club-aleman.teamup.ar" → ['club-aleman', 'teamup', 'ar'] → 3 parts → subdomain
-  return host.split('.').length === 2
+  const parts = host.split('.')
+
+  // "teamup.ar"              → 2 parts → root domain
+  // "www.teamup.ar"          → 3 parts, first is 'www' → root domain
+  // "club-aleman.teamup.ar"  → 3 parts, first is 'club-aleman' → subdomain
+  return parts.length === 2 || (parts.length === 3 && parts[0] === 'www')
 }
 
 /**
