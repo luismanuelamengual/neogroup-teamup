@@ -12,7 +12,7 @@ export function isDoublesDiscipline(discipline: Discipline, subDiscipline: SubDi
 
 /**
  * True when competitors register as pairs (player + partner).
- * Americano tournaments with partner swapping register players individually.
+ * Americano with partner swapping (AMERICANO_WITH_SWAP) registers players individually.
  */
 export function registersAsPairs(
   discipline: Discipline,
@@ -24,7 +24,7 @@ export function registersAsPairs(
     return false
   }
 
-  if (type === TournamentType.AMERICANO && settings.swapPartnersEachRound) {
+  if (type === TournamentType.AMERICANO_WITH_SWAP) {
     return false
   }
 

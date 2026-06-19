@@ -40,12 +40,6 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
           <span className="tag">{t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)}</span>
         )}
         <span className="tag">{t(`type.${TournamentTypeNames[tournament.type]}`)}</span>
-        {tournament.settings?.consolationBracket && (
-          <span className="tag tag--config">{t('chips.consolationBracket')}</span>
-        )}
-        {tournament.settings?.swapPartnersEachRound && (
-          <span className="tag tag--config">{t('chips.swapPartners')}</span>
-        )}
       </div>
       <div className="details">
         {tournament.location && (

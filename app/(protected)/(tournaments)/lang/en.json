@@ -21,7 +21,9 @@
       "label": "Tournament type",
       "league": "League",
       "americano": "Americano",
+      "americano_with_swap": "Americano with partner swap",
       "playoff": "Knockout",
+      "playoff_with_consolation": "Knockout with consolation bracket",
       "groups_playoff": "Groups + Knockout"
     },
     "scoreFormat": {
@@ -64,9 +66,6 @@
       "pointsPerSetWon": "Points per set won",
       "pointsPerMatchWon": "Points per match won",
       "pointsPerGameWon": "Points per game won",
-      "swapPartnersEachRound": "Swap partners after each round",
-      "consolationBracket": "With consolation bracket",
-      "consolationBracketHint": "Competitors who lose in the first round of the main bracket play a parallel consolation bracket.",
       "competitorsPerGroup": "Competitors per group",
       "qualifiersPerGroup": "Competitors advancing to the knockout",
       "groupsPlayoffHint": "Registrants are split into round-robin groups; the best of each group advance to the knockout phase."
@@ -79,10 +78,6 @@
       "setsWon": "Sets",
       "gamesWon": "Games",
       "points": "Pts"
-    },
-    "chips": {
-      "consolationBracket": "With consolation bracket",
-      "swapPartners": "With partner swap"
     },
     "bye": "Advances",
     "pendingResult": "Pending",

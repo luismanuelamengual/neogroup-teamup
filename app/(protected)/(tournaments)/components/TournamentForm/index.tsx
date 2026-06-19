@@ -9,11 +9,9 @@ import AccordionDetails from '@mui/material/AccordionDetails'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
-import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
@@ -57,13 +55,23 @@ export default function TournamentForm() {
   const [loading, setLoading] = useState(false)
   const availableTypes: TournamentType[] =
     discipline === Discipline.PADEL
-      ? [TournamentType.LEAGUE, TournamentType.AMERICANO, TournamentType.PLAYOFF, TournamentType.GROUPS_PLAYOFF]
-      : [TournamentType.LEAGUE, TournamentType.PLAYOFF, TournamentType.GROUPS_PLAYOFF]
+      ? [
+          TournamentType.LEAGUE,
+          TournamentType.AMERICANO,
+          TournamentType.AMERICANO_WITH_SWAP,
+          TournamentType.PLAYOFF,
+          TournamentType.PLAYOFF_WITH_CONSOLATION,
+          TournamentType.GROUPS_PLAYOFF
+        ]
+      : [TournamentType.LEAGUE, TournamentType.PLAYOFF, TournamentType.PLAYOFF_WITH_CONSOLATION, TournamentType.GROUPS_PLAYOFF]
 
   const handleDisciplineChange = (value: Discipline) => {
     setDiscipline(value)
 
-    if (value !== Discipline.PADEL && type === TournamentType.AMERICANO) {
+    if (
+      value !== Discipline.PADEL &&
+      (type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP)
+    ) {
       setType(TournamentType.LEAGUE)
     }
   }
@@ -91,9 +99,9 @@ export default function TournamentForm() {
         settings:
           type === TournamentType.LEAGUE
             ? leagueSettings
-            : type === TournamentType.AMERICANO
+            : type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
             ? americanoSettings
-            : type === TournamentType.PLAYOFF
+            : type === TournamentType.PLAYOFF || type === TournamentType.PLAYOFF_WITH_CONSOLATION
             ? playoffSettings
             : type === TournamentType.GROUPS_PLAYOFF
             ? groupsSettings
@@ -282,60 +290,29 @@ export default function TournamentForm() {
               />
             </div>
           )}
-          {type === TournamentType.AMERICANO && (
-            <>
-              <div className="row">
-                <TextField
-                  label={t('settings.pointsPerGameWon')}
-                  type="number"
-                  value={americanoSettings.pointsPerGameWon}
-                  onChange={(event) =>
-                    setAmericanoSettings({ ...americanoSettings, pointsPerGameWon: Number(event.target.value) })
-                  }
-                  fullWidth
-                  slotProps={{ htmlInput: { min: 0 } }}
-                />
-                <TextField
-                  label={t('settings.pointsPerMatchWon')}
-                  type="number"
-                  value={americanoSettings.pointsPerMatchWon}
-                  onChange={(event) =>
-                    setAmericanoSettings({ ...americanoSettings, pointsPerMatchWon: Number(event.target.value) })
-                  }
-                  fullWidth
-                  slotProps={{ htmlInput: { min: 0 } }}
-                />
-              </div>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={americanoSettings.swapPartnersEachRound}
-                    onChange={(event) =>
-                      setAmericanoSettings({ ...americanoSettings, swapPartnersEachRound: event.target.checked })
-                    }
-                  />
+          {(type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP) && (
+            <div className="row">
+              <TextField
+                label={t('settings.pointsPerGameWon')}
+                type="number"
+                value={americanoSettings.pointsPerGameWon}
+                onChange={(event) =>
+                  setAmericanoSettings({ ...americanoSettings, pointsPerGameWon: Number(event.target.value) })
                 }
-                label={t('settings.swapPartnersEachRound')}
+                fullWidth
+                slotProps={{ htmlInput: { min: 0 } }}
               />
-            </>
-          )}
-          {type === TournamentType.PLAYOFF && (
-            <>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={playoffSettings.consolationBracket}
-                    onChange={(event) =>
-                      setPlayoffSettings({ ...playoffSettings, consolationBracket: event.target.checked })
-                    }
-                  />
+              <TextField
+                label={t('settings.pointsPerMatchWon')}
+                type="number"
+                value={americanoSettings.pointsPerMatchWon}
+                onChange={(event) =>
+                  setAmericanoSettings({ ...americanoSettings, pointsPerMatchWon: Number(event.target.value) })
                 }
-                label={t('settings.consolationBracket')}
+                fullWidth
+                slotProps={{ htmlInput: { min: 0 } }}
               />
-              <Typography variant="body2" color="text.secondary">
-                {t('settings.consolationBracketHint')}
-              </Typography>
-            </>
+            </div>
           )}
           {type === TournamentType.GROUPS_PLAYOFF && (
             <>

@@ -21,7 +21,7 @@ export function computeStandings(
   category?: string | null,
   bracket?: string | null
 ): StandingsRowDto[] {
-  if (tournament.type === TournamentType.PLAYOFF) {
+  if (tournament.type === TournamentType.PLAYOFF || tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
     return []
   }
 
@@ -61,7 +61,10 @@ export function computeStandings(
     ? allCompetitors.filter((c) => c.category === category)
     : allCompetitors
   // Groups score like a league (sets + match wins).
-  const type = isGroups ? TournamentType.LEAGUE : tournament.type
+  // AMERICANO_WITH_SWAP scores the same as AMERICANO.
+  const rawType = isGroups ? TournamentType.LEAGUE : tournament.type
+  const type =
+    rawType === TournamentType.AMERICANO_WITH_SWAP ? TournamentType.AMERICANO : rawType
   const { scoreFormat, settings } = tournament
   const rows = new Map<number, StandingsRowDto>()
 

@@ -102,7 +102,10 @@ export default function FixtureView({
             <header className="round-header">
               <h3 className="round-title">
                 {t(
-                  tournament.type === TournamentType.LEAGUE || (round.bracket ?? '').startsWith('group:')
+                  tournament.type === TournamentType.LEAGUE ||
+                    tournament.type === TournamentType.AMERICANO ||
+                    tournament.type === TournamentType.AMERICANO_WITH_SWAP ||
+                    (round.bracket ?? '').startsWith('group:')
                     ? 'round'
                     : 'playoffRound',
                   { number: round.number }

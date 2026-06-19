@@ -99,20 +99,20 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
     case TournamentType.LEAGUE:
       return roundRobinRoundsFor(competitorsCount)
 
-    case TournamentType.AMERICANO: {
-      if (settings.swapPartnersEachRound) {
-        // Individuals rotate partners: one round per circle-method rotation.
-        const slots = competitorsCount % 2 === 0 ? competitorsCount : competitorsCount + 1
-
-        return slots - 1
-      }
-
+    case TournamentType.AMERICANO:
       return roundRobinRoundsFor(competitorsCount)
+
+    case TournamentType.AMERICANO_WITH_SWAP: {
+      // Individuals rotate partners: one round per circle-method rotation.
+      const slots = competitorsCount % 2 === 0 ? competitorsCount : competitorsCount + 1
+
+      return slots - 1
     }
 
     case TournamentType.PLAYOFF:
-      // A consolation bracket (when enabled) runs in parallel with the main one
-      // and finishes on the same round, so it does not add rounds.
+    case TournamentType.PLAYOFF_WITH_CONSOLATION:
+      // A consolation bracket runs in parallel with the main one and finishes
+      // on the same round, so it does not add rounds.
       return getKnockoutRounds(competitorsCount)
 
     case TournamentType.GROUPS_PLAYOFF: {
@@ -325,11 +325,13 @@ export function generateRoundPairings(
       return generateRoundRobinRound(competitorIds, roundNumber)
 
     case TournamentType.AMERICANO:
-      return settings.swapPartnersEachRound
-        ? generateAmericanoSwapRound(competitorIds, roundNumber)
-        : generateRoundRobinRound(competitorIds, roundNumber)
+      return generateRoundRobinRound(competitorIds, roundNumber)
+
+    case TournamentType.AMERICANO_WITH_SWAP:
+      return generateAmericanoSwapRound(competitorIds, roundNumber)
 
     case TournamentType.PLAYOFF:
+    case TournamentType.PLAYOFF_WITH_CONSOLATION:
       return generatePlayoffRound(competitorIds, roundNumber, previousRoundMatches)
 
     case TournamentType.GROUPS_PLAYOFF:

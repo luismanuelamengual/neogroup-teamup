@@ -21,7 +21,9 @@
       "label": "Tipo de torneo",
       "league": "Liga",
       "americano": "Americana",
+      "americano_with_swap": "Americana con intercambio de pareja",
       "playoff": "Eliminatoria",
+      "playoff_with_consolation": "Eliminatoria con cuadro consuelo",
       "groups_playoff": "Grupos + Eliminatoria"
     },
     "scoreFormat": {
@@ -64,9 +66,6 @@
       "pointsPerSetWon": "Puntos por ganar set",
       "pointsPerMatchWon": "Puntos por ganar partido",
       "pointsPerGameWon": "Puntos por ganar game",
-      "swapPartnersEachRound": "Intercambiar parejas luego de cada ronda",
-      "consolationBracket": "Con cuadro consuelo",
-      "consolationBracketHint": "Los competidores que pierden en la primera ronda del cuadro principal juegan un cuadro de consuelo en paralelo.",
       "competitorsPerGroup": "Cantidad de competidores x grupo",
       "qualifiersPerGroup": "Cantidad de competidores que pasan a eliminatoria",
       "groupsPlayoffHint": "Los inscriptos se reparten en grupos que juegan todos contra todos; los mejores de cada grupo avanzan a la fase eliminatoria."
@@ -79,10 +78,6 @@
       "setsWon": "Sets",
       "gamesWon": "Games",
       "points": "Pts"
-    },
-    "chips": {
-      "consolationBracket": "Con cuadro consuelo",
-      "swapPartners": "Con intercambio de parejas"
     },
     "bye": "Pasa de ronda",
     "pendingResult": "Pendiente",

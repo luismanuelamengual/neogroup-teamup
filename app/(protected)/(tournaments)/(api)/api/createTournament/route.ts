@@ -29,7 +29,10 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
     throw new ApiException('missingFields')
   }
 
-  if (input.type === TournamentType.AMERICANO && input.discipline !== Discipline.PADEL) {
+  if (
+    (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) &&
+    input.discipline !== Discipline.PADEL
+  ) {
     throw new ApiException('americanoOnlyPadel')
   }
 
@@ -44,10 +47,10 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
 
   if (input.type === TournamentType.LEAGUE) {
     settings = { ...DEFAULT_LEAGUE_SETTINGS, ...input.settings }
-  } else if (input.type === TournamentType.AMERICANO) {
+  } else if (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) {
     settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
-  } else if (input.type === TournamentType.PLAYOFF) {
-    settings = { ...DEFAULT_PLAYOFF_SETTINGS, consolationBracket: !!input.settings?.consolationBracket }
+  } else if (input.type === TournamentType.PLAYOFF || input.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+    settings = { ...DEFAULT_PLAYOFF_SETTINGS }
   } else if (input.type === TournamentType.GROUPS_PLAYOFF) {
     const competitorsPerGroup = Math.floor(
       input.settings?.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup

@@ -57,7 +57,7 @@ export function getTournamentCategoryKeys(tournament: Tournament): (string | nul
 
 /** Whether a round belongs to a knockout bracket (so winners advance). */
 function isKnockoutRound(tournament: Tournament, round: Round): boolean {
-  if (tournament.type === TournamentType.PLAYOFF) {
+  if (tournament.type === TournamentType.PLAYOFF || tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
     return true
   }
 
@@ -435,7 +435,9 @@ async function materializeCategoryRound(
   switch (tournament.type) {
     case TournamentType.LEAGUE:
 
-    case TournamentType.AMERICANO: {
+    case TournamentType.AMERICANO:
+
+    case TournamentType.AMERICANO_WITH_SWAP: {
       if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
         return 0
       }
@@ -455,7 +457,8 @@ async function materializeCategoryRound(
       return 1
     }
 
-    case TournamentType.PLAYOFF: {
+    case TournamentType.PLAYOFF:
+    case TournamentType.PLAYOFF_WITH_CONSOLATION: {
       let created = 0
 
       if (roundNumber === 1 && !(await roundExists(tournament.id, 1, category, null))) {
@@ -465,7 +468,8 @@ async function materializeCategoryRound(
       // The consolation bracket is seeded once every competitor has played (and
       // possibly lost) their first real match — i.e. byes have played round 2.
       // It then starts at the current round, in parallel with the main bracket.
-      if (settings.consolationBracket && roundNumber > 1) {
+      // For PLAYOFF_WITH_CONSOLATION the consolation bracket is always enabled.
+      if (tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION && roundNumber > 1) {
         const categoryRounds = await getCategoryRounds(tournament.id, category)
         const consolationExists = categoryRounds.some((round) => round.bracket === BRACKET_CONSOLATION)
 

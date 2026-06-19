@@ -24,6 +24,8 @@ export default function StandingsTable({ tournament, category, bracket }: Standi
   const t = useTranslations('tournaments.standingsTable')
   const rows = useMemo(() => computeStandings(tournament, category, bracket), [tournament, category, bracket])
   const showSets = tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.GROUPS_PLAYOFF
+  const showGames =
+    tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP
 
   return (
     <TableContainer component={Paper} className="standings-table">
@@ -35,7 +37,7 @@ export default function StandingsTable({ tournament, category, bracket }: Standi
             <TableCell align="center">{t('played')}</TableCell>
             <TableCell align="center">{t('won')}</TableCell>
             {showSets && <TableCell align="center">{t('setsWon')}</TableCell>}
-            {tournament.type === TournamentType.AMERICANO && <TableCell align="center">{t('gamesWon')}</TableCell>}
+            {showGames && <TableCell align="center">{t('gamesWon')}</TableCell>}
             <TableCell align="center" className="points-cell">
               {t('points')}
             </TableCell>
@@ -49,9 +51,7 @@ export default function StandingsTable({ tournament, category, bracket }: Standi
               <TableCell align="center">{row.played}</TableCell>
               <TableCell align="center">{row.won}</TableCell>
               {showSets && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
-              {tournament.type === TournamentType.AMERICANO && (
-                <TableCell align="center">{row.gamesWon ?? 0}</TableCell>
-              )}
+              {showGames && <TableCell align="center">{row.gamesWon ?? 0}</TableCell>}
               <TableCell align="center" className="points-cell">
                 {row.points}
               </TableCell>

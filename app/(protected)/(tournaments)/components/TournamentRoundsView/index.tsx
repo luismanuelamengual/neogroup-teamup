@@ -49,7 +49,11 @@ export default function TournamentRoundsView({
     }
   }, [tournament.rounds, category])
 
-  if (tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.AMERICANO) {
+  if (
+    tournament.type === TournamentType.LEAGUE ||
+    tournament.type === TournamentType.AMERICANO ||
+    tournament.type === TournamentType.AMERICANO_WITH_SWAP
+  ) {
     return (
       <div className="rounds-view">
         <div className="rounds-section">
@@ -69,7 +73,7 @@ export default function TournamentRoundsView({
     )
   }
 
-  if (tournament.type === TournamentType.PLAYOFF) {
+  if (tournament.type === TournamentType.PLAYOFF || tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
     return (
       <div className="rounds-view">
         <div className="rounds-section">
