@@ -46,11 +46,37 @@ $card-hover-color: rgb(239, 249, 251);
   }
 
   .categories {
-    flex-direction: row;
+    flex-direction: column;
     gap: 0 16px;
     display: flex;
     flex-wrap: wrap;
+    gap: 4px;
+    
+    .category-chip {
+      font-size: 12px;
+      background-color: #9a59a71a;
+      color: #472f47;
+      padding: 2px 10px;
+      border-radius: 999px;
+      display: flex;
+      flex-direction: row;
+      gap: 5px;
+      justify-content: space-between;
+      align-items: center;
+  
+      label {
+        font-weight: bold;
+      }
+  
+      .inscriptions {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 5px;
+      }
+    }
   }
+
 
   .category-item {
     justify-content: space-between;

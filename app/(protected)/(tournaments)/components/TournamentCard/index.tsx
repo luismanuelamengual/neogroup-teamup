@@ -53,29 +53,35 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
           {tournament.startDate}
           {tournament.startTime ? ` · ${tournament.startTime}` : ''}
         </span>
-        {tournament.competitors != null && !hasCategories && (
-          <span className="detail">
-            <GroupsIcon fontSize="inherit" />
-            {tournament.competitors.length} / {tournament.maxCompetitors}
-          </span>
+      </div>
+      <div className="categories">
+        {!hasCategories && (
+          <div className="category-chip">
+            <label>Categoría única</label>
+            <div className="inscriptions">
+              <GroupsIcon fontSize="inherit" />
+              {tournament.competitors?.length ?? 0} / {tournament.maxCompetitors}
+            </div>
+          </div>
         )}
         {hasCategories && (
-          <div className="categories">
+          <>
             {tournament.categories!.map((category) => {
               const count = tournament.competitors?.filter((c) => c.category === category).length
 
               return (
-                <span key={category} className="category-item">
-                  <span className="category-name">{category}</span>
+                <div key={category} className="category-chip">
+                  <label>{category}</label>
                   {count != null && (
-                    <span className="category-count">
-                      ({count} / {tournament.maxCompetitors})
-                    </span>
+                    <div className="inscriptions">
+                      <GroupsIcon fontSize="inherit" />
+                      {count} / {tournament.maxCompetitors}
+                    </div>
                   )}
-                </span>
+                </div>
               )
             })}
-          </div>
+          </>
         )}
       </div>
     </Paper>
