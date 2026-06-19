@@ -57,7 +57,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
       <div className="categories">
         {!hasCategories && (
           <div className="category-chip">
-            <label>Categoría única</label>
+            <label>{t(`uniqueCategory`)}</label>
             <div className="inscriptions">
               <GroupsIcon fontSize="inherit" />
               {tournament.competitors?.length ?? 0} / {tournament.maxCompetitors}

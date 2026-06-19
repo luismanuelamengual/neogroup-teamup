@@ -43,6 +43,7 @@
     "categoriesHint": "Opcional. Si agregás categorías, cada jugador deberá elegir una al inscribirse y cada categoría se juega por separado.",
     "category": "Categoría",
     "categoryNumber": "Categoría {number}",
+    "uniqueCategory": "Categoría única",
     "addCategory": "Agregar categoría",
     "maxCompetitors": "Cantidad máxima de competidores",
     "maxTeams": "Cantidad máxima de equipos",
