@@ -708,10 +708,10 @@
   dependencies:
     "@tybys/wasm-util" "^0.10.2"
 
-"@neogroup/neorm@0.0.21":
-  version "0.0.21"
-  resolved "https://registry.yarnpkg.com/@neogroup/neorm/-/neorm-0.0.21.tgz#f28d1c91a2106a2a66fc0e08a1d86413098ad129"
-  integrity sha512-0aZh9OCPLCCfv++5XFR85qdhAP9s8th68w9pEQyFwg61nhH6Gs+yple09KowySGZjIf7Ff3b5obGDsZXH81Iwg==
+"@neogroup/neorm@0.0.22":
+  version "0.0.22"
+  resolved "https://registry.yarnpkg.com/@neogroup/neorm/-/neorm-0.0.22.tgz#c7bbce0adc3365e44ed2d07867c402295daac48e"
+  integrity sha512-5ubkRLFH+pBO/tpyTyZ19D7PlygvE8OjUIg4q1qBW7k1B0ySHkEPpXObQrgR2ZcXKJQYDF/y38HqHWmcoBQ+sA==
 
 "@next/env@16.2.9":
   version "16.2.9"
