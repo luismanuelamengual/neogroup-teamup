@@ -69,6 +69,8 @@
       "pointsPerGameWon": "Points per game won",
       "competitorsPerGroup": "Competitors per group",
       "qualifiersPerGroup": "Competitors advancing to the knockout",
+      "maxRounds": "Maximum rounds",
+      "maxRoundsHint": "Optional. If set, the tournament ends after this many rounds.",
       "groupsPlayoffHint": "Registrants are split into round-robin groups; the best of each group advance to the knockout phase."
     },
     "standingsTable": {

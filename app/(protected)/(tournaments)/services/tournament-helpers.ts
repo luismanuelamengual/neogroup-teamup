@@ -1,7 +1,7 @@
+import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { BRACKET_CONSOLATION, BRACKET_PLAYOFF, groupBracket } from '@/app/(protected)/(tournaments)/models/Bracket'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
-import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -12,6 +12,7 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import {
   assignGroups,
+  generateAmericanoSwapRoundRobin,
   generateRoundPairings,
   generateRoundRobinRound,
   getBracketSize,
@@ -22,7 +23,7 @@ import {
   seedFromGroups,
   seedPlayoffPairings
 } from '@/app/(protected)/(tournaments)/services/tournament-engine'
-import { getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { ApiException } from '@/app/models/ApiException'
 
 /** Helpers shared by the /api/tournaments/[id]/* route handlers. */
@@ -318,13 +319,27 @@ async function computeConsolationSeeds(
 }
 
 /** Ranks the competitors of a round-robin group from its resolved matches. */
-function rankGroup(competitorIds: number[], matches: Match[]): number[] {
-  const league = DEFAULT_LEAGUE_SETTINGS
-  const stats = new Map(competitorIds.map((id) => [id, { points: 0, won: 0, setsWon: 0, gamesWon: 0 }]))
+function rankGroup(competitorIds: number[], matches: Match[], settings?: Tournament['settings']): number[] {
+  const groupsDefaults = DEFAULT_GROUPS_PLAYOFF_SETTINGS
+  const league = {
+    pointsPerPresent: settings?.pointsPerPresent ?? groupsDefaults.pointsPerPresent,
+    pointsPerSetWon: settings?.pointsPerSetWon ?? groupsDefaults.pointsPerSetWon,
+    pointsPerMatchWon: settings?.pointsPerMatchWon ?? groupsDefaults.pointsPerMatchWon
+  }
+  const stats = new Map(
+    competitorIds.map((id) => [id, { points: 0, won: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }])
+  )
 
   const add = (
     ids: number[] | null,
-    updater: (row: { points: number; won: number; setsWon: number; gamesWon: number }) => void
+    updater: (row: {
+      points: number
+      won: number
+      setsWon: number
+      setsLost: number
+      gamesWon: number
+      gamesLost: number
+    }) => void
   ) => {
     for (const id of ids ?? []) {
       const row = stats.get(id)
@@ -346,7 +361,12 @@ function rankGroup(competitorIds: number[], matches: Match[]): number[] {
 
     add(match.homeCompetitorIds, (row) => {
       row.setsWon += sets.home
+      row.setsLost += sets.away
       row.points += sets.home * league.pointsPerSetWon
+
+      if (!isWalkover || score.walkover === MatchSide.HOME) {
+        row.points += league.pointsPerPresent
+      }
 
       if (match.winner === MatchSide.HOME) {
         row.won++
@@ -355,7 +375,12 @@ function rankGroup(competitorIds: number[], matches: Match[]): number[] {
     })
     add(match.awayCompetitorIds, (row) => {
       row.setsWon += sets.away
+      row.setsLost += sets.home
       row.points += sets.away * league.pointsPerSetWon
+
+      if (!isWalkover || score.walkover === MatchSide.AWAY) {
+        row.points += league.pointsPerPresent
+      }
 
       if (match.winner === MatchSide.AWAY) {
         row.won++
@@ -364,13 +389,55 @@ function rankGroup(competitorIds: number[], matches: Match[]): number[] {
     })
   }
 
+  /** Returns 1 if idA beat idB, -1 if idB beat idA, 0 otherwise. */
+  const headToHead = (idA: number, idB: number): number => {
+    for (const match of matches) {
+      if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+        continue
+      }
+
+      const homeHasA = match.homeCompetitorIds.includes(idA)
+      const homeHasB = match.homeCompetitorIds.includes(idB)
+      const awayHasA = match.awayCompetitorIds.includes(idA)
+      const awayHasB = match.awayCompetitorIds.includes(idB)
+
+      if ((homeHasA && awayHasB) || (homeHasB && awayHasA)) {
+        if (match.winner === MatchSide.HOME) {
+          return homeHasA ? 1 : -1
+        }
+
+        if (match.winner === MatchSide.AWAY) {
+          return awayHasA ? 1 : -1
+        }
+      }
+    }
+
+    return 0
+  }
+
   return [...competitorIds].sort((a, b) => {
     const rowA = stats.get(a)!
     const rowB = stats.get(b)!
 
-    return (
-      rowB.points - rowA.points || rowB.won - rowA.won || rowB.setsWon - rowA.setsWon || rowB.gamesWon - rowA.gamesWon
-    )
+    if (rowB.points !== rowA.points) {
+      return rowB.points - rowA.points
+    }
+
+    const setDiffA = rowA.setsWon - rowA.setsLost
+    const setDiffB = rowB.setsWon - rowB.setsLost
+
+    if (setDiffB !== setDiffA) {
+      return setDiffB - setDiffA
+    }
+
+    const gameDiffA = rowA.gamesWon - rowA.gamesLost
+    const gameDiffB = rowB.gamesWon - rowB.gamesLost
+
+    if (gameDiffB !== gameDiffA) {
+      return gameDiffB - gameDiffA
+    }
+
+    return headToHead(b, a)
   })
 }
 
@@ -404,12 +471,148 @@ async function computeGroupsKnockoutSeeds(
     const bracket = groupBracket(index)
     const roundIds = allRounds.filter((round) => (round.bracket ?? null) === bracket).map((round) => round.id)
     const matches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
-    const ranked = rankGroup(group, matches)
+    const ranked = rankGroup(group, matches, settings)
 
     qualifiers.push(ranked.slice(0, Math.min(qualifiersPerGroup, group.length)))
   }
 
   return seedFromGroups(qualifiers)
+}
+
+/**
+ * Computes points per competitor from a list of resolved matches using the
+ * Americano scoring formula (games won × pointsPerGameWon + wins × pointsPerMatchWon).
+ */
+function computeAmericanoPoints(
+  competitorIds: number[],
+  matches: Match[],
+  settings: Tournament['settings'],
+  scoreFormat: number
+): Map<number, number> {
+  const americano = { ...DEFAULT_AMERICANO_SETTINGS, ...(settings ?? {}) }
+  const pts = new Map(competitorIds.map((id) => [id, 0]))
+
+  for (const match of matches) {
+    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      continue
+    }
+
+    const score = match.score ?? {}
+    const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
+    const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
+
+    for (const id of match.homeCompetitorIds) {
+      pts.set(id, (pts.get(id) ?? 0) + games.home * americano.pointsPerGameWon)
+
+      if (match.winner === MatchSide.HOME) {
+        pts.set(id, (pts.get(id) ?? 0) + americano.pointsPerMatchWon)
+      }
+    }
+
+    for (const id of match.awayCompetitorIds) {
+      pts.set(id, (pts.get(id) ?? 0) + games.away * americano.pointsPerGameWon)
+
+      if (match.winner === MatchSide.AWAY) {
+        pts.set(id, (pts.get(id) ?? 0) + americano.pointsPerMatchWon)
+      }
+    }
+  }
+
+  return pts
+}
+
+/** Returns true when two competitors have already faced each other in any of the given matches. */
+function havePlayedBefore(idA: number, idB: number, matches: Match[]): boolean {
+  return matches.some(
+    (match) =>
+      match.awayCompetitorIds != null &&
+      ((match.homeCompetitorIds.includes(idA) && match.awayCompetitorIds.includes(idB)) ||
+        (match.homeCompetitorIds.includes(idB) && match.awayCompetitorIds.includes(idA)))
+  )
+}
+
+/**
+ * Americano standings-based pairing. Competitors are sorted by current points
+ * (descending). The top competitor is paired with the highest-ranked opponent
+ * they have not yet faced. Falls back to already-played opponents when no new
+ * one is available.
+ */
+function generateAmericanoStandingsPairings(
+  competitorIds: number[],
+  allMatches: Match[],
+  settings: Tournament['settings'],
+  scoreFormat: number
+): Pairing[] {
+  const pts = computeAmericanoPoints(competitorIds, allMatches, settings, scoreFormat)
+  const sorted = [...competitorIds].sort((a, b) => (pts.get(b) ?? 0) - (pts.get(a) ?? 0))
+  const remaining = [...sorted]
+  const pairings: Pairing[] = []
+  let position = 0
+
+  while (remaining.length >= 2) {
+    const first = remaining[0]
+    // Find the best-ranked opponent who hasn't faced `first` yet.
+    let partnerIndex = -1
+
+    for (let i = 1; i < remaining.length; i++) {
+      if (!havePlayedBefore(first, remaining[i], allMatches)) {
+        partnerIndex = i
+        break
+      }
+    }
+
+    // If everyone has already been faced, just take the next-ranked player.
+    if (partnerIndex === -1) {
+      partnerIndex = 1
+    }
+
+    const second = remaining[partnerIndex]
+
+    pairings.push({ home: [first], away: [second], position: position++ })
+    remaining.splice(partnerIndex, 1)
+    remaining.splice(0, 1)
+  }
+
+  return pairings
+}
+
+/**
+ * Americano-with-swap standings-based pairing. Partners are still assigned via
+ * the circle-method (ensuring partner diversity across rounds), but the resulting
+ * teams are sorted by combined points before being matched as opponents so that
+ * the best teams face each other.
+ */
+function generateAmericanoSwapStandingsPairings(
+  competitorIds: number[],
+  roundNumber: number,
+  allMatches: Match[],
+  settings: Tournament['settings'],
+  scoreFormat: number
+): Pairing[] {
+  // Build partnerships using the classic circle method.
+  const swapPairings = generateAmericanoSwapRoundRobin(competitorIds, roundNumber)
+
+  if (swapPairings.length === 0) {
+    return []
+  }
+
+  const pts = computeAmericanoPoints(competitorIds, allMatches, settings, scoreFormat)
+  // Sort teams by combined points (descending).
+  const teams = swapPairings.flatMap((p) => [p.home, p.away]).filter((t): t is number[] => t != null)
+  const sortedTeams = [...teams].sort((a, b) => {
+    const sumA = a.reduce((s, id) => s + (pts.get(id) ?? 0), 0)
+    const sumB = b.reduce((s, id) => s + (pts.get(id) ?? 0), 0)
+
+    return sumB - sumA
+  })
+  // Pair consecutive sorted teams (best vs 2nd, 3rd vs 4th, …).
+  const pairings: Pairing[] = []
+
+  for (let i = 0; i + 1 < sortedTeams.length; i += 2) {
+    pairings.push({ home: sortedTeams[i], away: sortedTeams[i + 1], position: i / 2 })
+  }
+
+  return pairings
 }
 
 /** All rounds of a category (any bracket). */
@@ -433,11 +636,7 @@ async function materializeCategoryRound(
   const settings = tournament.settings ?? {}
 
   switch (tournament.type) {
-    case TournamentType.LEAGUE:
-
-    case TournamentType.AMERICANO:
-
-    case TournamentType.AMERICANO_WITH_SWAP: {
+    case TournamentType.LEAGUE: {
       if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
         return 0
       }
@@ -457,7 +656,52 @@ async function materializeCategoryRound(
       return 1
     }
 
+    case TournamentType.AMERICANO:
+
+    case TournamentType.AMERICANO_WITH_SWAP: {
+      if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
+        return 0
+      }
+
+      if (await roundExists(tournament.id, roundNumber, category, null)) {
+        return 0
+      }
+
+      let pairings: Pairing[]
+
+      if (roundNumber === 1) {
+        // First round: use default pairings (round-robin / swap circle method).
+        pairings = generateRoundPairings(tournament.type, settings, competitorIds, roundNumber, [])
+      } else {
+        // Subsequent rounds: pair by current standings, avoiding rematches.
+        const categoryRounds = await getCategoryRounds(tournament.id, category)
+        const roundIds = categoryRounds.map((r) => r.id)
+        const allMatches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
+
+        if (tournament.type === TournamentType.AMERICANO_WITH_SWAP) {
+          pairings = generateAmericanoSwapStandingsPairings(
+            competitorIds,
+            roundNumber,
+            allMatches,
+            settings,
+            tournament.scoreFormat
+          )
+        } else {
+          pairings = generateAmericanoStandingsPairings(competitorIds, allMatches, settings, tournament.scoreFormat)
+        }
+      }
+
+      if (pairings.length === 0) {
+        return 0
+      }
+
+      await persistRound(tournament, roundNumber, category, null, pairings)
+
+      return 1
+    }
+
     case TournamentType.PLAYOFF:
+
     case TournamentType.PLAYOFF_WITH_CONSOLATION: {
       let created = 0
 

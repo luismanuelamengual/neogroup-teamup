@@ -1,4 +1,5 @@
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
+import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -66,6 +67,17 @@ export function computeStandings(
   const type =
     rawType === TournamentType.AMERICANO_WITH_SWAP ? TournamentType.AMERICANO : rawType
   const { scoreFormat, settings } = tournament
+
+  const groupsDefaults = DEFAULT_GROUPS_PLAYOFF_SETTINGS
+  const leagueSettings = isGroups
+    ? {
+        pointsPerPresent: settings?.pointsPerPresent ?? groupsDefaults.pointsPerPresent,
+        pointsPerSetWon: settings?.pointsPerSetWon ?? groupsDefaults.pointsPerSetWon,
+        pointsPerMatchWon: settings?.pointsPerMatchWon ?? groupsDefaults.pointsPerMatchWon
+      }
+    : { ...DEFAULT_LEAGUE_SETTINGS, ...(settings ?? {}) }
+  const americanoSettings = { ...DEFAULT_AMERICANO_SETTINGS, ...(settings ?? {}) }
+
   const rows = new Map<number, StandingsRowDto>()
 
   for (const competitor of competitors) {
@@ -75,13 +87,12 @@ export function computeStandings(
       played: 0,
       won: 0,
       setsWon: 0,
+      setsLost: 0,
       gamesWon: 0,
+      gamesLost: 0,
       points: 0
     })
   }
-
-  const leagueSettings = { ...DEFAULT_LEAGUE_SETTINGS, ...(settings ?? {}) }
-  const americanoSettings = { ...DEFAULT_AMERICANO_SETTINGS, ...(settings ?? {}) }
 
   const addToSide = (ids: number[] | null, updater: (row: StandingsRowDto) => void) => {
     for (const id of ids ?? []) {
@@ -107,6 +118,7 @@ export function computeStandings(
       addToSide(match.homeCompetitorIds, (row) => {
         row.played++
         row.setsWon = (row.setsWon ?? 0) + sets.home
+        row.setsLost = (row.setsLost ?? 0) + sets.away
         row.points += sets.home * leagueSettings.pointsPerSetWon
 
         if (!isWalkover || score.walkover === MatchSide.HOME) {
@@ -121,6 +133,7 @@ export function computeStandings(
       addToSide(match.awayCompetitorIds, (row) => {
         row.played++
         row.setsWon = (row.setsWon ?? 0) + sets.away
+        row.setsLost = (row.setsLost ?? 0) + sets.home
         row.points += sets.away * leagueSettings.pointsPerSetWon
 
         if (!isWalkover || score.walkover === MatchSide.AWAY) {
@@ -138,6 +151,7 @@ export function computeStandings(
       addToSide(match.homeCompetitorIds, (row) => {
         row.played++
         row.gamesWon = (row.gamesWon ?? 0) + games.home
+        row.gamesLost = (row.gamesLost ?? 0) + games.away
         row.points += games.home * americanoSettings.pointsPerGameWon
 
         if (match.winner === MatchSide.HOME) {
@@ -148,6 +162,7 @@ export function computeStandings(
       addToSide(match.awayCompetitorIds, (row) => {
         row.played++
         row.gamesWon = (row.gamesWon ?? 0) + games.away
+        row.gamesLost = (row.gamesLost ?? 0) + games.home
         row.points += games.away * americanoSettings.pointsPerGameWon
 
         if (match.winner === MatchSide.AWAY) {
@@ -158,11 +173,62 @@ export function computeStandings(
     }
   }
 
-  return [...rows.values()].sort(
-    (a, b) =>
-      b.points - a.points ||
-      b.won - a.won ||
-      (b.setsWon ?? 0) - (a.setsWon ?? 0) ||
-      (b.gamesWon ?? 0) - (a.gamesWon ?? 0)
-  )
+  /**
+   * Returns 1 if idA beat idB in a direct match, -1 if idB beat idA, 0 if
+   * no match was played between them or it was unresolved.
+   */
+  const headToHead = (idA: number, idB: number): number => {
+    for (const match of matches) {
+      if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+        continue
+      }
+
+      const homeHasA = match.homeCompetitorIds.includes(idA)
+      const homeHasB = match.homeCompetitorIds.includes(idB)
+      const awayHasA = match.awayCompetitorIds.includes(idA)
+      const awayHasB = match.awayCompetitorIds.includes(idB)
+
+      if ((homeHasA && awayHasB) || (homeHasB && awayHasA)) {
+        if (match.winner === MatchSide.HOME) {
+          return homeHasA ? 1 : -1
+        }
+
+        if (match.winner === MatchSide.AWAY) {
+          return awayHasA ? 1 : -1
+        }
+      }
+    }
+
+    return 0
+  }
+
+  return [...rows.values()].sort((a, b) => {
+    if (b.points !== a.points) {
+      return b.points - a.points
+    }
+
+    // Tiebreaker 1: set differential (only meaningful for League/Groups)
+    if (type === TournamentType.LEAGUE) {
+      const setDiffA = (a.setsWon ?? 0) - (a.setsLost ?? 0)
+      const setDiffB = (b.setsWon ?? 0) - (b.setsLost ?? 0)
+
+      if (setDiffB !== setDiffA) {
+        return setDiffB - setDiffA
+      }
+
+      // Tiebreaker 2: game differential
+      const gameDiffA = (a.gamesWon ?? 0) - (a.gamesLost ?? 0)
+      const gameDiffB = (b.gamesWon ?? 0) - (b.gamesLost ?? 0)
+
+      if (gameDiffB !== gameDiffA) {
+        return gameDiffB - gameDiffA
+      }
+
+      // Tiebreaker 3: head-to-head result
+      return headToHead(b.competitorId, a.competitorId)
+    }
+
+    // Americano fallback: games won
+    return (b.gamesWon ?? 0) - (a.gamesWon ?? 0)
+  })
 }

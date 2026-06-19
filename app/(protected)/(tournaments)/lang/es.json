@@ -69,6 +69,8 @@
       "pointsPerGameWon": "Puntos por ganar game",
       "competitorsPerGroup": "Cantidad de competidores x grupo",
       "qualifiersPerGroup": "Cantidad de competidores que pasan a eliminatoria",
+      "maxRounds": "Cantidad máxima de rondas",
+      "maxRoundsHint": "Opcional. Si se especifica, el torneo termina luego de esa cantidad de rondas.",
       "groupsPlayoffHint": "Los inscriptos se reparten en grupos que juegan todos contra todos; los mejores de cada grupo avanzan a la fase eliminatoria."
     },
     "standingsTable": {

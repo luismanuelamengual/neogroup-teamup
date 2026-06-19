@@ -9,24 +9,29 @@
     gap: 16px;
   }
 
-  .form-section {
+  .section {
     border: 1px solid var(--color-divider) !important;
     border-radius: var(--radius-md) !important;
     margin-bottom: 12px !important;
-
-    .title {
-      font-weight: 800;
-    }
+    overflow: hidden;
 
     &::before {
       display: none;
+    }
+
+    .section-header {
+      background-color: #f1f4f3;
+      
+      .title {
+        font-weight: 800;
+      }
     }
 
     .section-content {
       display: flex;
       flex-direction: column;
       gap: 16px;
-      padding-top: 10px;
+      padding-top: 20px;
 
       .category-row {
         display: flex;

@@ -42,14 +42,15 @@ export default function TournamentForm() {
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
   const [scoreFormat, setScoreFormat] = useState<ScoreFormat>(ScoreFormat.THREE_SETS)
+  const isAmericano = type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
   const [startDate, setStartDate] = useState('')
   const [startTime, setStartTime] = useState('')
   const [location, setLocation] = useState('')
   const [categories, setCategories] = useState<string[]>([])
-  const [maxCompetitors, setMaxCompetitors] = useState(8)
+  const [maxCompetitors, setMaxCompetitors] = useState(16)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
-  const [playoffSettings, setPlayoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
+  const [playoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
   const [groupsSettings, setGroupsSettings] = useState(DEFAULT_GROUPS_PLAYOFF_SETTINGS)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -63,7 +64,12 @@ export default function TournamentForm() {
           TournamentType.PLAYOFF_WITH_CONSOLATION,
           TournamentType.GROUPS_PLAYOFF
         ]
-      : [TournamentType.LEAGUE, TournamentType.PLAYOFF, TournamentType.PLAYOFF_WITH_CONSOLATION, TournamentType.GROUPS_PLAYOFF]
+      : [
+          TournamentType.LEAGUE,
+          TournamentType.PLAYOFF,
+          TournamentType.PLAYOFF_WITH_CONSOLATION,
+          TournamentType.GROUPS_PLAYOFF
+        ]
 
   const handleDisciplineChange = (value: Discipline) => {
     setDiscipline(value)
@@ -90,7 +96,7 @@ export default function TournamentForm() {
         discipline,
         subDiscipline: discipline === Discipline.TENNIS ? subDiscipline : null,
         type,
-        scoreFormat,
+        scoreFormat: isAmericano ? ScoreFormat.BASIC_COUNT : scoreFormat,
         startDate,
         startTime: startTime || null,
         location,
@@ -100,12 +106,12 @@ export default function TournamentForm() {
           type === TournamentType.LEAGUE
             ? leagueSettings
             : type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
-            ? americanoSettings
-            : type === TournamentType.PLAYOFF || type === TournamentType.PLAYOFF_WITH_CONSOLATION
-            ? playoffSettings
-            : type === TournamentType.GROUPS_PLAYOFF
-            ? groupsSettings
-            : {}
+              ? americanoSettings
+              : type === TournamentType.PLAYOFF || type === TournamentType.PLAYOFF_WITH_CONSOLATION
+                ? playoffSettings
+                : type === TournamentType.GROUPS_PLAYOFF
+                  ? groupsSettings
+                  : {}
       })
 
       createdId = created.id
@@ -129,8 +135,8 @@ export default function TournamentForm() {
     <Paper component="form" onSubmit={handleSubmit} className="tournament-form">
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Accordion defaultExpanded disableGutters elevation={0} className="form-section">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+      <Accordion defaultExpanded disableGutters elevation={0} className="section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
             {t('sections.generalData')}
           </Typography>
@@ -222,8 +228,8 @@ export default function TournamentForm() {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion disableGutters elevation={0} className="form-section">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+      <Accordion disableGutters elevation={0} className="section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
             {t('sections.advancedSettings')}
           </Typography>
@@ -232,19 +238,20 @@ export default function TournamentForm() {
           {type === TournamentType.GROUPS_PLAYOFF && <Alert severity="info">{t('settings.groupsPlayoffHint')}</Alert>}
 
           <div className="row">
-            <TextField
-              select
-              label={t('scoreFormat.label')}
-              value={scoreFormat}
-              onChange={(event) => setScoreFormat(Number(event.target.value) as ScoreFormat)}
-              fullWidth
-            >
-              <MenuItem value={ScoreFormat.THREE_SETS}>{t('scoreFormat.three_sets')}</MenuItem>
-              <MenuItem value={ScoreFormat.TWO_SETS_SUPER_TIEBREAK}>
-                {t('scoreFormat.two_sets_super_tiebreak')}
-              </MenuItem>
-              <MenuItem value={ScoreFormat.BASIC_COUNT}>{t('scoreFormat.basic_count')}</MenuItem>
-            </TextField>
+            {!isAmericano && (
+              <TextField
+                select
+                label={t('scoreFormat.label')}
+                value={scoreFormat}
+                onChange={(event) => setScoreFormat(Number(event.target.value) as ScoreFormat)}
+                fullWidth
+              >
+                <MenuItem value={ScoreFormat.THREE_SETS}>{t('scoreFormat.three_sets')}</MenuItem>
+                <MenuItem value={ScoreFormat.TWO_SETS_SUPER_TIEBREAK}>
+                  {t('scoreFormat.two_sets_super_tiebreak')}
+                </MenuItem>
+              </TextField>
+            )}
             <TextField
               label={isDoubles ? t('maxTeams') : t('maxCompetitors')}
               type="number"
@@ -290,29 +297,49 @@ export default function TournamentForm() {
               />
             </div>
           )}
-          {(type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP) && (
-            <div className="row">
-              <TextField
-                label={t('settings.pointsPerGameWon')}
-                type="number"
-                value={americanoSettings.pointsPerGameWon}
-                onChange={(event) =>
-                  setAmericanoSettings({ ...americanoSettings, pointsPerGameWon: Number(event.target.value) })
-                }
-                fullWidth
-                slotProps={{ htmlInput: { min: 0 } }}
-              />
-              <TextField
-                label={t('settings.pointsPerMatchWon')}
-                type="number"
-                value={americanoSettings.pointsPerMatchWon}
-                onChange={(event) =>
-                  setAmericanoSettings({ ...americanoSettings, pointsPerMatchWon: Number(event.target.value) })
-                }
-                fullWidth
-                slotProps={{ htmlInput: { min: 0 } }}
-              />
-            </div>
+          {isAmericano && (
+            <>
+              <div className="row">
+                <TextField
+                  label={t('settings.pointsPerGameWon')}
+                  type="number"
+                  value={americanoSettings.pointsPerGameWon}
+                  onChange={(event) =>
+                    setAmericanoSettings({ ...americanoSettings, pointsPerGameWon: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+                <TextField
+                  label={t('settings.pointsPerMatchWon')}
+                  type="number"
+                  value={americanoSettings.pointsPerMatchWon}
+                  onChange={(event) =>
+                    setAmericanoSettings({ ...americanoSettings, pointsPerMatchWon: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+              </div>
+              <div className="row">
+                <TextField
+                  label={t('settings.maxRounds')}
+                  type="number"
+                  value={americanoSettings.maxRounds ?? ''}
+                  onChange={(event) => {
+                    const val = event.target.value
+
+                    setAmericanoSettings({
+                      ...americanoSettings,
+                      maxRounds: val === '' ? undefined : Math.max(1, Number(val))
+                    })
+                  }}
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  helperText={t('settings.maxRoundsHint')}
+                />
+              </div>
+            </>
           )}
           {type === TournamentType.GROUPS_PLAYOFF && (
             <>
@@ -344,13 +371,45 @@ export default function TournamentForm() {
                   slotProps={{ htmlInput: { min: 1 } }}
                 />
               </div>
+              <div className="row">
+                <TextField
+                  label={t('settings.pointsPerPresent')}
+                  type="number"
+                  value={groupsSettings.pointsPerPresent}
+                  onChange={(event) =>
+                    setGroupsSettings({ ...groupsSettings, pointsPerPresent: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+                <TextField
+                  label={t('settings.pointsPerSetWon')}
+                  type="number"
+                  value={groupsSettings.pointsPerSetWon}
+                  onChange={(event) =>
+                    setGroupsSettings({ ...groupsSettings, pointsPerSetWon: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+                <TextField
+                  label={t('settings.pointsPerMatchWon')}
+                  type="number"
+                  value={groupsSettings.pointsPerMatchWon}
+                  onChange={(event) =>
+                    setGroupsSettings({ ...groupsSettings, pointsPerMatchWon: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+              </div>
             </>
           )}
         </AccordionDetails>
       </Accordion>
 
-      <Accordion disableGutters elevation={0} className="form-section">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+      <Accordion disableGutters elevation={0} className="section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
             {t('categories')}
           </Typography>

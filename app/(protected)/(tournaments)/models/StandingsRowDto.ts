@@ -5,6 +5,8 @@ export interface StandingsRowDto {
   played: number
   won: number
   setsWon?: number
+  setsLost?: number
   gamesWon?: number
+  gamesLost?: number
   points: number
 }

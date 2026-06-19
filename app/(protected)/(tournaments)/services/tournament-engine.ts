@@ -99,14 +99,20 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
     case TournamentType.LEAGUE:
       return roundRobinRoundsFor(competitorsCount)
 
-    case TournamentType.AMERICANO:
-      return roundRobinRoundsFor(competitorsCount)
+    case TournamentType.AMERICANO: {
+      const totalRounds = roundRobinRoundsFor(competitorsCount)
+      const maxRounds = settings.maxRounds
+
+      return maxRounds != null && maxRounds > 0 ? Math.min(totalRounds, maxRounds) : totalRounds
+    }
 
     case TournamentType.AMERICANO_WITH_SWAP: {
       // Individuals rotate partners: one round per circle-method rotation.
       const slots = competitorsCount % 2 === 0 ? competitorsCount : competitorsCount + 1
+      const totalRounds = slots - 1
+      const maxRounds = settings.maxRounds
 
-      return slots - 1
+      return maxRounds != null && maxRounds > 0 ? Math.min(totalRounds, maxRounds) : totalRounds
     }
 
     case TournamentType.PLAYOFF:
@@ -195,7 +201,7 @@ export function generateRoundRobinRound(competitorIds: number[], roundNumber: nu
  * partner each round (circle method) and the resulting teams are matched
  * sequentially. With an odd team count the last team rests.
  */
-function generateAmericanoSwapRound(competitorIds: number[], roundNumber: number): Pairing[] {
+export function generateAmericanoSwapRoundRobin(competitorIds: number[], roundNumber: number): Pairing[] {
   const partnerships = roundRobinPairs(competitorIds, roundNumber).filter(
     (pair): pair is [number, number] => pair[0] != null && pair[1] != null
   )
@@ -328,7 +334,7 @@ export function generateRoundPairings(
       return generateRoundRobinRound(competitorIds, roundNumber)
 
     case TournamentType.AMERICANO_WITH_SWAP:
-      return generateAmericanoSwapRound(competitorIds, roundNumber)
+      return generateAmericanoSwapRoundRobin(competitorIds, roundNumber)
 
     case TournamentType.PLAYOFF:
     case TournamentType.PLAYOFF_WITH_CONSOLATION:
