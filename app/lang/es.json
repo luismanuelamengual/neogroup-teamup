@@ -11,14 +11,5 @@
     "confirm": "Confirmar",
     "genericError": "Algo salió mal. Intentá de nuevo.",
     "requiredField": "Este campo es obligatorio"
-  },
-  "nav": {
-    "myTournaments": "Mis torneos",
-    "newTournament": "Crear torneo",
-    "searchTournaments": "Buscar torneos",
-    "account": "Mi cuenta",
-    "logout": "Cerrar sesión",
-    "profileOrganizer": "Organizador",
-    "profilePlayer": "Jugador"
   }
 }

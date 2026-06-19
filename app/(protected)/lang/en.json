@@ -1,0 +1,11 @@
+{
+  "nav": {
+    "myTournaments": "My tournaments",
+    "newTournament": "Create tournament",
+    "searchTournaments": "Search tournaments",
+    "account": "My account",
+    "logout": "Sign out",
+    "profileOrganizer": "Organizer",
+    "profilePlayer": "Player"
+  }
+}

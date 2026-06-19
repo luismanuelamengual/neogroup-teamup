@@ -4,7 +4,7 @@ import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
 import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { auth } from '@/app/(auth)/services/auth'
-import AppShell from '@/app/components/AppShell'
+import AppShell from '@/app/(protected)/components/AppShell'
 import Loading from '@/app/components/Loading'
 
 /**

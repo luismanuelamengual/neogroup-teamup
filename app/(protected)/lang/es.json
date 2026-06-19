@@ -1,0 +1,11 @@
+{
+  "nav": {
+    "myTournaments": "Mis torneos",
+    "newTournament": "Crear torneo",
+    "searchTournaments": "Buscar torneos",
+    "account": "Mi cuenta",
+    "logout": "Cerrar sesión",
+    "profileOrganizer": "Organizador",
+    "profilePlayer": "Jugador"
+  }
+}
