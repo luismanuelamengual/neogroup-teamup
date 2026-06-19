@@ -9,6 +9,7 @@ import { User } from '@/app/(auth)/models/User'
 import { authConfig } from '@/app/(auth)/services/auth.config'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { getGravatarUrl } from '@/app/utils/gravatar'
+import { resolveOrgDomainFromHost } from '@/app/utils/org-domain'
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
@@ -29,10 +30,15 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
-        // Resolve the organization from the subdomain so we only look up users
-        // that belong to the current organization.
-        const orgDomain =
-          (request as Request).headers.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
+        // Resolve the organization from the Host header directly. We cannot rely
+        // on x-org-domain here because the middleware matcher excludes /api/ paths.
+        const host = (request as Request).headers.get('host') ?? ''
+        const orgDomain = resolveOrgDomainFromHost(host)
+
+        if (orgDomain === '__root__') {
+          return null
+        }
+
         const organization = await Organization.where('domainName', orgDomain).first()
 
         if (!organization) {
@@ -60,13 +66,14 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
     async jwt({ token, user, account, profile, trigger }) {
       // First sign-in with Google: find or create the user scoped to the current
-      // organization. We use headers() from next/headers because this callback
-      // runs inside the /api/auth/callback/google Route Handler context, where
-      // Next.js async-local-storage (and therefore x-org-domain) is available.
+      // organization. We read the Host header (always present, regardless of the
+      // middleware matcher) to resolve the org — x-org-domain is not available
+      // on /api/ paths since the middleware excludes them.
       if (account?.provider === 'google' && token.email) {
         const headersList = await nextHeaders()
-        const orgDomain = headersList.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
-        const organization = await Organization.where('domainName', orgDomain).first()
+        const host = headersList.get('host') ?? ''
+        const orgDomain = resolveOrgDomainFromHost(host)
+        const organization = orgDomain !== '__root__' ? await Organization.where('domainName', orgDomain).first() : null
 
         if (organization) {
           const email = token.email.toLowerCase()
