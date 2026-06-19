@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import LoginForm from '@/app/(auth)/components/LoginForm'
+import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
 import { Organization } from '@/app/(auth)/models/Organization'
-import OrgNotFound from '@/app/components/OrgNotFound'
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
   const headersList = await headers()

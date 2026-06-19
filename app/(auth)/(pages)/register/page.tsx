@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
 import RegisterForm from '@/app/(auth)/components/RegisterForm'
 import { Organization } from '@/app/(auth)/models/Organization'
-import OrgNotFound from '@/app/components/OrgNotFound'
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
   const headersList = await headers()

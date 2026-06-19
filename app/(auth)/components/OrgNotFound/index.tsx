@@ -21,8 +21,8 @@ export default function OrgNotFound({ orgDomain }: OrgNotFoundProps) {
         <strong>{orgDomain}</strong> no está registrada en el sistema.
       </Typography>
       <Typography variant="body2" className="org-not-found-hint">
-        Si creés que esto es un error, o querés registrar tu organización, contactate con{' '}
-        <strong>Luis Amengual</strong>:
+        Si creés que esto es un error, o querés registrar tu organización, contactate con <strong>Luis Amengual</strong>
+        :
       </Typography>
       <Button
         variant="outlined"
