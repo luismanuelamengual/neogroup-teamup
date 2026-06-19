@@ -1,0 +1,38 @@
+.org-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+
+  .org-not-found-logo {
+    height: auto;
+    margin-bottom: 8px;
+  }
+
+  .org-not-found-icon {
+    font-size: 56px;
+    color: var(--color-error);
+    opacity: 0.85;
+  }
+
+  .org-not-found-title {
+    font-weight: 700;
+  }
+
+  .org-not-found-message {
+    color: var(--color-text);
+  }
+
+  .org-not-found-hint {
+    color: var(--color-text-secondary);
+    max-width: 320px;
+    line-height: 1.6;
+  }
+
+  .org-not-found-button {
+    margin-top: 4px;
+    text-transform: none;
+    font-size: 0.875rem;
+  }
+}

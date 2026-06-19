@@ -148,6 +148,8 @@ export default function Avatar({ email, name, size = 'md', className, editable =
 
       {gravatarUrl && (
         <Image
+          width={80}
+          height={80}
           className="app-avatar__image"
           src={gravatarUrl}
           alt={name}

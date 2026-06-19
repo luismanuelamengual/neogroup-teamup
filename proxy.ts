@@ -5,14 +5,33 @@ import { authConfig } from '@/app/(auth)/services/auth.config'
 const { auth } = NextAuth(authConfig)
 
 /**
+ * Returns true when the request comes from the root domain (e.g. "teamup.ar")
+ * with no subdomain. Localhost is never treated as the root domain.
+ */
+function isRootDomain(host: string): boolean {
+  if (!host || host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
+    return false
+  }
+
+  // "teamup.ar"          → ['teamup', 'ar']          → 2 parts → root domain
+  // "club-aleman.teamup.ar" → ['club-aleman', 'teamup', 'ar'] → 3 parts → subdomain
+  return host.split('.').length === 2
+}
+
+/**
  * Resolves the organization domain from the incoming request host.
  *
- * - Production:  club-aleman.teamup.ar  →  "club-aleman"
- * - Local dev:   localhost:3000          →  DEFAULT_ORG_DOMAIN env var (defaults to "demo")
+ * - Production root:    teamup.ar               →  "__root__" (landing page)
+ * - Production sub:     club-aleman.teamup.ar   →  "club-aleman"
+ * - Local dev:          localhost:3000           →  DEFAULT_ORG_DOMAIN env var (defaults to "demo")
  */
 function resolveOrgDomain(host: string): string {
   if (!host || host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
     return process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
+  }
+
+  if (isRootDomain(host)) {
+    return '__root__'
   }
 
   // e.g. "club-aleman.teamup.ar" → "club-aleman"
