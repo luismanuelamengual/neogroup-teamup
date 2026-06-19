@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import { headers as nextHeaders } from 'next/headers'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
@@ -30,7 +31,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
         // Resolve the organization from the subdomain so we only look up users
         // that belong to the current organization.
-        const orgDomain = (request as Request).headers.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
+        const orgDomain =
+          (request as Request).headers.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
         const organization = await Organization.where('domainName', orgDomain).first()
 
         if (!organization) {
@@ -55,53 +57,36 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ],
   callbacks: {
     ...authConfig.callbacks,
-    /**
-     * For Google sign-in: find or create the user scoped to the current
-     * organization (resolved from the x-org-domain header set by the proxy).
-     * This runs before the jwt callback and has access to the request.
-     */
-    async signIn({ user, account, profile, request }) {
-      if (account?.provider === 'google') {
-        const orgDomain = (request as Request)?.headers?.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
+
+    async jwt({ token, user, account, profile, trigger }) {
+      // First sign-in with Google: find or create the user scoped to the current
+      // organization. We use headers() from next/headers because this callback
+      // runs inside the /api/auth/callback/google Route Handler context, where
+      // Next.js async-local-storage (and therefore x-org-domain) is available.
+      if (account?.provider === 'google' && token.email) {
+        const headersList = await nextHeaders()
+        const orgDomain = headersList.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
         const organization = await Organization.where('domainName', orgDomain).first()
 
-        if (!organization) {
-          return false
+        if (organization) {
+          const email = token.email.toLowerCase()
+          let dbUser = await User.where('organizationId', organization.id).where('email', email).first()
+
+          if (!dbUser) {
+            dbUser = new User()
+            dbUser.organizationId = organization.id
+            dbUser.email = email
+            dbUser.passwordHash = null
+            dbUser.firstName = (profile?.given_name as string | undefined) ?? null
+            dbUser.lastName = (profile?.family_name as string | undefined) ?? null
+            dbUser.nickname = null
+            dbUser.roleId = null
+            await dbUser.save()
+          }
+
+          token.userId = Number(dbUser.id)
+          token.userLoaded = false
         }
-
-        const email = (user.email ?? '').toLowerCase()
-
-        if (!email) {
-          return false
-        }
-
-        let dbUser = await User.where('organizationId', organization.id).where('email', email).first()
-
-        if (!dbUser) {
-          dbUser = new User()
-          dbUser.organizationId = organization.id
-          dbUser.email = email
-          dbUser.passwordHash = null
-          dbUser.firstName = (profile?.given_name as string | undefined) ?? null
-          dbUser.lastName = (profile?.family_name as string | undefined) ?? null
-          dbUser.nickname = null
-          dbUser.roleId = null
-          await dbUser.save()
-        }
-
-        // Overwrite user.id with our internal DB id so the jwt callback can
-        // read it via the `user` parameter on first sign-in.
-        user.id = String(dbUser.id)
-      }
-
-      return true
-    },
-
-    async jwt({ token, user, account, trigger }) {
-      // First sign-in with Google: user.id was set in the signIn callback above.
-      if (account?.provider === 'google' && user?.id) {
-        token.userId = Number(user.id)
-        token.userLoaded = false
       }
 
       // First sign-in with credentials.
@@ -131,7 +116,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async session({ session, token }) {
       if (token.userId) {
         session.user.id = String(token.userId)
-        session.user.organizationId = token.organizationId ?? 0
+        session.user.organizationId = (token.organizationId as number | undefined) ?? 0
         session.user.roleId = (token.roleId as Role | undefined) ?? null
         session.user.firstName = (token.firstName as string | undefined) ?? null
         session.user.lastName = (token.lastName as string | undefined) ?? null
