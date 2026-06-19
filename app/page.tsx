@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { auth } from '@/app/(auth)/services/auth'
-import LandingPage from '@/app/components/LandingPage'
+import LandingPage from '@/app/(public)/components/LandingPage'
 
 /**
  * Entry point: routes the user to the right home depending on the session,
