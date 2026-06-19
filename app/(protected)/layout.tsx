@@ -5,7 +5,7 @@ import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
 import { Organization } from '@/app/(auth)/models/Organization'
 import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
-import { auth, signOut } from '@/app/(auth)/services/auth'
+import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/(protected)/components/AppShell'
 import Loading from '@/app/components/Loading'
 
@@ -37,7 +37,10 @@ export default async function Layout({ children }: { children: ReactNode }) {
   const organization = await Organization.where('domainName', orgDomain).first()
 
   if (!organization || session.user.organizationId !== organization.id) {
-    await signOut({ redirectTo: '/login' })
+    // Writing cookies (required to clear the session) is not allowed in Server
+    // Component layouts — only in Route Handlers and Server Actions. We redirect
+    // to a dedicated Route Handler that calls signOut and then goes to /login.
+    redirect('/api/signout')
   }
 
   const user: SessionUser = {
