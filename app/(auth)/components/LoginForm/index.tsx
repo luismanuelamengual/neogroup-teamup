@@ -38,10 +38,9 @@ export default function LoginForm({ callbackUrl }: LoginFormProps) {
       redirect: false
     })
 
-    setLoading(false)
-
     if (response?.error) {
       setError(t('errors.invalidCredentials'))
+      setLoading(false)
 
       return
     }

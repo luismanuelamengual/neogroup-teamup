@@ -105,8 +105,14 @@ export function TournamentCardSkeleton() {
         <MuiSkeleton variant="rounded" width={70} height={20} sx={{ borderRadius: 8 }} />
       </div>
       <div className="details">
-        <MuiSkeleton variant="text" width="40%" height={18} />
-        <MuiSkeleton variant="text" width="35%" height={18} />
+        <MuiSkeleton variant="text" width="15%" height={22} />
+        <MuiSkeleton variant="text" width="10%" height={22} />
+      </div>
+      <div className="categories">
+        <div className="category-chip">
+          <MuiSkeleton variant="text" width={80} height={16} />
+          <MuiSkeleton variant="text" width={50} height={16} />
+        </div>
       </div>
     </Paper>
   )
