@@ -4,7 +4,7 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 /** Serializable representation of a Match — safe to pass server→client. */
 export interface MatchDto {
   id: number
-  tournamentId: number
+  tournamentCategoryId: number
   roundId: number
   position: number
   homeCompetitorIds: number[]

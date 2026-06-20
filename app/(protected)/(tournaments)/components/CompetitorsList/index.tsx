@@ -18,7 +18,7 @@ export default function CompetitorsList({ tournament, category }: CompetitorsLis
     const all = tournament.competitors ?? []
 
     if (category != null) {
-      return all.filter((c) => c.categoryId === category)
+      return all.filter((c) => c.tournamentCategoryId === category)
     }
 
     return all

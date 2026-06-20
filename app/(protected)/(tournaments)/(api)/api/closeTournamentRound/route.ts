@@ -3,7 +3,10 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { Round } from '@/app/(protected)/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { requireOwnedTournament } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import {
+  getTournamentCategories,
+  requireOwnedTournament
+} from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
@@ -19,7 +22,13 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
 
   // The active frontier may span several rounds (one per category/group); close
   // them all once every match is resolved.
-  const openRounds = await Round.where('tournamentId', tournamentId).where('active', true).get()
+  const categories = await getTournamentCategories(tournament)
+  const openRounds = await Round.whereIn(
+    'tournamentCategoryId',
+    categories.map((category) => category.id)
+  )
+    .where('active', true)
+    .get()
 
   if (openRounds.length === 0) {
     throw new ApiException('invalidStatus')

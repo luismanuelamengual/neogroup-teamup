@@ -1,12 +1,12 @@
-import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
+import { BaseEntity, BelongsTo, Column, Entity, HasMany, HasManyThrough } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
-import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { Round } from '@/app/(protected)/(tournaments)/models/Round'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -55,13 +55,6 @@ export class Tournament extends BaseEntity {
   @Column()
   location!: string | null
 
-  /** Ids of the categories (from the categories table) this tournament runs. */
-  @Column({ cast: 'array' })
-  categoryIds!: number[] | null
-
-  @Column({ cast: 'number' })
-  maxCompetitors!: number
-
   @Column({ cast: 'json' })
   settings!: TournamentSettings | null
 
@@ -71,22 +64,26 @@ export class Tournament extends BaseEntity {
   @Column({ cast: 'date' })
   updatedAt!: Date
 
-  /**
-   * Resolved categories (id + name + …) for this tournament's categoryIds.
-   * Not a database column — populated by the tournament service so the UI can
-   * display category names without extra lookups.
-   */
-  categories?: Category[]
-
   @BelongsTo(() => User, 'ownerId')
   owner?: User
 
-  @HasMany(() => Competitor, 'tournamentId')
+  /**
+   * Concrete category instances of the tournament (always at least one). When
+   * the tournament has no organizer-defined categories this is a single row
+   * with categoryId = null (the "single category").
+   */
+  @HasMany(() => TournamentCategory, 'tournamentId')
+  categories?: TournamentCategory[]
+
+  /** Competitors across every category, reached through tournament_categories. */
+  @HasManyThrough(() => Competitor, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   competitors?: Competitor[]
 
-  @HasMany(() => Round, 'tournamentId')
+  /** Rounds across every category, reached through tournament_categories. */
+  @HasManyThrough(() => Round, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   rounds?: Round[]
 
-  @HasMany(() => Match, 'tournamentId')
+  /** Matches across every category, reached through tournament_categories. */
+  @HasManyThrough(() => Match, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   matches?: Match[]
 }

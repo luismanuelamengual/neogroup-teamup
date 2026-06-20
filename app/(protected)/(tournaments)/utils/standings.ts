@@ -3,9 +3,9 @@ import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
+import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/StandingsRowDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
 
@@ -40,8 +40,8 @@ export function computeStandings(
     allRounds
       .filter(
         (r) =>
-          (category == null || (r.categoryId ?? null) === category) &&
-          (r.groupNumber ?? null) === (groupNumber ?? null) &&
+          (category == null || r.tournamentCategoryId === category) &&
+          (r.settings?.groupNumber ?? null) === (groupNumber ?? null) &&
           (r.type === RoundType.LEAGUE || r.type === RoundType.AMERICANO)
       )
       .map((r) => r.id)
@@ -62,15 +62,13 @@ export function computeStandings(
   const competitors = isGroups
     ? allCompetitors.filter((c) => groupCompetitorIds.has(c.id))
     : category != null
-    ? allCompetitors.filter((c) => c.categoryId === category)
-    : allCompetitors
+      ? allCompetitors.filter((c) => c.tournamentCategoryId === category)
+      : allCompetitors
   // Groups score like a league (sets + match wins).
   // AMERICANO_WITH_SWAP scores the same as AMERICANO.
   const rawType = isGroups ? TournamentType.LEAGUE : tournament.type
-  const type =
-    rawType === TournamentType.AMERICANO_WITH_SWAP ? TournamentType.AMERICANO : rawType
+  const type = rawType === TournamentType.AMERICANO_WITH_SWAP ? TournamentType.AMERICANO : rawType
   const { scoreFormat, settings } = tournament
-
   const groupsDefaults = DEFAULT_GROUPS_PLAYOFF_SETTINGS
   const leagueSettings = isGroups
     ? {
@@ -80,7 +78,6 @@ export function computeStandings(
       }
     : { ...DEFAULT_LEAGUE_SETTINGS, ...(settings ?? {}) }
   const americanoSettings = { ...DEFAULT_AMERICANO_SETTINGS, ...(settings ?? {}) }
-
   const rows = new Map<number, StandingsRowDto>()
 
   for (const competitor of competitors) {

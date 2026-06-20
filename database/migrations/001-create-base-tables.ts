@@ -10,8 +10,8 @@ import { DB } from '@neogroup/neorm'
  * SubDiscipline, TournamentType, ScoreFormat, MatchStatus, MatchSide,
  * RoundStatus, RoundType).
  *
- * Array columns (tournaments.categoryIds, matches.homeCompetitorIds /
- * awayCompetitorIds) use the native PostgreSQL INT[] type. On SQLite — which
+ * Array columns (matches.homeCompetitorIds / awayCompetitorIds) use the native
+ * PostgreSQL INT[] type. On SQLite — which
  * has no array type — they are stored as TEXT holding a JSON array (the models
  * cast them with `json` only on SQLite). The same applies to JSONB:
  * tournaments.settings is JSONB on PostgreSQL and TEXT on SQLite.
@@ -61,8 +61,9 @@ export default {
       `)
 
       // Catalogue of categories, scoped to an organization and a
-      // discipline/subDiscipline. Tournaments reference a subset of these by id
-      // (tournaments.categoryIds) and competitors/rounds point to a single one.
+      // discipline/subDiscipline. Tournaments materialise these into concrete
+      // tournament_categories instances (see below); competitors, rounds and
+      // matches point to a single tournament_categories row.
       await conn.execute(`
         CREATE TABLE IF NOT EXISTS categories (
           id ${ID},
@@ -88,23 +89,34 @@ export default {
           startDate VARCHAR(10) NOT NULL,
           startTime VARCHAR(5),
           location VARCHAR(255),
-          categoryIds ${INT_ARRAY},
-          maxCompetitors INTEGER NOT NULL,
           settings ${JSON_TYPE},
           createdAt ${TIMESTAMP},
           updatedAt ${TIMESTAMP}
         )
       `)
 
+      // Concrete category instances of a tournament. A tournament always has at
+      // least one: when the organizer defines categories there is one row per
+      // category (categoryId set); when it has none there is a single row with
+      // categoryId = NULL (the "single category"). maxCompetitors is the entry
+      // limit of that instance.
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS tournament_categories (
+          id ${ID},
+          tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
+          categoryId INTEGER REFERENCES categories (id),
+          maxCompetitors INTEGER NOT NULL
+        )
+      `)
+
       await conn.execute(`
         CREATE TABLE IF NOT EXISTS competitors (
           id ${ID},
-          tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
+          tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
           userId INTEGER REFERENCES users (id),
           partnerUserId INTEGER REFERENCES users (id),
           partnerName VARCHAR(150),
           displayName VARCHAR(255) NOT NULL,
-          categoryId INTEGER REFERENCES categories (id),
           createdAt ${TIMESTAMP}
         )
       `)
@@ -112,12 +124,11 @@ export default {
       await conn.execute(`
         CREATE TABLE IF NOT EXISTS rounds (
           id ${ID},
-          tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
+          tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
           number INTEGER NOT NULL,
           status INTEGER NOT NULL DEFAULT 1,
-          categoryId INTEGER REFERENCES categories (id),
           type INTEGER NOT NULL,
-          groupNumber INTEGER,
+          settings ${JSON_TYPE},
           active ${BOOLEAN_FALSE},
           createdAt ${TIMESTAMP}
         )
@@ -126,7 +137,7 @@ export default {
       await conn.execute(`
         CREATE TABLE IF NOT EXISTS matches (
           id ${ID},
-          tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
+          tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
           roundId INTEGER NOT NULL REFERENCES rounds (id) ON DELETE CASCADE,
           position INTEGER NOT NULL DEFAULT 0,
           homeCompetitorIds ${INT_ARRAY} NOT NULL,
@@ -140,20 +151,19 @@ export default {
       `)
 
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_organization ON users (organizationId)')
-      await conn.execute(
-        'CREATE INDEX IF NOT EXISTS idx_categories_lookup ON categories (organizationId, discipline)'
-      )
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_categories_lookup ON categories (organizationId, discipline)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_organization ON tournaments (organizationId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_owner ON tournaments (ownerId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments (status)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_competitors_tournament ON competitors (tournamentId)')
+      await conn.execute(
+        'CREATE INDEX IF NOT EXISTS idx_tournament_categories_tournament ON tournament_categories (tournamentId)'
+      )
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_competitors_user ON competitors (userId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_competitors_category ON competitors (tournamentId, categoryId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_tournament ON rounds (tournamentId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_category ON rounds (tournamentId, categoryId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_type ON rounds (tournamentId, type, groupNumber)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_active ON rounds (tournamentId, active)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_tournament ON matches (tournamentId)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_competitors_category ON competitors (tournamentCategoryId)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_category ON rounds (tournamentCategoryId)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_type ON rounds (tournamentCategoryId, type)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_active ON rounds (tournamentCategoryId, active)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_category ON matches (tournamentCategoryId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_round ON matches (roundId)')
     })
   }

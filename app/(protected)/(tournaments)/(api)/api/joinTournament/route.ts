@@ -11,7 +11,7 @@ import { withAuth } from '@/app/utils/api-server'
 /** POST /api/joinTournament — registers the signed-in user (optionally with a partner) into a tournament. */
 export const POST = withAuth(async (request, context, userId, _organizationId) => {
   const { tournamentId, ...input } = (await request.json()) as JoinTournamentInput & { tournamentId: number }
-  const tournament = await Tournament.where('id', Number(tournamentId)).with('competitors').first()
+  const tournament = await Tournament.where('id', Number(tournamentId)).with('categories', 'competitors').first()
 
   if (!tournament) {
     throw new ApiException('notFound')
@@ -22,34 +22,38 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   }
 
   const competitors = tournament.competitors ?? []
-  const hasCategories = tournament.categoryIds && tournament.categoryIds.length > 0
-  // Category is mandatory when the tournament defines categories.
-  let categoryId: number | null = null
+  const categories = tournament.categories ?? []
+  const realCategories = categories.filter((category) => category.categoryId != null)
+  // Resolve the category instance this entry registers into. When the
+  // tournament defines categories the player must pick one; otherwise it is the
+  // single category (categoryId = null).
+  let targetCategory
 
-  if (hasCategories) {
-    const requested = input.categoryId != null ? Number(input.categoryId) : null
+  if (realCategories.length > 0) {
+    const requested = input.tournamentCategoryId != null ? Number(input.tournamentCategoryId) : null
 
     if (!requested) {
       throw new ApiException('categoryRequired')
     }
 
-    categoryId = tournament.categoryIds!.includes(requested) ? requested : null
+    targetCategory = realCategories.find((category) => category.id === requested)
 
-    if (!categoryId) {
+    if (!targetCategory) {
       throw new ApiException('invalidCategory')
     }
-
-    // When categories exist, the limit applies per category.
-    const categoryCount = competitors.filter((c) => c.categoryId === categoryId).length
-
-    if (categoryCount >= tournament.maxCompetitors) {
-      throw new ApiException('tournamentFull')
-    }
   } else {
-    // No categories: the limit applies to the whole tournament.
-    if (competitors.length >= tournament.maxCompetitors) {
-      throw new ApiException('tournamentFull')
+    targetCategory = categories[0]
+
+    if (!targetCategory) {
+      throw new ApiException('invalidCategory')
     }
+  }
+
+  // The entry limit always applies per category instance.
+  const categoryCount = competitors.filter((c) => c.tournamentCategoryId === targetCategory.id).length
+
+  if (categoryCount >= targetCategory.maxCompetitors) {
+    throw new ApiException('tournamentFull')
   }
 
   const alreadyRegistered = competitors.some(
@@ -96,14 +100,13 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
 
   const competitor = new Competitor()
 
-  competitor.tournamentId = tournament.id
+  competitor.tournamentCategoryId = targetCategory.id
   competitor.userId = userId
   competitor.partnerUserId = partnerUserId
   competitor.partnerName = null
   competitor.displayName = needsPartner
     ? `${getUserDisplayName(user)} / ${partnerDisplayName}`
     : getUserDisplayName(user)
-  competitor.categoryId = categoryId
   competitor.createdAt = new Date()
   await competitor.save()
 })

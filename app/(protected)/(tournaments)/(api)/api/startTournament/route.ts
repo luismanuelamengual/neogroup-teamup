@@ -1,4 +1,5 @@
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
+import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { createRound, requireOwnedTournament } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { ApiException } from '@/app/models/ApiException'
@@ -17,14 +18,22 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     throw new ApiException('invalidStatus')
   }
 
-  // Remove categories that have no registered competitors before starting.
-  if (tournament.categoryIds && tournament.categoryIds.length > 0) {
-    const competitors = await Competitor.where('tournamentId', tournament.id).get()
-    const usedCategoryIds = new Set(competitors.map((c) => c.categoryId))
-    const filtered = tournament.categoryIds.filter((categoryId) => usedCategoryIds.has(categoryId))
+  // Remove real category instances that have no registered competitors before
+  // starting. The single category (categoryId = null) is always kept.
+  const categories = await TournamentCategory.where('tournamentId', tournament.id).get()
+  const realCategories = categories.filter((category) => category.categoryId != null)
 
-    if (filtered.length !== tournament.categoryIds.length) {
-      tournament.categoryIds = filtered.length > 0 ? filtered : null
+  if (realCategories.length > 0) {
+    const competitors = await Competitor.whereIn(
+      'tournamentCategoryId',
+      categories.map((category) => category.id)
+    ).get()
+    const usedCategoryIds = new Set(competitors.map((competitor) => competitor.tournamentCategoryId))
+
+    for (const category of realCategories) {
+      if (!usedCategoryIds.has(category.id)) {
+        await category.delete()
+      }
     }
   }
 

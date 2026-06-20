@@ -5,7 +5,7 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { getMaxTotalRounds } from '@/app/(protected)/(tournaments)/services/tournament-engine'
 import {
   createRound,
-  getTournamentCategoryKeys,
+  getTournamentCategories,
   requireOwnedTournament
 } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { ApiException } from '@/app/models/ApiException'
@@ -21,9 +21,11 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     throw new ApiException('invalidStatus')
   }
 
+  const categories = await getTournamentCategories(tournament)
+  const categoryIds = categories.map((category) => category.id)
   // The "current" round number is the highest one already materialised; it must
   // be fully closed (no active/open round) before the next one can start.
-  const allRounds = await Round.where('tournamentId', tournamentId).get()
+  const allRounds = await Round.whereIn('tournamentCategoryId', categoryIds).get()
   const currentNumber = allRounds.length > 0 ? Math.max(...allRounds.map((round) => round.number)) : 0
   const openAtCurrent = allRounds.filter((round) => round.number === currentNumber && round.status === RoundStatus.OPEN)
 
@@ -31,11 +33,9 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     throw new ApiException('roundStillOpen')
   }
 
-  const competitors = await Competitor.where('tournamentId', tournamentId).get()
-  const groupSizes = getTournamentCategoryKeys(tournament).map((categoryId) =>
-    categoryId === null
-      ? competitors.length
-      : competitors.filter((competitor) => competitor.categoryId === categoryId).length
+  const competitors = await Competitor.whereIn('tournamentCategoryId', categoryIds).get()
+  const groupSizes = categories.map(
+    (category) => competitors.filter((competitor) => competitor.tournamentCategoryId === category.id).length
   )
   const totalRounds = getMaxTotalRounds(tournament.type, tournament.settings ?? {}, groupSizes)
 

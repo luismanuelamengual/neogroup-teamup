@@ -16,13 +16,13 @@ import { withAuth } from '@/app/utils/api-server'
  */
 export const POST = withAuth(async (request, context, userId, _organizationId) => {
   const { id, score } = (await request.json()) as { id: number; score: MatchScore }
-  const match = await Match.where('id', Number(id)).with('tournament', 'round').first()
+  const match = await Match.where('id', Number(id)).with('tournamentCategory.tournament', 'round').first()
 
   if (!match || !match.awayCompetitorIds) {
     throw new ApiException('notFound')
   }
 
-  const tournament = match.tournament ?? null
+  const tournament = match.tournamentCategory?.tournament ?? null
 
   if (!tournament || tournament.status !== TournamentStatus.ONGOING) {
     throw new ApiException('invalidStatus')

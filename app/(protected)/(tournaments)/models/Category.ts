@@ -6,8 +6,9 @@ import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipl
  * Catalogue of categories scoped to an organization and a discipline /
  * sub-discipline. Categories are created on demand the first time an organizer
  * uses a given name while creating a tournament, and reused afterwards (which
- * powers the category autocomplete). Tournaments reference a subset of them by
- * id (tournaments.categoryIds); competitors and rounds point to a single one.
+ * powers the category autocomplete). Tournaments materialise a subset of them
+ * into tournament_categories rows; competitors, rounds and matches point to one
+ * of those category instances.
  */
 @Entity({ table: 'categories' })
 export class Category extends BaseEntity {

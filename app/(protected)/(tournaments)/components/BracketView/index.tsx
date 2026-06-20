@@ -32,7 +32,7 @@ export default function BracketView({
   const rounds = useMemo(() => {
     const all = tournament.rounds ?? []
     const filtered = all.filter(
-      (r) => (category == null || (r.categoryId ?? null) === category) && r.type === roundType
+      (r) => (category == null || r.tournamentCategoryId === category) && r.type === roundType
     )
 
     return [...filtered].sort((a, b) => a.number - b.number)
@@ -59,7 +59,7 @@ export default function BracketView({
             r.active &&
             r.status === RoundStatus.OPEN &&
             r.type === roundType &&
-            (category == null || (r.categoryId ?? null) === category)
+            (category == null || r.tournamentCategoryId === category)
         )
         .map((r) => r.id)
     )

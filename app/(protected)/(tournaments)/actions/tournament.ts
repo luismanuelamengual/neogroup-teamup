@@ -8,7 +8,7 @@ import { executeRequest } from '@/app/actions/api'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
 /** Payload accepted by createTournament: a tournament plus the category names to resolve/create. */
-export type CreateTournamentInput = Partial<TournamentDto> & { categoryNames?: string[] }
+export type CreateTournamentInput = Partial<TournamentDto> & { categoryNames?: string[]; maxCompetitors?: number }
 
 export interface TournamentFilters {
   name?: string
@@ -73,7 +73,8 @@ export async function saveMatchResult(matchId: number, score: MatchScore): Promi
 /** Payload to register the signed-in user (optionally with a partner) into a tournament. */
 export interface JoinTournamentInput {
   partnerUserId?: number | null
-  categoryId?: number | null
+  /** Category instance (tournament_categories.id) to register into. */
+  tournamentCategoryId?: number | null
 }
 
 /** Searches all visible tournaments of the organization by name and/or status. */

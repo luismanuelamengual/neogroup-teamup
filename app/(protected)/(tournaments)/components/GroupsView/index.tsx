@@ -26,7 +26,7 @@ export default function GroupsView({ tournament, category, organizerMode = false
 
     for (const round of tournament.rounds ?? []) {
       if (
-        (category == null || (round.categoryId ?? null) === category) &&
+        (category == null || round.tournamentCategoryId === category) &&
         round.type === RoundType.LEAGUE &&
         round.groupNumber != null
       ) {

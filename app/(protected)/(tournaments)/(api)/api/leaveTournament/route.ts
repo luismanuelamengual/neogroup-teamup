@@ -1,6 +1,7 @@
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { getTournamentCategories } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
@@ -17,7 +18,13 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     throw new ApiException('registrationClosed')
   }
 
-  const entry = await Competitor.where('tournamentId', tournament.id).where('userId', userId).first()
+  const categories = await getTournamentCategories(tournament)
+  const entry = await Competitor.whereIn(
+    'tournamentCategoryId',
+    categories.map((category) => category.id)
+  )
+    .where('userId', userId)
+    .first()
 
   if (!entry) {
     throw new ApiException('notRegistered')

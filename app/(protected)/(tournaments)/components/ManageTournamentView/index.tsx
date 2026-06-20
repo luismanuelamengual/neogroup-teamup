@@ -72,13 +72,15 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
   const rounds = tournament?.rounds ?? []
-  const categoryKeys = useMemo<(number | null)[]>(
-    () => (tournament?.categoryIds && tournament.categoryIds.length > 0 ? tournament.categoryIds : [null]),
-    [tournament]
-  )
+  const categories = useMemo(() => tournament?.categories ?? [], [tournament])
+  const categoryKeys = useMemo<number[]>(() => categories.map((category) => category.id), [categories])
   const categoryNameById = useMemo(
-    () => new Map((tournament?.categories ?? []).map((category) => [category.id, category.name])),
-    [tournament]
+    () => new Map(categories.map((category) => [category.id, category.category?.name ?? null])),
+    [categories]
+  )
+  const maxByCategory = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.maxCompetitors])),
+    [categories]
   )
 
   if (loading) {
@@ -105,12 +107,13 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
     return <Alert severity="error">{tOrganizer('errors.notFound')}</Alert>
   }
 
-  const hasCategories = categoryKeys.some((key) => key !== null)
-  // Per-category data (a single null group when there are no categories).
+  // The single category (categoryId = null) renders the flat layout; real
+  // categories render one accordion each.
+  const hasCategories = categories.some((category) => category.categoryId != null)
+  const singleMaxCompetitors = categories[0]?.maxCompetitors ?? 0
   const categoryGroups = categoryKeys.map((key) => {
-    const groupCompetitors =
-      key === null ? competitors : competitors.filter((competitor) => competitor.categoryId === key)
-    const groupRounds = rounds.filter((round) => (round.categoryId ?? null) === key)
+    const groupCompetitors = competitors.filter((competitor) => competitor.tournamentCategoryId === key)
+    const groupRounds = rounds.filter((round) => round.tournamentCategoryId === key)
 
     return { key, groupCompetitors, groupRounds }
   })
@@ -234,15 +237,15 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
       {hasCategories ? (
         categoryGroups.map(({ key, groupCompetitors, groupRounds }) => (
-          <Accordion key={key ?? '__all__'} defaultExpanded disableGutters elevation={2} className="category-accordion">
+          <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
             <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
               <div className="category-header">
                 <Typography variant="h6" className="category-title">
-                  {key !== null ? categoryNameById.get(key) : null}
+                  {categoryNameById.get(key)}
                 </Typography>
                 <Chip
                   size="small"
-                  label={`${groupCompetitors.length} / ${tournament.maxCompetitors}`}
+                  label={`${groupCompetitors.length} / ${maxByCategory.get(key)}`}
                   color="primary"
                   variant="outlined"
                 />
@@ -254,14 +257,14 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
                 <Typography variant="subtitle1" className="category-subtitle">
                   {tOrganizer('manage.registeredCompetitors')}
                 </Typography>
-                <CompetitorsList tournament={tournament} category={key ?? undefined} />
+                <CompetitorsList tournament={tournament} category={key} />
               </div>
               {groupRounds.length > 0 && (
                 <>
                   <Divider />
                   <TournamentRoundsView
                     tournament={tournament}
-                    category={key ?? undefined}
+                    category={key}
                     organizerMode
                     onEditMatch={setScoreMatch}
                   />
@@ -274,12 +277,12 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         <>
           <Paper className="section">
             <Typography variant="h6" className="section-title">
-              {tOrganizer('manage.registeredCompetitors')} ({competitors.length} / {tournament.maxCompetitors})
+              {tOrganizer('manage.registeredCompetitors')} ({competitors.length} / {singleMaxCompetitors})
             </Typography>
             <CompetitorsList tournament={tournament} />
           </Paper>
           {categoryGroups.map(({ key, groupRounds }) => (
-            <Fragment key={key ?? '__all__'}>
+            <Fragment key={key}>
               {groupRounds.length > 0 && (
                 <Paper className="section">
                   <TournamentRoundsView tournament={tournament} organizerMode onEditMatch={setScoreMatch} />

@@ -77,7 +77,7 @@ export async function getPlayerDashboard(userId: number, organizationId: number)
 
     if (tournament.status === TournamentStatus.FINISHED) {
       try {
-        const podium = getPodiumCompetitorIds(tournament, competitor.categoryId ?? null)
+        const podium = getPodiumCompetitorIds(tournament, competitor.tournamentCategoryId)
 
         if (podium[0] === competitor.id) {
           titles++

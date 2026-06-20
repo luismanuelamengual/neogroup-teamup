@@ -113,7 +113,9 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
     return <Alert severity="error">{tPlayer('errors.notFound')}</Alert>
   }
 
-  const categories = tournament.categories ?? []
+  // Only real categories are selectable; the single category (categoryId = null)
+  // is resolved automatically by the server.
+  const categories = (tournament.categories ?? []).filter((category) => category.categoryId != null)
   const hasCategories = categories.length > 0
 
   const handleJoin = async () => {
@@ -122,8 +124,8 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
 
     try {
       await joinTournament(tournament.id, {
-        partnerUserId: needsPartner ? partnerUser?.id ?? null : null,
-        categoryId: hasCategories && categoryId !== '' ? categoryId : null
+        partnerUserId: needsPartner ? (partnerUser?.id ?? null) : null,
+        tournamentCategoryId: hasCategories && categoryId !== '' ? categoryId : null
       })
     } catch (requestError) {
       setLoading(false)
@@ -174,7 +176,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
           >
             {categories.map((category) => (
               <MenuItem key={category.id} value={category.id}>
-                {category.name}
+                {category.category?.name}
               </MenuItem>
             ))}
           </TextField>

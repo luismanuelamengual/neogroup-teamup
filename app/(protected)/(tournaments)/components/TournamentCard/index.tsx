@@ -26,7 +26,9 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
     router.push(`/tournaments/${tournament.id}`)
   }
 
-  const hasCategories = tournament.categories != null && tournament.categories.length > 0
+  const categories = tournament.categories ?? []
+  const hasCategories = categories.some((category) => category.categoryId != null)
+  const singleCategory = categories[0]
 
   return (
     <Paper className="tournament-card" onClick={handleClick}>
@@ -60,27 +62,29 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
             <label>{t(`uniqueCategory`)}</label>
             <div className="inscriptions">
               <GroupsIcon fontSize="inherit" />
-              {tournament.competitors?.length ?? 0} / {tournament.maxCompetitors}
+              {tournament.competitors?.length ?? 0} / {singleCategory?.maxCompetitors ?? 0}
             </div>
           </div>
         )}
         {hasCategories && (
           <>
-            {tournament.categories!.map((category) => {
-              const count = tournament.competitors?.filter((c) => c.categoryId === category.id).length
+            {categories
+              .filter((category) => category.categoryId != null)
+              .map((category) => {
+                const count = tournament.competitors?.filter((c) => c.tournamentCategoryId === category.id).length
 
-              return (
-                <div key={category.id} className="category-chip">
-                  <label>{category.name}</label>
-                  {count != null && (
-                    <div className="inscriptions">
-                      <GroupsIcon fontSize="inherit" />
-                      {count} / {tournament.maxCompetitors}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                return (
+                  <div key={category.id} className="category-chip">
+                    <label>{category.category?.name}</label>
+                    {count != null && (
+                      <div className="inscriptions">
+                        <GroupsIcon fontSize="inherit" />
+                        {count} / {category.maxCompetitors}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
           </>
         )}
       </div>

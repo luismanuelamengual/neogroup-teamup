@@ -84,13 +84,11 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         (match.homeCompetitorIds.includes(userEntry.id) || match.awayCompetitorIds.includes(userEntry.id))
     )
   }, [matches, userEntry, openCurrentRoundIds])
-  const categoryKeys = useMemo<(number | null)[]>(
-    () => (tournament?.categoryIds && tournament.categoryIds.length > 0 ? tournament.categoryIds : [null]),
-    [tournament]
-  )
+  const categories = useMemo(() => tournament?.categories ?? [], [tournament])
+  const categoryKeys = useMemo<number[]>(() => categories.map((category) => category.id), [categories])
   const categoryNameById = useMemo(
-    () => new Map((tournament?.categories ?? []).map((category) => [category.id, category.name])),
-    [tournament]
+    () => new Map(categories.map((category) => [category.id, category.category?.name ?? null])),
+    [categories]
   )
 
   if (loading) {
@@ -117,9 +115,9 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     return <Alert severity="error">{tPlayer('errors.notFound')}</Alert>
   }
 
-  const hasCategories = categoryKeys.some((key) => key !== null)
+  const hasCategories = categories.some((category) => category.categoryId != null)
   const categoryGroups = categoryKeys.map((key) => {
-    const groupRounds = rounds.filter((round) => (round.categoryId ?? null) === key)
+    const groupRounds = rounds.filter((round) => round.tournamentCategoryId === key)
 
     return { key, groupRounds }
   })
@@ -239,32 +237,22 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
 
       {hasCategories
         ? categoryGroups.map(({ key, groupRounds }) => (
-            <Accordion
-              key={key ?? '__all__'}
-              defaultExpanded
-              disableGutters
-              elevation={2}
-              className="category-accordion"
-            >
+            <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
               <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
                 <Typography variant="h6" className="category-title">
-                  {key !== null ? categoryNameById.get(key) : null}
+                  {categoryNameById.get(key)}
                 </Typography>
               </AccordionSummary>
               <Divider />
               <AccordionDetails className="category-details">
                 {groupRounds.length > 0 && (
-                  <TournamentRoundsView
-                    tournament={tournament}
-                    category={key ?? undefined}
-                    onEditMatch={setScoreMatch}
-                  />
+                  <TournamentRoundsView tournament={tournament} category={key} onEditMatch={setScoreMatch} />
                 )}
               </AccordionDetails>
             </Accordion>
           ))
         : categoryGroups.map(({ key, groupRounds }) => (
-            <Fragment key={key ?? '__all__'}>
+            <Fragment key={key}>
               {groupRounds.length > 0 && (
                 <Paper className="section">
                   <TournamentRoundsView tournament={tournament} onEditMatch={setScoreMatch} />

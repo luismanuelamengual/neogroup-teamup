@@ -1,7 +1,5 @@
-import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { getCategoriesByIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
 export interface TournamentOptions {
@@ -17,19 +15,6 @@ export interface TournamentOptions {
   withMatches?: boolean
   page?: number
   pageSize?: number
-}
-
-/** Attaches the resolved `categories` (id + name) to each tournament from its categoryIds. */
-async function attachCategories(tournaments: Tournament[]): Promise<void> {
-  const allIds = [...new Set(tournaments.flatMap((tournament) => tournament.categoryIds ?? []))]
-  const categories = await getCategoriesByIds(allIds)
-  const byId = new Map<number, Category>(categories.map((category) => [category.id, category]))
-
-  for (const tournament of tournaments) {
-    tournament.categories = (tournament.categoryIds ?? [])
-      .map((id) => byId.get(id))
-      .filter((category): category is Category => category != null)
-  }
 }
 
 export async function getTournaments({
@@ -57,14 +42,15 @@ export async function getTournaments({
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
     .when(status, (query) => query.where('status', status))
     .when(onlyActive, (query) => query.whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING]))
+    // Every tournament always has at least one category instance; resolve the
+    // catalogue category of each so the UI can show its name.
+    .with('categories', 'categories.category')
     .when(withCompetitors, (query) => query.with('competitors'))
     .when(withRounds, (query) => query.with('rounds'))
     .when(withMatches, (query) => query.with('matches'))
     .orderBy('status')
     .orderByDesc('id')
     .paginate(pageSize, page)
-
-  await attachCategories(result.data)
 
   return result
 }

@@ -26,9 +26,9 @@ export function getPodiumCompetitorIds(tournament: TournamentDto, category: numb
   // Knockout: the decisive structure is the main knockout bracket of the category.
   const rounds = (tournament.rounds ?? []).filter(
     (round) =>
-      (round.categoryId ?? null) === category &&
+      (category == null || round.tournamentCategoryId === category) &&
       round.type === RoundType.KNOCKOUT &&
-      (round.groupNumber ?? null) === null
+      (round.settings?.groupNumber ?? null) === null
   )
 
   if (rounds.length === 0) {

@@ -1,10 +1,10 @@
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { RoundDto } from '@/app/(protected)/(tournaments)/models/RoundDto'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { TournamentCategoryDto } from '@/app/(protected)/(tournaments)/models/TournamentCategoryDto'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -23,11 +23,12 @@ export interface TournamentDto {
   startDate: string
   startTime: string | null
   location: string | null
-  /** Ids of the categories this tournament runs. */
-  categoryIds: number[] | null
-  /** Resolved categories (id + name) for categoryIds — populated on detail/list responses. */
-  categories?: CategoryDto[]
-  maxCompetitors: number
+  /**
+   * Concrete category instances of this tournament (always at least one). When
+   * the tournament has no organizer-defined categories there is a single one
+   * with categoryId = null (the "single category").
+   */
+  categories?: TournamentCategoryDto[]
   settings: TournamentSettings | null
   createdAt: string
   updatedAt: string

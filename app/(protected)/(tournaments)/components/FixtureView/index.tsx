@@ -34,7 +34,7 @@ export default function FixtureView({
     const all = tournament.rounds ?? []
     const filtered = all.filter(
       (r) =>
-        (category == null || (r.categoryId ?? null) === category) &&
+        (category == null || r.tournamentCategoryId === category) &&
         (r.groupNumber ?? null) === (groupNumber ?? null) &&
         (r.type === RoundType.LEAGUE || r.type === RoundType.AMERICANO)
     )
@@ -63,7 +63,7 @@ export default function FixtureView({
             r.active &&
             r.status === RoundStatus.OPEN &&
             (r.groupNumber ?? null) === (groupNumber ?? null) &&
-            (category == null || (r.categoryId ?? null) === category)
+            (category == null || r.tournamentCategoryId === category)
         )
         .map((r) => r.id)
     )

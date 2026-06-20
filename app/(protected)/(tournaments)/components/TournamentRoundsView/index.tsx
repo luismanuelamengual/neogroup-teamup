@@ -41,7 +41,7 @@ export default function TournamentRoundsView({
 }: TournamentRoundsViewProps) {
   const t = useTranslations('tournaments')
   const { hasConsolation, hasKnockout } = useMemo(() => {
-    const rounds = (tournament.rounds ?? []).filter((r) => category == null || (r.categoryId ?? null) === category)
+    const rounds = (tournament.rounds ?? []).filter((r) => category == null || r.tournamentCategoryId === category)
 
     return {
       hasConsolation: rounds.some((r) => r.type === RoundType.KNOCKOUT_CONSOLATION),

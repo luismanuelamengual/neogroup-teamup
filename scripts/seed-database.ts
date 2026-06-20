@@ -53,16 +53,20 @@ import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { Round } from '@/app/(protected)/(tournaments)/models/Round'
-import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SetScore } from '@/app/(protected)/(tournaments)/models/SetScore'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
+import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
-import { createRound, progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import { createTournamentCategories, resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
+import {
+  createRound,
+  getTournamentCategories,
+  progressTournamentAfterResult
+} from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { getScoreWinner, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
 
@@ -315,7 +319,7 @@ async function registerCompetitors(
   tournament: Tournament,
   pool: User[],
   competitorCount: number,
-  categoryIds: number[] | null
+  tournamentCategories: TournamentCategory[]
 ): Promise<void> {
   const isPairs = registersAsPairs(
     tournament.discipline,
@@ -329,7 +333,6 @@ async function registerCompetitors(
   for (let i = 0; i < competitorCount; i++) {
     const competitor = new Competitor()
 
-    competitor.tournamentId = tournament.id
     competitor.partnerName = null
 
     if (isPairs) {
@@ -347,8 +350,8 @@ async function registerCompetitors(
       competitor.displayName = getUserDisplayName(player)
     }
 
-    // Round-robin assignment keeps every category evenly filled.
-    competitor.categoryId = categoryIds ? categoryIds[i % categoryIds.length] : null
+    // Round-robin assignment keeps every category instance evenly filled.
+    competitor.tournamentCategoryId = tournamentCategories[i % tournamentCategories.length].id
     competitor.createdAt = new Date()
     await competitor.save()
   }
@@ -378,9 +381,18 @@ async function playMatch(tournament: Tournament, round: Round, match: Match): Pr
   await progressTournamentAfterResult(tournament, round)
 }
 
+/** Ids of the category instances of a tournament. */
+async function tournamentCategoryIds(tournament: Tournament): Promise<number[]> {
+  const categories = await getTournamentCategories(tournament)
+
+  return categories.map((category) => category.id)
+}
+
 /** Number of the tournament's current active frontier (0 when none is active). */
 async function activeRoundNumber(tournament: Tournament): Promise<number> {
-  const rounds = await Round.where('tournamentId', tournament.id).where('active', true).get()
+  const rounds = await Round.whereIn('tournamentCategoryId', await tournamentCategoryIds(tournament))
+    .where('active', true)
+    .get()
 
   return rounds.length > 0 ? Math.max(...rounds.map((round) => round.number)) : 0
 }
@@ -390,7 +402,9 @@ async function activeRoundNumber(tournament: Tournament): Promise<number> {
  * leaves the rest pending (used to model a tournament caught mid-round).
  */
 async function playCurrentRound(tournament: Tournament, fraction: number): Promise<void> {
-  const rounds = await Round.where('tournamentId', tournament.id).where('active', true).get()
+  const rounds = await Round.whereIn('tournamentCategoryId', await tournamentCategoryIds(tournament))
+    .where('active', true)
+    .get()
 
   for (const round of rounds) {
     const pending = (await Match.where('roundId', round.id).where('status', MatchStatus.PENDING).get()).filter(
@@ -1008,14 +1022,19 @@ async function buildTournament(
   tournament.startDate = startDateFor(spec.status)
   tournament.startTime = randomItem(['09:00', '10:30', '14:00', '18:30', '20:00', null])
   tournament.location = randomItem(VENUES)
-  tournament.categoryIds = categoryIds
-  tournament.maxCompetitors = spec.maxCompetitors ?? spec.competitorCount
   tournament.settings = spec.settings
   tournament.createdAt = new Date()
   tournament.updatedAt = new Date()
   await tournament.save()
 
-  await registerCompetitors(tournament, pool, spec.competitorCount, categoryIds)
+  // Materialise the category instances (one per category, or a single null one).
+  const tournamentCategories = await createTournamentCategories(
+    tournament.id,
+    categoryIds,
+    spec.maxCompetitors ?? spec.competitorCount
+  )
+
+  await registerCompetitors(tournament, pool, spec.competitorCount, tournamentCategories)
 
   if (spec.status === TournamentStatus.STAND_BY) {
     return

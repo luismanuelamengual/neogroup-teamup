@@ -8,14 +8,14 @@ import { TournamentDto } from '@/app/(protected)/(tournaments)/models/Tournament
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
+import { createTournamentCategories, resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { normalizeCategories, normalizeStartTime } from '@/app/(protected)/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/createTournament — creates a new tournament in stand_by status. */
 export const POST = withAuth(async (request, context, userId, organizationId) => {
-  const input = (await request.json()) as Partial<TournamentDto> & { categoryNames?: string[] }
+  const input = (await request.json()) as Partial<TournamentDto> & { categoryNames?: string[]; maxCompetitors?: number }
   const name = input.name?.trim() ?? ''
 
   if (!name || !input.discipline || !input.type || !input.scoreFormat) {
@@ -44,7 +44,7 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
   }
 
   const categoryNames = normalizeCategories(input.categoryNames)
-  const subDiscipline = input.discipline === Discipline.TENNIS ? input.subDiscipline ?? null : null
+  const subDiscipline = input.discipline === Discipline.TENNIS ? (input.subDiscipline ?? null) : null
   const categoryIds = categoryNames
     ? await resolveCategoryIds(organizationId, input.discipline, subDiscipline, categoryNames)
     : null
@@ -85,12 +85,15 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
   tournament.startDate = input.startDate
   tournament.startTime = startTime
   tournament.location = input.location?.trim() || null
-  tournament.categoryIds = categoryIds
-  tournament.maxCompetitors = input.maxCompetitors
   tournament.settings = settings
   tournament.createdAt = new Date()
   tournament.updatedAt = new Date()
   await tournament.save()
+
+  // Materialise the category instances: one per resolved category, or a single
+  // "single category" instance (categoryId = null) when there are none. The
+  // per-tournament maxCompetitors becomes the entry limit of each instance.
+  await createTournamentCategories(tournament.id, categoryIds, input.maxCompetitors!)
 
   return { id: tournament.id }
 })
