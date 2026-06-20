@@ -28,9 +28,9 @@ export default function GroupsView({ tournament, category, organizerMode = false
       if (
         (category == null || round.tournamentCategoryId === category) &&
         round.type === RoundType.LEAGUE &&
-        round.groupNumber != null
+        round.settings?.groupNumber != null
       ) {
-        numbers.add(round.groupNumber)
+        numbers.add(round.settings?.groupNumber)
       }
     }
 
