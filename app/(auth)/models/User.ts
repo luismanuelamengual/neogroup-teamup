@@ -26,6 +26,9 @@ export class User extends BaseEntity {
   @Column()
   nickname!: string | null
 
+  @Column()
+  phoneNumber!: string | null
+
   /** Role of the user: 1 = organizer, 2 = player. Assigned once, cannot be switched. */
   @Column()
   roleId!: Role | null

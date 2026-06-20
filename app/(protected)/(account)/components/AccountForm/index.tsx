@@ -19,6 +19,7 @@ interface AccountFormProps {
   firstName: string
   lastName: string
   nickname: string
+  phoneNumber: string
 }
 
 export default function AccountForm(props: AccountFormProps) {
@@ -29,6 +30,7 @@ export default function AccountForm(props: AccountFormProps) {
   const [firstName, setFirstName] = useState(props.firstName)
   const [lastName, setLastName] = useState(props.lastName)
   const [nickname, setNickname] = useState(props.nickname)
+  const [phoneNumber, setPhoneNumber] = useState(props.phoneNumber)
   const [language, setLanguage] = useState(locale)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,7 +65,7 @@ export default function AccountForm(props: AccountFormProps) {
     setError(null)
 
     try {
-      await updateAccount({ firstName, lastName, nickname })
+      await updateAccount({ firstName, lastName, nickname, phoneNumber })
     } catch (_error) {
       setLoading(false)
       setError(tCommon('genericError'))
@@ -121,6 +123,14 @@ export default function AccountForm(props: AccountFormProps) {
           onChange={(event) => setNickname(event.target.value)}
           helperText={t('nicknameHelp')}
           fullWidth
+        />
+        <TextField
+          label={t('phoneNumber')}
+          type="tel"
+          value={phoneNumber}
+          onChange={(event) => setPhoneNumber(event.target.value)}
+          fullWidth
+          autoComplete="tel"
         />
         <TextField select label={t('language')} value={language} onChange={handleLanguageChange} fullWidth>
           {languages.map((option) => (

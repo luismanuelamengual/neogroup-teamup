@@ -10,6 +10,7 @@ declare module 'next-auth' {
       firstName: string | null
       lastName: string | null
       nickname: string | null
+      phoneNumber: string | null
     } & DefaultSession['user']
   }
 }
@@ -22,6 +23,7 @@ declare module 'next-auth/jwt' {
     firstName?: string | null
     lastName?: string | null
     nickname?: string | null
+    phoneNumber?: string | null
     userLoaded?: boolean
   }
 }

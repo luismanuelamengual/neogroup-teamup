@@ -58,6 +58,15 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+
+    &.clickable {
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+        color: var(--color-primary);
+      }
+    }
   }
 
   .bye {

@@ -4,6 +4,9 @@ import './index.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
+import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
+import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { formatScore, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
@@ -18,14 +21,6 @@ interface MatchCardProps {
   onEdit?: (match: MatchDto) => void
 }
 
-function sideName(ids: number[] | null, names: Record<number, string>): string {
-  if (!ids || ids.length === 0) {
-    return '—'
-  }
-
-  return ids.map((id) => names[id] ?? `#${id}`).join(' / ')
-}
-
 export default function MatchCard({
   match,
   tournament,
@@ -34,38 +29,64 @@ export default function MatchCard({
   onEdit
 }: MatchCardProps) {
   const t = useTranslations('tournaments')
-  const competitorNames: Record<number, string> = Object.fromEntries(
-    (tournament.competitors ?? []).map((c) => [c.id, c.displayName])
+  const [modalCompetitors, setModalCompetitors] = useState<CompetitorDto[]>([])
+  const competitorsById: Record<number, CompetitorDto> = Object.fromEntries(
+    (tournament.competitors ?? []).map((c) => [c.id, c])
   )
   const scoreFormat = tournament.scoreFormat
   const isBye = match.awayCompetitorIds === null
   const winner: MatchSide | null = match.winner
+
+  const handleSideClick = (ids: number[] | null) => {
+    if (!ids || ids.length === 0) return
+    const found = ids.map((id) => competitorsById[id]).filter(Boolean) as CompetitorDto[]
+
+    if (found.length > 0) {
+      setModalCompetitors(found)
+    }
+  }
+
+  const sideName = (ids: number[] | null): string => {
+    if (!ids || ids.length === 0) return '—'
+
+    return ids.map((id) => competitorsById[id]?.displayName ?? `#${id}`).join(' / ')
+  }
+
   const renderSide = (side: MatchSide, ids: number[] | null) => (
     <div className={`side ${winner === side ? 'winner' : ''} ${winner && winner !== side ? 'loser' : ''}`}>
       <span className={`side-dot ${MatchSideNames[side]}`} />
-      <span className="side-name">{sideName(ids, competitorNames)}</span>
+      <span className="side-name clickable" onClick={() => handleSideClick(ids)}>
+        {sideName(ids)}
+      </span>
     </div>
   )
 
   return (
-    <div className={`match-card ${highlighted ? 'highlighted' : ''}`}>
-      <div className="sides">
-        {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
-        {isBye ? <div className="bye">{t('bye')}</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
+    <>
+      <div className={`match-card ${highlighted ? 'highlighted' : ''}`}>
+        <div className="sides">
+          {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
+          {isBye ? <div className="bye">{t('bye')}</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
+        </div>
+        <div className="result">
+          {!isBye &&
+            (match.status === MatchStatus.PENDING ? (
+              <span className="pending">{t('pendingResult')}</span>
+            ) : (
+              <span className="score">{formatScore(parseScore(match.score), scoreFormat)}</span>
+            ))}
+          {editable && !isBye && (
+            <IconButton size="small" className="edit" onClick={() => onEdit?.(match)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          )}
+        </div>
       </div>
-      <div className="result">
-        {!isBye &&
-          (match.status === MatchStatus.PENDING ? (
-            <span className="pending">{t('pendingResult')}</span>
-          ) : (
-            <span className="score">{formatScore(parseScore(match.score), scoreFormat)}</span>
-          ))}
-        {editable && !isBye && (
-          <IconButton size="small" className="edit" onClick={() => onEdit?.(match)}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-        )}
-      </div>
-    </div>
+      <CompetitorInfoModal
+        open={modalCompetitors.length > 0}
+        competitors={modalCompetitors}
+        onClose={() => setModalCompetitors([])}
+      />
+    </>
   )
 }

@@ -8,6 +8,7 @@ export interface AccountInput {
   firstName: string
   lastName: string
   nickname: string
+  phoneNumber?: string
 }
 
 /** Updates the personal information of the signed-in user. */

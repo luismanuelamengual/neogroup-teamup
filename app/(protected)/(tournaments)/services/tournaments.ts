@@ -45,7 +45,7 @@ export async function getTournaments({
     // Every tournament always has at least one category instance; resolve the
     // catalogue category of each so the UI can show its name.
     .with('categories', 'categories.category')
-    .when(withCompetitors, (query) => query.with('competitors'))
+    .when(withCompetitors, (query) => query.with('competitors', 'competitors.user', 'competitors.partnerUser'))
     .when(withRounds, (query) => query.with('rounds'))
     .when(withMatches, (query) => query.with('matches'))
     .orderBy('status')

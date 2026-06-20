@@ -1,0 +1,42 @@
+.competitor-info-modal-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 8px !important;
+
+  .close-btn {
+    margin-left: auto;
+  }
+}
+
+.competitor-info-modal-content {
+  padding-top: 8px !important;
+}
+
+.competitor-info-modal-person {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+
+  .competitor-info-modal-person-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .name {
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    .phone {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  }
+}
+
+.competitor-divider {
+  margin: 4px 0 !important;
+}

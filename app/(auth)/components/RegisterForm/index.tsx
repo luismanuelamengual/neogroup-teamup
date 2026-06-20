@@ -26,6 +26,7 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
   const router = useRouter()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [roleId, setRoleId] = useState<Role>(Role.PLAYER)
@@ -39,7 +40,7 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
     setLoading(true)
 
     try {
-      await registerUser({ email, password, firstName, lastName, roleId })
+      await registerUser({ email, password, firstName, lastName, phoneNumber, roleId })
     } catch (requestError) {
       setLoading(false)
       setError(t(`errors.${(requestError as Error).message}`))
@@ -76,6 +77,14 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
           onChange={(event) => setLastName(event.target.value)}
           required
           fullWidth
+        />
+        <TextField
+          label={t('phoneNumber')}
+          type="tel"
+          value={phoneNumber}
+          onChange={(event) => setPhoneNumber(event.target.value)}
+          fullWidth
+          autoComplete="tel"
         />
         <TextField
           label={t('email')}

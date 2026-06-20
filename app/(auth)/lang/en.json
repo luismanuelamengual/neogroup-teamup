@@ -12,6 +12,7 @@
     "registerTitle": "Create account",
     "firstName": "First name",
     "lastName": "Last name",
+    "phoneNumber": "Phone number",
     "createAccount": "Create account",
     "haveAccount": "Already have an account?",
     "roleLabel": "I want to use TeamUp as",

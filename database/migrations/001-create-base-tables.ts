@@ -54,6 +54,7 @@ export default {
           firstName VARCHAR(100),
           lastName VARCHAR(100),
           nickname VARCHAR(100),
+          phoneNumber VARCHAR(50),
           roleId INTEGER,
           createdAt ${TIMESTAMP},
           UNIQUE (organizationId, email)

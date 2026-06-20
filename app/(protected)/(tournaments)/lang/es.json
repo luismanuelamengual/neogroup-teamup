@@ -89,6 +89,7 @@
       "gamesWon": "Games",
       "points": "Pts"
     },
+    "competitorInfo": "Información del competidor",
     "bye": "Pasa de ronda",
     "pendingResult": "Pendiente",
     "walkover": "W.O."

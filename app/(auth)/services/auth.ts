@@ -113,6 +113,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           token.firstName = dbUser.firstName
           token.lastName = dbUser.lastName
           token.nickname = dbUser.nickname
+          token.phoneNumber = dbUser.phoneNumber
           token.userLoaded = true
         }
       }
@@ -128,6 +129,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         session.user.firstName = (token.firstName as string | undefined) ?? null
         session.user.lastName = (token.lastName as string | undefined) ?? null
         session.user.nickname = (token.nickname as string | undefined) ?? null
+        session.user.phoneNumber = (token.phoneNumber as string | undefined) ?? null
         session.user.name = getUserDisplayName({
           firstName: session.user.firstName,
           lastName: session.user.lastName,

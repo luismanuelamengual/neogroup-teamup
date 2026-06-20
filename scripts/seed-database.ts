@@ -176,6 +176,15 @@ const LAST_NAMES = [
   'Soto',
   'Contreras'
 ]
+const AREA_CODES = ['11', '221', '223', '261', '341', '351', '381', '387']
+
+function randomPhone(): string {
+  const area = randomItem(AREA_CODES)
+  const number = String(Math.floor(Math.random() * 90000000) + 10000000)
+
+  return `+54 ${area} ${number.slice(0, 4)}-${number.slice(4)}`
+}
+
 const VENUES = [
   'Club Náutico Hacoaj',
   'Polideportivo Municipal',
@@ -213,6 +222,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
   organizer.firstName = 'Demo'
   organizer.lastName = 'Organizer'
   organizer.nickname = null
+  organizer.phoneNumber = randomPhone()
   organizer.roleId = Role.ORGANIZER
   await organizer.save()
 
@@ -229,6 +239,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
     player.firstName = randomItem(FIRST_NAMES)
     player.lastName = randomItem(LAST_NAMES)
     player.nickname = null
+    player.phoneNumber = randomPhone()
     player.passwordHash = passwordHash
     player.roleId = Role.PLAYER
     // Temporary placeholder — replaced with "demo{id}" once we know the id.

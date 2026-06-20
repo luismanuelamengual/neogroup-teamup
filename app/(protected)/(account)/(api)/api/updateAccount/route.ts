@@ -86,6 +86,7 @@ export const POST = withApi(async (request, _context, _organizationId) => {
   user.firstName = firstName
   user.lastName = lastName
   user.nickname = (body.nickname ?? '').trim() || null
+  user.phoneNumber = (body.phoneNumber ?? '').trim() || null
   await user.save()
   await unstable_update({})
 })

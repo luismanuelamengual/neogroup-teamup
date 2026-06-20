@@ -43,6 +43,7 @@ export const POST = withApi(async (request, context, organizationId) => {
   user.firstName = firstName
   user.lastName = lastName
   user.nickname = null
+  user.phoneNumber = input.phoneNumber?.trim() || null
   user.roleId = input.roleId
   await user.save()
 

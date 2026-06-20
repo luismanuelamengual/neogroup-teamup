@@ -9,6 +9,15 @@
     font-weight: 700 !important;
   }
 
+  .competitor-cell {
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+      color: var(--color-primary);
+    }
+  }
+
   .leader {
     background-color: rgba(245, 158, 11, 0.1);
 
