@@ -1,4 +1,3 @@
-import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 
@@ -10,7 +9,8 @@ export interface MatchDto {
   position: number
   homeCompetitorIds: number[]
   awayCompetitorIds: number[] | null
-  score: MatchScore | null
+  /** Compact score string `{scoreFormatId}:{results}` (see utils/score.ts). Null when no result. */
+  score: string | null
   status: MatchStatus
   winner: MatchSide | null
   createdAt: string

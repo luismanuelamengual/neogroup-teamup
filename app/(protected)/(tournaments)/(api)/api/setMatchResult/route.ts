@@ -5,7 +5,7 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
-import { getScoreWinner, isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
@@ -53,11 +53,11 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   }
 
   if (score.walkover) {
-    match.score = { walkover: score.walkover }
+    match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = score
+    match.score = serializeScore(score, tournament.scoreFormat)
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }

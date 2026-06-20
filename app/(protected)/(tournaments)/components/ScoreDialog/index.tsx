@@ -20,7 +20,7 @@ import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/model
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SetScore } from '@/app/(protected)/(tournaments)/models/SetScore'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { isValidScore, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
 
 interface ScoreDialogProps {
   open: boolean
@@ -44,7 +44,7 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
   const scoreFormat = tournament.scoreFormat
   const homeName = match?.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ')
   const awayName = (match?.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ')
-  const initialScore = match?.score ?? null
+  const initialRawScore = match?.score ?? null
   const t = useTranslations('score')
   const tCommon = useTranslations('common')
   const [walkover, setWalkover] = useState(false)
@@ -58,6 +58,8 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
     if (!open) {
       return
     }
+
+    const initialScore = parseScore(initialRawScore)
 
     setInvalid(false)
     setWalkover(!!initialScore?.walkover)
@@ -73,7 +75,7 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
     )
     setHomeCount(initialScore?.home != null ? String(initialScore.home) : '')
     setAwayCount(initialScore?.away != null ? String(initialScore.away) : '')
-  }, [open, initialScore])
+  }, [open, initialRawScore])
 
   const usesSets = scoreFormat !== ScoreFormat.BASIC_COUNT
 

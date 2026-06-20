@@ -1,5 +1,4 @@
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
-import { BRACKET_CONSOLATION, BRACKET_PLAYOFF, groupBracket } from '@/app/(protected)/(tournaments)/models/Bracket'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
@@ -7,6 +6,7 @@ import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { Round } from '@/app/(protected)/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
+import { isKnockoutType, RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -23,10 +23,16 @@ import {
   seedFromGroups,
   seedPlayoffPairings
 } from '@/app/(protected)/(tournaments)/services/tournament-engine'
-import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { ApiException } from '@/app/models/ApiException'
 
 /** Helpers shared by the /api/tournaments/[id]/* route handlers. */
+
+/** A round "lane": the parallel structure a round belongs to inside its category. */
+interface RoundLane {
+  type: RoundType
+  groupNumber: number | null
+}
 
 /** Round-robin rounds (circle method) needed for `size` competitors. */
 function roundRobinRoundsFor(size: number): number {
@@ -50,58 +56,44 @@ export async function requireOwnedTournament(tournamentId: number, userId: numbe
 
 /**
  * Category keys a tournament runs in parallel. Returns the configured category
- * names, or `[null]` (a single group) when the tournament has no categories.
+ * ids, or `[null]` (a single group) when the tournament has no categories.
  */
-export function getTournamentCategoryKeys(tournament: Tournament): (string | null)[] {
-  return tournament.categories && tournament.categories.length > 0 ? tournament.categories : [null]
+export function getTournamentCategoryKeys(tournament: Tournament): (number | null)[] {
+  return tournament.categoryIds && tournament.categoryIds.length > 0 ? tournament.categoryIds : [null]
 }
 
-/** Whether a round belongs to a knockout bracket (so winners advance). */
-function isKnockoutRound(tournament: Tournament, round: Round): boolean {
-  if (tournament.type === TournamentType.PLAYOFF || tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
-    return true
-  }
-
-  if (tournament.type === TournamentType.GROUPS_PLAYOFF) {
-    return round.bracket === BRACKET_PLAYOFF
-  }
-
-  return false
+/** True when a round matches the given lane (type + group index). */
+function isLane(round: Round, lane: RoundLane): boolean {
+  return round.type === lane.type && (round.groupNumber ?? null) === (lane.groupNumber ?? null)
 }
 
-/** All rounds of a single (category, bracket) structure, ordered by number. */
-async function getBracketRounds(
-  tournamentId: number,
-  category: string | null,
-  bracket: string | null
-): Promise<Round[]> {
+/** All rounds of a single (category, lane) structure, ordered by number. */
+async function getBracketRounds(tournamentId: number, categoryId: number | null, lane: RoundLane): Promise<Round[]> {
   const rounds = await Round.where('tournamentId', tournamentId).get()
 
   return rounds
-    .filter((round) => (round.category ?? null) === (category ?? null) && (round.bracket ?? null) === (bracket ?? null))
+    .filter((round) => (round.categoryId ?? null) === (categoryId ?? null) && isLane(round, lane))
     .sort((a, b) => a.number - b.number)
 }
 
-/** Whether a (category, bracket) round already exists at the given number. */
+/** Whether a (category, lane) round already exists at the given number. */
 async function roundExists(
   tournamentId: number,
   roundNumber: number,
-  category: string | null,
-  bracket: string | null
+  categoryId: number | null,
+  lane: RoundLane
 ): Promise<boolean> {
   const rounds = await Round.where('tournamentId', tournamentId).where('number', roundNumber).get()
 
-  return rounds.some(
-    (round) => (round.category ?? null) === (category ?? null) && (round.bracket ?? null) === (bracket ?? null)
-  )
+  return rounds.some((round) => (round.categoryId ?? null) === (categoryId ?? null) && isLane(round, lane))
 }
 
 /** Persists a round and its matches from the given pairings. */
 async function persistRound(
   tournament: Tournament,
   roundNumber: number,
-  category: string | null,
-  bracket: string | null,
+  categoryId: number | null,
+  lane: RoundLane,
   pairings: Pairing[]
 ): Promise<Round> {
   const round = new Round()
@@ -109,8 +101,11 @@ async function persistRound(
   round.tournamentId = tournament.id
   round.number = roundNumber
   round.status = RoundStatus.OPEN
-  round.category = category
-  round.bracket = bracket
+  round.categoryId = categoryId
+  round.type = lane.type
+  round.groupNumber = lane.groupNumber
+  // Activeness is decided by setFrontier once the round number is materialised.
+  round.active = false
   round.createdAt = new Date()
   await round.save()
 
@@ -142,6 +137,35 @@ async function persistRound(
 }
 
 /**
+ * Marks the rounds with the given number as the tournament's active frontier
+ * (active = true when open and at that number), deactivating every other round.
+ * Replaces the former tournaments.currentRound counter: several rounds can be
+ * active at once (groups, or a main + consolation bracket).
+ */
+async function setFrontier(tournamentId: number, roundNumber: number): Promise<void> {
+  const rounds = await Round.where('tournamentId', tournamentId).get()
+
+  for (const round of rounds) {
+    const shouldBeActive = round.status === RoundStatus.OPEN && round.number === roundNumber
+
+    if (round.active !== shouldBeActive) {
+      round.active = shouldBeActive
+      await round.save()
+    }
+  }
+}
+
+/** Deactivates every round (used when the tournament finishes). */
+async function deactivateAllRounds(tournamentId: number): Promise<void> {
+  const rounds = await Round.where('tournamentId', tournamentId).where('active', true).get()
+
+  for (const round of rounds) {
+    round.active = false
+    await round.save()
+  }
+}
+
+/**
  * Creates a full knockout bracket up to the final: round 1 is seeded from
  * `seededIds` (top seeds get the byes) and every later round is materialised as
  * empty "to be defined" matches. Known winners (byes) are then propagated
@@ -150,8 +174,8 @@ async function persistRound(
  */
 async function createKnockoutBracket(
   tournament: Tournament,
-  category: string | null,
-  bracket: string | null,
+  categoryId: number | null,
+  lane: RoundLane,
   seededIds: number[],
   startRound: number
 ): Promise<number> {
@@ -162,7 +186,7 @@ async function createKnockoutBracket(
   const bracketSize = getBracketSize(seededIds.length)
   const totalRounds = getKnockoutRounds(seededIds.length)
 
-  await persistRound(tournament, startRound, category, bracket, seedPlayoffPairings(seededIds))
+  await persistRound(tournament, startRound, categoryId, lane, seedPlayoffPairings(seededIds))
 
   for (let roundIndex = 2; roundIndex <= totalRounds; roundIndex++) {
     const matchCount = bracketSize / Math.pow(2, roundIndex)
@@ -172,11 +196,11 @@ async function createKnockoutBracket(
       placeholders.push({ home: [], away: [], position })
     }
 
-    await persistRound(tournament, startRound + roundIndex - 1, category, bracket, placeholders)
+    await persistRound(tournament, startRound + roundIndex - 1, categoryId, lane, placeholders)
   }
 
   // Propagate byes / already-known winners into the following rounds.
-  const rounds = await getBracketRounds(tournament.id, category, bracket)
+  const rounds = await getBracketRounds(tournament.id, categoryId, lane)
 
   for (const round of rounds.slice(0, -1)) {
     await syncKnockoutNextRound(tournament, round)
@@ -200,12 +224,9 @@ async function syncKnockoutNextRound(tournament: Tournament, currentRound: Round
     return
   }
 
+  const lane: RoundLane = { type: currentRound.type, groupNumber: currentRound.groupNumber ?? null }
   const nextNumber = currentRound.number + 1
-  const bracketRounds = await getBracketRounds(
-    tournament.id,
-    currentRound.category ?? null,
-    currentRound.bracket ?? null
-  )
+  const bracketRounds = await getBracketRounds(tournament.id, currentRound.categoryId ?? null, lane)
   let nextRound = bracketRounds.find((round) => round.number === nextNumber) ?? null
 
   if (!nextRound) {
@@ -213,8 +234,10 @@ async function syncKnockoutNextRound(tournament: Tournament, currentRound: Round
     nextRound.tournamentId = tournament.id
     nextRound.number = nextNumber
     nextRound.status = RoundStatus.OPEN
-    nextRound.category = currentRound.category
-    nextRound.bracket = currentRound.bracket
+    nextRound.categoryId = currentRound.categoryId
+    nextRound.type = currentRound.type
+    nextRound.groupNumber = currentRound.groupNumber
+    nextRound.active = false
     nextRound.createdAt = new Date()
     await nextRound.save()
   }
@@ -279,12 +302,13 @@ function matchWinnerIds(match: Match): number[] | null {
  */
 async function computeConsolationSeeds(
   tournament: Tournament,
-  category: string | null
+  categoryId: number | null
 ): Promise<{ ready: boolean; losers: number[] }> {
   const competitors = (await Competitor.where('tournamentId', tournament.id).orderBy('id').get()).filter(
-    (competitor) => category == null || competitor.category === category
+    (competitor) => categoryId == null || competitor.categoryId === categoryId
   )
-  const mainRounds = await getBracketRounds(tournament.id, category, null)
+  const mainLane: RoundLane = { type: RoundType.KNOCKOUT, groupNumber: null }
+  const mainRounds = await getBracketRounds(tournament.id, categoryId, mainLane)
   const roundNumberById = new Map(mainRounds.map((round) => [round.id, round.number]))
   const roundIds = mainRounds.map((round) => round.id)
   const matches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
@@ -355,7 +379,7 @@ function rankGroup(competitorIds: number[], matches: Match[], settings?: Tournam
       continue
     }
 
-    const score = match.score ?? {}
+    const score = parseScore(match.score) ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
     const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
 
@@ -447,7 +471,7 @@ function rankGroup(competitorIds: number[], matches: Match[], settings?: Tournam
  */
 async function computeGroupsKnockoutSeeds(
   tournament: Tournament,
-  category: string | null,
+  categoryId: number | null,
   competitorIds: number[],
   settings: Tournament['settings']
 ): Promise<number[]> {
@@ -458,7 +482,7 @@ async function computeGroupsKnockoutSeeds(
     safeSettings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
   )
   const groups = assignGroups(competitorIds, groupSize)
-  const allRounds = await getCategoryRounds(tournament.id, category)
+  const allRounds = await getCategoryRounds(tournament.id, categoryId)
   const qualifiers: number[][] = []
 
   for (let index = 0; index < groups.length; index++) {
@@ -468,8 +492,9 @@ async function computeGroupsKnockoutSeeds(
       continue
     }
 
-    const bracket = groupBracket(index)
-    const roundIds = allRounds.filter((round) => (round.bracket ?? null) === bracket).map((round) => round.id)
+    const roundIds = allRounds
+      .filter((round) => round.type === RoundType.LEAGUE && (round.groupNumber ?? null) === index)
+      .map((round) => round.id)
     const matches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
     const ranked = rankGroup(group, matches, settings)
 
@@ -497,7 +522,7 @@ function computeAmericanoPoints(
       continue
     }
 
-    const score = match.score ?? {}
+    const score = parseScore(match.score) ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
     const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
 
@@ -615,33 +640,35 @@ function generateAmericanoSwapStandingsPairings(
   return pairings
 }
 
-/** All rounds of a category (any bracket). */
-async function getCategoryRounds(tournamentId: number, category: string | null): Promise<Round[]> {
+/** All rounds of a category (any lane). */
+async function getCategoryRounds(tournamentId: number, categoryId: number | null): Promise<Round[]> {
   const rounds = await Round.where('tournamentId', tournamentId).get()
 
-  return rounds.filter((round) => (round.category ?? null) === (category ?? null))
+  return rounds.filter((round) => (round.categoryId ?? null) === (categoryId ?? null))
 }
 
 /**
  * Creates the matches of round `roundNumber` for a single category, across every
- * bracket/phase that applies. Returns how many rounds were created. Idempotent:
- * skips (category, bracket) rounds that already exist.
+ * lane/phase that applies. Returns how many rounds were created. Idempotent:
+ * skips (category, lane) rounds that already exist.
  */
 async function materializeCategoryRound(
   tournament: Tournament,
   roundNumber: number,
-  category: string | null,
+  categoryId: number | null,
   competitorIds: number[]
 ): Promise<number> {
   const settings = tournament.settings ?? {}
 
   switch (tournament.type) {
     case TournamentType.LEAGUE: {
+      const lane: RoundLane = { type: RoundType.LEAGUE, groupNumber: null }
+
       if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
         return 0
       }
 
-      if (await roundExists(tournament.id, roundNumber, category, null)) {
+      if (await roundExists(tournament.id, roundNumber, categoryId, lane)) {
         return 0
       }
 
@@ -651,7 +678,7 @@ async function materializeCategoryRound(
         return 0
       }
 
-      await persistRound(tournament, roundNumber, category, null, pairings)
+      await persistRound(tournament, roundNumber, categoryId, lane, pairings)
 
       return 1
     }
@@ -659,11 +686,13 @@ async function materializeCategoryRound(
     case TournamentType.AMERICANO:
 
     case TournamentType.AMERICANO_WITH_SWAP: {
+      const lane: RoundLane = { type: RoundType.AMERICANO, groupNumber: null }
+
       if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
         return 0
       }
 
-      if (await roundExists(tournament.id, roundNumber, category, null)) {
+      if (await roundExists(tournament.id, roundNumber, categoryId, lane)) {
         return 0
       }
 
@@ -674,7 +703,7 @@ async function materializeCategoryRound(
         pairings = generateRoundPairings(tournament.type, settings, competitorIds, roundNumber, [])
       } else {
         // Subsequent rounds: pair by current standings, avoiding rematches.
-        const categoryRounds = await getCategoryRounds(tournament.id, category)
+        const categoryRounds = await getCategoryRounds(tournament.id, categoryId)
         const roundIds = categoryRounds.map((r) => r.id)
         const allMatches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
 
@@ -695,7 +724,7 @@ async function materializeCategoryRound(
         return 0
       }
 
-      await persistRound(tournament, roundNumber, category, null, pairings)
+      await persistRound(tournament, roundNumber, categoryId, lane, pairings)
 
       return 1
     }
@@ -703,10 +732,12 @@ async function materializeCategoryRound(
     case TournamentType.PLAYOFF:
 
     case TournamentType.PLAYOFF_WITH_CONSOLATION: {
+      const mainLane: RoundLane = { type: RoundType.KNOCKOUT, groupNumber: null }
+      const consolationLane: RoundLane = { type: RoundType.KNOCKOUT_CONSOLATION, groupNumber: null }
       let created = 0
 
-      if (roundNumber === 1 && !(await roundExists(tournament.id, 1, category, null))) {
-        created += await createKnockoutBracket(tournament, category, null, competitorIds, 1)
+      if (roundNumber === 1 && !(await roundExists(tournament.id, 1, categoryId, mainLane))) {
+        created += await createKnockoutBracket(tournament, categoryId, mainLane, competitorIds, 1)
       }
 
       // The consolation bracket is seeded once every competitor has played (and
@@ -714,14 +745,14 @@ async function materializeCategoryRound(
       // It then starts at the current round, in parallel with the main bracket.
       // For PLAYOFF_WITH_CONSOLATION the consolation bracket is always enabled.
       if (tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION && roundNumber > 1) {
-        const categoryRounds = await getCategoryRounds(tournament.id, category)
-        const consolationExists = categoryRounds.some((round) => round.bracket === BRACKET_CONSOLATION)
+        const categoryRounds = await getCategoryRounds(tournament.id, categoryId)
+        const consolationExists = categoryRounds.some((round) => round.type === RoundType.KNOCKOUT_CONSOLATION)
 
         if (!consolationExists) {
-          const { ready, losers } = await computeConsolationSeeds(tournament, category)
+          const { ready, losers } = await computeConsolationSeeds(tournament, categoryId)
 
           if (ready && losers.length >= 2) {
-            created += await createKnockoutBracket(tournament, category, BRACKET_CONSOLATION, losers, roundNumber)
+            created += await createKnockoutBracket(tournament, categoryId, consolationLane, losers, roundNumber)
           }
         }
       }
@@ -744,9 +775,9 @@ async function materializeCategoryRound(
             continue
           }
 
-          const bracket = groupBracket(index)
+          const lane: RoundLane = { type: RoundType.LEAGUE, groupNumber: index }
 
-          if (await roundExists(tournament.id, roundNumber, category, bracket)) {
+          if (await roundExists(tournament.id, roundNumber, categoryId, lane)) {
             continue
           }
 
@@ -756,7 +787,7 @@ async function materializeCategoryRound(
             continue
           }
 
-          await persistRound(tournament, roundNumber, category, bracket, pairings)
+          await persistRound(tournament, roundNumber, categoryId, lane, pairings)
           created++
         }
 
@@ -765,13 +796,15 @@ async function materializeCategoryRound(
 
       // First knockout round: build the whole bracket from the group standings.
       if (roundNumber === groupPhaseRounds + 1) {
-        if (await roundExists(tournament.id, roundNumber, category, BRACKET_PLAYOFF)) {
+        const knockoutLane: RoundLane = { type: RoundType.KNOCKOUT, groupNumber: null }
+
+        if (await roundExists(tournament.id, roundNumber, categoryId, knockoutLane)) {
           return 0
         }
 
-        const seeded = await computeGroupsKnockoutSeeds(tournament, category, competitorIds, settings)
+        const seeded = await computeGroupsKnockoutSeeds(tournament, categoryId, competitorIds, settings)
 
-        return createKnockoutBracket(tournament, category, BRACKET_PLAYOFF, seeded, groupPhaseRounds + 1)
+        return createKnockoutBracket(tournament, categoryId, knockoutLane, seeded, groupPhaseRounds + 1)
       }
 
       return 0
@@ -793,15 +826,16 @@ async function materializeRound(tournament: Tournament, roundNumber: number): Pr
 
   let created = 0
 
-  for (const category of getTournamentCategoryKeys(tournament)) {
-    const groupCompetitors = category === null ? competitors : competitors.filter((c) => c.category === category)
+  for (const categoryId of getTournamentCategoryKeys(tournament)) {
+    const groupCompetitors =
+      categoryId === null ? competitors : competitors.filter((c) => c.categoryId === categoryId)
     const competitorIds = groupCompetitors.map((competitor) => competitor.id)
 
     if (competitorIds.length < 2) {
       continue
     }
 
-    created += await materializeCategoryRound(tournament, roundNumber, category, competitorIds)
+    created += await materializeCategoryRound(tournament, roundNumber, categoryId, competitorIds)
   }
 
   return created
@@ -824,7 +858,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
     throw new ApiException('noMatchesGenerated')
   }
 
-  tournament.currentRound = roundNumber
+  await setFrontier(tournament.id, roundNumber)
   tournament.updatedAt = new Date()
   await tournament.save()
 
@@ -832,7 +866,7 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   await closeRoundAndAdvance(tournament)
 }
 
-/** Whether any round exists at the given number (across categories/brackets). */
+/** Whether any round exists at the given number (across categories/lanes). */
 async function hasRoundAtNumber(tournamentId: number, roundNumber: number): Promise<boolean> {
   const rounds = await Round.where('tournamentId', tournamentId).where('number', roundNumber).get()
 
@@ -840,30 +874,29 @@ async function hasRoundAtNumber(tournamentId: number, roundNumber: number): Prom
 }
 
 /**
- * Closes the current round (every category/bracket sharing the round number)
- * once all its matches are resolved, then materialises and advances to the next
- * round. Loops so that rounds made entirely of byes/walkovers cascade through.
+ * Closes the active frontier (every category/lane sharing the active round
+ * number) once all its matches are resolved, then materialises and activates the
+ * next round. Loops so that rounds made entirely of byes/walkovers cascade
+ * through.
  *
- * The tournament is finished when, after closing a round, there is no next round
- * to play: nothing new was materialised and no round (e.g. a pre-built knockout
- * round) exists at the next number. This structural check naturally supports
- * variable-length structures like the consolation bracket, whose size depends on
- * how many competitors lose their first match.
+ * The tournament is finished when, after closing the frontier, there is no next
+ * round to play: nothing new was materialised and no round (e.g. a pre-built
+ * knockout round) exists at the next number. This structural check naturally
+ * supports variable-length structures like the consolation bracket, whose size
+ * depends on how many competitors lose their first match.
  */
 async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const rounds = await Round.where('tournamentId', tournament.id)
-      .where('number', tournament.currentRound)
-      .with('matches')
-      .get()
-    const openRounds = rounds.filter((round) => round.status === RoundStatus.OPEN)
+    const activeRounds = await Round.where('tournamentId', tournament.id).where('active', true).with('matches').get()
 
-    if (openRounds.length === 0) {
+    if (activeRounds.length === 0) {
       return
     }
 
-    const hasPending = openRounds.some((round) =>
+    const currentNumber = Math.max(...activeRounds.map((round) => round.number))
+    const frontierRounds = activeRounds.filter((round) => round.number === currentNumber)
+    const hasPending = frontierRounds.some((round) =>
       (round.matches ?? []).some((match) => match.status === MatchStatus.PENDING)
     )
 
@@ -871,12 +904,13 @@ async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
       return
     }
 
-    for (const round of openRounds) {
+    for (const round of frontierRounds) {
       round.status = RoundStatus.CLOSED
+      round.active = false
       await round.save()
     }
 
-    const nextNumber = tournament.currentRound + 1
+    const nextNumber = currentNumber + 1
 
     await materializeRound(tournament, nextNumber)
 
@@ -884,11 +918,12 @@ async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
       tournament.status = TournamentStatus.FINISHED
       tournament.updatedAt = new Date()
       await tournament.save()
+      await deactivateAllRounds(tournament.id)
 
       return
     }
 
-    tournament.currentRound = nextNumber
+    await setFrontier(tournament.id, nextNumber)
     tournament.updatedAt = new Date()
     await tournament.save()
   }
@@ -914,7 +949,7 @@ export async function progressTournamentAfterResult(tournament: Tournament, roun
     return
   }
 
-  if (isKnockoutRound(tournament, round)) {
+  if (isKnockoutType(round.type)) {
     await syncKnockoutNextRound(tournament, round)
   }
 

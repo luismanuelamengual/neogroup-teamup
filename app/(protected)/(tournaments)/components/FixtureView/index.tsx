@@ -8,13 +8,14 @@ import { useUserStore } from '@/app/(auth)/stores/users'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
+import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 
 interface FixtureViewProps {
   tournament: TournamentDto
-  category?: string
-  bracket?: string | null
+  category?: number
+  /** Group index when rendering the group phase of a groups+playoff tournament. */
+  groupNumber?: number | null
   organizerMode?: boolean
   onEditMatch?: (match: MatchDto) => void
 }
@@ -23,7 +24,7 @@ interface FixtureViewProps {
 export default function FixtureView({
   tournament,
   category,
-  bracket,
+  groupNumber = null,
   organizerMode = false,
   onEditMatch
 }: FixtureViewProps) {
@@ -33,12 +34,13 @@ export default function FixtureView({
     const all = tournament.rounds ?? []
     const filtered = all.filter(
       (r) =>
-        (category == null || (r.category ?? null) === category) &&
-        (bracket === undefined || (r.bracket ?? null) === (bracket ?? null))
+        (category == null || (r.categoryId ?? null) === category) &&
+        (r.groupNumber ?? null) === (groupNumber ?? null) &&
+        (r.type === RoundType.LEAGUE || r.type === RoundType.AMERICANO)
     )
 
     return [...filtered].sort((a, b) => b.number - a.number)
-  }, [tournament.rounds, category, bracket])
+  }, [tournament.rounds, category, groupNumber])
   const matchesByRound = useMemo(() => {
     const roundIds = new Set(rounds.map((r) => r.id))
     const map: Record<number, typeof tournament.matches> = {}
@@ -58,9 +60,10 @@ export default function FixtureView({
       (tournament.rounds ?? [])
         .filter(
           (r) =>
-            r.number === tournament.currentRound &&
+            r.active &&
             r.status === RoundStatus.OPEN &&
-            (category == null || (r.category ?? null) === category)
+            (r.groupNumber ?? null) === (groupNumber ?? null) &&
+            (category == null || (r.categoryId ?? null) === category)
         )
         .map((r) => r.id)
     )
@@ -90,7 +93,7 @@ export default function FixtureView({
       .map((m) => m.id)
 
     return { editableMatchIds: userMatchIds, highlightedMatchIds: userMatchIds }
-  }, [tournament, category, organizerMode, userId])
+  }, [tournament, category, groupNumber, organizerMode, userId])
 
   return (
     <div className="fixture-view">
@@ -100,17 +103,7 @@ export default function FixtureView({
         return (
           <section key={round.id} className="round">
             <header className="round-header">
-              <h3 className="round-title">
-                {t(
-                  tournament.type === TournamentType.LEAGUE ||
-                    tournament.type === TournamentType.AMERICANO ||
-                    tournament.type === TournamentType.AMERICANO_WITH_SWAP ||
-                    (round.bracket ?? '').startsWith('group:')
-                    ? 'round'
-                    : 'playoffRound',
-                  { number: round.number }
-                )}
-              </h3>
+              <h3 className="round-title">{t('round', { number: round.number })}</h3>
               {round.status === RoundStatus.OPEN && (
                 <Chip size="small" color="success" variant="outlined" label={t('status.ongoing')} />
               )}

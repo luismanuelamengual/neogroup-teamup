@@ -18,13 +18,13 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   }
 
   // Remove categories that have no registered competitors before starting.
-  if (tournament.categories && tournament.categories.length > 0) {
+  if (tournament.categoryIds && tournament.categoryIds.length > 0) {
     const competitors = await Competitor.where('tournamentId', tournament.id).get()
-    const usedCategories = new Set(competitors.map((c) => c.category))
-    const filtered = tournament.categories.filter((cat) => usedCategories.has(cat))
+    const usedCategoryIds = new Set(competitors.map((c) => c.categoryId))
+    const filtered = tournament.categoryIds.filter((categoryId) => usedCategoryIds.has(categoryId))
 
-    if (filtered.length !== tournament.categories.length) {
-      tournament.categories = filtered.length > 0 ? filtered : null
+    if (filtered.length !== tournament.categoryIds.length) {
+      tournament.categoryIds = filtered.length > 0 ? filtered : null
     }
   }
 

@@ -61,9 +61,10 @@ import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { createRound, progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
-import { getScoreWinner } from '@/app/(protected)/(tournaments)/utils/score'
+import { getScoreWinner, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
 
 // ---------------------------------------------------------------------------
 // Random helpers
@@ -314,7 +315,7 @@ async function registerCompetitors(
   tournament: Tournament,
   pool: User[],
   competitorCount: number,
-  categories: string[] | null
+  categoryIds: number[] | null
 ): Promise<void> {
   const isPairs = registersAsPairs(
     tournament.discipline,
@@ -347,7 +348,7 @@ async function registerCompetitors(
     }
 
     // Round-robin assignment keeps every category evenly filled.
-    competitor.category = categories ? categories[i % categories.length] : null
+    competitor.categoryId = categoryIds ? categoryIds[i % categoryIds.length] : null
     competitor.createdAt = new Date()
     await competitor.save()
   }
@@ -362,11 +363,11 @@ async function playMatch(tournament: Tournament, round: Round, match: Match): Pr
   const score = generateScore(tournament.scoreFormat, true)
 
   if (score.walkover) {
-    match.score = { walkover: score.walkover }
+    match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = score
+    match.score = serializeScore(score, tournament.scoreFormat)
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }
@@ -377,15 +378,19 @@ async function playMatch(tournament: Tournament, round: Round, match: Match): Pr
   await progressTournamentAfterResult(tournament, round)
 }
 
+/** Number of the tournament's current active frontier (0 when none is active). */
+async function activeRoundNumber(tournament: Tournament): Promise<number> {
+  const rounds = await Round.where('tournamentId', tournament.id).where('active', true).get()
+
+  return rounds.length > 0 ? Math.max(...rounds.map((round) => round.number)) : 0
+}
+
 /**
- * Plays the matches of the tournament's current round number. `fraction` < 1
+ * Plays the matches of the tournament's active frontier rounds. `fraction` < 1
  * leaves the rest pending (used to model a tournament caught mid-round).
  */
 async function playCurrentRound(tournament: Tournament, fraction: number): Promise<void> {
-  const rounds = await Round.where('tournamentId', tournament.id)
-    .where('number', tournament.currentRound)
-    .where('status', RoundStatus.OPEN)
-    .get()
+  const rounds = await Round.where('tournamentId', tournament.id).where('active', true).get()
 
   for (const round of rounds) {
     const pending = (await Match.where('roundId', round.id).where('status', MatchStatus.PENDING).get()).filter(
@@ -405,13 +410,13 @@ async function playFullRounds(tournament: Tournament, maxRounds: number): Promis
   let guard = 0
 
   while (tournament.status === TournamentStatus.ONGOING && completed < maxRounds && guard++ < 60) {
-    const before = tournament.currentRound
+    const before = await activeRoundNumber(tournament)
 
     await playCurrentRound(tournament, 1)
     completed++
 
     // Safety: bail out if the round could not be completed/advanced.
-    if (tournament.status === TournamentStatus.ONGOING && tournament.currentRound === before) {
+    if (tournament.status === TournamentStatus.ONGOING && (await activeRoundNumber(tournament)) === before) {
       break
     }
   }
@@ -984,6 +989,11 @@ async function buildTournament(
   organizationId: number,
   pool: User[]
 ): Promise<void> {
+  const subDiscipline = spec.discipline === Discipline.TENNIS ? spec.subDiscipline : null
+  // Resolve (and create on demand) the categories of this tournament.
+  const categoryIds = spec.categories
+    ? await resolveCategoryIds(organizationId, spec.discipline, subDiscipline, spec.categories)
+    : null
   const tournament = new Tournament()
 
   tournament.organizationId = organizationId
@@ -992,21 +1002,20 @@ async function buildTournament(
   tournament.description = spec.description
   tournament.status = TournamentStatus.STAND_BY
   tournament.discipline = spec.discipline
-  tournament.subDiscipline = spec.discipline === Discipline.TENNIS ? spec.subDiscipline : null
+  tournament.subDiscipline = subDiscipline
   tournament.type = spec.type
   tournament.scoreFormat = spec.scoreFormat
   tournament.startDate = startDateFor(spec.status)
   tournament.startTime = randomItem(['09:00', '10:30', '14:00', '18:30', '20:00', null])
   tournament.location = randomItem(VENUES)
-  tournament.categories = spec.categories
+  tournament.categoryIds = categoryIds
   tournament.maxCompetitors = spec.maxCompetitors ?? spec.competitorCount
   tournament.settings = spec.settings
-  tournament.currentRound = 0
   tournament.createdAt = new Date()
   tournament.updatedAt = new Date()
   await tournament.save()
 
-  await registerCompetitors(tournament, pool, spec.competitorCount, spec.categories)
+  await registerCompetitors(tournament, pool, spec.competitorCount, categoryIds)
 
   if (spec.status === TournamentStatus.STAND_BY) {
     return

@@ -6,7 +6,7 @@ import IconButton from '@mui/material/IconButton'
 import { useTranslations } from 'next-intl'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { formatScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { formatScore, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { MatchDto } from '../../models/MatchDto'
 import { TournamentDto } from '../../models/TournamentDto'
 
@@ -58,7 +58,7 @@ export default function MatchCard({
           (match.status === MatchStatus.PENDING ? (
             <span className="pending">{t('pendingResult')}</span>
           ) : (
-            <span className="score">{formatScore(match.score, scoreFormat)}</span>
+            <span className="score">{formatScore(parseScore(match.score), scoreFormat)}</span>
           ))}
         {editable && !isBye && (
           <IconButton size="small" className="edit" onClick={() => onEdit?.(match)}>

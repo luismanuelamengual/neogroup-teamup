@@ -21,21 +21,27 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     throw new ApiException('invalidStatus')
   }
 
-  const currentRounds = await Round.where('tournamentId', tournamentId).where('number', tournament.currentRound).get()
+  // The "current" round number is the highest one already materialised; it must
+  // be fully closed (no active/open round) before the next one can start.
+  const allRounds = await Round.where('tournamentId', tournamentId).get()
+  const currentNumber = allRounds.length > 0 ? Math.max(...allRounds.map((round) => round.number)) : 0
+  const openAtCurrent = allRounds.filter((round) => round.number === currentNumber && round.status === RoundStatus.OPEN)
 
-  if (currentRounds.length === 0 || currentRounds.some((round) => round.status !== RoundStatus.CLOSED)) {
+  if (currentNumber === 0 || openAtCurrent.length > 0) {
     throw new ApiException('roundStillOpen')
   }
 
   const competitors = await Competitor.where('tournamentId', tournamentId).get()
-  const groupSizes = getTournamentCategoryKeys(tournament).map((category) =>
-    category === null ? competitors.length : competitors.filter((competitor) => competitor.category === category).length
+  const groupSizes = getTournamentCategoryKeys(tournament).map((categoryId) =>
+    categoryId === null
+      ? competitors.length
+      : competitors.filter((competitor) => competitor.categoryId === categoryId).length
   )
   const totalRounds = getMaxTotalRounds(tournament.type, tournament.settings ?? {}, groupSizes)
 
-  if (tournament.currentRound >= totalRounds) {
+  if (currentNumber >= totalRounds) {
     throw new ApiException('noMoreRounds')
   }
 
-  await createRound(tournament, tournament.currentRound + 1)
+  await createRound(tournament, currentNumber + 1)
 })

@@ -67,11 +67,11 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         {hasCategories && (
           <>
             {tournament.categories!.map((category) => {
-              const count = tournament.competitors?.filter((c) => c.category === category).length
+              const count = tournament.competitors?.filter((c) => c.categoryId === category.id).length
 
               return (
-                <div key={category} className="category-chip">
-                  <label>{category}</label>
+                <div key={category.id} className="category-chip">
+                  <label>{category.name}</label>
                   {count != null && (
                     <div className="inscriptions">
                       <GroupsIcon fontSize="inherit" />

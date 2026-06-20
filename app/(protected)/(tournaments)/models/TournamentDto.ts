@@ -1,3 +1,4 @@
+import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -22,10 +23,12 @@ export interface TournamentDto {
   startDate: string
   startTime: string | null
   location: string | null
-  categories: string[] | null
+  /** Ids of the categories this tournament runs. */
+  categoryIds: number[] | null
+  /** Resolved categories (id + name) for categoryIds — populated on detail/list responses. */
+  categories?: CategoryDto[]
   maxCompetitors: number
   settings: TournamentSettings | null
-  currentRound: number
   createdAt: string
   updatedAt: string
   competitors?: CompetitorDto[]

@@ -28,7 +28,7 @@ export class Competitor extends BaseEntity {
 
   /** Category this entry is registered in (null when the tournament has none). */
   @Column()
-  category!: string | null
+  categoryId!: number | null
 
   @Column({ cast: 'date' })
   createdAt!: Date

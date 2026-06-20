@@ -5,8 +5,9 @@ import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/StandingsRowDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
 
 /**
  * Computes the standings table from the resolved matches of a tournament.
@@ -14,22 +15,23 @@ import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/s
  * - Americano: points per game won + per match won (per individual when partners swap).
  * - Groups + playoff: each group (pass its `bracket`) ranks like a league.
  *
- * `bracket` narrows the table to a single parallel structure (e.g. a group of a
- * groups+playoff tournament). When omitted every bracket of the category counts.
+ * `groupNumber` narrows the table to a single group of a groups+playoff
+ * tournament. When omitted the plain league/americano flow (groupNumber null)
+ * of the category counts.
  */
 export function computeStandings(
   tournament: TournamentDto,
-  category?: string | null,
-  bracket?: string | null
+  category?: number | null,
+  groupNumber?: number | null
 ): StandingsRowDto[] {
   if (tournament.type === TournamentType.PLAYOFF || tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
     return []
   }
 
-  // Groups+playoff: only the round-robin group phase has standings.
+  // Groups+playoff: only the round-robin group phase (a specific group) has standings.
   const isGroups = tournament.type === TournamentType.GROUPS_PLAYOFF
 
-  if (isGroups && !(bracket && bracket.startsWith('group:'))) {
+  if (isGroups && groupNumber == null) {
     return []
   }
 
@@ -38,8 +40,9 @@ export function computeStandings(
     allRounds
       .filter(
         (r) =>
-          (category == null || (r.category ?? null) === category) &&
-          (bracket == null || (r.bracket ?? null) === bracket)
+          (category == null || (r.categoryId ?? null) === category) &&
+          (r.groupNumber ?? null) === (groupNumber ?? null) &&
+          (r.type === RoundType.LEAGUE || r.type === RoundType.AMERICANO)
       )
       .map((r) => r.id)
   )
@@ -59,7 +62,7 @@ export function computeStandings(
   const competitors = isGroups
     ? allCompetitors.filter((c) => groupCompetitorIds.has(c.id))
     : category != null
-    ? allCompetitors.filter((c) => c.category === category)
+    ? allCompetitors.filter((c) => c.categoryId === category)
     : allCompetitors
   // Groups score like a league (sets + match wins).
   // AMERICANO_WITH_SWAP scores the same as AMERICANO.
@@ -109,7 +112,7 @@ export function computeStandings(
       continue
     }
 
-    const score = match.score ?? {}
+    const score = parseScore(match.score) ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
 
     if (type === TournamentType.LEAGUE) {

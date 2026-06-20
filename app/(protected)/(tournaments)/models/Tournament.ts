@@ -1,5 +1,6 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
+import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
@@ -54,9 +55,9 @@ export class Tournament extends BaseEntity {
   @Column()
   location!: string | null
 
-  /** Optional free-text category names defined by the organizer. */
-  @Column({ cast: 'json' })
-  categories!: string[] | null
+  /** Ids of the categories (from the categories table) this tournament runs. */
+  @Column({ cast: 'array' })
+  categoryIds!: number[] | null
 
   @Column({ cast: 'number' })
   maxCompetitors!: number
@@ -64,14 +65,18 @@ export class Tournament extends BaseEntity {
   @Column({ cast: 'json' })
   settings!: TournamentSettings | null
 
-  @Column({ cast: 'number' })
-  currentRound!: number
-
   @Column({ cast: 'date' })
   createdAt!: Date
 
   @Column({ cast: 'date' })
   updatedAt!: Date
+
+  /**
+   * Resolved categories (id + name + …) for this tournament's categoryIds.
+   * Not a database column — populated by the tournament service so the UI can
+   * display category names without extra lookups.
+   */
+  categories?: Category[]
 
   @BelongsTo(() => User, 'ownerId')
   owner?: User

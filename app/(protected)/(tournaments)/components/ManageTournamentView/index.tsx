@@ -72,8 +72,12 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
   const rounds = tournament?.rounds ?? []
-  const categoryKeys = useMemo<(string | null)[]>(
-    () => (tournament?.categories && tournament.categories.length > 0 ? tournament.categories : [null]),
+  const categoryKeys = useMemo<(number | null)[]>(
+    () => (tournament?.categoryIds && tournament.categoryIds.length > 0 ? tournament.categoryIds : [null]),
+    [tournament]
+  )
+  const categoryNameById = useMemo(
+    () => new Map((tournament?.categories ?? []).map((category) => [category.id, category.name])),
     [tournament]
   )
 
@@ -105,8 +109,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   // Per-category data (a single null group when there are no categories).
   const categoryGroups = categoryKeys.map((key) => {
     const groupCompetitors =
-      key === null ? competitors : competitors.filter((competitor) => competitor.category === key)
-    const groupRounds = rounds.filter((round) => (round.category ?? null) === key)
+      key === null ? competitors : competitors.filter((competitor) => competitor.categoryId === key)
+    const groupRounds = rounds.filter((round) => (round.categoryId ?? null) === key)
 
     return { key, groupCompetitors, groupRounds }
   })
@@ -234,7 +238,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
               <div className="category-header">
                 <Typography variant="h6" className="category-title">
-                  {key}
+                  {key !== null ? categoryNameById.get(key) : null}
                 </Typography>
                 <Chip
                   size="small"

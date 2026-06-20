@@ -7,12 +7,14 @@ import { useUserStore } from '@/app/(auth)/stores/users'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
+import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 
 interface BracketViewProps {
   tournament: TournamentDto
-  category?: string
-  bracket?: string | null
+  category?: number
+  /** Which knockout bracket to render (main or consolation). Defaults to the main bracket. */
+  roundType?: RoundType
   organizerMode?: boolean
   onEditMatch?: (match: MatchDto) => void
 }
@@ -21,7 +23,7 @@ interface BracketViewProps {
 export default function BracketView({
   tournament,
   category,
-  bracket,
+  roundType = RoundType.KNOCKOUT,
   organizerMode = false,
   onEditMatch
 }: BracketViewProps) {
@@ -30,11 +32,11 @@ export default function BracketView({
   const rounds = useMemo(() => {
     const all = tournament.rounds ?? []
     const filtered = all.filter(
-      (r) => (category == null || (r.category ?? null) === category) && (r.bracket ?? null) === (bracket ?? null)
+      (r) => (category == null || (r.categoryId ?? null) === category) && r.type === roundType
     )
 
     return [...filtered].sort((a, b) => a.number - b.number)
-  }, [tournament.rounds, category, bracket])
+  }, [tournament.rounds, category, roundType])
   const matchesByRound = useMemo(() => {
     const roundIds = new Set(rounds.map((r) => r.id))
     const map: Record<number, typeof tournament.matches> = {}
@@ -54,9 +56,10 @@ export default function BracketView({
       (tournament.rounds ?? [])
         .filter(
           (r) =>
-            r.number === tournament.currentRound &&
+            r.active &&
             r.status === RoundStatus.OPEN &&
-            (category == null || (r.category ?? null) === category)
+            r.type === roundType &&
+            (category == null || (r.categoryId ?? null) === category)
         )
         .map((r) => r.id)
     )
@@ -86,7 +89,7 @@ export default function BracketView({
       .map((m) => m.id)
 
     return { editableMatchIds: userMatchIds, highlightedMatchIds: userMatchIds }
-  }, [tournament, category, organizerMode, userId])
+  }, [tournament, category, roundType, organizerMode, userId])
 
   return (
     <div className="bracket-view">

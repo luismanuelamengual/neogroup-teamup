@@ -68,15 +68,9 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     () => competitors.find((c) => c.userId === userId || c.partnerUserId === userId) ?? null,
     [competitors, userId]
   )
-  const currentRoundNumber = tournament?.currentRound ?? 0
   const openCurrentRoundIds = useMemo(
-    () =>
-      new Set(
-        rounds
-          .filter((round) => round.number === currentRoundNumber && round.status === RoundStatus.OPEN)
-          .map((round) => round.id)
-      ),
-    [rounds, currentRoundNumber]
+    () => new Set(rounds.filter((round) => round.active && round.status === RoundStatus.OPEN).map((round) => round.id)),
+    [rounds]
   )
   const myMatches = useMemo(() => {
     if (!userEntry) {
@@ -90,8 +84,12 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         (match.homeCompetitorIds.includes(userEntry.id) || match.awayCompetitorIds.includes(userEntry.id))
     )
   }, [matches, userEntry, openCurrentRoundIds])
-  const categoryKeys = useMemo<(string | null)[]>(
-    () => (tournament?.categories && tournament.categories.length > 0 ? tournament.categories : [null]),
+  const categoryKeys = useMemo<(number | null)[]>(
+    () => (tournament?.categoryIds && tournament.categoryIds.length > 0 ? tournament.categoryIds : [null]),
+    [tournament]
+  )
+  const categoryNameById = useMemo(
+    () => new Map((tournament?.categories ?? []).map((category) => [category.id, category.name])),
     [tournament]
   )
 
@@ -121,7 +119,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
 
   const hasCategories = categoryKeys.some((key) => key !== null)
   const categoryGroups = categoryKeys.map((key) => {
-    const groupRounds = rounds.filter((round) => (round.category ?? null) === key)
+    const groupRounds = rounds.filter((round) => (round.categoryId ?? null) === key)
 
     return { key, groupRounds }
   })
@@ -250,7 +248,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
             >
               <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
                 <Typography variant="h6" className="category-title">
-                  {key}
+                  {key !== null ? categoryNameById.get(key) : null}
                 </Typography>
               </AccordionSummary>
               <Divider />

@@ -1,23 +1,21 @@
 'use client'
 
 import './index.scss'
-import AddIcon from '@mui/icons-material/Add'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
+import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
-import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { FormEvent, useState } from 'react'
-import { createTournament } from '@/app/(protected)/(tournaments)/actions/tournament'
+import { FormEvent, useEffect, useState } from 'react'
+import { createTournament, getCategories } from '@/app/(protected)/(tournaments)/actions/tournament'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
@@ -47,6 +45,7 @@ export default function TournamentForm() {
   const [startTime, setStartTime] = useState('')
   const [location, setLocation] = useState('')
   const [categories, setCategories] = useState<string[]>([])
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [maxCompetitors, setMaxCompetitors] = useState(16)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
@@ -70,6 +69,29 @@ export default function TournamentForm() {
           TournamentType.PLAYOFF_WITH_CONSOLATION,
           TournamentType.GROUPS_PLAYOFF
         ]
+
+  // Load existing categories for the current discipline / sub-discipline so the
+  // organizer can pick from previously used ones (still able to type new ones).
+  useEffect(() => {
+    let cancelled = false
+    const sub = discipline === Discipline.TENNIS ? subDiscipline : null
+
+    getCategories(discipline, sub)
+      .then((options) => {
+        if (!cancelled) {
+          setCategoryOptions(options.map((option) => option.name))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCategoryOptions([])
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [discipline, subDiscipline])
 
   const handleDisciplineChange = (value: Discipline) => {
     setDiscipline(value)
@@ -100,7 +122,7 @@ export default function TournamentForm() {
         startDate,
         startTime: startTime || null,
         location,
-        categories: categories.map((value) => value.trim()).filter((value) => value !== ''),
+        categoryNames: categories.map((value) => value.trim()).filter((value) => value !== ''),
         maxCompetitors,
         settings:
           type === TournamentType.LEAGUE
@@ -125,10 +147,6 @@ export default function TournamentForm() {
     router.push(`/tournaments/${createdId}`)
   }
 
-  const handleAddCategory = () => setCategories((prev) => [...prev, ''])
-  const handleCategoryChange = (index: number, value: string) =>
-    setCategories((prev) => prev.map((category, i) => (i === index ? value : category)))
-  const handleRemoveCategory = (index: number) => setCategories((prev) => prev.filter((_, i) => i !== index))
   const isDoubles = isDoublesDiscipline(discipline, discipline === Discipline.TENNIS ? subDiscipline : null)
 
   return (
@@ -416,22 +434,16 @@ export default function TournamentForm() {
         </AccordionSummary>
         <AccordionDetails className="section-content">
           <Alert severity="info">{t('categoriesHint')}</Alert>
-          {categories.map((category, index) => (
-            <div key={index} className="category-row">
-              <TextField
-                label={t('categoryNumber', { number: index + 1 })}
-                value={category}
-                onChange={(event) => handleCategoryChange(index, event.target.value)}
-                fullWidth
-              />
-              <IconButton aria-label={tCommon('delete')} onClick={() => handleRemoveCategory(index)}>
-                <DeleteOutlineIcon />
-              </IconButton>
-            </div>
-          ))}
-          <Button startIcon={<AddIcon />} onClick={handleAddCategory}>
-            {t('addCategory')}
-          </Button>
+          <Autocomplete
+            multiple
+            freeSolo
+            options={categoryOptions}
+            value={categories}
+            onChange={(_event, value) =>
+              setCategories([...new Set(value.map((entry) => entry.trim()).filter((entry) => entry !== ''))])
+            }
+            renderInput={(params) => <TextField {...params} label={t('categories')} placeholder={t('addCategory')} />}
+          />
         </AccordionDetails>
       </Accordion>
 

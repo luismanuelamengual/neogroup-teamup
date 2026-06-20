@@ -76,7 +76,7 @@ export default function PlayerDashboard() {
 
       const openRoundIds = new Set(
         (tournament.rounds ?? [])
-          .filter((round) => round.number === tournament.currentRound && round.status === RoundStatus.OPEN)
+          .filter((round) => round.active && round.status === RoundStatus.OPEN)
           .map((round) => round.id)
       )
 

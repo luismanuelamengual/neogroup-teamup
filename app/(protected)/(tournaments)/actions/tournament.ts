@@ -1,8 +1,14 @@
+import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
+import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import type { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
+import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { executeRequest } from '@/app/actions/api'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
+
+/** Payload accepted by createTournament: a tournament plus the category names to resolve/create. */
+export type CreateTournamentInput = Partial<TournamentDto> & { categoryNames?: string[] }
 
 export interface TournamentFilters {
   name?: string
@@ -22,8 +28,16 @@ export async function getTournament(tournamentId: number): Promise<TournamentDto
 }
 
 /** Creates a new tournament in stand_by status. Returns the new tournament id. */
-export async function createTournament(tournament: Partial<TournamentDto>): Promise<{ id: number }> {
+export async function createTournament(tournament: CreateTournamentInput): Promise<{ id: number }> {
   return executeRequest<{ id: number }>('/createTournament', tournament)
+}
+
+/** Categories of the organization for a discipline / sub-discipline (autocomplete source). */
+export async function getCategories(
+  discipline: Discipline,
+  subDiscipline: SubDiscipline | null
+): Promise<CategoryDto[]> {
+  return executeRequest<CategoryDto[]>('/getCategories', { discipline, subDiscipline })
 }
 
 /** Updates the editable attributes of a tournament. */
@@ -59,7 +73,7 @@ export async function saveMatchResult(matchId: number, score: MatchScore): Promi
 /** Payload to register the signed-in user (optionally with a partner) into a tournament. */
 export interface JoinTournamentInput {
   partnerUserId?: number | null
-  category?: string | null
+  categoryId?: number | null
 }
 
 /** Searches all visible tournaments of the organization by name and/or status. */

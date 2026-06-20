@@ -1,5 +1,7 @@
+import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { getCategoriesByIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
 export interface TournamentOptions {
@@ -17,6 +19,19 @@ export interface TournamentOptions {
   pageSize?: number
 }
 
+/** Attaches the resolved `categories` (id + name) to each tournament from its categoryIds. */
+async function attachCategories(tournaments: Tournament[]): Promise<void> {
+  const allIds = [...new Set(tournaments.flatMap((tournament) => tournament.categoryIds ?? []))]
+  const categories = await getCategoriesByIds(allIds)
+  const byId = new Map<number, Category>(categories.map((category) => [category.id, category]))
+
+  for (const tournament of tournaments) {
+    tournament.categories = (tournament.categoryIds ?? [])
+      .map((id) => byId.get(id))
+      .filter((category): category is Category => category != null)
+  }
+}
+
 export async function getTournaments({
   id,
   organizationId,
@@ -31,7 +46,7 @@ export async function getTournaments({
   page = 1,
   pageSize = 10
 }: TournamentOptions = {}): Promise<PaginatedResponse<Tournament[]>> {
-  return await Tournament.when(id, (query) => query.where('id', id))
+  const result = await Tournament.when(id, (query) => query.where('id', id))
     .when(organizationId, (query) => query.where('organizationId', organizationId))
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) =>
@@ -48,6 +63,10 @@ export async function getTournaments({
     .orderBy('status')
     .orderByDesc('id')
     .paginate(pageSize, page)
+
+  await attachCategories(result.data)
+
+  return result
 }
 
 export async function getTournament(options: TournamentOptions = {}): Promise<Tournament | null> {

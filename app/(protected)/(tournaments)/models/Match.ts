@@ -1,5 +1,4 @@
 import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
-import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { Round } from '@/app/(protected)/(tournaments)/models/Round'
@@ -19,14 +18,18 @@ export class Match extends BaseEntity {
   @Column({ cast: 'number' })
   position!: number
 
-  @Column({ cast: 'json' })
+  @Column({ cast: 'array' })
   homeCompetitorIds!: number[]
 
-  @Column({ cast: 'json' })
+  @Column({ cast: 'array' })
   awayCompetitorIds!: number[] | null
 
-  @Column({ cast: 'json' })
-  score!: MatchScore | null
+  /**
+   * Match score in the compact string format `{scoreFormatId}:{results}` (see
+   * utils/score.ts → serializeScore / parseScore). Null when no result yet.
+   */
+  @Column()
+  score!: string | null
 
   @Column({ cast: 'number' })
   status!: MatchStatus

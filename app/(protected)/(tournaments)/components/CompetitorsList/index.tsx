@@ -9,7 +9,7 @@ import { TournamentDto } from '@/app/(protected)/(tournaments)/models/Tournament
 
 interface CompetitorsListProps {
   tournament: TournamentDto
-  category?: string
+  category?: number
 }
 
 export default function CompetitorsList({ tournament, category }: CompetitorsListProps) {
@@ -18,7 +18,7 @@ export default function CompetitorsList({ tournament, category }: CompetitorsLis
     const all = tournament.competitors ?? []
 
     if (category != null) {
-      return all.filter((c) => c.category === category)
+      return all.filter((c) => c.categoryId === category)
     }
 
     return all

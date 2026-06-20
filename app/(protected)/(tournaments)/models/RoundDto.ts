@@ -1,4 +1,5 @@
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
+import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 
 /** Serializable representation of a Round — safe to pass server→client. */
 export interface RoundDto {
@@ -6,7 +7,9 @@ export interface RoundDto {
   tournamentId: number
   number: number
   status: RoundStatus
-  category: string | null
-  bracket: string | null
+  categoryId: number | null
+  type: RoundType
+  groupNumber: number | null
+  active: boolean
   createdAt: string
 }

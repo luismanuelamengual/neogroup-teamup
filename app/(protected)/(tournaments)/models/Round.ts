@@ -1,6 +1,7 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
+import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 
 @Entity({ table: 'rounds' })
@@ -19,16 +20,28 @@ export class Round extends BaseEntity {
 
   /** Category this round belongs to (null when the tournament has none). */
   @Column()
-  category!: string | null
+  categoryId!: number | null
+
+  /** Kind of round (knockout / consolation / league / americano). */
+  @Column({ cast: 'number' })
+  type!: RoundType
 
   /**
-   * Parallel structure this round belongs to inside its category. Null is the
-   * main bracket / the single league or americano flow. Other values:
-   * 'consolation' (playoff consolation bracket), 'group:N' (a group of a
-   * groups+playoff tournament) and 'playoff' (its knockout phase).
+   * Group index this round belongs to, for the group phase of a groups+playoff
+   * tournament (type LEAGUE). Null for plain leagues, americanos and knockout
+   * brackets. Replaces the former 'group:N' bracket marker.
    */
   @Column()
-  bracket!: string | null
+  groupNumber!: number | null
+
+  /**
+   * Whether this round is currently active (open and being played as part of
+   * the tournament's current frontier). Several rounds can be active at once
+   * (e.g. the groups of a groups+playoff, or a main + consolation bracket).
+   * Replaces the former tournaments.currentRound counter.
+   */
+  @Column({ cast: 'boolean' })
+  active!: boolean
 
   @Column({ cast: 'date' })
   createdAt!: Date

@@ -17,9 +17,9 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     throw new ApiException('invalidStatus')
   }
 
-  // A round number may span several rounds (one per category); close them all.
-  const rounds = await Round.where('tournamentId', tournamentId).where('number', tournament.currentRound).get()
-  const openRounds = rounds.filter((round) => round.status === RoundStatus.OPEN)
+  // The active frontier may span several rounds (one per category/group); close
+  // them all once every match is resolved.
+  const openRounds = await Round.where('tournamentId', tournamentId).where('active', true).get()
 
   if (openRounds.length === 0) {
     throw new ApiException('invalidStatus')
@@ -35,6 +35,7 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
 
   for (const round of openRounds) {
     round.status = RoundStatus.CLOSED
+    round.active = false
     await round.save()
   }
 })

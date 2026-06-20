@@ -39,7 +39,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   const [partnerQuery, setPartnerQuery] = useState('')
   const [partnerOptions, setPartnerOptions] = useState<UserDto[]>([])
   const [partnerUser, setPartnerUser] = useState<UserDto | null>(null)
-  const [category, setCategory] = useState('')
+  const [categoryId, setCategoryId] = useState<number | ''>('')
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -123,7 +123,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
     try {
       await joinTournament(tournament.id, {
         partnerUserId: needsPartner ? partnerUser?.id ?? null : null,
-        category: hasCategories ? category : null
+        categoryId: hasCategories && categoryId !== '' ? categoryId : null
       })
     } catch (requestError) {
       setLoading(false)
@@ -165,16 +165,16 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
           </Typography>
           <TextField
             select
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
+            value={categoryId}
+            onChange={(event) => setCategoryId(Number(event.target.value))}
             placeholder={tPlayer('selectCategory')}
             size="small"
             fullWidth
             required
           >
-            {categories.map((name) => (
-              <MenuItem key={name} value={name}>
-                {name}
+            {categories.map((category) => (
+              <MenuItem key={category.id} value={category.id}>
+                {category.name}
               </MenuItem>
             ))}
           </TextField>
@@ -215,7 +215,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
         variant="contained"
         size="large"
         onClick={handleJoin}
-        disabled={loading || (needsPartner && !partnerUser) || (hasCategories && !category)}
+        disabled={loading || (needsPartner && !partnerUser) || (hasCategories && categoryId === '')}
       >
         {tPlayer('confirmRegistration')}
       </Button>

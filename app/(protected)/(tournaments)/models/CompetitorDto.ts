@@ -6,6 +6,6 @@ export interface CompetitorDto {
   partnerUserId: number | null
   partnerName: string | null
   displayName: string
-  category: string | null
+  categoryId: number | null
   createdAt: string
 }

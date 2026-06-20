@@ -16,13 +16,16 @@ import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standing
 
 interface StandingsTableProps {
   tournament: TournamentDto
-  category?: string
-  bracket?: string
+  category?: number
+  groupNumber?: number | null
 }
 
-export default function StandingsTable({ tournament, category, bracket }: StandingsTableProps) {
+export default function StandingsTable({ tournament, category, groupNumber }: StandingsTableProps) {
   const t = useTranslations('tournaments.standingsTable')
-  const rows = useMemo(() => computeStandings(tournament, category, bracket), [tournament, category, bracket])
+  const rows = useMemo(
+    () => computeStandings(tournament, category, groupNumber),
+    [tournament, category, groupNumber]
+  )
   const showSets = tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.GROUPS_PLAYOFF
   const showGames =
     tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP

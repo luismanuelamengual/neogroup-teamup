@@ -8,11 +8,12 @@ import { useEffect, useMemo, useState } from 'react'
 import FixtureView from '@/app/(protected)/(tournaments)/components/FixtureView'
 import StandingsTable from '@/app/(protected)/(tournaments)/components/StandingsTable'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
+import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 
 interface GroupsViewProps {
   tournament: TournamentDto
-  category?: string
+  category?: number
   organizerMode?: boolean
   onEditMatch?: (match: MatchDto) => void
 }
@@ -21,15 +22,19 @@ interface GroupsViewProps {
 export default function GroupsView({ tournament, category, organizerMode = false, onEditMatch }: GroupsViewProps) {
   const t = useTranslations('tournaments')
   const groups = useMemo(() => {
-    const brackets = new Set<string>()
+    const numbers = new Set<number>()
 
     for (const round of tournament.rounds ?? []) {
-      if ((category == null || (round.category ?? null) === category) && (round.bracket ?? '').startsWith('group:')) {
-        brackets.add(round.bracket as string)
+      if (
+        (category == null || (round.categoryId ?? null) === category) &&
+        round.type === RoundType.LEAGUE &&
+        round.groupNumber != null
+      ) {
+        numbers.add(round.groupNumber)
       }
     }
 
-    return [...brackets].sort((a, b) => Number(a.split(':')[1]) - Number(b.split(':')[1]))
+    return [...numbers].sort((a, b) => a - b)
   }, [tournament.rounds, category])
   const [active, setActive] = useState(0)
 
@@ -44,7 +49,7 @@ export default function GroupsView({ tournament, category, organizerMode = false
     return null
   }
 
-  const activeBracket = groups[Math.min(active, groups.length - 1)]
+  const activeGroup = groups[Math.min(active, groups.length - 1)]
 
   return (
     <div className="groups-view">
@@ -56,16 +61,16 @@ export default function GroupsView({ tournament, category, organizerMode = false
         allowScrollButtonsMobile
         className="groups-tabs"
       >
-        {groups.map((bracket, index) => (
-          <Tab key={bracket} label={t('group', { number: index + 1 })} />
+        {groups.map((groupNumber, index) => (
+          <Tab key={groupNumber} label={t('group', { number: index + 1 })} />
         ))}
       </Tabs>
       <div className="group-panel">
-        <StandingsTable tournament={tournament} category={category} bracket={activeBracket} />
+        <StandingsTable tournament={tournament} category={category} groupNumber={activeGroup} />
         <FixtureView
           tournament={tournament}
           category={category}
-          bracket={activeBracket}
+          groupNumber={activeGroup}
           organizerMode={organizerMode}
           onEditMatch={onEditMatch}
         />
