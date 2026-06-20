@@ -1,10 +1,10 @@
 import { OrganizationStatsDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
-import { PlayerDashboardDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
+import { PlayerStatsDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
 import { executeRequest } from '@/app/actions/api'
 
-/** Stats + active tournaments for the player home dashboard. */
-export async function getPlayerDashboard(): Promise<PlayerDashboardDto> {
-  return executeRequest<PlayerDashboardDto>('/getPlayerDashboard')
+/** Aggregated stats for the player home dashboard. */
+export async function getPlayerStats(): Promise<PlayerStatsDto> {
+  return executeRequest<PlayerStatsDto>('/getPlayerStats')
 }
 
 /** Organization-wide stats for the organizer home dashboard. */

@@ -94,12 +94,13 @@ export async function searchTournaments({
 /** Tournaments in stand_by or ongoing where the signed-in user participates. */
 export async function getPlayerActiveTournaments({
   name = undefined,
+  statuses = [TournamentStatus.STAND_BY, TournamentStatus.ONGOING],
   page = 1,
   pageSize = 10
 }: TournamentFilters = {}): Promise<PaginatedResponse<TournamentDto[]>> {
   return executeRequest<PaginatedResponse<TournamentDto[]>>('/getTournaments', {
     ownedByPlayer: true,
-    statuses: [TournamentStatus.STAND_BY, TournamentStatus.ONGOING],
+    statuses,
     name,
     page,
     pageSize

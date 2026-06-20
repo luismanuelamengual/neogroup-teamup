@@ -10,7 +10,7 @@ import MuiToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { searchTournaments } from '@/app/(protected)/(tournaments)/actions/tournament'
+import { getPlayerActiveTournaments, searchTournaments } from '@/app/(protected)/(tournaments)/actions/tournament'
 import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
 import { useDebouncedValue } from '@/app/(protected)/(tournaments)/hooks/useDebouncedValue'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -24,9 +24,11 @@ export interface TournamentsBrowserProps {
   showFilters?: boolean
   /** Restrict which statuses are fetched. When set, only these statuses are queried and the status toggle is hidden. */
   states?: TournamentStatus[]
+  /** When true, only shows tournaments where the signed-in user participates as a competitor. */
+  ownedByPlayer?: boolean
 }
 
-export default function TournamentsBrowser({ showFilters = true, states }: TournamentsBrowserProps) {
+export default function TournamentsBrowser({ showFilters = true, states, ownedByPlayer = false }: TournamentsBrowserProps) {
   const t = useTranslations('tournaments')
   const [nameInput, setNameInput] = useState('')
   const debouncedName = useDebouncedValue(nameInput)
@@ -41,15 +43,16 @@ export default function TournamentsBrowser({ showFilters = true, states }: Tourn
   }, [debouncedName, status])
 
   const { loading } = useLoadingData(async () => {
-    const { data, lastPage } = await searchTournaments({
-      name: debouncedName.trim() || undefined,
-      statuses: states ?? (status === 'all' ? undefined : [status as TournamentStatus]),
-      page
-    })
+    const name = debouncedName.trim() || undefined
+    const statuses = states ?? (status === 'all' ? undefined : [status as TournamentStatus])
+
+    const { data, lastPage } = ownedByPlayer
+      ? await getPlayerActiveTournaments({ name, statuses, page })
+      : await searchTournaments({ name, statuses, page })
 
     setTournaments(data)
     setPageCount(lastPage)
-  }, [states, debouncedName, status, page])
+  }, [ownedByPlayer, states, debouncedName, status, page])
 
   return (
     <div className="tournaments-browser">

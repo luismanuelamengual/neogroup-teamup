@@ -1,0 +1,57 @@
+'use client'
+
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
+import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
+import SportsTennisIcon from '@mui/icons-material/SportsTennis'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
+import { useTranslations } from 'next-intl'
+import { useCallback, useEffect, useState } from 'react'
+import { getPlayerStats } from '@/app/(protected)/(home)/actions/dashboard'
+import StatCard, { StatCardSkeleton } from '@/app/(protected)/(home)/components/StatCard'
+import { PlayerStatsDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
+
+export default function PlayerStats() {
+  const t = useTranslations('dashboard')
+  const [stats, setStats] = useState<PlayerStatsDto | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    const result = await getPlayerStats()
+
+    setStats(result)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  if (loading || !stats) {
+    return (
+      <>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <StatCardSkeleton key={i} />
+        ))}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <StatCard icon={<EmojiEventsIcon />} accent="primary" value={stats.tournamentsPlayed} label={t('player.tournamentsPlayed')} />
+      <StatCard icon={<LocalFireDepartmentIcon />} accent="info" value={stats.activeTournaments} label={t('player.activeTournaments')} />
+      <StatCard icon={<SportsTennisIcon />} accent="neutral" value={stats.matchesPlayed} label={t('player.matchesPlayed')} />
+      <StatCard
+        icon={<TrendingUpIcon />}
+        accent="success"
+        value={`${stats.winRate}%`}
+        label={t('player.winRate')}
+        hint={t('player.matchesWonHint', { won: stats.matchesWon, played: stats.matchesPlayed })}
+      />
+      <StatCard icon={<WorkspacePremiumIcon />} accent="amber" value={stats.titles} label={t('player.titles')} />
+      <StatCard icon={<MilitaryTechIcon />} accent="amber" value={stats.podiums} label={t('player.podiums')} />
+    </>
+  )
+}

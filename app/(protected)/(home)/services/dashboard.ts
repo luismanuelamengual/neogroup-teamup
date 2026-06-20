@@ -1,5 +1,5 @@
 import { OrganizationStatsDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
-import { PlayerDashboardDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
+import { PlayerStatsDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -9,30 +9,13 @@ import { getPodiumCompetitorIds } from '@/app/(protected)/(tournaments)/utils/ch
 
 const ALL = 1000
 
-/** Orders the nested relations of a tournament so the client can render them directly. */
-function normalize(tournament: TournamentDto): TournamentDto {
-  if (tournament.competitors) {
-    tournament.competitors = [...tournament.competitors].sort((a, b) => a.id - b.id)
-  }
-
-  if (tournament.rounds) {
-    tournament.rounds = [...tournament.rounds].sort((a, b) => a.number - b.number)
-  }
-
-  if (tournament.matches) {
-    tournament.matches = [...tournament.matches].sort((a, b) => a.roundId - b.roundId || a.position - b.position)
-  }
-
-  return tournament
-}
-
 /** Competitor entry of `userId` inside a tournament (as player or partner). */
 function findCompetitor(tournament: TournamentDto, userId: number) {
   return (tournament.competitors ?? []).find((c) => c.userId === userId || c.partnerUserId === userId) ?? null
 }
 
-/** Aggregates the player home dashboard from every tournament they take part in. */
-export async function getPlayerDashboard(userId: number, organizationId: number): Promise<PlayerDashboardDto> {
+/** Aggregates player stats from every tournament they take part in. */
+export async function getPlayerStats(userId: number, organizationId: number): Promise<PlayerStatsDto> {
   const { data } = await getTournaments({
     organizationId,
     playerId: userId,
@@ -94,21 +77,16 @@ export async function getPlayerDashboard(userId: number, organizationId: number)
     }
   }
 
-  const activeTournaments = tournaments
-    .filter((tournament) => tournament.status !== TournamentStatus.FINISHED)
-    .map(normalize)
+  const activeTournaments = tournaments.filter((t) => t.status !== TournamentStatus.FINISHED)
 
   return {
-    stats: {
-      tournamentsPlayed: tournaments.length,
-      activeTournaments: activeTournaments.length,
-      matchesPlayed,
-      matchesWon,
-      winRate: matchesPlayed > 0 ? Math.round((matchesWon / matchesPlayed) * 100) : 0,
-      titles,
-      podiums
-    },
-    activeTournaments
+    tournamentsPlayed: tournaments.length,
+    activeTournaments: activeTournaments.length,
+    matchesPlayed,
+    matchesWon,
+    winRate: matchesPlayed > 0 ? Math.round((matchesWon / matchesPlayed) * 100) : 0,
+    titles,
+    podiums
   }
 }
 
