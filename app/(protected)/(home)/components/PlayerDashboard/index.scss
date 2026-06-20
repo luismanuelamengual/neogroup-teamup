@@ -11,8 +11,9 @@
     justify-content: space-between;
     padding: 24px 26px;
     border-radius: 18px;
-    color: white;
-    background: linear-gradient(120deg, #0f766e 0%, #115e59 55%, #134e4a 100%);
+    border: 1px solid #a6b7ac;
+    color: #405650;
+    background: #f1f4f3;
 
     .greeting {
       font-weight: 800;
@@ -30,6 +31,7 @@
       position: absolute;
       right: 18px;
       bottom: -14px;
+      color: #9eb0ad;
     }
   }
 

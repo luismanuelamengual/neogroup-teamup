@@ -52,13 +52,7 @@ export default function OrganizerDashboard() {
           </Typography>
           <Typography className="subtitle">{t('subtitleOrganizer')}</Typography>
         </div>
-        <Button
-          href="/tournaments/new"
-          variant="contained"
-          color="secondary"
-          startIcon={<AddIcon />}
-          className="hero-action"
-        >
+        <Button href="/tournaments/new" variant="contained" startIcon={<AddIcon />} className="hero-action">
           {t('createTournament')}
         </Button>
       </Paper>

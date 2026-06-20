@@ -10,9 +10,10 @@
     gap: 18px;
     padding: 24px 26px;
     border-radius: 18px;
-    color: white;
-    background: linear-gradient(120deg, #0f766e 0%, #115e59 55%, #134e4a 100%);
     flex-wrap: wrap;
+    color: #405650;
+    background: #f1f4f3;
+    border: 1px solid #a6b7ac;
 
     .greeting {
       font-weight: 800;

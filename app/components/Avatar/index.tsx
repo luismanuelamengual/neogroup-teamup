@@ -16,6 +16,24 @@ const SIZE_PX: Record<AvatarSize, number> = {
   lg: 56,
   xl: 80
 }
+const PALETTE = [
+  'E53935',
+  'D81B60',
+  '8E24AA',
+  '5E35B1',
+  '3949AB',
+  '1E88E5',
+  '039BE5',
+  '00ACC1',
+  '00897B',
+  '43A047',
+  '7CB342',
+  'F4511E',
+  'FB8C00',
+  'FFB300',
+  '546E7A',
+  '6D4C41'
+]
 
 async function computeGravatarHash(email: string): Promise<string> {
   const normalized = email.trim().toLowerCase()
@@ -27,55 +45,14 @@ async function computeGravatarHash(email: string): Promise<string> {
     .join('')
 }
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-
-  if (parts.length === 0) {
-    return '?'
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase()
-  }
-
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
-function colorFromInitials(initials: string): { bg: string; fg: string } {
-  const palette = [
-    '#E53935',
-    '#D81B60',
-    '#8E24AA',
-    '#5E35B1',
-    '#3949AB',
-    '#1E88E5',
-    '#039BE5',
-    '#00ACC1',
-    '#00897B',
-    '#43A047',
-    '#7CB342',
-    '#F4511E',
-    '#FB8C00',
-    '#FFB300',
-    '#546E7A',
-    '#6D4C41',
-    '#C0CA33',
-    '#D81B60'
-  ]
+function colorFromName(name: string): string {
   let hash = 0
 
-  for (const ch of initials) {
+  for (const ch of name.trim()) {
     hash = (hash * 31 + ch.charCodeAt(0)) & 0xffffffff
   }
 
-  const bg = palette[Math.abs(hash) % palette.length]
-  const r = parseInt(bg.slice(1, 3), 16) / 255
-  const g = parseInt(bg.slice(3, 5), 16) / 255
-  const b = parseInt(bg.slice(5, 7), 16) / 255
-  const lum = 0.299 * r + 0.587 * g + 0.114 * b
-  const fg = lum > 0.5 ? '#000' : '#fff'
-
-  return { bg, fg }
+  return PALETTE[Math.abs(hash) % PALETTE.length]
 }
 
 interface AvatarProps {
@@ -90,8 +67,6 @@ interface AvatarProps {
 export default function Avatar({ email, name, size = 'md', className, editable = false, onUpdated }: AvatarProps) {
   const locale = useLocale()
   const px = SIZE_PX[size]
-  const initials = getInitials(name)
-  const { bg, fg } = colorFromInitials(initials)
   const [gravatarUrl, setGravatarUrl] = useState<string | null>(null)
   const [cacheKey, setCacheKey] = useState(0)
   const quickEditorRef = useRef<GravatarQuickEditorCore | null>(null)
@@ -101,12 +76,16 @@ export default function Avatar({ email, name, size = 'md', className, editable =
       return
     }
 
-    computeGravatarHash(email).then((hash) => {
-      const bust = cacheKey ? `&t=${cacheKey}` : ''
+    const color = colorFromName(name)
+    const cleanName = encodeURIComponent(name).replace(/%20/g, '+')
+    const size = px * 2
+    const uiAvatarUrl = `https://ui-avatars.com/api/${cleanName}/${size}/${color}/fff?bold=true&rounded=true`
+    const bust = cacheKey ? `&t=${cacheKey}` : ''
 
-      setGravatarUrl(`https://gravatar.com/avatar/${hash}?s=${px * 2}&d=404${bust}`)
+    computeGravatarHash(email).then((hash) => {
+      setGravatarUrl(`https://gravatar.com/avatar/${hash}?s=${size}&d=${encodeURIComponent(uiAvatarUrl)}${bust}`)
     })
-  }, [email, px, cacheKey])
+  }, [email, name, px, cacheKey])
 
   const handleEditClick = () => {
     quickEditorRef.current ??= new GravatarQuickEditorCore({
@@ -142,21 +121,8 @@ export default function Avatar({ email, name, size = 'md', className, editable =
       tabIndex={editable ? 0 : undefined}
       aria-label={name}
     >
-      <div className="app-avatar__initials" style={{ backgroundColor: bg, color: fg, fontSize: Math.round(px * 0.38) }}>
-        {initials}
-      </div>
-
       {gravatarUrl && (
-        <Image
-          width={80}
-          height={80}
-          className="app-avatar__image"
-          src={gravatarUrl}
-          alt={name}
-          onError={(e) => {
-            ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-          }}
-        />
+        <Image width={px * 2} height={px * 2} className="app-avatar__image" src={gravatarUrl} alt={name} />
       )}
 
       {editable && (
