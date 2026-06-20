@@ -35,7 +35,7 @@ export default function FixtureView({
     const filtered = all.filter(
       (r) =>
         (category == null || r.tournamentCategoryId === category) &&
-        (r.groupNumber ?? null) === (groupNumber ?? null) &&
+        (r.settings?.groupNumber ?? null) === (groupNumber ?? null) &&
         (r.type === RoundType.LEAGUE || r.type === RoundType.AMERICANO)
     )
 
@@ -62,7 +62,7 @@ export default function FixtureView({
           (r) =>
             r.active &&
             r.status === RoundStatus.OPEN &&
-            (r.groupNumber ?? null) === (groupNumber ?? null) &&
+            (r.settings?.groupNumber ?? null) === (groupNumber ?? null) &&
             (category == null || r.tournamentCategoryId === category)
         )
         .map((r) => r.id)
