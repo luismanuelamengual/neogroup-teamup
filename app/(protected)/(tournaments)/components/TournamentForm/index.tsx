@@ -1,6 +1,7 @@
 'use client'
 
 import './index.scss'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
@@ -8,6 +9,7 @@ import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
@@ -46,6 +48,7 @@ export default function TournamentForm() {
   const [location, setLocation] = useState('')
   const [categories, setCategories] = useState<string[]>([])
   const [categoryOptions, setCategoryOptions] = useState<string[]>([])
+  const [categoryInput, setCategoryInput] = useState('')
   const [maxCompetitors, setMaxCompetitors] = useState(16)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
@@ -72,9 +75,14 @@ export default function TournamentForm() {
 
   // Load existing categories for the current discipline / sub-discipline so the
   // organizer can pick from previously used ones (still able to type new ones).
+  // Changing discipline/sub-discipline resets the categories already added,
+  // since a category belongs to a specific discipline + sub-discipline.
   useEffect(() => {
     let cancelled = false
     const sub = discipline === Discipline.TENNIS ? subDiscipline : null
+
+    setCategories([])
+    setCategoryInput('')
 
     getCategories(discipline, sub)
       .then((options) => {
@@ -92,6 +100,21 @@ export default function TournamentForm() {
       cancelled = true
     }
   }, [discipline, subDiscipline])
+
+  const handleAddCategory = () => {
+    const value = categoryInput.trim()
+
+    if (value === '') {
+      return
+    }
+
+    setCategories((prev) =>
+      prev.some((category) => category.toLowerCase() === value.toLowerCase()) ? prev : [...prev, value]
+    )
+    setCategoryInput('')
+  }
+
+  const handleRemoveCategory = (index: number) => setCategories((prev) => prev.filter((_, i) => i !== index))
 
   const handleDisciplineChange = (value: Discipline) => {
     setDiscipline(value)
@@ -434,16 +457,41 @@ export default function TournamentForm() {
         </AccordionSummary>
         <AccordionDetails className="section-content">
           <Alert severity="info">{t('categoriesHint')}</Alert>
-          <Autocomplete
-            multiple
-            freeSolo
-            options={categoryOptions}
-            value={categories}
-            onChange={(_event, value) =>
-              setCategories([...new Set(value.map((entry) => entry.trim()).filter((entry) => entry !== ''))])
-            }
-            renderInput={(params) => <TextField {...params} label={t('categories')} placeholder={t('addCategory')} />}
-          />
+          {categories.map((category, index) => (
+            <div key={category} className="category-row">
+              <TextField value={category} fullWidth slotProps={{ input: { readOnly: true } }} />
+              <IconButton aria-label={tCommon('delete')} onClick={() => handleRemoveCategory(index)}>
+                <DeleteOutlineIcon />
+              </IconButton>
+            </div>
+          ))}
+          <div className="category-row">
+            <Autocomplete
+              freeSolo
+              fullWidth
+              options={categoryOptions.filter(
+                (option) => !categories.some((category) => category.toLowerCase() === option.toLowerCase())
+              )}
+              inputValue={categoryInput}
+              onInputChange={(_event, value) => setCategoryInput(value)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t('categories')}
+                  placeholder={t('addCategory')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      handleAddCategory()
+                    }
+                  }}
+                />
+              )}
+            />
+            <Button variant="outlined" onClick={handleAddCategory} disabled={categoryInput.trim() === ''}>
+              {tCommon('add')}
+            </Button>
+          </div>
         </AccordionDetails>
       </Accordion>
 
