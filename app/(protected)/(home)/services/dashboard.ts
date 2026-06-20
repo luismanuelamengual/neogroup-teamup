@@ -1,6 +1,5 @@
 import { OrganizerDashboardDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
 import { PlayerDashboardDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
-import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -32,39 +31,11 @@ function findCompetitor(tournament: TournamentDto, userId: number) {
   return (tournament.competitors ?? []).find((c) => c.userId === userId || c.partnerUserId === userId) ?? null
 }
 
-/** Empty player dashboard payload (player not registered in any tournament). */
-function emptyPlayerDashboard(): PlayerDashboardDto {
-  return {
-    stats: {
-      tournamentsPlayed: 0,
-      activeTournaments: 0,
-      matchesPlayed: 0,
-      matchesWon: 0,
-      winRate: 0,
-      titles: 0,
-      podiums: 0
-    },
-    activeTournaments: []
-  }
-}
-
 /** Aggregates the player home dashboard from every tournament they take part in. */
 export async function getPlayerDashboard(userId: number, organizationId: number): Promise<PlayerDashboardDto> {
-  // Resolve the tournaments the player is registered in first (as player or
-  // partner). Doing this lookup separately avoids a `whereHas` subquery that
-  // breaks pagination's prepared statement parameter binding.
-  const entries = await Competitor.where((query) =>
-    query.where('userId', userId).orWhere('partnerUserId', userId)
-  ).get()
-  const tournamentIds = [...new Set(entries.map((entry) => entry.tournamentId))]
-
-  if (tournamentIds.length === 0) {
-    return emptyPlayerDashboard()
-  }
-
   const { data } = await getTournaments({
     organizationId,
-    ids: tournamentIds,
+    playerId: userId,
     withCompetitors: true,
     withRounds: true,
     withMatches: true,
