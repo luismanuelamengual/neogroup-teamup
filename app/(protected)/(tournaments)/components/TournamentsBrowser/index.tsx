@@ -28,7 +28,11 @@ export interface TournamentsBrowserProps {
   ownedByPlayer?: boolean
 }
 
-export default function TournamentsBrowser({ showFilters = true, states, ownedByPlayer = false }: TournamentsBrowserProps) {
+export default function TournamentsBrowser({
+  showFilters = true,
+  states,
+  ownedByPlayer = false
+}: TournamentsBrowserProps) {
   const t = useTranslations('tournaments')
   const [nameInput, setNameInput] = useState('')
   const debouncedName = useDebouncedValue(nameInput)
@@ -45,7 +49,6 @@ export default function TournamentsBrowser({ showFilters = true, states, ownedBy
   const { loading } = useLoadingData(async () => {
     const name = debouncedName.trim() || undefined
     const statuses = states ?? (status === 'all' ? undefined : [status as TournamentStatus])
-
     const { data, lastPage } = ownedByPlayer
       ? await getPlayerActiveTournaments({ name, statuses, page })
       : await searchTournaments({ name, statuses, page })
