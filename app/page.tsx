@@ -33,5 +33,5 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     redirect(callbackUrl)
   }
 
-  redirect('/tournaments')
+  redirect('/home')
 }

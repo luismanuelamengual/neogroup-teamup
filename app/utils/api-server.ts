@@ -33,6 +33,13 @@ function errorResponse(error: unknown): NextResponse {
     error: { name: normalizedError.name, message: isApiException ? error.message : 'internalError' } as Error
   }
 
+  // Unexpected (non-ApiException) errors are masked in the response, so log the
+  // real cause to the server console to keep them diagnosable.
+  if (!isApiException) {
+    // eslint-disable-next-line no-console
+    console.error('[api] Unhandled error:', normalizedError)
+  }
+
   return NextResponse.json(body, { status: isApiException ? error.status : 500 })
 }
 

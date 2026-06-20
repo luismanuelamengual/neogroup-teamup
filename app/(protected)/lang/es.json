@@ -1,5 +1,7 @@
 {
   "nav": {
+    "home": "Inicio",
+    "tournaments": "Torneos",
     "myTournaments": "Mis torneos",
     "newTournament": "Crear torneo",
     "searchTournaments": "Buscar torneos",

@@ -1,3 +1,4 @@
+import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { getTournaments, TournamentOptions } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
@@ -5,7 +6,7 @@ import { withAuth } from '@/app/utils/api-server'
 type GetTournamentsBody =
   | { scope: 'owned'; name?: string; onlyActive?: boolean; page?: number; pageSize?: number }
   | { scope: 'active'; page?: number; pageSize?: number }
-  | { scope: 'search'; name?: string; page?: number; pageSize?: number }
+  | { scope: 'search'; name?: string; status?: TournamentStatus; page?: number; pageSize?: number }
 
 /**
  * POST /api/getTournaments — unified tournament listing endpoint.
@@ -31,6 +32,7 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
     options.onlyActive = true
   } else if (body.scope === 'search') {
     options.name = body.name
+    options.status = body.status
   } else {
     throw new ApiException('invalidScope')
   }

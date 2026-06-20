@@ -1,5 +1,7 @@
 {
   "nav": {
+    "home": "Home",
+    "tournaments": "Tournaments",
     "myTournaments": "My tournaments",
     "newTournament": "Create tournament",
     "searchTournaments": "Search tournaments",

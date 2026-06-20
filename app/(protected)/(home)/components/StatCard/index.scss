@@ -1,0 +1,73 @@
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background-color: white;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+
+  .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    flex-shrink: 0;
+
+    svg {
+      font-size: 24px;
+    }
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .value {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .hint {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+
+  &.accent-primary .icon {
+    background-color: rgba(15, 118, 110, 0.12);
+    color: #0f766e;
+  }
+
+  &.accent-amber .icon {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+  }
+
+  &.accent-info .icon {
+    background-color: rgba(59, 130, 246, 0.13);
+    color: #2563eb;
+  }
+
+  &.accent-success .icon {
+    background-color: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+  }
+
+  &.accent-neutral .icon {
+    background-color: rgba(100, 116, 139, 0.12);
+    color: #475569;
+  }
+}

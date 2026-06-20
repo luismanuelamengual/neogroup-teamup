@@ -1,10 +1,12 @@
 import type { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { executeRequest } from '@/app/actions/api'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
 export interface TournamentFilters {
   name?: string
+  status?: TournamentStatus
   onlyActive?: boolean
   page?: number
   pageSize?: number
@@ -60,17 +62,17 @@ export interface JoinTournamentInput {
   category?: string | null
 }
 
-/** Searches joinable/visible tournaments by name. */
+/** Searches all visible tournaments of the organization by name and/or status. */
 export async function searchTournaments({
   name = undefined,
-  onlyActive = true,
+  status = undefined,
   page = 1,
   pageSize = 10
 }: TournamentFilters = {}): Promise<PaginatedResponse<TournamentDto[]>> {
   return executeRequest<PaginatedResponse<TournamentDto[]>>('/getTournaments', {
     scope: 'search',
     name,
-    onlyActive,
+    status,
     page,
     pageSize
   })

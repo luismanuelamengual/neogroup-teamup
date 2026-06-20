@@ -2,9 +2,9 @@
 
 import './index.scss'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
+import HomeIcon from '@mui/icons-material/Home'
 import LogoutIcon from '@mui/icons-material/Logout'
 import PersonIcon from '@mui/icons-material/Person'
-import SearchIcon from '@mui/icons-material/Search'
 import AppBar from '@mui/material/AppBar'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
@@ -56,31 +56,22 @@ export default function AppShell({ children, user: initialUser }: { children: Re
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [router])
   const isOrganizer = user?.roleId === Role.ORGANIZER
-  const navItems: NavItem[] = isOrganizer
-    ? [
-        {
-          key: 'tournaments',
-          label: t('myTournaments'),
-          href: '/tournaments',
-          icon: <EmojiEventsIcon />
-        }
-      ]
-    : [
-        {
-          key: 'tournaments',
-          label: t('myTournaments'),
-          href: '/tournaments',
-          icon: <EmojiEventsIcon />
-        },
-        {
-          key: 'search',
-          label: t('searchTournaments'),
-          href: '/tournaments/search',
-          icon: <SearchIcon />
-        }
-      ]
+  const navItems: NavItem[] = [
+    {
+      key: 'home',
+      label: t('home'),
+      href: '/home',
+      icon: <HomeIcon />
+    },
+    {
+      key: 'tournaments',
+      label: t('tournaments'),
+      href: '/tournaments',
+      icon: <EmojiEventsIcon />
+    }
+  ]
   const isActive = (href: string) =>
-    href === '/tournaments' ? pathname === href || /^\/tournaments\/\d+/.test(pathname) : pathname.startsWith(href)
+    href === '/home' ? pathname === '/home' : pathname === href || pathname.startsWith('/tournaments')
   const openMenu = (event: MouseEvent<HTMLElement>) => setMenuAnchor(event.currentTarget)
   const closeMenu = () => setMenuAnchor(null)
 

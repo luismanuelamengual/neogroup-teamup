@@ -1,0 +1,53 @@
+.tournaments-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .name-filter {
+    flex: 1;
+    min-width: 220px;
+    max-width: 360px;
+
+    .MuiInputBase-root {
+      background-color: white;
+    }
+  }
+
+  .status-filter {
+    background-color: white;
+    border-radius: 999px;
+    overflow: hidden;
+    flex-wrap: wrap;
+
+    .MuiToggleButton-root {
+      border: none;
+      text-transform: none;
+      font-weight: 600;
+      padding: 6px 16px;
+    }
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 48px 0;
+  }
+
+  .paginator {
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+  }
+}

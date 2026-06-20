@@ -1,0 +1,43 @@
+{
+  "dashboard": {
+    "greetingPlayer": "Hi, {name}",
+    "greetingOrganizer": "Hi, {name}",
+    "subtitlePlayer": "Here is your activity summary",
+    "subtitleOrganizer": "A summary of your activity and your organization",
+    "createTournament": "Create tournament",
+    "player": {
+      "tournamentsPlayed": "Tournaments played",
+      "activeTournaments": "Active tournaments",
+      "matchesPlayed": "Matches played",
+      "winRate": "Win rate",
+      "matchesWonHint": "{won} of {played} won",
+      "titles": "Titles",
+      "podiums": "Podiums",
+      "nextMatchTitle": "Your active match",
+      "noActiveMatch": "You have no matches to play right now",
+      "loadResult": "Enter result",
+      "editResult": "Edit result",
+      "activeTournamentsTitle": "Your active tournaments",
+      "noActiveTournaments": "You are not registered in any active tournament",
+      "findTournaments": "Find tournaments"
+    },
+    "organizer": {
+      "personalTitle": "Your tournaments",
+      "organizationTitle": "Your organization",
+      "tournamentsTotal": "Tournaments created",
+      "tournamentsActive": "Active",
+      "tournamentsFinished": "Finished",
+      "competitorsTotal": "Registrations",
+      "avgCompetitors": "Avg. per tournament",
+      "matchesPlayed": "Matches played",
+      "matchesPending": "Pending matches",
+      "matchActivityHint": "In ongoing tournaments",
+      "orgTournamentsTotal": "Total tournaments",
+      "orgTournamentsActive": "Active tournaments",
+      "orgCompetitorsTotal": "Total registrations",
+      "orgDistinctPlayers": "Unique players",
+      "activeTournamentsTitle": "Your active tournaments",
+      "noActiveTournaments": "You have no active tournaments"
+    }
+  }
+}

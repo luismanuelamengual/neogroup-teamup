@@ -1,0 +1,106 @@
+.player-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+
+  .hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 26px;
+    border-radius: 18px;
+    color: white;
+    background: linear-gradient(120deg, #0f766e 0%, #115e59 55%, #134e4a 100%);
+
+    .greeting {
+      font-weight: 800;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      opacity: 0.85;
+      font-size: 14px;
+    }
+
+    .hero-icon {
+      font-size: 88px;
+      opacity: 0.18;
+      position: absolute;
+      right: 18px;
+      bottom: -14px;
+    }
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+
+    .panel-title {
+      font-weight: 700;
+    }
+
+    .empty {
+      padding: 8px 0 4px;
+    }
+  }
+
+  .match-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .match-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    background-color: rgba(15, 118, 110, 0.04);
+    flex-wrap: wrap;
+
+    .match-info {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .match-tournament {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-primary-dark, #115e59);
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .tournament-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .empty-tournaments {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 32px 0;
+  }
+}

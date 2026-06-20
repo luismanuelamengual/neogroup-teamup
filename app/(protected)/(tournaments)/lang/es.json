@@ -2,6 +2,13 @@
   "tournaments": {
     "name": "Nombre",
     "description": "Descripción",
+    "browse": {
+      "title": "Torneos",
+      "create": "Crear torneo",
+      "filterByName": "Buscar por nombre",
+      "all": "Todos",
+      "empty": "No se encontraron torneos"
+    },
     "status": {
       "stand_by": "Inscripción abierta",
       "ongoing": "En juego",

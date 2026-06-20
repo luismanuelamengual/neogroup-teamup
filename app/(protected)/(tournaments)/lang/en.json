@@ -2,6 +2,13 @@
   "tournaments": {
     "name": "Name",
     "description": "Description",
+    "browse": {
+      "title": "Tournaments",
+      "create": "Create tournament",
+      "filterByName": "Search by name",
+      "all": "All",
+      "empty": "No tournaments found"
+    },
     "status": {
       "stand_by": "Registration open",
       "ongoing": "Ongoing",

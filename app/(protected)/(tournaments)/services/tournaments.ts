@@ -4,10 +4,12 @@ import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
 export interface TournamentOptions {
   id?: number
+  ids?: number[]
   organizationId?: number
   name?: string
   ownerId?: number
   playerId?: number
+  status?: TournamentStatus
   onlyActive?: boolean
   withCompetitors?: boolean
   withRounds?: boolean
@@ -18,10 +20,12 @@ export interface TournamentOptions {
 
 export async function getTournaments({
   id,
+  ids,
   organizationId,
   ownerId,
   playerId,
   name,
+  status,
   onlyActive = false,
   withCompetitors = false,
   withRounds = false,
@@ -30,6 +34,7 @@ export async function getTournaments({
   pageSize = 10
 }: TournamentOptions = {}): Promise<PaginatedResponse<Tournament[]>> {
   return await Tournament.when(id, (query) => query.where('id', id))
+    .when(ids && ids.length > 0, (query) => query.whereIn('id', ids!))
     .when(organizationId, (query) => query.where('organizationId', organizationId))
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) =>
@@ -38,6 +43,7 @@ export async function getTournaments({
       )
     )
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
+    .when(status, (query) => query.where('status', status))
     .when(onlyActive, (query) => query.whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING]))
     .when(withCompetitors, (query) => query.with('competitors'))
     .when(withRounds, (query) => query.with('rounds'))
