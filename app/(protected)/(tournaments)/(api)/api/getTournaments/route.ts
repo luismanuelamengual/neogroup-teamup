@@ -1,40 +1,44 @@
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { getTournaments, TournamentOptions } from '@/app/(protected)/(tournaments)/services/tournaments'
-import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
-type GetTournamentsBody =
-  | { scope: 'owned'; name?: string; onlyActive?: boolean; page?: number; pageSize?: number }
-  | { scope: 'active'; page?: number; pageSize?: number }
-  | { scope: 'search'; name?: string; status?: TournamentStatus; page?: number; pageSize?: number }
+interface GetTournamentsBody {
+  name?: string
+  ownedByUser?: boolean
+  ownedByPlayer?: boolean
+  statuses?: TournamentStatus[]
+  page?: number
+  pageSize?: number
+}
 
 /**
  * POST /api/getTournaments — unified tournament listing endpoint.
  *
- * Dispatches based on `scope`:
- * - 'owned'  → tournaments owned by the signed-in user (organizer view)
- * - 'active' → tournaments where the signed-in user participates
- * - 'search' → public search of joinable/visible tournaments by name
+ * Filters:
+ * - `ownedByUser`  → tournaments owned by the signed-in user
+ * - `ownedByPlayer` → tournaments where the signed-in user participates as a competitor
+ * - `statuses`     → restrict to the given statuses (omit for all)
+ * - `name`         → partial name match
  *
  * Supports server-side pagination via `page` and `pageSize`.
- * Returns `{ data: Tournament[], total: number }`.
  */
-export const POST = withAuth(async (request, context, userId, organizationId) => {
+export const POST = withAuth(async (request, _context, userId, organizationId) => {
   const body = (await request.json()) as GetTournamentsBody
-  const options: TournamentOptions = { organizationId, withCompetitors: true, page: body.page, pageSize: body.pageSize }
+  const options: TournamentOptions = {
+    organizationId,
+    withCompetitors: true,
+    name: body.name,
+    statuses: body.statuses,
+    page: body.page,
+    pageSize: body.pageSize
+  }
 
-  if (body.scope === 'owned') {
+  if (body.ownedByUser) {
     options.ownerId = userId
-    options.name = body.name
-    options.onlyActive = body.onlyActive
-  } else if (body.scope === 'active') {
+  }
+
+  if (body.ownedByPlayer) {
     options.playerId = userId
-    options.onlyActive = true
-  } else if (body.scope === 'search') {
-    options.name = body.name
-    options.status = body.status
-  } else {
-    throw new ApiException('invalidScope')
   }
 
   return getTournaments(options)

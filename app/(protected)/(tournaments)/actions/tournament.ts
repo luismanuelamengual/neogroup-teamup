@@ -12,8 +12,7 @@ export type CreateTournamentInput = Partial<TournamentDto> & { categoryNames?: s
 
 export interface TournamentFilters {
   name?: string
-  status?: TournamentStatus
-  onlyActive?: boolean
+  statuses?: TournamentStatus[]
   page?: number
   pageSize?: number
 }
@@ -80,14 +79,13 @@ export interface JoinTournamentInput {
 /** Searches all visible tournaments of the organization by name and/or status. */
 export async function searchTournaments({
   name = undefined,
-  status = undefined,
+  statuses = undefined,
   page = 1,
   pageSize = 10
 }: TournamentFilters = {}): Promise<PaginatedResponse<TournamentDto[]>> {
   return executeRequest<PaginatedResponse<TournamentDto[]>>('/getTournaments', {
-    scope: 'search',
     name,
-    status,
+    statuses,
     page,
     pageSize
   })
@@ -96,14 +94,13 @@ export async function searchTournaments({
 /** Tournaments in stand_by or ongoing where the signed-in user participates. */
 export async function getPlayerActiveTournaments({
   name = undefined,
-  onlyActive = true,
   page = 1,
   pageSize = 10
 }: TournamentFilters = {}): Promise<PaginatedResponse<TournamentDto[]>> {
   return executeRequest<PaginatedResponse<TournamentDto[]>>('/getTournaments', {
-    scope: 'active',
+    ownedByPlayer: true,
+    statuses: [TournamentStatus.STAND_BY, TournamentStatus.ONGOING],
     name,
-    onlyActive,
     page,
     pageSize
   })
@@ -112,14 +109,14 @@ export async function getPlayerActiveTournaments({
 /** Tournaments owned by the signed-in user (organizer view). */
 export async function getOrganizerTournaments({
   name = undefined,
-  onlyActive = true,
+  statuses = undefined,
   page = 1,
   pageSize = 10
 }: TournamentFilters = {}): Promise<PaginatedResponse<TournamentDto[]>> {
   return executeRequest<PaginatedResponse<TournamentDto[]>>('/getTournaments', {
-    scope: 'owned',
+    ownedByUser: true,
     name,
-    onlyActive,
+    statuses,
     page,
     pageSize
   })

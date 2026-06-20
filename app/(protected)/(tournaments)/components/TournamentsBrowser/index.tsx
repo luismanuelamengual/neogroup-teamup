@@ -19,7 +19,14 @@ import { useLoadingData } from '@/app/hooks/useLoadingData'
 
 type StatusFilter = TournamentStatus | 'all'
 
-export default function TournamentsBrowser() {
+export interface TournamentsBrowserProps {
+  /** Whether to show the name/status filter bar. Defaults to true. */
+  showFilters?: boolean
+  /** Restrict which statuses are fetched. When set, only these statuses are queried and the status toggle is hidden. */
+  states?: TournamentStatus[]
+}
+
+export default function TournamentsBrowser({ showFilters = true, states }: TournamentsBrowserProps) {
   const t = useTranslations('tournaments')
   const [nameInput, setNameInput] = useState('')
   const debouncedName = useDebouncedValue(nameInput)
@@ -36,47 +43,51 @@ export default function TournamentsBrowser() {
   const { loading } = useLoadingData(async () => {
     const { data, lastPage } = await searchTournaments({
       name: debouncedName.trim() || undefined,
-      status: status === 'all' ? undefined : status,
+      statuses: states ?? (status === 'all' ? undefined : [status as TournamentStatus]),
       page
     })
 
     setTournaments(data)
     setPageCount(lastPage)
-  }, [debouncedName, status, page])
+  }, [states, debouncedName, status, page])
 
   return (
     <div className="tournaments-browser">
-      <div className="filters">
-        <TextField
-          size="small"
-          placeholder={t('browse.filterByName')}
-          value={nameInput}
-          onChange={(event) => setNameInput(event.target.value)}
-          className="name-filter"
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }
-          }}
-        />
-        <MuiToggleButtonGroup
-          size="small"
-          color="primary"
-          exclusive
-          value={status}
-          onChange={(_, value: StatusFilter | null) => value && setStatus(value)}
-          className="status-filter"
-        >
-          <ToggleButton value="all">{t('browse.all')}</ToggleButton>
-          <ToggleButton value={TournamentStatus.STAND_BY}>{t('status.stand_by')}</ToggleButton>
-          <ToggleButton value={TournamentStatus.ONGOING}>{t('status.ongoing')}</ToggleButton>
-          <ToggleButton value={TournamentStatus.FINISHED}>{t('status.finished')}</ToggleButton>
-        </MuiToggleButtonGroup>
-      </div>
+      {showFilters && (
+        <div className="filters">
+          <TextField
+            size="small"
+            placeholder={t('browse.filterByName')}
+            value={nameInput}
+            onChange={(event) => setNameInput(event.target.value)}
+            className="name-filter"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                )
+              }
+            }}
+          />
+          {!states && (
+            <MuiToggleButtonGroup
+              size="small"
+              color="primary"
+              exclusive
+              value={status}
+              onChange={(_, value: StatusFilter | null) => value && setStatus(value)}
+              className="status-filter"
+            >
+              <ToggleButton value="all">{t('browse.all')}</ToggleButton>
+              <ToggleButton value={TournamentStatus.STAND_BY}>{t('status.stand_by')}</ToggleButton>
+              <ToggleButton value={TournamentStatus.ONGOING}>{t('status.ongoing')}</ToggleButton>
+              <ToggleButton value={TournamentStatus.FINISHED}>{t('status.finished')}</ToggleButton>
+            </MuiToggleButtonGroup>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="list">

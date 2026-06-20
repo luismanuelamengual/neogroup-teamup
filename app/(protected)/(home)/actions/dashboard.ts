@@ -1,4 +1,4 @@
-import { OrganizerDashboardDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
+import { OrganizationStatsDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
 import { PlayerDashboardDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
 import { executeRequest } from '@/app/actions/api'
 
@@ -7,7 +7,7 @@ export async function getPlayerDashboard(): Promise<PlayerDashboardDto> {
   return executeRequest<PlayerDashboardDto>('/getPlayerDashboard')
 }
 
-/** Owned + organization-wide stats for the organizer home dashboard. */
-export async function getOrganizerDashboard(): Promise<OrganizerDashboardDto> {
-  return executeRequest<OrganizerDashboardDto>('/getOrganizerDashboard')
+/** Organization-wide stats for the organizer home dashboard. */
+export async function getOrganizationStats(): Promise<OrganizationStatsDto> {
+  return executeRequest<OrganizationStatsDto>('/getOrganizationStats')
 }

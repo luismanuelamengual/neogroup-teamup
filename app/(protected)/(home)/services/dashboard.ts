@@ -1,4 +1,4 @@
-import { OrganizerDashboardDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
+import { OrganizationStatsDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
 import { PlayerDashboardDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -112,8 +112,8 @@ export async function getPlayerDashboard(userId: number, organizationId: number)
   }
 }
 
-/** Aggregates the organizer home dashboard: own tournaments + organization-wide stats. */
-export async function getOrganizerDashboard(userId: number, organizationId: number): Promise<OrganizerDashboardDto> {
+/** Aggregates organization-wide stats from all tournaments in the organization. */
+export async function getOrganizationStats(organizationId: number): Promise<OrganizationStatsDto> {
   const { data } = await getTournaments({
     organizationId,
     withCompetitors: true,
@@ -122,24 +122,23 @@ export async function getOrganizerDashboard(userId: number, organizationId: numb
     pageSize: ALL
   })
   const tournaments = data as unknown as TournamentDto[]
-  // Organization-wide stats.
   const players = new Set<number>()
-  let orgCompetitors = 0
-  let orgActive = 0
-  let orgFinished = 0
-  let orgMatchesTotal = 0
-  let orgMatchesPlayed = 0
-  let orgMatchesPending = 0
+  let competitorsTotal = 0
+  let tournamentsActive = 0
+  let tournamentsFinished = 0
+  let matchesTotal = 0
+  let matchesPlayed = 0
+  let matchesPending = 0
 
   for (const tournament of tournaments) {
     if (tournament.status === TournamentStatus.FINISHED) {
-      orgFinished++
+      tournamentsFinished++
     } else {
-      orgActive++
+      tournamentsActive++
     }
 
     for (const competitor of tournament.competitors ?? []) {
-      orgCompetitors++
+      competitorsTotal++
 
       if (competitor.userId != null) {
         players.add(competitor.userId)
@@ -155,71 +154,25 @@ export async function getOrganizerDashboard(userId: number, organizationId: numb
         continue
       }
 
-      orgMatchesTotal++
+      matchesTotal++
 
       if (match.status === MatchStatus.PENDING) {
-        orgMatchesPending++
+        matchesPending++
       } else {
-        orgMatchesPlayed++
+        matchesPlayed++
       }
     }
   }
-
-  // Personal (owned) stats.
-  const owned = tournaments.filter((tournament) => tournament.ownerId === userId)
-  let ownCompetitors = 0
-  let ownFinished = 0
-  let ownActive = 0
-  let matchesPlayed = 0
-  let matchesPending = 0
-
-  for (const tournament of owned) {
-    ownCompetitors += tournament.competitors?.length ?? 0
-
-    if (tournament.status === TournamentStatus.FINISHED) {
-      ownFinished++
-    } else {
-      ownActive++
-    }
-
-    if (tournament.status === TournamentStatus.ONGOING) {
-      for (const match of tournament.matches ?? []) {
-        if (!match.awayCompetitorIds) {
-          continue
-        }
-
-        if (match.status === MatchStatus.PENDING) {
-          matchesPending++
-        } else {
-          matchesPlayed++
-        }
-      }
-    }
-  }
-
-  const activeTournaments = owned.filter((tournament) => tournament.status !== TournamentStatus.FINISHED).map(normalize)
 
   return {
-    personal: {
-      tournamentsTotal: owned.length,
-      tournamentsActive: ownActive,
-      tournamentsFinished: ownFinished,
-      competitorsTotal: ownCompetitors,
-      avgCompetitors: owned.length > 0 ? Math.round((ownCompetitors / owned.length) * 10) / 10 : 0,
-      matchesPlayed,
-      matchesPending
-    },
-    organization: {
-      tournamentsTotal: tournaments.length,
-      tournamentsActive: orgActive,
-      tournamentsFinished: orgFinished,
-      competitorsTotal: orgCompetitors,
-      avgCompetitors: tournaments.length > 0 ? Math.round((orgCompetitors / tournaments.length) * 10) / 10 : 0,
-      distinctPlayers: players.size,
-      matchesTotal: orgMatchesTotal,
-      matchesPlayed: orgMatchesPlayed,
-      matchesPending: orgMatchesPending
-    },
-    activeTournaments
+    tournamentsTotal: tournaments.length,
+    tournamentsActive,
+    tournamentsFinished,
+    competitorsTotal,
+    avgCompetitors: tournaments.length > 0 ? Math.round((competitorsTotal / tournaments.length) * 10) / 10 : 0,
+    distinctPlayers: players.size,
+    matchesTotal,
+    matchesPlayed,
+    matchesPending
   }
 }

@@ -8,8 +8,7 @@ export interface TournamentOptions {
   name?: string
   ownerId?: number
   playerId?: number
-  status?: TournamentStatus
-  onlyActive?: boolean
+  statuses?: TournamentStatus[]
   withCompetitors?: boolean
   withRounds?: boolean
   withMatches?: boolean
@@ -23,8 +22,7 @@ export async function getTournaments({
   ownerId,
   playerId,
   name,
-  status,
-  onlyActive = false,
+  statuses,
   withCompetitors = false,
   withRounds = false,
   withMatches = false,
@@ -40,8 +38,7 @@ export async function getTournaments({
       )
     )
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
-    .when(status, (query) => query.where('status', status))
-    .when(onlyActive, (query) => query.whereIn('status', [TournamentStatus.STAND_BY, TournamentStatus.ONGOING]))
+    .when(statuses?.length, (query) => query.whereIn('status', statuses!))
     // Every tournament always has at least one category instance; resolve the
     // catalogue category of each so the UI can show its name.
     .with('categories', 'categories.category')
