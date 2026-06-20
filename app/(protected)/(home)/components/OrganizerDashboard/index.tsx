@@ -4,12 +4,12 @@ import './index.scss'
 import AddIcon from '@mui/icons-material/Add'
 import ApartmentIcon from '@mui/icons-material/Apartment'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import GroupsIcon from '@mui/icons-material/Groups'
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
 import PendingActionsIcon from '@mui/icons-material/PendingActions'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import QueryStatsIcon from '@mui/icons-material/QueryStats'
+import SportsScoreIcon from '@mui/icons-material/SportsScore'
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
 import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
@@ -39,7 +39,6 @@ export default function OrganizerDashboard() {
   }, [load])
 
   const firstName = user?.firstName || user?.displayName || ''
-  const personal = data?.personal
   const organization = data?.organization
   const activeTournaments = data?.activeTournaments ?? []
 
@@ -58,70 +57,9 @@ export default function OrganizerDashboard() {
       </Paper>
 
       <section className="block">
-        <Typography variant="h6" className="block-title">
-          {t('organizer.personalTitle')}
-        </Typography>
-        <div className="stats">
-          {loading || !personal ? (
-            Array.from({ length: 7 }).map((_, i) => <StatCardSkeleton key={i} />)
-          ) : (
-            <>
-              <StatCard
-                icon={<EmojiEventsIcon />}
-                accent="primary"
-                value={personal.tournamentsTotal}
-                label={t('organizer.tournamentsTotal')}
-              />
-              <StatCard
-                icon={<LocalFireDepartmentIcon />}
-                accent="info"
-                value={personal.tournamentsActive}
-                label={t('organizer.tournamentsActive')}
-              />
-              <StatCard
-                icon={<CheckCircleIcon />}
-                accent="neutral"
-                value={personal.tournamentsFinished}
-                label={t('organizer.tournamentsFinished')}
-              />
-              <StatCard
-                icon={<GroupsIcon />}
-                accent="primary"
-                value={personal.competitorsTotal}
-                label={t('organizer.competitorsTotal')}
-              />
-              <StatCard
-                icon={<QueryStatsIcon />}
-                accent="neutral"
-                value={personal.avgCompetitors}
-                label={t('organizer.avgCompetitors')}
-              />
-              <StatCard
-                icon={<SportsTennisIcon />}
-                accent="success"
-                value={personal.matchesPlayed}
-                label={t('organizer.matchesPlayed')}
-                hint={t('organizer.matchActivityHint')}
-              />
-              <StatCard
-                icon={<PendingActionsIcon />}
-                accent="amber"
-                value={personal.matchesPending}
-                label={t('organizer.matchesPending')}
-                hint={t('organizer.matchActivityHint')}
-              />
-            </>
-          )}
-        </div>
-      </section>
-
-      <section className="block">
-        <Typography variant="h6" className="block-title">
-          {t('organizer.organizationTitle')}
-        </Typography>
         <div className="stats">
           {loading || !organization ? (
-            Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+            Array.from({ length: 9 }).map((_, i) => <StatCardSkeleton key={i} />)
           ) : (
             <>
               <StatCard
@@ -137,22 +75,51 @@ export default function OrganizerDashboard() {
                 label={t('organizer.orgTournamentsActive')}
               />
               <StatCard
+                icon={<CheckCircleIcon />}
+                accent="neutral"
+                value={organization.tournamentsFinished}
+                label={t('organizer.orgTournamentsFinished')}
+              />
+              <StatCard
                 icon={<GroupsIcon />}
                 accent="success"
                 value={organization.competitorsTotal}
                 label={t('organizer.orgCompetitorsTotal')}
               />
               <StatCard
+                icon={<QueryStatsIcon />}
+                accent="neutral"
+                value={organization.avgCompetitors}
+                label={t('organizer.orgAvgCompetitors')}
+              />
+              <StatCard
                 icon={<PeopleAltIcon />}
-                accent="amber"
+                accent="info"
                 value={organization.distinctPlayers}
                 label={t('organizer.orgDistinctPlayers')}
+              />
+              <StatCard
+                icon={<SportsScoreIcon />}
+                accent="neutral"
+                value={organization.matchesTotal}
+                label={t('organizer.orgMatchesTotal')}
+              />
+              <StatCard
+                icon={<SportsTennisIcon />}
+                accent="success"
+                value={organization.matchesPlayed}
+                label={t('organizer.orgMatchesPlayed')}
+              />
+              <StatCard
+                icon={<PendingActionsIcon />}
+                accent="amber"
+                value={organization.matchesPending}
+                label={t('organizer.orgMatchesPending')}
               />
             </>
           )}
         </div>
       </section>
-
       <section className="block">
         <Typography variant="h6" className="block-title">
           {t('organizer.activeTournamentsTitle')}

@@ -126,9 +126,15 @@ export async function getOrganizerDashboard(userId: number, organizationId: numb
   const players = new Set<number>()
   let orgCompetitors = 0
   let orgActive = 0
+  let orgFinished = 0
+  let orgMatchesTotal = 0
+  let orgMatchesPlayed = 0
+  let orgMatchesPending = 0
 
   for (const tournament of tournaments) {
-    if (tournament.status !== TournamentStatus.FINISHED) {
+    if (tournament.status === TournamentStatus.FINISHED) {
+      orgFinished++
+    } else {
       orgActive++
     }
 
@@ -141,6 +147,20 @@ export async function getOrganizerDashboard(userId: number, organizationId: numb
 
       if (competitor.partnerUserId != null) {
         players.add(competitor.partnerUserId)
+      }
+    }
+
+    for (const match of tournament.matches ?? []) {
+      if (!match.awayCompetitorIds) {
+        continue
+      }
+
+      orgMatchesTotal++
+
+      if (match.status === MatchStatus.PENDING) {
+        orgMatchesPending++
+      } else {
+        orgMatchesPlayed++
       }
     }
   }
@@ -192,8 +212,13 @@ export async function getOrganizerDashboard(userId: number, organizationId: numb
     organization: {
       tournamentsTotal: tournaments.length,
       tournamentsActive: orgActive,
+      tournamentsFinished: orgFinished,
       competitorsTotal: orgCompetitors,
-      distinctPlayers: players.size
+      avgCompetitors: tournaments.length > 0 ? Math.round((orgCompetitors / tournaments.length) * 10) / 10 : 0,
+      distinctPlayers: players.size,
+      matchesTotal: orgMatchesTotal,
+      matchesPlayed: orgMatchesPlayed,
+      matchesPending: orgMatchesPending
     },
     activeTournaments
   }

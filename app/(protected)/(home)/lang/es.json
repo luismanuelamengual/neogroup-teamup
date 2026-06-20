@@ -34,8 +34,13 @@
       "matchActivityHint": "En torneos en juego",
       "orgTournamentsTotal": "Torneos totales",
       "orgTournamentsActive": "Torneos activos",
+      "orgTournamentsFinished": "Torneos finalizados",
       "orgCompetitorsTotal": "Inscriptos totales",
+      "orgAvgCompetitors": "Promedio x torneo",
       "orgDistinctPlayers": "Jugadores únicos",
+      "orgMatchesTotal": "Partidos totales",
+      "orgMatchesPlayed": "Partidos jugados",
+      "orgMatchesPending": "Partidos pendientes",
       "activeTournamentsTitle": "Tus torneos activos",
       "noActiveTournaments": "No tenés torneos activos"
     }

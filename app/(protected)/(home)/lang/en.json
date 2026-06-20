@@ -34,8 +34,13 @@
       "matchActivityHint": "In ongoing tournaments",
       "orgTournamentsTotal": "Total tournaments",
       "orgTournamentsActive": "Active tournaments",
+      "orgTournamentsFinished": "Finished tournaments",
       "orgCompetitorsTotal": "Total registrations",
+      "orgAvgCompetitors": "Avg. per tournament",
       "orgDistinctPlayers": "Unique players",
+      "orgMatchesTotal": "Total matches",
+      "orgMatchesPlayed": "Matches played",
+      "orgMatchesPending": "Pending matches",
       "activeTournamentsTitle": "Your active tournaments",
       "noActiveTournaments": "You have no active tournaments"
     }
