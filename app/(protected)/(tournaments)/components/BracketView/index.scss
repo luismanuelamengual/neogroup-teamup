@@ -1,51 +1,107 @@
+$bracket-transition: 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+$node-width: 280px;
+$node-height: 76px;
+
 .bracket-view {
   width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
 
-  .scroller {
-    display: flex;
-    gap: 28px;
-    min-width: min-content;
+  .bracket-canvas {
+    position: relative;
+    transition: height $bracket-transition;
   }
 
-  .column {
-    display: flex;
-    flex-direction: column;
-    min-width: 280px;
-
-    &:last-child .match::after {
-      display: none;
-    }
+  // --- Round titles -------------------------------------------------------
+  .titles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 40px;
   }
 
   .round-title {
-    margin: 0 0 12px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: $node-width;
+    margin: 0;
     font-size: 15px;
     font-weight: 700;
     color: var(--color-primary-dark);
     text-align: center;
+    transition: transform $bracket-transition;
+    will-change: transform;
   }
 
-  .matches {
+  // --- Connector segments -------------------------------------------------
+  .connectors {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    pointer-events: none;
+  }
+
+  .connector {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: var(--color-divider);
+    border-radius: 1px;
+    transition:
+      transform $bracket-transition,
+      width $bracket-transition,
+      height $bracket-transition;
+    will-change: transform, width, height;
+  }
+
+  // --- Match nodes --------------------------------------------------------
+  .nodes {
+    position: absolute;
+    left: 0;
+    width: 100%;
+  }
+
+  .bracket-node {
+    position: absolute;
+    top: 0;
+    left: 0;
     display: flex;
-    flex-direction: column;
-    justify-content: space-around;
-    flex: 1;
-    gap: 16px;
+    align-items: center;
+    width: $node-width;
+    height: $node-height;
+    transition:
+      transform $bracket-transition,
+      opacity 220ms ease;
+    will-change: transform;
+    animation: bracket-node-in 220ms ease both;
+
+    > .match-card {
+      width: 100%;
+    }
+  }
+}
+
+@keyframes bracket-node-in {
+  from {
+    opacity: 0;
   }
 
-  .match {
-    position: relative;
+  to {
+    opacity: 1;
+  }
+}
 
-    &::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      right: -28px;
-      width: 28px;
-      height: 2px;
-      background-color: var(--color-divider);
+@media (prefers-reduced-motion: reduce) {
+  .bracket-view {
+    .bracket-canvas,
+    .round-title,
+    .connector,
+    .bracket-node {
+      transition: none;
+      animation: none;
     }
   }
 }

@@ -81,6 +81,9 @@
     "knockoutPhase": "Fase eliminatoria",
     "group": "Grupo {number}",
     "finalRound": "Final",
+    "semifinalRound": "Semi final",
+    "quarterfinalsRound": "4tos de final",
+    "roundOf16": "8vos de final",
     "info": "Información",
     "settings": {
       "title": "Configuración",

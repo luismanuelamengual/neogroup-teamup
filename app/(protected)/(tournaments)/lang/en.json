@@ -81,6 +81,9 @@
     "knockoutPhase": "Knockout phase",
     "group": "Group {number}",
     "finalRound": "Final",
+    "semifinalRound": "Semifinal",
+    "quarterfinalsRound": "Quarterfinals",
+    "roundOf16": "Round of 16",
     "info": "Info",
     "settings": {
       "title": "Settings",
