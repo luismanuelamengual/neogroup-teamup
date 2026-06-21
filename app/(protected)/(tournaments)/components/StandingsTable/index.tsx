@@ -25,10 +25,7 @@ interface StandingsTableProps {
 export default function StandingsTable({ tournament, category, groupNumber }: StandingsTableProps) {
   const t = useTranslations('tournaments.standingsTable')
   const [modalCompetitors, setModalCompetitors] = useState<CompetitorDto[]>([])
-  const rows = useMemo(
-    () => computeStandings(tournament, category, groupNumber),
-    [tournament, category, groupNumber]
-  )
+  const rows = useMemo(() => computeStandings(tournament, category, groupNumber), [tournament, category, groupNumber])
   const competitorsById = useMemo(
     () => Object.fromEntries((tournament.competitors ?? []).map((c) => [c.id, c])),
     [tournament.competitors]
@@ -66,11 +63,10 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
             {rows.map((row, index) => (
               <TableRow key={row.competitorId} className={index < 1 ? 'leader' : ''}>
                 <TableCell className="position-cell">{index + 1}</TableCell>
-                <TableCell
-                  className="competitor-cell"
-                  onClick={() => handleCompetitorClick(row.competitorId)}
-                >
-                  {row.displayName}
+                <TableCell className="competitor-cell" onClick={() => handleCompetitorClick(row.competitorId)}>
+                  {competitorsById[row.competitorId]?.seedNumber != null
+                    ? `[${competitorsById[row.competitorId].seedNumber}] ${row.displayName}`
+                    : row.displayName}
                 </TableCell>
                 <TableCell align="center">{row.played}</TableCell>
                 <TableCell align="center">{row.won}</TableCell>

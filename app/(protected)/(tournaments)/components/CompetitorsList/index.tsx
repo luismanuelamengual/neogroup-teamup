@@ -41,7 +41,11 @@ export default function CompetitorsList({ tournament, category }: CompetitorsLis
         {competitors.map((competitor) => (
           <Chip
             key={competitor.id}
-            label={competitor.displayName}
+            label={
+              competitor.seedNumber != null
+                ? `[${competitor.seedNumber}] ${competitor.displayName}`
+                : competitor.displayName
+            }
             variant="outlined"
             onClick={() => setSelectedCompetitors([competitor])}
             className="clickable"

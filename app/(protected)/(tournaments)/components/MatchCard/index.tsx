@@ -38,7 +38,10 @@ export default function MatchCard({
   const winner: MatchSide | null = match.winner
 
   const handleSideClick = (ids: number[] | null) => {
-    if (!ids || ids.length === 0) return
+    if (!ids || ids.length === 0) {
+      return
+    }
+
     const found = ids.map((id) => competitorsById[id]).filter(Boolean) as CompetitorDto[]
 
     if (found.length > 0) {
@@ -46,10 +49,22 @@ export default function MatchCard({
     }
   }
 
-  const sideName = (ids: number[] | null): string => {
-    if (!ids || ids.length === 0) return '—'
+  const competitorLabel = (competitor: CompetitorDto | undefined, id: number): string => {
+    if (!competitor) {
+      return `#${id}`
+    }
 
-    return ids.map((id) => competitorsById[id]?.displayName ?? `#${id}`).join(' / ')
+    const seed = competitor.seedNumber
+
+    return seed != null ? `[${seed}] ${competitor.displayName}` : competitor.displayName
+  }
+
+  const sideName = (ids: number[] | null): string => {
+    if (!ids || ids.length === 0) {
+      return '—'
+    }
+
+    return ids.map((id) => competitorLabel(competitorsById[id], id)).join(' / ')
   }
 
   const renderSide = (side: MatchSide, ids: number[] | null) => (

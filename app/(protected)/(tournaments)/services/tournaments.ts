@@ -1,5 +1,13 @@
+import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
+import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { createRound } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import {
+  autoAssignPreclassification,
+  supportsPreclassification
+} from '@/app/(protected)/(tournaments)/utils/preclassification'
+import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
 export interface TournamentOptions {
@@ -72,4 +80,44 @@ export async function getTournament(options: TournamentOptions = {}): Promise<To
   }
 
   return tournament
+}
+
+/**
+ * Starts a tournament: removes empty category instances, auto-assigns
+ * preclassification seeds from ranking (for bracket-style tournaments),
+ * generates round 1, and marks the tournament as ongoing.
+ */
+export async function startTournament(tournament: Tournament, organizationId: number): Promise<void> {
+  if (tournament.status !== TournamentStatus.STAND_BY) {
+    throw new ApiException('invalidStatus')
+  }
+
+  // Remove real category instances that have no registered competitors.
+  // The single category (categoryId = null) is always kept.
+  const categories = await TournamentCategory.where('tournamentId', tournament.id).get()
+  const realCategories = categories.filter((category) => category.categoryId != null)
+  const allCompetitors = await Competitor.whereIn(
+    'tournamentCategoryId',
+    categories.map((category) => category.id)
+  ).get()
+
+  if (realCategories.length > 0) {
+    const usedCategoryIds = new Set(allCompetitors.map((c) => c.tournamentCategoryId))
+
+    for (const category of realCategories) {
+      if (!usedCategoryIds.has(category.id)) {
+        await category.delete()
+      }
+    }
+  }
+
+  // Auto-assign preclassification seeds from ranking when the tournament type
+  // supports it (Playoff, Groups+Playoff, Playoff with consolation).
+  if (supportsPreclassification(tournament.type)) {
+    await autoAssignPreclassification(allCompetitors, organizationId)
+  }
+
+  tournament.status = TournamentStatus.ONGOING
+  await createRound(tournament, 1)
+  await tournament.save()
 }

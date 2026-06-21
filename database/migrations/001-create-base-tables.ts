@@ -119,6 +119,7 @@ export default {
           partnerUserId INTEGER REFERENCES users (id),
           partnerName VARCHAR(150),
           displayName VARCHAR(255) NOT NULL,
+          seedNumber INTEGER,
           createdAt ${TIMESTAMP}
         )
       `)

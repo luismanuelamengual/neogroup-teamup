@@ -68,6 +68,7 @@ import {
   progressTournamentAfterResult
 } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getScoreWinner, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
 
 // ---------------------------------------------------------------------------
@@ -338,8 +339,11 @@ async function registerCompetitors(
     tournament.type,
     tournament.settings ?? {}
   )
+  const withPreclassification = supportsPreclassification(tournament.type)
   const players = shuffle(pool)
   let cursor = 0
+  // Track per-category competitor index for seed assignment.
+  const categoryIndexMap = new Map<number, number>()
 
   for (let i = 0; i < competitorCount; i++) {
     const competitor = new Competitor()
@@ -362,8 +366,24 @@ async function registerCompetitors(
     }
 
     // Round-robin assignment keeps every category instance evenly filled.
-    competitor.tournamentCategoryId = tournamentCategories[i % tournamentCategories.length].id
+    const categoryId = tournamentCategories[i % tournamentCategories.length].id
+
+    competitor.tournamentCategoryId = categoryId
     competitor.createdAt = new Date()
+
+    if (withPreclassification) {
+      // In the seed script, ranking data isn't available at registration time,
+      // so we assign sequential seed numbers based on insertion order within
+      // each category. The real auto-assign (from ranking) runs at tournament
+      // start via autoAssignPreclassification.
+      const categoryIndex = categoryIndexMap.get(categoryId) ?? 0
+
+      competitor.seedNumber = categoryIndex + 1
+      categoryIndexMap.set(categoryId, categoryIndex + 1)
+    } else {
+      competitor.seedNumber = null
+    }
+
     await competitor.save()
   }
 }

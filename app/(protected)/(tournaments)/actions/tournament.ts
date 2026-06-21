@@ -132,3 +132,4 @@ export async function joinTournament(tournamentId: number, input: JoinTournament
 export async function leaveTournament(tournamentId: number): Promise<void> {
   await executeRequest('/leaveTournament', { tournamentId })
 }
+

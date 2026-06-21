@@ -24,6 +24,7 @@ import {
   seedFromGroups,
   seedPlayoffPairings
 } from '@/app/(protected)/(tournaments)/services/tournament-engine'
+import { snakeSeedGroups, supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { ApiException } from '@/app/models/ApiException'
 
@@ -761,7 +762,17 @@ async function materializeCategoryRound(
 
       if (roundNumber <= groupPhaseRounds) {
         const groupSize = settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
-        const groups = assignGroups(competitorIds, groupSize)
+        // Use snake seeding: seeded competitors (those at the front of
+        // competitorIds, which are already sorted by seedNumber)
+        // are distributed across groups in alternating order so they end up in
+        // different groups. The remaining unseeded competitors fill the rest.
+        const allCategoryCompetitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
+        const seededCount = allCategoryCompetitors.filter((c) => c.seedNumber != null).length
+        const seededIds = competitorIds.slice(0, seededCount)
+        const unseededIds = competitorIds.slice(seededCount)
+        const groupCount = Math.ceil(competitorIds.length / Math.max(2, Math.floor(groupSize)))
+        const groups =
+          seededCount > 0 ? snakeSeedGroups(seededIds, unseededIds, groupCount) : assignGroups(competitorIds, groupSize)
         let created = 0
 
         for (let index = 0; index < groups.length; index++) {
@@ -826,10 +837,26 @@ async function materializeRound(tournament: Tournament, roundNumber: number): Pr
     return 0
   }
 
+  // For bracket-style tournaments that support preclassification, order
+  // competitors so that seeded players come first (seed 1 first), followed by
+  // unseeded competitors in registration order. This makes the bracket engine
+  // give byes to the top seeds and keep them apart until late rounds.
+  const sortedCompetitors = supportsPreclassification(tournament.type)
+    ? [...competitors].sort((a, b) => {
+        const sa = a.seedNumber ?? Infinity
+        const sb = b.seedNumber ?? Infinity
+
+        if (sa !== sb) {
+          return sa - sb
+        }
+
+        return a.id - b.id
+      })
+    : competitors
   let created = 0
 
   for (const tournamentCategory of categories) {
-    const competitorIds = competitors
+    const competitorIds = sortedCompetitors
       .filter((competitor) => competitor.tournamentCategoryId === tournamentCategory.id)
       .map((competitor) => competitor.id)
 

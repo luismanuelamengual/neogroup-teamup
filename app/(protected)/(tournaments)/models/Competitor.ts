@@ -28,6 +28,10 @@ export class Competitor extends BaseEntity {
   @Column()
   displayName!: string
 
+  /** Seed number for elimination-style tournaments (null when not seeded). */
+  @Column({ cast: 'number' })
+  seedNumber!: number | null
+
   @Column({ cast: 'date' })
   createdAt!: Date
 
