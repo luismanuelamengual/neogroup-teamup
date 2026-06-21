@@ -1,6 +1,7 @@
 'use client'
 
 import './index.scss'
+import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
@@ -57,6 +58,11 @@ export default function TournamentRoundsView({
     return (
       <div className="rounds-view">
         <div className="rounds-section">
+          <SectionTitle>{t('standings')}</SectionTitle>
+          <StandingsTable tournament={tournament} category={category} />
+        </div>
+        <Divider />
+        <div className="rounds-section">
           <SectionTitle>{t('fixture')}</SectionTitle>
           <FixtureView
             tournament={tournament}
@@ -64,10 +70,6 @@ export default function TournamentRoundsView({
             organizerMode={organizerMode}
             onEditMatch={onEditMatch}
           />
-        </div>
-        <div className="rounds-section">
-          <SectionTitle>{t('standings')}</SectionTitle>
-          <StandingsTable tournament={tournament} category={category} />
         </div>
       </div>
     )
@@ -114,16 +116,19 @@ export default function TournamentRoundsView({
         />
       </div>
       {hasKnockout && (
-        <div className="rounds-section">
-          <SectionTitle>{t('knockoutPhase')}</SectionTitle>
-          <BracketView
-            tournament={tournament}
-            category={category}
-            roundType={RoundType.KNOCKOUT}
-            organizerMode={organizerMode}
-            onEditMatch={onEditMatch}
-          />
-        </div>
+        <>
+          <Divider />
+          <div className="rounds-section">
+            <SectionTitle>{t('knockoutPhase')}</SectionTitle>
+            <BracketView
+              tournament={tournament}
+              category={category}
+              roundType={RoundType.KNOCKOUT}
+              organizerMode={organizerMode}
+              onEditMatch={onEditMatch}
+            />
+          </div>
+        </>
       )}
     </div>
   )
