@@ -1,5 +1,4 @@
 import { User } from '@/app/(auth)/models/User'
-import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { JoinTournamentInput } from '@/app/(protected)/(tournaments)/actions/tournament'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
@@ -81,7 +80,6 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     tournament.settings ?? {}
   )
   let partnerUserId: number | null = null
-  let partnerDisplayName = ''
 
   if (needsPartner) {
     if (!input.partnerUserId) {
@@ -95,7 +93,6 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     }
 
     partnerUserId = partner.id
-    partnerDisplayName = getUserDisplayName(partner)
   }
 
   const competitor = new Competitor()
@@ -103,10 +100,6 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   competitor.tournamentCategoryId = targetCategory.id
   competitor.userId = userId
   competitor.partnerUserId = partnerUserId
-  competitor.partnerName = null
-  competitor.displayName = needsPartner
-    ? `${getUserDisplayName(user)} / ${partnerDisplayName}`
-    : getUserDisplayName(user)
   competitor.createdAt = new Date()
   await competitor.save()
 })

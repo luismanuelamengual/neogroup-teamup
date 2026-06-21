@@ -92,19 +92,6 @@ export default function CompetitorInfoModal({ open, competitors, onClose }: Comp
                 />
               </>
             )}
-            {!competitor.partnerUser && competitor.partnerName && (
-              <>
-                <Divider className="competitor-divider" />
-                <div className="competitor-info-modal-person">
-                  <Avatar email="" name={competitor.partnerName} size="lg" />
-                  <div className="competitor-info-modal-person-details">
-                    <Typography variant="subtitle1" className="name">
-                      {competitor.partnerName}
-                    </Typography>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
         ))}
       </DialogContent>

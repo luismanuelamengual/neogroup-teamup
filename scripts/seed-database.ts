@@ -39,7 +39,6 @@ import bcrypt from 'bcryptjs'
 import { Organization } from '@/app/(auth)/models/Organization'
 import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
-import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { getDefaultRankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
@@ -348,21 +347,17 @@ async function registerCompetitors(
   for (let i = 0; i < competitorCount; i++) {
     const competitor = new Competitor()
 
-    competitor.partnerName = null
-
     if (isPairs) {
       const player = players[cursor++]
       const partner = players[cursor++]
 
       competitor.userId = player.id
       competitor.partnerUserId = partner.id
-      competitor.displayName = `${getUserDisplayName(player)} / ${getUserDisplayName(partner)}`
     } else {
       const player = players[cursor++]
 
       competitor.userId = player.id
       competitor.partnerUserId = null
-      competitor.displayName = getUserDisplayName(player)
     }
 
     // Round-robin assignment keeps every category instance evenly filled.

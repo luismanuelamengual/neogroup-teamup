@@ -117,8 +117,6 @@ export default {
           tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
           userId INTEGER REFERENCES users (id),
           partnerUserId INTEGER REFERENCES users (id),
-          partnerName VARCHAR(150),
-          displayName VARCHAR(255) NOT NULL,
           seedNumber INTEGER,
           createdAt ${TIMESTAMP}
         )

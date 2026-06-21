@@ -1,5 +1,6 @@
 import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
+import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 
@@ -20,14 +21,6 @@ export class Competitor extends BaseEntity {
   @Column()
   partnerUserId!: number | null
 
-  /** Partner as free text (doubles disciplines only). */
-  @Column()
-  partnerName!: string | null
-
-  /** Resolved name shown everywhere (player or "Player / Partner"). */
-  @Column()
-  displayName!: string
-
   /** Seed number for elimination-style tournaments (null when not seeded). */
   @Column({ cast: 'number' })
   seedNumber!: number | null
@@ -47,4 +40,24 @@ export class Competitor extends BaseEntity {
 
   @BelongsTo(() => User, 'partnerUserId')
   partnerUser?: User
+
+  /** Computed display name derived from related user/partnerUser (not stored in DB). */
+  get displayName(): string {
+    const userName = this.user ? getUserDisplayName(this.user) : null
+    const partnerName = this.partnerUser ? getUserDisplayName(this.partnerUser) : null
+
+    if (userName && partnerName) {
+      return `${userName} / ${partnerName}`
+    }
+
+    return userName ?? ''
+  }
+
+  toJSON(): Record<string, any> {
+    const result = super.toJSON()
+
+    result.displayName = this.displayName
+
+    return result
+  }
 }

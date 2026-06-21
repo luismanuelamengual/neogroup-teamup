@@ -12,7 +12,6 @@ export interface CompetitorDto {
   tournamentCategoryId: number
   userId: number | null
   partnerUserId: number | null
-  partnerName: string | null
   displayName: string
   seedNumber: number | null
   createdAt: string
