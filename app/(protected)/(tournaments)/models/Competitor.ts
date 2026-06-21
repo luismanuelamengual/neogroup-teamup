@@ -1,4 +1,4 @@
-import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity, VirtualColumn } from '@neogroup/neorm'
+import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity, Serializable } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
@@ -36,7 +36,7 @@ export class Competitor extends BaseEntity {
   @BelongsTo(() => User, 'partnerUserId')
   partnerUser?: User
 
-  @VirtualColumn()
+  @Serializable()
   get displayName(): string {
     const userName = this.user ? getUserDisplayName(this.user) : null
     const partnerName = this.partnerUser ? getUserDisplayName(this.partnerUser) : null

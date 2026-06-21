@@ -1,4 +1,4 @@
-import { BaseEntity, Column, Entity, VirtualColumn } from '@neogroup/neorm'
+import { BaseEntity, Column, Entity, Serializable } from '@neogroup/neorm'
 import { Role } from '@/app/(auth)/models/Role'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { getGravatarUrl } from '@/app/utils/gravatar'
@@ -36,12 +36,12 @@ export class User extends BaseEntity {
   @Column({ cast: 'date' })
   createdAt!: Date
 
-  @VirtualColumn()
+  @Serializable()
   get displayName(): string {
     return getUserDisplayName(this)
   }
 
-  @VirtualColumn()
+  @Serializable()
   get avatarUrl(): string {
     return getGravatarUrl(this.email, 80)
   }
