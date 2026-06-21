@@ -67,7 +67,10 @@ import {
   progressTournamentAfterResult
 } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
-import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
+import {
+  getPreclassificationCount,
+  supportsPreclassification
+} from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getScoreWinner, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
 
 // ---------------------------------------------------------------------------
@@ -338,7 +341,8 @@ async function registerCompetitors(
     tournament.type,
     tournament.settings ?? {}
   )
-  const withPreclassification = supportsPreclassification(tournament.type)
+  const withPreclassification =
+    supportsPreclassification(tournament.type) && tournament.status !== TournamentStatus.STAND_BY
   const players = shuffle(pool)
   let cursor = 0
   // Track per-category competitor index for seed assignment.
@@ -369,11 +373,13 @@ async function registerCompetitors(
     if (withPreclassification) {
       // In the seed script, ranking data isn't available at registration time,
       // so we assign sequential seed numbers based on insertion order within
-      // each category. The real auto-assign (from ranking) runs at tournament
-      // start via autoAssignPreclassification.
+      // each category, capped by getPreclassificationCount so the result
+      // mirrors what autoAssignPreclassification would produce at tournament start.
+      const categorySize = Math.ceil(competitorCount / tournamentCategories.length)
+      const maxSeeds = getPreclassificationCount(categorySize)
       const categoryIndex = categoryIndexMap.get(categoryId) ?? 0
 
-      competitor.seedNumber = categoryIndex + 1
+      competitor.seedNumber = categoryIndex < maxSeeds ? categoryIndex + 1 : null
       categoryIndexMap.set(categoryId, categoryIndex + 1)
     } else {
       competitor.seedNumber = null
