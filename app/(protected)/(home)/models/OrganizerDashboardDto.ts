@@ -10,4 +10,8 @@ export interface OrganizationStatsDto {
   matchesTotal: number
   matchesPlayed: number
   matchesPending: number
+  /** Sum of every still-valid ranking point awarded in the organization. */
+  rankingPointsAwarded: number
+  /** Distinct players holding at least one still-valid ranking award. */
+  rankedPlayers: number
 }

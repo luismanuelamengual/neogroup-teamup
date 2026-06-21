@@ -3,6 +3,7 @@
 import './index.scss'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import HomeIcon from '@mui/icons-material/Home'
+import LeaderboardIcon from '@mui/icons-material/Leaderboard'
 import LogoutIcon from '@mui/icons-material/Logout'
 import PersonIcon from '@mui/icons-material/Person'
 import AppBar from '@mui/material/AppBar'
@@ -68,10 +69,27 @@ export default function AppShell({ children, user: initialUser }: { children: Re
       label: t('tournaments'),
       href: '/tournaments',
       icon: <EmojiEventsIcon />
+    },
+    {
+      key: 'rankings',
+      label: t('rankings'),
+      href: '/rankings',
+      icon: <LeaderboardIcon />
     }
   ]
-  const isActive = (href: string) =>
-    href === '/home' ? pathname === '/home' : pathname === href || pathname.startsWith('/tournaments')
+
+  const isActive = (href: string) => {
+    if (href === '/home') {
+      return pathname === '/home'
+    }
+
+    if (href === '/tournaments') {
+      return pathname === href || pathname.startsWith('/tournaments')
+    }
+
+    return pathname === href || pathname.startsWith(href)
+  }
+
   const openMenu = (event: MouseEvent<HTMLElement>) => setMenuAnchor(event.currentTarget)
   const closeMenu = () => setMenuAnchor(null)
 

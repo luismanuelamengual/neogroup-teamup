@@ -13,6 +13,8 @@
       "matchesWonHint": "{won} de {played} ganados",
       "titles": "Títulos",
       "podiums": "Podios",
+      "rankingPoints": "Puntos de ranking",
+      "bestRankingPosition": "Mejor posición",
       "nextMatchTitle": "Tu partido activo",
       "noActiveMatch": "No tenés partidos para jugar en este momento",
       "loadResult": "Cargar resultado",
@@ -41,6 +43,8 @@
       "orgMatchesTotal": "Partidos totales",
       "orgMatchesPlayed": "Partidos jugados",
       "orgMatchesPending": "Partidos pendientes",
+      "orgRankingPoints": "Puntos de ranking",
+      "orgRankedPlayers": "Jugadores rankeados",
       "activeTournamentsTitle": "Torneos activos",
       "noActiveTournaments": "No tenés torneos activos"
     }

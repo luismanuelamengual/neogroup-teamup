@@ -2,6 +2,7 @@
   "nav": {
     "home": "Home",
     "tournaments": "Tournaments",
+    "rankings": "Rankings",
     "myTournaments": "My tournaments",
     "newTournament": "Create tournament",
     "searchTournaments": "Search tournaments",

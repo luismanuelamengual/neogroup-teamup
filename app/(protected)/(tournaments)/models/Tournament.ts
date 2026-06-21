@@ -1,5 +1,6 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany, HasManyThrough } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
+import { RankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
@@ -57,6 +58,10 @@ export class Tournament extends BaseEntity {
 
   @Column({ cast: 'json' })
   settings!: TournamentSettings | null
+
+  /** Ranking points configuration (how many points each finishing placement grants). */
+  @Column({ cast: 'json' })
+  rankingSettings!: RankingSettings | null
 
   @Column({ cast: 'date' })
   createdAt!: Date

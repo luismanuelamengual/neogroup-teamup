@@ -44,7 +44,21 @@
     "location": "Location",
     "sections": {
       "generalData": "General data",
-      "advancedSettings": "Advanced settings"
+      "advancedSettings": "Advanced settings",
+      "rankingSettings": "Ranking settings"
+    },
+    "ranking": {
+      "hint": "Set how many ranking points each tournament placement grants. Points are awarded when the tournament finishes and are valid for one year.",
+      "mainBracket": "Main bracket",
+      "consolationBracket": "Consolation bracket",
+      "position": "{number}th place",
+      "winner": "Champion",
+      "finalist": "Finalist",
+      "semifinalist": "Semifinalist",
+      "quarterfinalist": "Quarterfinalist",
+      "round_16": "Round of 16",
+      "round_32": "Round of 32",
+      "round_64": "Round of 64"
     },
     "categories": "Categories",
     "categoriesHint": "Optional. If you add categories, each player must pick one when registering and each category is played separately.",

@@ -1,0 +1,20 @@
+{
+  "rankings": {
+    "title": "Rankings",
+    "subtitle": "Posiciones de los jugadores según los puntos obtenidos en los torneos",
+    "filters": {
+      "discipline": "Disciplina",
+      "subDiscipline": "Modalidad",
+      "category": "Categoría",
+      "allCategories": "Todas las categorías"
+    },
+    "table": {
+      "position": "Puesto",
+      "player": "Jugador",
+      "points": "Puntos"
+    },
+    "points": "{points} pts",
+    "empty": "Todavía no hay puntos de ranking para estos filtros",
+    "selectCategoryHint": "Elegí una disciplina y una categoría para ver el ranking"
+  }
+}

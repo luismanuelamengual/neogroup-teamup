@@ -91,6 +91,7 @@ export default {
           startTime VARCHAR(5),
           location VARCHAR(255),
           settings ${JSON_TYPE},
+          rankingSettings ${JSON_TYPE},
           createdAt ${TIMESTAMP},
           updatedAt ${TIMESTAMP}
         )
@@ -151,6 +152,22 @@ export default {
         )
       `)
 
+      // Ranking points awarded to players when a tournament finishes. Each row
+      // is a single award (organization + catalogue category + player) worth
+      // `points`, valid until `expirationDate` (one year after it is granted).
+      // The rankings browser sums the still-valid rows per player and category.
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS rankings (
+          id ${ID},
+          organizationId INTEGER NOT NULL REFERENCES organizations (id),
+          categoryId INTEGER NOT NULL REFERENCES categories (id),
+          userId INTEGER NOT NULL REFERENCES users (id),
+          points INTEGER NOT NULL DEFAULT 0,
+          expirationDate ${TIMESTAMP},
+          createdAt ${TIMESTAMP}
+        )
+      `)
+
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_organization ON users (organizationId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_categories_lookup ON categories (organizationId, discipline)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_organization ON tournaments (organizationId)')
@@ -166,6 +183,10 @@ export default {
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_active ON rounds (tournamentCategoryId, active)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_category ON matches (tournamentCategoryId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_round ON matches (roundId)')
+      await conn.execute(
+        'CREATE INDEX IF NOT EXISTS idx_rankings_org_category ON rankings (organizationId, categoryId)'
+      )
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rankings_user ON rankings (userId)')
     })
   }
 }

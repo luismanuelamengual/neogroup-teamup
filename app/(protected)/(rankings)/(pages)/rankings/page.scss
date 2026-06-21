@@ -1,0 +1,15 @@
+.rankings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .title {
+    font-weight: 700;
+  }
+}

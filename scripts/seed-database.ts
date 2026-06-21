@@ -40,7 +40,11 @@ import { Organization } from '@/app/(auth)/models/Organization'
 import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
+import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
+import { getDefaultRankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
+import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
+import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
@@ -1030,6 +1034,8 @@ async function buildTournament(
   tournament.startTime = randomItem(['09:00', '10:30', '14:00', '18:30', '20:00', null])
   tournament.location = randomItem(VENUES)
   tournament.settings = spec.settings
+  // Ranking points only count for tournaments that define categories.
+  tournament.rankingSettings = categoryIds && categoryIds.length > 0 ? getDefaultRankingSettings(spec.type) : null
   tournament.createdAt = new Date()
   tournament.updatedAt = new Date()
   await tournament.save()
@@ -1053,6 +1059,8 @@ async function buildTournament(
 
   if (spec.status === TournamentStatus.FINISHED) {
     await playFullRounds(tournament, 60)
+    // Grant the configured ranking points (only effective for category tournaments).
+    await awardRankingPoints(tournament.id, organizationId)
 
     return
   }
@@ -1067,6 +1075,52 @@ async function buildTournament(
       await playFullRounds(tournament, spec.completedRounds ?? 2)
       break
   }
+}
+
+// ---------------------------------------------------------------------------
+// Ranking demo data
+// ---------------------------------------------------------------------------
+
+const RANKING_POINT_VALUES = [100, 70, 50, 35, 25, 18, 12, 8]
+const DAY_MS = 24 * 60 * 60 * 1000
+const YEAR_MS = 365 * DAY_MS
+
+/**
+ * Generates synthetic ranking awards across every catalogue category so the
+ * rankings browser is populated for all disciplines and categories — including
+ * a few already-expired awards (createdAt over a year ago) to exercise the
+ * one-year validity rule.
+ */
+async function seedDemoRankings(organizationId: number, players: User[]): Promise<void> {
+  const categories = await Category.where('organizationId', organizationId).get()
+  let created = 0
+
+  for (const category of categories) {
+    const contenders = shuffle(players).slice(0, randomInt(8, 16))
+
+    for (const player of contenders) {
+      // 1–3 historical awards per player and category.
+      const awards = randomInt(1, 3)
+
+      for (let i = 0; i < awards; i++) {
+        // Most awards are recent (still valid); ~20% are older than a year (expired).
+        const ageDays = Math.random() < 0.2 ? randomInt(370, 430) : randomInt(1, 330)
+        const createdAt = new Date(Date.now() - ageDays * DAY_MS)
+        const ranking = new Ranking()
+
+        ranking.organizationId = organizationId
+        ranking.categoryId = category.id
+        ranking.userId = player.id
+        ranking.points = randomItem(RANKING_POINT_VALUES)
+        ranking.expirationDate = new Date(createdAt.getTime() + YEAR_MS)
+        ranking.createdAt = createdAt
+        await ranking.save()
+        created++
+      }
+    }
+  }
+
+  console.log(`Created ${created} demo ranking awards across ${categories.length} categories.`)
 }
 
 // ---------------------------------------------------------------------------
@@ -1095,6 +1149,9 @@ async function run(): Promise<void> {
     await buildTournament(spec, organizer.id, organizationId, players)
     console.log(`  [${index}/${SPECS.length}] ${spec.name}`)
   }
+
+  console.log('\nGenerating demo rankings...')
+  await seedDemoRankings(organizationId, players)
 
   const [{ tournaments }, { competitors }, { matches }] = await DB.withConnection(async (conn) => {
     return Promise.all([

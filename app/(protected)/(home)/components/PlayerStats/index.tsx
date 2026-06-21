@@ -1,9 +1,11 @@
 'use client'
 
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
+import LeaderboardIcon from '@mui/icons-material/Leaderboard'
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
+import StarIcon from '@mui/icons-material/Star'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import { useTranslations } from 'next-intl'
@@ -16,7 +18,6 @@ export default function PlayerStats() {
   const t = useTranslations('dashboard')
   const [stats, setStats] = useState<PlayerStatsDto | null>(null)
   const [loading, setLoading] = useState(true)
-
   const load = useCallback(async () => {
     const result = await getPlayerStats()
 
@@ -31,7 +32,7 @@ export default function PlayerStats() {
   if (loading || !stats) {
     return (
       <>
-        {Array.from({ length: 6 }).map((_, i) => (
+        {Array.from({ length: 8 }).map((_, i) => (
           <StatCardSkeleton key={i} />
         ))}
       </>
@@ -40,9 +41,24 @@ export default function PlayerStats() {
 
   return (
     <>
-      <StatCard icon={<EmojiEventsIcon />} accent="primary" value={stats.tournamentsPlayed} label={t('player.tournamentsPlayed')} />
-      <StatCard icon={<LocalFireDepartmentIcon />} accent="info" value={stats.activeTournaments} label={t('player.activeTournaments')} />
-      <StatCard icon={<SportsTennisIcon />} accent="neutral" value={stats.matchesPlayed} label={t('player.matchesPlayed')} />
+      <StatCard
+        icon={<EmojiEventsIcon />}
+        accent="primary"
+        value={stats.tournamentsPlayed}
+        label={t('player.tournamentsPlayed')}
+      />
+      <StatCard
+        icon={<LocalFireDepartmentIcon />}
+        accent="info"
+        value={stats.activeTournaments}
+        label={t('player.activeTournaments')}
+      />
+      <StatCard
+        icon={<SportsTennisIcon />}
+        accent="neutral"
+        value={stats.matchesPlayed}
+        label={t('player.matchesPlayed')}
+      />
       <StatCard
         icon={<TrendingUpIcon />}
         accent="success"
@@ -52,6 +68,18 @@ export default function PlayerStats() {
       />
       <StatCard icon={<WorkspacePremiumIcon />} accent="amber" value={stats.titles} label={t('player.titles')} />
       <StatCard icon={<MilitaryTechIcon />} accent="amber" value={stats.podiums} label={t('player.podiums')} />
+      <StatCard
+        icon={<LeaderboardIcon />}
+        accent="primary"
+        value={stats.rankingPoints}
+        label={t('player.rankingPoints')}
+      />
+      <StatCard
+        icon={<StarIcon />}
+        accent="info"
+        value={stats.bestRankingPosition > 0 ? `#${stats.bestRankingPosition}` : '-'}
+        label={t('player.bestRankingPosition')}
+      />
     </>
   )
 }

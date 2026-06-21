@@ -3,7 +3,9 @@
 import ApartmentIcon from '@mui/icons-material/Apartment'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import GroupsIcon from '@mui/icons-material/Groups'
+import LeaderboardIcon from '@mui/icons-material/Leaderboard'
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
+import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
 import PendingActionsIcon from '@mui/icons-material/PendingActions'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import QueryStatsIcon from '@mui/icons-material/QueryStats'
@@ -33,7 +35,7 @@ export default function OrganizationStats() {
   if (loading || !stats) {
     return (
       <>
-        {Array.from({ length: 9 }).map((_, i) => (
+        {Array.from({ length: 11 }).map((_, i) => (
           <StatCardSkeleton key={i} />
         ))}
       </>
@@ -95,6 +97,18 @@ export default function OrganizationStats() {
         accent="amber"
         value={stats.matchesPending}
         label={t('organizer.orgMatchesPending')}
+      />
+      <StatCard
+        icon={<LeaderboardIcon />}
+        accent="primary"
+        value={stats.rankingPointsAwarded}
+        label={t('organizer.orgRankingPoints')}
+      />
+      <StatCard
+        icon={<MilitaryTechIcon />}
+        accent="success"
+        value={stats.rankedPlayers}
+        label={t('organizer.orgRankedPlayers')}
       />
     </>
   )

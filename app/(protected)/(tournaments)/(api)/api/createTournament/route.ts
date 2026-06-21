@@ -86,6 +86,9 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
   tournament.startTime = startTime
   tournament.location = input.location?.trim() || null
   tournament.settings = settings
+  // Ranking points only apply to tournaments that define categories.
+  tournament.rankingSettings =
+    categoryIds && categoryIds.length > 0 && input.rankingSettings?.points ? input.rankingSettings : null
   tournament.createdAt = new Date()
   tournament.updatedAt = new Date()
   await tournament.save()

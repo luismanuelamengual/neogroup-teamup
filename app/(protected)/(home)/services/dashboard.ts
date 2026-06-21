@@ -1,5 +1,6 @@
 import { OrganizationStatsDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
 import { PlayerStatsDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
+import { getOrganizationRankingSummary, getPlayerRankingSummary } from '@/app/(protected)/(rankings)/services/rankings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -78,6 +79,7 @@ export async function getPlayerStats(userId: number, organizationId: number): Pr
   }
 
   const activeTournaments = tournaments.filter((t) => t.status !== TournamentStatus.FINISHED)
+  const rankingSummary = await getPlayerRankingSummary(organizationId, userId)
 
   return {
     tournamentsPlayed: tournaments.length,
@@ -86,7 +88,9 @@ export async function getPlayerStats(userId: number, organizationId: number): Pr
     matchesWon,
     winRate: matchesPlayed > 0 ? Math.round((matchesWon / matchesPlayed) * 100) : 0,
     titles,
-    podiums
+    podiums,
+    rankingPoints: rankingSummary.points,
+    bestRankingPosition: rankingSummary.bestPosition
   }
 }
 
@@ -142,6 +146,8 @@ export async function getOrganizationStats(organizationId: number): Promise<Orga
     }
   }
 
+  const rankingSummary = await getOrganizationRankingSummary(organizationId)
+
   return {
     tournamentsTotal: tournaments.length,
     tournamentsActive,
@@ -151,6 +157,8 @@ export async function getOrganizationStats(organizationId: number): Promise<Orga
     distinctPlayers: players.size,
     matchesTotal,
     matchesPlayed,
-    matchesPending
+    matchesPending,
+    rankingPointsAwarded: rankingSummary.pointsAwarded,
+    rankedPlayers: rankingSummary.rankedPlayers
   }
 }

@@ -1,0 +1,76 @@
+.rankings-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    .filter {
+      min-width: 180px;
+      flex: 1;
+      max-width: 260px;
+
+      .MuiInputBase-root {
+        background-color: white;
+      }
+    }
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ranking-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background-color: white;
+    border-radius: 12px;
+    padding: 10px 16px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+
+    .position {
+      width: 28px;
+      text-align: center;
+      font-weight: 700;
+      color: var(--mui-palette-text-secondary, #666);
+    }
+
+    .name {
+      flex: 1;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .points {
+      font-weight: 700;
+      color: var(--mui-palette-primary-main, #1976d2);
+      white-space: nowrap;
+    }
+
+    &.skeleton {
+      .grow {
+        flex: 1;
+      }
+    }
+  }
+
+  .empty {
+    text-align: center;
+    padding: 48px 0;
+  }
+
+  .paginator {
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+  }
+}

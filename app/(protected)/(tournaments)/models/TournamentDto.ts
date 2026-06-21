@@ -1,3 +1,4 @@
+import { RankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -30,6 +31,8 @@ export interface TournamentDto {
    */
   categories?: TournamentCategoryDto[]
   settings: TournamentSettings | null
+  /** Ranking points configuration (how many points each finishing placement grants). */
+  rankingSettings?: RankingSettings | null
   createdAt: string
   updatedAt: string
   competitors?: CompetitorDto[]

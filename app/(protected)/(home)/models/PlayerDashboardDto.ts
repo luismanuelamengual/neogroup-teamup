@@ -8,4 +8,8 @@ export interface PlayerStatsDto {
   winRate: number
   titles: number
   podiums: number
+  /** Sum of the player's still-valid ranking points across categories. */
+  rankingPoints: number
+  /** Best (lowest) ranking position the player holds in any category, 0 if unranked. */
+  bestRankingPosition: number
 }

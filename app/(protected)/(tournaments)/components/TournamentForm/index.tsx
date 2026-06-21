@@ -17,6 +17,16 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useEffect, useState } from 'react'
+import {
+  getDefaultRankingSettings,
+  getRankingScheme,
+  KNOCKOUT_STAGE_KEYS,
+  knockoutStageKey,
+  POSITION_COUNT,
+  positionKey,
+  RankingScheme,
+  RankingSettings
+} from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { createTournament, getCategories } from '@/app/(protected)/(tournaments)/actions/tournament'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -54,7 +64,9 @@ export default function TournamentForm() {
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
   const [playoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
   const [groupsSettings, setGroupsSettings] = useState(DEFAULT_GROUPS_PLAYOFF_SETTINGS)
+  const [rankingSettings, setRankingSettings] = useState<RankingSettings>(() => getDefaultRankingSettings(type))
   const [error, setError] = useState<string | null>(null)
+  const rankingScheme = getRankingScheme(type)
   const [loading, setLoading] = useState(false)
   const availableTypes: TournamentType[] =
     discipline === Discipline.PADEL
@@ -100,6 +112,15 @@ export default function TournamentForm() {
       cancelled = true
     }
   }, [discipline, subDiscipline])
+
+  // Reset the ranking points to the defaults of the selected tournament type
+  // whenever the type (and therefore the ranking scheme) changes.
+  useEffect(() => {
+    setRankingSettings(getDefaultRankingSettings(type))
+  }, [type])
+
+  const setRankingPoints = (key: string, value: number) =>
+    setRankingSettings((prev) => ({ points: { ...prev.points, [key]: Math.max(0, value) } }))
 
   const handleAddCategory = () => {
     const value = categoryInput.trim()
@@ -147,6 +168,8 @@ export default function TournamentForm() {
         location,
         categoryNames: categories.map((value) => value.trim()).filter((value) => value !== ''),
         maxCompetitors,
+        // Ranking points only apply when the tournament defines categories.
+        rankingSettings: categories.length > 0 ? rankingSettings : null,
         settings:
           type === TournamentType.LEAGUE
             ? leagueSettings
@@ -171,6 +194,28 @@ export default function TournamentForm() {
   }
 
   const isDoubles = isDoublesDiscipline(discipline, discipline === Discipline.TENNIS ? subDiscipline : null)
+  const renderRankingField = (key: string, label: string) => (
+    <TextField
+      key={key}
+      label={label}
+      type="number"
+      value={rankingSettings.points[key] ?? 0}
+      onChange={(event) => setRankingPoints(key, Number(event.target.value))}
+      fullWidth
+      slotProps={{ htmlInput: { min: 0 } }}
+    />
+  )
+  const positionFields = Array.from({ length: POSITION_COUNT }, (_, i) => ({
+    key: positionKey(i + 1),
+    label: t('ranking.position', { number: i + 1 })
+  }))
+  const knockoutFields = (consolation: boolean) => [
+    { key: knockoutStageKey('winner', consolation), label: t('ranking.winner') },
+    ...KNOCKOUT_STAGE_KEYS.map((stage) => ({
+      key: knockoutStageKey(stage, consolation),
+      label: t(`ranking.${stage}`)
+    }))
+  ]
 
   return (
     <Paper component="form" onSubmit={handleSubmit} className="tournament-form">
@@ -494,6 +539,45 @@ export default function TournamentForm() {
           </div>
         </AccordionDetails>
       </Accordion>
+
+      {categories.length > 0 && (
+        <Accordion disableGutters elevation={0} className="section">
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
+            <Typography variant="subtitle1" className="title">
+              {t('sections.rankingSettings')}
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails className="section-content">
+            <Alert severity="info">{t('ranking.hint')}</Alert>
+            {rankingScheme === RankingScheme.POSITION ? (
+              <div className="ranking-grid">
+                {positionFields.map((field) => renderRankingField(field.key, field.label))}
+              </div>
+            ) : (
+              <>
+                {rankingScheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION && (
+                  <Typography variant="subtitle2" className="ranking-group-title">
+                    {t('ranking.mainBracket')}
+                  </Typography>
+                )}
+                <div className="ranking-grid">
+                  {knockoutFields(false).map((field) => renderRankingField(field.key, field.label))}
+                </div>
+                {rankingScheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION && (
+                  <>
+                    <Typography variant="subtitle2" className="ranking-group-title">
+                      {t('ranking.consolationBracket')}
+                    </Typography>
+                    <div className="ranking-grid">
+                      {knockoutFields(true).map((field) => renderRankingField(field.key, field.label))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </AccordionDetails>
+        </Accordion>
+      )}
 
       <div className="actions">
         <Button onClick={() => router.back()}>{tCommon('cancel')}</Button>

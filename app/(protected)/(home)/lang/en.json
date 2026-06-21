@@ -13,6 +13,8 @@
       "matchesWonHint": "{won} of {played} won",
       "titles": "Titles",
       "podiums": "Podiums",
+      "rankingPoints": "Ranking points",
+      "bestRankingPosition": "Best position",
       "nextMatchTitle": "Your active match",
       "noActiveMatch": "You have no matches to play right now",
       "loadResult": "Enter result",
@@ -41,6 +43,8 @@
       "orgMatchesTotal": "Total matches",
       "orgMatchesPlayed": "Matches played",
       "orgMatchesPending": "Pending matches",
+      "orgRankingPoints": "Ranking points",
+      "orgRankedPlayers": "Ranked players",
       "activeTournamentsTitle": "Active tournaments",
       "noActiveTournaments": "You have no active tournaments"
     }
