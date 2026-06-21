@@ -26,10 +26,6 @@ export class Match extends BaseEntity {
   @Column({ cast: 'array' })
   awayCompetitorIds!: number[] | null
 
-  /**
-   * Match score in the compact string format `{scoreFormatId}:{results}` (see
-   * utils/score.ts → serializeScore / parseScore). Null when no result yet.
-   */
   @Column()
   score!: string | null
 
@@ -48,7 +44,6 @@ export class Match extends BaseEntity {
   @BelongsTo(() => TournamentCategory, 'tournamentCategoryId')
   tournamentCategory?: TournamentCategory
 
-  /** Shortcut to the tournament (through tournamentCategory). */
   @BelongsToThrough(() => Tournament, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   tournament?: Tournament
 

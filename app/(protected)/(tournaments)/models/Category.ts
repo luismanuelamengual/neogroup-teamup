@@ -24,7 +24,6 @@ export class Category extends BaseEntity {
   @Column({ cast: 'number' })
   discipline!: Discipline
 
-  /** Sub-discipline (tennis only). Null for padel. */
   @Column()
   subDiscipline!: SubDiscipline | null
 }

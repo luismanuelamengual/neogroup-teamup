@@ -19,7 +19,6 @@ export class TournamentCategory extends BaseEntity {
   @Column({ cast: 'number' })
   tournamentId!: number
 
-  /** Catalogue category this instance maps to. Null for the single category. */
   @Column()
   categoryId!: number | null
 
@@ -29,7 +28,6 @@ export class TournamentCategory extends BaseEntity {
   @BelongsTo(() => Tournament, 'tournamentId')
   tournament?: Tournament
 
-  /** Resolved catalogue category (null for the single category). */
   @BelongsTo(() => Category, 'categoryId')
   category?: Category | null
 

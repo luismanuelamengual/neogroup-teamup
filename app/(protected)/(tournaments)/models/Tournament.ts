@@ -35,7 +35,6 @@ export class Tournament extends BaseEntity {
   @Column({ cast: 'number' })
   discipline!: Discipline
 
-  /** Sub-discipline (tennis only: singles or doubles). Null for padel. */
   @Column()
   subDiscipline!: SubDiscipline | null
 
@@ -45,11 +44,9 @@ export class Tournament extends BaseEntity {
   @Column({ cast: 'number' })
   scoreFormat!: ScoreFormat
 
-  /** Calendar start date as a "YYYY-MM-DD" string (no time/timezone component). */
   @Column()
   startDate!: string
 
-  /** Optional start time in "HH:mm" format. */
   @Column()
   startTime!: string | null
 
@@ -59,7 +56,6 @@ export class Tournament extends BaseEntity {
   @Column({ cast: 'json' })
   settings!: TournamentSettings | null
 
-  /** Ranking points configuration (how many points each finishing placement grants). */
   @Column({ cast: 'json' })
   rankingSettings!: RankingSettings | null
 
@@ -72,23 +68,15 @@ export class Tournament extends BaseEntity {
   @BelongsTo(() => User, 'ownerId')
   owner?: User
 
-  /**
-   * Concrete category instances of the tournament (always at least one). When
-   * the tournament has no organizer-defined categories this is a single row
-   * with categoryId = null (the "single category").
-   */
   @HasMany(() => TournamentCategory, 'tournamentId')
   categories?: TournamentCategory[]
 
-  /** Competitors across every category, reached through tournament_categories. */
   @HasManyThrough(() => Competitor, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   competitors?: Competitor[]
 
-  /** Rounds across every category, reached through tournament_categories. */
   @HasManyThrough(() => Round, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   rounds?: Round[]
 
-  /** Matches across every category, reached through tournament_categories. */
   @HasManyThrough(() => Match, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   matches?: Match[]
 }

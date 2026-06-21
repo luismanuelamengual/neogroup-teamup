@@ -16,18 +16,15 @@ export class Ranking extends BaseEntity {
   @Column({ cast: 'number' })
   organizationId!: number
 
-  /** Catalogue category this award belongs to. */
   @Column({ cast: 'number' })
   categoryId!: number
 
-  /** Player that earned the award. */
   @Column({ cast: 'number' })
   userId!: number
 
   @Column({ cast: 'number' })
   points!: number
 
-  /** Moment the award stops counting towards the ranking (granted + 1 year). */
   @Column({ cast: 'date' })
   expirationDate!: Date
 
