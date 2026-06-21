@@ -18,7 +18,7 @@ import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import { getTournament, leaveTournament, saveMatchResult } from '@/app/(protected)/(tournaments)/actions/tournament'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
@@ -115,7 +115,6 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     return <Alert severity="error">{tPlayer('errors.notFound')}</Alert>
   }
 
-  const hasCategories = categories.some((category) => category.categoryId != null)
   const categoryGroups = categoryKeys.map((key) => {
     const groupRounds = rounds.filter((round) => round.tournamentCategoryId === key)
 
@@ -235,31 +234,21 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         </Paper>
       )}
 
-      {hasCategories
-        ? categoryGroups.map(({ key, groupRounds }) => (
-            <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
-                <Typography variant="h6" className="category-title">
-                  {categoryNameById.get(key)}
-                </Typography>
-              </AccordionSummary>
-              <Divider />
-              <AccordionDetails className="category-details">
-                {groupRounds.length > 0 && (
-                  <TournamentRoundsView tournament={tournament} category={key} onEditMatch={setScoreMatch} />
-                )}
-              </AccordionDetails>
-            </Accordion>
-          ))
-        : categoryGroups.map(({ key, groupRounds }) => (
-            <Fragment key={key}>
-              {groupRounds.length > 0 && (
-                <Paper className="section">
-                  <TournamentRoundsView tournament={tournament} onEditMatch={setScoreMatch} />
-                </Paper>
-              )}
-            </Fragment>
-          ))}
+      {categoryGroups.map(({ key, groupRounds }) => (
+        <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
+            <Typography variant="h6" className="category-title">
+              {categoryNameById.get(key) ?? t('uniqueCategory')}
+            </Typography>
+          </AccordionSummary>
+          <Divider />
+          <AccordionDetails className="category-details">
+            {groupRounds.length > 0 && (
+              <TournamentRoundsView tournament={tournament} category={key} onEditMatch={setScoreMatch} />
+            )}
+          </AccordionDetails>
+        </Accordion>
+      ))}
 
       <ScoreDialog
         open={!!scoreMatch}

@@ -20,7 +20,7 @@ import Skeleton from '@mui/material/Skeleton'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import {
   finishTournament,
@@ -109,8 +109,6 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
   // The single category (categoryId = null) renders the flat layout; real
   // categories render one accordion each.
-  const hasCategories = categories.some((category) => category.categoryId != null)
-  const singleMaxCompetitors = categories[0]?.maxCompetitors ?? 0
   const categoryGroups = categoryKeys.map((key) => {
     const groupCompetitors = competitors.filter((competitor) => competitor.tournamentCategoryId === key)
     const groupRounds = rounds.filter((round) => round.tournamentCategoryId === key)
@@ -235,63 +233,43 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         </div>
       </Paper>
 
-      {hasCategories ? (
-        categoryGroups.map(({ key, groupCompetitors, groupRounds }) => (
-          <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
-              <div className="category-header">
-                <Typography variant="h6" className="category-title">
-                  {categoryNameById.get(key)}
-                </Typography>
-                <Chip
-                  size="small"
-                  label={`${groupCompetitors.length} / ${maxByCategory.get(key)}`}
-                  color="primary"
-                  variant="outlined"
+      {categoryGroups.map(({ key, groupCompetitors, groupRounds }) => (
+        <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
+            <div className="category-header">
+              <Typography variant="h6" className="category-title">
+                {categoryNameById.get(key) ?? t('uniqueCategory')}
+              </Typography>
+              <Chip
+                size="small"
+                label={`${groupCompetitors.length} / ${maxByCategory.get(key)}`}
+                color="primary"
+                variant="outlined"
+              />
+            </div>
+          </AccordionSummary>
+          <Divider />
+          <AccordionDetails className="category-details">
+            <div className="category-section">
+              <Typography variant="subtitle1" className="category-subtitle">
+                {tOrganizer('manage.registeredCompetitors')}
+              </Typography>
+              <CompetitorsList tournament={tournament} category={key} />
+            </div>
+            {groupRounds.length > 0 && (
+              <>
+                <Divider />
+                <TournamentRoundsView
+                  tournament={tournament}
+                  category={key}
+                  organizerMode
+                  onEditMatch={setScoreMatch}
                 />
-              </div>
-            </AccordionSummary>
-            <Divider />
-            <AccordionDetails className="category-details">
-              <div className="category-section">
-                <Typography variant="subtitle1" className="category-subtitle">
-                  {tOrganizer('manage.registeredCompetitors')}
-                </Typography>
-                <CompetitorsList tournament={tournament} category={key} />
-              </div>
-              {groupRounds.length > 0 && (
-                <>
-                  <Divider />
-                  <TournamentRoundsView
-                    tournament={tournament}
-                    category={key}
-                    organizerMode
-                    onEditMatch={setScoreMatch}
-                  />
-                </>
-              )}
-            </AccordionDetails>
-          </Accordion>
-        ))
-      ) : (
-        <>
-          <Paper className="section">
-            <Typography variant="h6" className="section-title">
-              {tOrganizer('manage.registeredCompetitors')} ({competitors.length} / {singleMaxCompetitors})
-            </Typography>
-            <CompetitorsList tournament={tournament} />
-          </Paper>
-          {categoryGroups.map(({ key, groupRounds }) => (
-            <Fragment key={key}>
-              {groupRounds.length > 0 && (
-                <Paper className="section">
-                  <TournamentRoundsView tournament={tournament} organizerMode onEditMatch={setScoreMatch} />
-                </Paper>
-              )}
-            </Fragment>
-          ))}
-        </>
-      )}
+              </>
+            )}
+          </AccordionDetails>
+        </Accordion>
+      ))}
 
       <EditTournamentDialog
         open={editOpen}
