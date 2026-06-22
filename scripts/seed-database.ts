@@ -1081,7 +1081,7 @@ async function buildTournament(
   if (spec.status === TournamentStatus.FINISHED) {
     await playFullRounds(tournament, 60)
     // Grant the configured ranking points (only effective for category tournaments).
-    await awardRankingPoints(tournament.id, organizationId)
+    await awardRankingPoints(tournament.id)
 
     return
   }

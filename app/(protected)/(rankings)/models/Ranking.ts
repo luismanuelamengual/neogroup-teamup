@@ -1,6 +1,7 @@
 import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
+import { OrganizationScope } from '@/app/models/OrganizationScope'
 
 /**
  * A single ranking award granted to a player when a tournament finishes. Each
@@ -36,4 +37,11 @@ export class Ranking extends BaseEntity {
 
   @BelongsTo(() => User, 'userId')
   user?: User
+
+  protected static booted(): void {
+    Ranking.addGlobalScope(new OrganizationScope())
+    Ranking.addGlobalScope('expirationScope', (query) => {
+      query.where('expirationDate', '>', new Date())
+    })
+  }
 }

@@ -11,6 +11,7 @@ import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { OrganizationScope } from '@/app/models/OrganizationScope'
 
 @Entity({ table: 'tournaments' })
 export class Tournament extends BaseEntity {
@@ -79,4 +80,8 @@ export class Tournament extends BaseEntity {
 
   @HasManyThrough(() => Match, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   matches?: Match[]
+
+  protected static booted(): void {
+    Tournament.addGlobalScope(new OrganizationScope())
+  }
 }

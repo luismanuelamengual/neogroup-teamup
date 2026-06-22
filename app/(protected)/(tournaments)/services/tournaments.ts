@@ -1,18 +1,18 @@
-import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
+import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
-import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { createRound } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import { createRound, isTournamentComplete } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import {
   autoAssignPreclassification,
   supportsPreclassification
 } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
+import { Competitor } from '../models/Competitor'
+import { TournamentCategory } from '../models/TournamentCategory'
 
 export interface TournamentOptions {
   id?: number
-  organizationId?: number
   name?: string
   ownerId?: number
   playerId?: number
@@ -26,7 +26,6 @@ export interface TournamentOptions {
 
 export async function getTournaments({
   id,
-  organizationId,
   ownerId,
   playerId,
   name,
@@ -38,7 +37,7 @@ export async function getTournaments({
   pageSize = 10
 }: TournamentOptions = {}): Promise<PaginatedResponse<Tournament[]>> {
   const result = await Tournament.when(id, (query) => query.where('id', id))
-    .when(organizationId, (query) => query.where('organizationId', organizationId))
+    .with('categories', 'categories.category')
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) =>
       query.whereHas('competitors', (q) =>
@@ -47,9 +46,6 @@ export async function getTournaments({
     )
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
     .when(statuses?.length, (query) => query.whereIn('status', statuses!))
-    // Every tournament always has at least one category instance; resolve the
-    // catalogue category of each so the UI can show its name.
-    .with('categories', 'categories.category')
     .when(withCompetitors, (query) => query.with('competitors', 'competitors.user', 'competitors.partnerUser'))
     .when(withRounds, (query) => query.with('rounds'))
     .when(withMatches, (query) => query.with('matches'))
@@ -87,7 +83,7 @@ export async function getTournament(options: TournamentOptions = {}): Promise<To
  * preclassification seeds from ranking (for bracket-style tournaments),
  * generates round 1, and marks the tournament as ongoing.
  */
-export async function startTournament(tournament: Tournament, organizationId: number): Promise<void> {
+export async function startTournament(tournament: Tournament): Promise<void> {
   if (tournament.status !== TournamentStatus.STAND_BY) {
     throw new ApiException('invalidStatus')
   }
@@ -114,10 +110,100 @@ export async function startTournament(tournament: Tournament, organizationId: nu
   // Auto-assign preclassification seeds from ranking when the tournament type
   // supports it (Playoff, Groups+Playoff, Playoff with consolation).
   if (supportsPreclassification(tournament.type)) {
-    await autoAssignPreclassification(allCompetitors, organizationId)
+    await autoAssignPreclassification(allCompetitors, tournament.organizationId)
   }
 
   tournament.status = TournamentStatus.ONGOING
   await createRound(tournament, 1)
   await tournament.save()
+}
+
+/**
+ * Finalises a tournament: marks it as finished and awards ranking points.
+ * Analogous to startTournament but for the ONGOING → FINISHED transition.
+ */
+export async function finishTournament(tournament: Tournament): Promise<void> {
+  if (tournament.status !== TournamentStatus.ONGOING) {
+    throw new ApiException('invalidStatus')
+  }
+
+  tournament.status = TournamentStatus.FINISHED
+  tournament.updatedAt = new Date()
+  await tournament.save()
+
+  try {
+    await awardRankingPoints(tournament.id)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(`[finishTournament] Failed to award ranking points for tournament ${tournament.id}:`, error)
+  }
+}
+
+export interface ProcessTournamentsResult {
+  started: number[]
+  startErrors: { id: number; error: string }[]
+  finished: number[]
+  finishedErrors: { id: number; error: string }[]
+}
+
+/**
+ * Processes all tournaments across every organization:
+ *  1. Starts every STAND_BY tournament whose startDate is today or in the past.
+ *  2. Finishes every ONGOING tournament that has all rounds and matches completed.
+ *
+ * Intended to be called by the Vercel Cron Job endpoint.
+ */
+export async function processTournaments(): Promise<ProcessTournamentsResult> {
+  const result: ProcessTournamentsResult = {
+    started: [],
+    startErrors: [],
+    finished: [],
+    finishedErrors: []
+  }
+  const today = new Date()
+
+  today.setHours(0, 0, 0, 0)
+  const todayStr = today.toISOString().slice(0, 10)
+  // ── 1. Start overdue STAND_BY tournaments ────────────────────────────────
+  const standByTournaments = await Tournament.withoutGlobalScopes()
+    .where('status', TournamentStatus.STAND_BY)
+    .where('startDate', '<=', todayStr)
+    .get()
+
+  for (const tournament of standByTournaments) {
+    try {
+      await startTournament(tournament)
+      result.started.push(tournament.id)
+      // eslint-disable-next-line no-console
+      console.log(`[processTournaments] Started tournament ${tournament.id} (${tournament.name})`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+
+      result.startErrors.push({ id: tournament.id, error: message })
+      // eslint-disable-next-line no-console
+      console.error(`[processTournaments] Failed to start tournament ${tournament.id}:`, message)
+    }
+  }
+
+  // ── 2. Finish completed ONGOING tournaments ──────────────────────────────
+  const ongoingTournaments = await Tournament.withoutGlobalScopes().where('status', TournamentStatus.ONGOING).get()
+
+  for (const tournament of ongoingTournaments) {
+    try {
+      if (await isTournamentComplete(tournament)) {
+        await finishTournament(tournament)
+        result.finished.push(tournament.id)
+        // eslint-disable-next-line no-console
+        console.log(`[processTournaments] Finished tournament ${tournament.id} (${tournament.name})`)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+
+      result.finishedErrors.push({ id: tournament.id, error: message })
+      // eslint-disable-next-line no-console
+      console.error(`[processTournaments] Failed to finish tournament ${tournament.id}:`, message)
+    }
+  }
+
+  return result
 }

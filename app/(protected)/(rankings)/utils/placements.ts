@@ -9,6 +9,7 @@ import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
+import { Tournament } from '../../(tournaments)/models/Tournament'
 
 /** A competitor together with the placement key it finished a category in. */
 export interface CompetitorPlacement {
@@ -28,10 +29,7 @@ export interface CompetitorPlacement {
  *  - Playoff with consolation: the same, plus the consolation bracket placed
  *    with the `consolation_` prefix.
  */
-export function computeCategoryPlacements(
-  tournament: TournamentDto,
-  tournamentCategoryId: number
-): CompetitorPlacement[] {
+export function computeCategoryPlacements(tournament: Tournament, tournamentCategoryId: number): CompetitorPlacement[] {
   const scheme = getRankingScheme(tournament.type)
 
   if (scheme === RankingScheme.POSITION) {

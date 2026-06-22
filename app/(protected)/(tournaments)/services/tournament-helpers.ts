@@ -45,15 +45,39 @@ function roundRobinRoundsFor(size: number): number {
   return size % 2 === 0 ? size - 1 : size
 }
 
-/** Returns the tournament only when it exists and belongs to the user. */
-export async function requireOwnedTournament(tournamentId: number, userId: number): Promise<Tournament | null> {
-  const tournament = await Tournament.find(tournamentId)
-
-  if (!tournament || tournament.ownerId !== userId) {
-    return null
+/**
+ * Returns true when a tournament is considered complete: every round is closed
+ * and no match is still pending. Used by processTournaments to detect tournaments
+ * that finished their last round but were never manually finalised.
+ */
+export async function isTournamentComplete(tournament: Tournament): Promise<boolean> {
+  if (tournament.status !== TournamentStatus.ONGOING) {
+    return false
   }
 
-  return tournament
+  const categories = await TournamentCategory.where('tournamentId', tournament.id).get()
+  const categoryIds = categories.map((c) => c.id)
+
+  if (categoryIds.length === 0) {
+    return false
+  }
+
+  const rounds = await Round.whereIn('tournamentCategoryId', categoryIds).get()
+
+  if (rounds.length === 0) {
+    return false
+  }
+
+  // All rounds must be closed.
+  if (rounds.some((r) => r.status !== RoundStatus.CLOSED)) {
+    return false
+  }
+
+  const roundIds = rounds.map((r) => r.id)
+  const matches = await Match.whereIn('roundId', roundIds).get()
+
+  // No match can be pending.
+  return !matches.some((m) => m.status === MatchStatus.PENDING)
 }
 
 /**

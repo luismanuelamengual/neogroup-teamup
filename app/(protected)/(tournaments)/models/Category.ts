@@ -1,6 +1,7 @@
 import { BaseEntity, Column, Entity } from '@neogroup/neorm'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { OrganizationScope } from '@/app/models/OrganizationScope'
 
 /**
  * Catalogue of categories scoped to an organization and a discipline /
@@ -26,4 +27,8 @@ export class Category extends BaseEntity {
 
   @Column()
   subDiscipline!: SubDiscipline | null
+
+  protected static booted(): void {
+    Category.addGlobalScope(new OrganizationScope())
+  }
 }

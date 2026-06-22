@@ -3,29 +3,28 @@ import { PlayerStatsDto } from '@/app/(protected)/(home)/models/PlayerDashboardD
 import { getOrganizationRankingSummary, getPlayerRankingSummary } from '@/app/(protected)/(rankings)/services/rankings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { getTournaments } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { getPodiumCompetitorIds } from '@/app/(protected)/(tournaments)/utils/champion'
+import { Tournament } from '../../(tournaments)/models/Tournament'
 
 const ALL = 1000
 
 /** Competitor entry of `userId` inside a tournament (as player or partner). */
-function findCompetitor(tournament: TournamentDto, userId: number) {
+function findCompetitor(tournament: Tournament, userId: number) {
   return (tournament.competitors ?? []).find((c) => c.userId === userId || c.partnerUserId === userId) ?? null
 }
 
 /** Aggregates player stats from every tournament they take part in. */
-export async function getPlayerStats(userId: number, organizationId: number): Promise<PlayerStatsDto> {
+export async function getPlayerStats(userId: number): Promise<PlayerStatsDto> {
   const { data } = await getTournaments({
-    organizationId,
     playerId: userId,
     withCompetitors: true,
     withRounds: true,
     withMatches: true,
     pageSize: ALL
   })
-  const tournaments = data as unknown as TournamentDto[]
+  const tournaments = data as unknown as Tournament[]
   let matchesPlayed = 0
   let matchesWon = 0
   let titles = 0
@@ -79,7 +78,7 @@ export async function getPlayerStats(userId: number, organizationId: number): Pr
   }
 
   const activeTournaments = tournaments.filter((t) => t.status !== TournamentStatus.FINISHED)
-  const rankingSummary = await getPlayerRankingSummary(organizationId, userId)
+  const rankingSummary = await getPlayerRankingSummary(userId)
 
   return {
     tournamentsPlayed: tournaments.length,
@@ -95,15 +94,14 @@ export async function getPlayerStats(userId: number, organizationId: number): Pr
 }
 
 /** Aggregates organization-wide stats from all tournaments in the organization. */
-export async function getOrganizationStats(organizationId: number): Promise<OrganizationStatsDto> {
+export async function getOrganizationStats(): Promise<OrganizationStatsDto> {
   const { data } = await getTournaments({
-    organizationId,
     withCompetitors: true,
     withRounds: true,
     withMatches: true,
     pageSize: ALL
   })
-  const tournaments = data as unknown as TournamentDto[]
+  const tournaments = data as unknown as Tournament[]
   const players = new Set<number>()
   let competitorsTotal = 0
   let tournamentsActive = 0
@@ -146,7 +144,7 @@ export async function getOrganizationStats(organizationId: number): Promise<Orga
     }
   }
 
-  const rankingSummary = await getOrganizationRankingSummary(organizationId)
+  const rankingSummary = await getOrganizationRankingSummary()
 
   return {
     tournamentsTotal: tournaments.length,

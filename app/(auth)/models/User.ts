@@ -1,6 +1,7 @@
 import { BaseEntity, Column, Entity, Serializable } from '@neogroup/neorm'
 import { Role } from '@/app/(auth)/models/Role'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
+import { OrganizationScope } from '@/app/models/OrganizationScope'
 import { getGravatarUrl } from '@/app/utils/gravatar'
 
 @Entity({ table: 'users' })
@@ -44,5 +45,9 @@ export class User extends BaseEntity {
   @Serializable()
   get avatarUrl(): string {
     return getGravatarUrl(this.email, 80)
+  }
+
+  protected static booted(): void {
+    User.addGlobalScope(new OrganizationScope())
   }
 }

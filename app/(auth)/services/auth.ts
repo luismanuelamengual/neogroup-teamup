@@ -3,6 +3,7 @@ import { headers as nextHeaders } from 'next/headers'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
+import { cache } from 'react'
 import { Organization } from '@/app/(auth)/models/Organization'
 import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
@@ -30,8 +31,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
-        // Resolve the organization from the Host header directly. We cannot rely
-        // on x-org-domain here because the middleware matcher excludes /api/ paths.
         const host = (request as Request).headers.get('host') ?? ''
         const orgDomain = resolveOrgDomainFromHost(host)
 
@@ -45,7 +44,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
-        const user = await User.where('organizationId', organization.id).where('email', email).first()
+        const user = await User.withoutGlobalScopes()
+          .where('organizationId', organization.id)
+          .where('email', email)
+          .first()
 
         if (!user?.passwordHash) {
           return null
@@ -65,10 +67,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     ...authConfig.callbacks,
 
     async jwt({ token, user, account, profile, trigger }) {
-      // First sign-in with Google: find or create the user scoped to the current
-      // organization. We read the Host header (always present, regardless of the
-      // middleware matcher) to resolve the org — x-org-domain is not available
-      // on /api/ paths since the middleware excludes them.
       if (account?.provider === 'google' && token.email) {
         const headersList = await nextHeaders()
         const host = headersList.get('host') ?? ''
@@ -77,7 +75,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
         if (organization) {
           const email = token.email.toLowerCase()
-          let dbUser = await User.where('organizationId', organization.id).where('email', email).first()
+          let dbUser = await User.withoutGlobalScopes()
+            .where('organizationId', organization.id)
+            .where('email', email)
+            .first()
 
           if (!dbUser) {
             dbUser = new User()
@@ -92,19 +93,30 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           }
 
           token.userId = Number(dbUser.id)
-          token.userLoaded = false
+          token.organizationId = dbUser.organizationId
+          token.roleId = dbUser.roleId
+          token.firstName = dbUser.firstName
+          token.lastName = dbUser.lastName
+          token.nickname = dbUser.nickname
+          token.phoneNumber = dbUser.phoneNumber
         }
       }
 
-      // First sign-in with credentials.
       if (account?.provider === 'credentials' && user?.id) {
-        token.userId = Number(user.id)
-        token.userLoaded = false
+        const dbUser = await User.withoutGlobalScopes().find(Number(user.id))
+
+        if (dbUser) {
+          token.userId = Number(dbUser.id)
+          token.organizationId = dbUser.organizationId
+          token.roleId = dbUser.roleId
+          token.firstName = dbUser.firstName
+          token.lastName = dbUser.lastName
+          token.nickname = dbUser.nickname
+          token.phoneNumber = dbUser.phoneNumber
+        }
       }
 
-      // Load (or reload after an update) the user attributes into the token,
-      // including the organizationId needed for org isolation checks.
-      if (token.userId && (!token.userLoaded || trigger === 'update')) {
+      if (trigger === 'update' && token.userId) {
         const dbUser = await User.find(token.userId)
 
         if (dbUser) {
@@ -114,7 +126,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           token.lastName = dbUser.lastName
           token.nickname = dbUser.nickname
           token.phoneNumber = dbUser.phoneNumber
-          token.userLoaded = true
         }
       }
 
@@ -142,4 +153,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       return session
     }
   }
+})
+
+export const getSession = cache(async () => {
+  return await auth()
 })

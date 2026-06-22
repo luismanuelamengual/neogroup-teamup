@@ -29,7 +29,10 @@ export const POST = withApi(async (request, context, organizationId) => {
     throw new ApiException('invalidRole')
   }
 
-  const existing = await User.where('organizationId', organizationId).where('email', email).first()
+  const existing = await User.withoutGlobalScopes()
+    .where('organizationId', organizationId)
+    .where('email', email)
+    .first()
 
   if (existing) {
     throw new ApiException('emailAlreadyRegistered')

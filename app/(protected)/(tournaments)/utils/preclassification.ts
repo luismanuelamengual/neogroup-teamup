@@ -45,7 +45,8 @@ export async function autoAssignPreclassification(competitors: Competitor[], org
     return
   }
 
-  const validRankings = await Ranking.where('organizationId', organizationId)
+  const validRankings = await Ranking.withoutGlobalScopes()
+    .where('organizationId', organizationId)
     .where('expirationDate', '>', new Date())
     .get()
   const pointsByUser = new Map<number, number>()

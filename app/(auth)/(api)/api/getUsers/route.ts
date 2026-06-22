@@ -2,7 +2,7 @@ import { User } from '@/app/(auth)/models/User'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/getUsers — searches users by name, nickname or email (partner selection). */
-export const POST = withAuth(async (request, context, userId, organizationId) => {
+export const POST = withAuth(async (request, context, userId) => {
   const { query } = (await request.json()) as { query?: string }
   const normalized = (query ?? '').trim()
 
@@ -11,14 +11,13 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
   }
 
   const pattern = `%${normalized}%`
-  const users = await User.where('organizationId', organizationId)
-    .where((group) => {
-      group
-        .whereLike('firstName', pattern)
-        .orWhereLike('lastName', pattern)
-        .orWhereLike('nickname', pattern)
-        .orWhereLike('email', pattern)
-    })
+  const users = await User.where((group) => {
+    group
+      .whereLike('firstName', pattern)
+      .orWhereLike('lastName', pattern)
+      .orWhereLike('nickname', pattern)
+      .orWhereLike('email', pattern)
+  })
     .where('id', '<>', userId)
     .orderBy('firstName')
     .orderBy('lastName')

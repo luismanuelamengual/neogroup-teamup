@@ -3,9 +3,9 @@ import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntr
 import { computeCategoryPlacements } from '@/app/(protected)/(rankings)/utils/placements'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
-import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { getTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
+import { Tournament } from '../../(tournaments)/models/Tournament'
 
 /** One year of validity for every ranking award, in milliseconds. */
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
@@ -18,14 +18,13 @@ const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
  * tournaments do not feed the ranking. Idempotent enough for a one-shot finish:
  * callers must only invoke it once, right after marking the tournament finished.
  */
-export async function awardRankingPoints(tournamentId: number, organizationId: number): Promise<void> {
+export async function awardRankingPoints(tournamentId: number): Promise<void> {
   const tournament = (await getTournament({
     id: tournamentId,
-    organizationId,
     withCompetitors: true,
     withRounds: true,
     withMatches: true
-  })) as unknown as TournamentDto | null
+  })) as unknown as Tournament | null
   const settings = tournament?.rankingSettings
 
   if (!tournament || !settings || !settings.points) {
@@ -61,7 +60,7 @@ export async function awardRankingPoints(tournamentId: number, organizationId: n
       for (const userId of userIds) {
         const ranking = new Ranking()
 
-        ranking.organizationId = organizationId
+        ranking.organizationId = tournament.organizationId
         ranking.categoryId = category.categoryId
         ranking.userId = userId
         ranking.points = points
@@ -89,18 +88,9 @@ export interface OrganizationRankingSummary {
   rankedPlayers: number
 }
 
-/** Non-expired ranking rows of an organization. */
-async function getValidRankings(organizationId: number): Promise<Ranking[]> {
-  const now = Date.now()
-
-  return (await Ranking.where('organizationId', organizationId).get()).filter(
-    (ranking) => !ranking.expirationDate || ranking.expirationDate.getTime() > now
-  )
-}
-
 /** Player ranking summary: total points and best position across categories. */
-export async function getPlayerRankingSummary(organizationId: number, userId: number): Promise<PlayerRankingSummary> {
-  const rankings = await getValidRankings(organizationId)
+export async function getPlayerRankingSummary(userId: number): Promise<PlayerRankingSummary> {
+  const rankings = await Ranking.get()
   // category -> (user -> summed points)
   const byCategory = new Map<number, Map<number, number>>()
 
@@ -138,8 +128,8 @@ export async function getPlayerRankingSummary(organizationId: number, userId: nu
 }
 
 /** Organization ranking summary: total points awarded and distinct ranked players. */
-export async function getOrganizationRankingSummary(organizationId: number): Promise<OrganizationRankingSummary> {
-  const rankings = await getValidRankings(organizationId)
+export async function getOrganizationRankingSummary(): Promise<OrganizationRankingSummary> {
+  const rankings = await Ranking.get()
   const players = new Set<number>()
   let pointsAwarded = 0
 
@@ -170,23 +160,17 @@ export interface RankingBrowseOptions {
  * total points. Pagination is applied on the server.
  */
 export async function getRankings({
-  organizationId,
   categoryId = null,
   discipline = null,
   subDiscipline = null,
   page = 1,
   pageSize = 20
 }: RankingBrowseOptions): Promise<PaginatedResponse<RankingEntryDto[]>> {
-  const rankings = await Ranking.where('organizationId', organizationId).with('category', 'user').get()
-  const now = Date.now()
+  const rankings = await Ranking.with('category', 'user').get()
   const sub = subDiscipline ?? null
   const totals = new Map<number, RankingEntryDto>()
 
   for (const ranking of rankings) {
-    if (ranking.expirationDate && ranking.expirationDate.getTime() <= now) {
-      continue
-    }
-
     const category = ranking.category
 
     if (categoryId != null) {

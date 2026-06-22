@@ -1,13 +1,13 @@
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { requireOwnedTournament } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { normalizeStartTime } from '@/app/(protected)/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
+import { Tournament } from '../../../models/Tournament'
 
 /** POST /api/updateTournament — updates the editable attributes (owner only). */
-export const POST = withAuth(async (request, context, userId, _organizationId) => {
+export const POST = withAuth(async (request) => {
   const { id, ...input } = (await request.json()) as Partial<TournamentDto> & { id: number }
-  const tournament = await requireOwnedTournament(Number(id), userId)
+  const tournament = await Tournament.find(Number(id))
 
   if (!tournament) {
     throw new ApiException('notFound', 404)

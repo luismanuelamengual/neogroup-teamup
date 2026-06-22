@@ -4,7 +4,6 @@ import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipl
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 
 export interface CategoryQuery {
-  organizationId: number
   discipline: Discipline
   subDiscipline?: SubDiscipline | null
 }
@@ -13,12 +12,9 @@ export interface CategoryQuery {
  * Categories available for an organization + discipline + sub-discipline,
  * ordered by name. Powers the category autocomplete in the tournament form.
  */
-export async function getCategories({ organizationId, discipline, subDiscipline }: CategoryQuery): Promise<Category[]> {
+export async function getCategories({ discipline, subDiscipline }: CategoryQuery): Promise<Category[]> {
   const sub = subDiscipline ?? null
-  const categories = await Category.where('organizationId', organizationId)
-    .where('discipline', discipline)
-    .orderBy('name')
-    .get()
+  const categories = await Category.where('discipline', discipline).orderBy('name').get()
 
   return categories.filter((category) => (category.subDiscipline ?? null) === sub)
 }
