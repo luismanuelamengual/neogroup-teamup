@@ -1,8 +1,8 @@
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
-import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
+import { Tournament } from '../models/Tournament'
 
 const KNOCKOUT_TYPES = new Set<TournamentType>([
   TournamentType.PLAYOFF,
@@ -16,7 +16,7 @@ const KNOCKOUT_TYPES = new Set<TournamentType>([
  * table; for knockout phases it is derived from the final match (champion =
  * winner, runner-up = loser).
  */
-export function getPodiumCompetitorIds(tournament: TournamentDto, category: number | null = null): number[] {
+export function getPodiumCompetitorIds(tournament: Tournament, category: number | null = null): number[] {
   if (!KNOCKOUT_TYPES.has(tournament.type)) {
     return computeStandings(tournament, category)
       .slice(0, 3)
@@ -51,6 +51,6 @@ export function getPodiumCompetitorIds(tournament: TournamentDto, category: numb
 }
 
 /** Champion (1st place) competitor id of a tournament category, or null. */
-export function getChampionCompetitorId(tournament: TournamentDto, category: number | null = null): number | null {
+export function getChampionCompetitorId(tournament: Tournament, category: number | null = null): number | null {
   return getPodiumCompetitorIds(tournament, category)[0] ?? null
 }
