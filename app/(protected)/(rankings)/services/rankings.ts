@@ -127,20 +127,6 @@ export async function getPlayerRankingSummary(userId: number): Promise<PlayerRan
   return { points, bestPosition }
 }
 
-/** Organization ranking summary: total points awarded and distinct ranked players. */
-export async function getOrganizationRankingSummary(): Promise<OrganizationRankingSummary> {
-  const rankings = await Ranking.get()
-  const players = new Set<number>()
-  let pointsAwarded = 0
-
-  for (const ranking of rankings) {
-    pointsAwarded += ranking.points
-    players.add(ranking.userId)
-  }
-
-  return { pointsAwarded, rankedPlayers: players.size }
-}
-
 export interface RankingBrowseOptions {
   organizationId: number
   /** Restrict to a single catalogue category. */
