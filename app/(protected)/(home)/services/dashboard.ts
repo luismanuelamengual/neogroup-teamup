@@ -1,7 +1,9 @@
 import { DB } from '@neogroup/neorm'
 import { getSession } from '@/app/(auth)/services/auth'
-import { OrganizationStatsDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
-import { PlayerStatsDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
+import { OrganizationStatistics } from '@/app/(protected)/(home)/models/OrganizationStatistics'
+import { OrganizationStatisticsDto } from '@/app/(protected)/(home)/models/OrganizationStatisticsDto'
+import { PlayerStatistics } from '@/app/(protected)/(home)/models/PlayerStatistics'
+import { PlayerStatisticsDto } from '@/app/(protected)/(home)/models/PlayerStatisticsDto'
 import { getPlayerRankingSummary } from '@/app/(protected)/(rankings)/services/rankings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -26,8 +28,11 @@ function toIntArray(value: unknown): number[] {
   return []
 }
 
+/** Maximum age of a cached statistics row before it is considered stale (24h). */
+const STATS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
 /** Aggregates player stats from every tournament they take part in. */
-export async function getPlayerStats(userId: number): Promise<PlayerStatsDto> {
+async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> {
   const session = await getSession()
   const organizationId = session!.user.organizationId
   // EXISTS subquery: is there a competitor for this player in the outer query's category?
@@ -295,9 +300,7 @@ export async function getPlayerStats(userId: number): Promise<PlayerStatsDto> {
 }
 
 /** Aggregates organization-wide stats from all tournaments in the organization. */
-export async function getOrganizationStats(): Promise<OrganizationStatsDto> {
-  const session = await getSession()
-  const organizationId = session!.user.organizationId
+async function computeOrganizationStats(organizationId: number): Promise<OrganizationStatisticsDto> {
   const [tournamentRow, competitorRows, matchRow, rankingRow] = await Promise.all([
     // Q1: tournament counts with CASE-based aggregation in a single pass
     DB.table('tournaments')
@@ -366,4 +369,199 @@ export async function getOrganizationStats(): Promise<OrganizationStatsDto> {
     rankingPointsAwarded: Number(rankingRow?.points ?? 0),
     rankedPlayers: Number(rankingRow?.players ?? 0)
   }
+}
+
+// ── Cache layer ──────────────────────────────────────────────────────────────
+// The two public entry points (getOrganizationStats / getPlayerStats) avoid the
+// expensive aggregation above whenever possible. They read the pre-computed row
+// from organization_statistics / player_statistics and only recompute when:
+//   1. the cached row is older than STATS_CACHE_TTL_MS (24h), AND
+//   2. a relevant match has been edited after the row's updatedAt.
+// If either condition is not met the cached values are returned untouched.
+
+/** Normalises a raw DB timestamp (Date | ISO string | null) into a Date or null. */
+function parseTimestamp(value: unknown): Date | null {
+  if (value == null) {
+    return null
+  }
+
+  if (value instanceof Date) {
+    return value
+  }
+
+  const date = new Date(value as string)
+
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+/** Most recent `updatedAt` of any match in the organization, or null if none. */
+async function getLatestOrganizationMatchDate(organizationId: number): Promise<Date | null> {
+  const row = await DB.table('matches')
+    .alias('m')
+    .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
+    .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
+    .select('MAX(m.updatedAt) AS maxupdated')
+    .where('tournaments.organizationId', organizationId)
+    .first()
+
+  return parseTimestamp(row?.maxupdated)
+}
+
+/** Most recent `updatedAt` of any match in a category the player competes in, or null. */
+async function getLatestPlayerMatchDate(userId: number, organizationId: number): Promise<Date | null> {
+  // EXISTS subquery: is the player a competitor in the match's category?
+  const playerInMatchCategorySubquery = DB.selectQuery('competitors')
+    .whereColumn('competitors.tournamentCategoryId', 'm.tournamentCategoryId')
+    .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
+  const row = await DB.table('matches')
+    .alias('m')
+    .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
+    .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
+    .select('MAX(m.updatedAt) AS maxupdated')
+    .where('tournaments.organizationId', organizationId)
+    .where({ exists: playerInMatchCategorySubquery })
+    .first()
+
+  return parseTimestamp(row?.maxupdated)
+}
+
+/** Maps a cached organization_statistics row to its serializable DTO. */
+function organizationStatisticsToDto(row: OrganizationStatistics): OrganizationStatisticsDto {
+  return {
+    tournamentsTotal: row.tournamentsTotal,
+    tournamentsActive: row.tournamentsActive,
+    tournamentsFinished: row.tournamentsFinished,
+    competitorsTotal: row.competitorsTotal,
+    avgCompetitors: row.avgCompetitors,
+    distinctPlayers: row.distinctPlayers,
+    matchesTotal: row.matchesTotal,
+    matchesPlayed: row.matchesPlayed,
+    matchesPending: row.matchesPending,
+    rankingPointsAwarded: row.rankingPointsAwarded,
+    rankedPlayers: row.rankedPlayers
+  }
+}
+
+/** Maps a cached player_statistics row to its serializable DTO. */
+function playerStatisticsToDto(row: PlayerStatistics): PlayerStatisticsDto {
+  return {
+    tournamentsPlayed: row.tournamentsPlayed,
+    activeTournaments: row.activeTournaments,
+    matchesPlayed: row.matchesPlayed,
+    matchesWon: row.matchesWon,
+    winRate: row.winRate,
+    titles: row.titles,
+    podiums: row.podiums,
+    rankingPoints: row.rankingPoints,
+    bestRankingPosition: row.bestRankingPosition
+  }
+}
+
+/** Inserts or updates the organization_statistics cache row with freshly computed stats. */
+async function persistOrganizationStatistics(
+  organizationId: number,
+  stats: OrganizationStatisticsDto,
+  existing: OrganizationStatistics | null
+): Promise<void> {
+  const entity = existing ?? new OrganizationStatistics()
+
+  entity.organizationId = organizationId
+  entity.tournamentsTotal = stats.tournamentsTotal
+  entity.tournamentsActive = stats.tournamentsActive
+  entity.tournamentsFinished = stats.tournamentsFinished
+  entity.competitorsTotal = stats.competitorsTotal
+  entity.avgCompetitors = stats.avgCompetitors
+  entity.distinctPlayers = stats.distinctPlayers
+  entity.matchesTotal = stats.matchesTotal
+  entity.matchesPlayed = stats.matchesPlayed
+  entity.matchesPending = stats.matchesPending
+  entity.rankingPointsAwarded = stats.rankingPointsAwarded
+  entity.rankedPlayers = stats.rankedPlayers
+  entity.updatedAt = new Date()
+  await entity.save()
+}
+
+/** Inserts or updates the player_statistics cache row with freshly computed stats. */
+async function persistPlayerStatistics(
+  playerId: number,
+  stats: PlayerStatisticsDto,
+  existing: PlayerStatistics | null
+): Promise<void> {
+  const entity = existing ?? new PlayerStatistics()
+
+  entity.playerId = playerId
+  entity.tournamentsPlayed = stats.tournamentsPlayed
+  entity.activeTournaments = stats.activeTournaments
+  entity.matchesPlayed = stats.matchesPlayed
+  entity.matchesWon = stats.matchesWon
+  entity.winRate = stats.winRate
+  entity.titles = stats.titles
+  entity.podiums = stats.podiums
+  entity.rankingPoints = stats.rankingPoints
+  entity.bestRankingPosition = stats.bestRankingPosition
+  entity.updatedAt = new Date()
+  await entity.save()
+}
+
+/**
+ * Organization-wide stats for the organizer home dashboard, served from the
+ * organization_statistics cache whenever it is still valid.
+ */
+export async function getOrganizationStats(): Promise<OrganizationStatisticsDto> {
+  const session = await getSession()
+  const organizationId = session!.user.organizationId
+  const cached = await OrganizationStatistics.where('organizationId', organizationId).first()
+
+  if (cached) {
+    const isFresh = Date.now() - cached.updatedAt.getTime() < STATS_CACHE_TTL_MS
+
+    if (isFresh) {
+      return organizationStatisticsToDto(cached)
+    }
+
+    // Cache is older than the TTL: only recompute if a match was edited after it.
+    const lastMatchDate = await getLatestOrganizationMatchDate(organizationId)
+
+    if (lastMatchDate == null || lastMatchDate.getTime() <= cached.updatedAt.getTime()) {
+      return organizationStatisticsToDto(cached)
+    }
+  }
+
+  const stats = await computeOrganizationStats(organizationId)
+
+  await persistOrganizationStatistics(organizationId, stats, cached)
+
+  return stats
+}
+
+/**
+ * Aggregated stats for the player home dashboard, served from the
+ * player_statistics cache whenever it is still valid.
+ */
+export async function getPlayerStats(userId: number): Promise<PlayerStatisticsDto> {
+  const session = await getSession()
+  const organizationId = session!.user.organizationId
+  const cached = await PlayerStatistics.where('playerId', userId).first()
+
+  if (cached) {
+    const isFresh = Date.now() - cached.updatedAt.getTime() < STATS_CACHE_TTL_MS
+
+    if (isFresh) {
+      return playerStatisticsToDto(cached)
+    }
+
+    // Cache is older than the TTL: only recompute if one of the player's matches
+    // was edited after it.
+    const lastMatchDate = await getLatestPlayerMatchDate(userId, organizationId)
+
+    if (lastMatchDate == null || lastMatchDate.getTime() <= cached.updatedAt.getTime()) {
+      return playerStatisticsToDto(cached)
+    }
+  }
+
+  const stats = await computePlayerStats(userId)
+
+  await persistPlayerStatistics(userId, stats, cached)
+
+  return stats
 }

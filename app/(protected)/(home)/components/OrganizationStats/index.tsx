@@ -15,11 +15,11 @@ import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useState } from 'react'
 import { getOrganizationStats } from '@/app/(protected)/(home)/actions/dashboard'
 import StatCard, { StatCardSkeleton } from '@/app/(protected)/(home)/components/StatCard'
-import { OrganizationStatsDto } from '@/app/(protected)/(home)/models/OrganizerDashboardDto'
+import { OrganizationStatisticsDto } from '@/app/(protected)/(home)/models/OrganizationStatisticsDto'
 
 export default function OrganizationStats() {
   const t = useTranslations('dashboard')
-  const [stats, setStats] = useState<OrganizationStatsDto | null>(null)
+  const [stats, setStats] = useState<OrganizationStatisticsDto | null>(null)
   const [loading, setLoading] = useState(true)
   const load = useCallback(async () => {
     const result = await getOrganizationStats()

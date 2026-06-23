@@ -12,11 +12,11 @@ import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useState } from 'react'
 import { getPlayerStats } from '@/app/(protected)/(home)/actions/dashboard'
 import StatCard, { StatCardSkeleton } from '@/app/(protected)/(home)/components/StatCard'
-import { PlayerStatsDto } from '@/app/(protected)/(home)/models/PlayerDashboardDto'
+import { PlayerStatisticsDto } from '@/app/(protected)/(home)/models/PlayerStatisticsDto'
 
 export default function PlayerStats() {
   const t = useTranslations('dashboard')
-  const [stats, setStats] = useState<PlayerStatsDto | null>(null)
+  const [stats, setStats] = useState<PlayerStatisticsDto | null>(null)
   const [loading, setLoading] = useState(true)
   const load = useCallback(async () => {
     const result = await getPlayerStats()

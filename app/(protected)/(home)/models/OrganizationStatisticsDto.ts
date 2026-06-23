@@ -1,5 +1,5 @@
 /** Stats about the whole organization — payload for the organizer home dashboard. */
-export interface OrganizationStatsDto {
+export interface OrganizationStatisticsDto {
   tournamentsTotal: number
   tournamentsActive: number
   tournamentsFinished: number

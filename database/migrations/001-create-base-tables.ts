@@ -167,6 +167,48 @@ export default {
         )
       `)
 
+      // Cached, pre-computed organization-wide stats for the organizer home
+      // dashboard. One row per organization, refreshed at most once every 24h
+      // (or sooner if a match has been edited). See services/dashboard.ts.
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS organization_statistics (
+          id ${ID},
+          organizationId INTEGER NOT NULL UNIQUE REFERENCES organizations (id) ON DELETE CASCADE,
+          tournamentsTotal INTEGER NOT NULL DEFAULT 0,
+          tournamentsActive INTEGER NOT NULL DEFAULT 0,
+          tournamentsFinished INTEGER NOT NULL DEFAULT 0,
+          competitorsTotal INTEGER NOT NULL DEFAULT 0,
+          avgCompetitors REAL NOT NULL DEFAULT 0,
+          distinctPlayers INTEGER NOT NULL DEFAULT 0,
+          matchesTotal INTEGER NOT NULL DEFAULT 0,
+          matchesPlayed INTEGER NOT NULL DEFAULT 0,
+          matchesPending INTEGER NOT NULL DEFAULT 0,
+          rankingPointsAwarded INTEGER NOT NULL DEFAULT 0,
+          rankedPlayers INTEGER NOT NULL DEFAULT 0,
+          updatedAt ${TIMESTAMP}
+        )
+      `)
+
+      // Cached, pre-computed per-player stats for the player home dashboard.
+      // One row per player (user), refreshed at most once every 24h (or sooner
+      // if one of the player's matches has been edited). See services/dashboard.ts.
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS player_statistics (
+          id ${ID},
+          playerId INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
+          tournamentsPlayed INTEGER NOT NULL DEFAULT 0,
+          activeTournaments INTEGER NOT NULL DEFAULT 0,
+          matchesPlayed INTEGER NOT NULL DEFAULT 0,
+          matchesWon INTEGER NOT NULL DEFAULT 0,
+          winRate INTEGER NOT NULL DEFAULT 0,
+          titles INTEGER NOT NULL DEFAULT 0,
+          podiums INTEGER NOT NULL DEFAULT 0,
+          rankingPoints INTEGER NOT NULL DEFAULT 0,
+          bestRankingPosition INTEGER NOT NULL DEFAULT 0,
+          updatedAt ${TIMESTAMP}
+        )
+      `)
+
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_organization ON users (organizationId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_categories_lookup ON categories (organizationId, discipline)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_organization ON tournaments (organizationId)')
@@ -186,6 +228,10 @@ export default {
         'CREATE INDEX IF NOT EXISTS idx_rankings_org_category ON rankings (organizationId, categoryId)'
       )
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_rankings_user ON rankings (userId)')
+      await conn.execute(
+        'CREATE INDEX IF NOT EXISTS idx_organization_statistics_org ON organization_statistics (organizationId)'
+      )
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_player_statistics_player ON player_statistics (playerId)')
     })
   }
 }

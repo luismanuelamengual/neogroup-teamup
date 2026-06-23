@@ -1,5 +1,5 @@
 /** Aggregated stats of a player across every tournament they participate in. */
-export interface PlayerStatsDto {
+export interface PlayerStatisticsDto {
   tournamentsPlayed: number
   activeTournaments: number
   matchesPlayed: number
