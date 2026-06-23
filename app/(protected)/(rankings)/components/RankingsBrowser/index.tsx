@@ -130,7 +130,7 @@ export default function RankingsBrowser() {
 
       {loading ? (
         <div className="list">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="ranking-row skeleton">
               <Skeleton variant="text" width={28} />
               <Skeleton variant="circular" width={40} height={40} />
@@ -152,8 +152,10 @@ export default function RankingsBrowser() {
               return (
                 <div key={entry.userId} className="ranking-row">
                   <span className="position">{position}</span>
-                  <Avatar email={entry.email} name={entry.displayName} size="md" className="avatar" />
-                  <span className="name">{entry.displayName}</span>
+                  <div className="player">
+                    <Avatar email={entry.email} name={entry.displayName} size="md" className="avatar" />
+                    <span className="name">{entry.displayName}</span>
+                  </div>
                   <span className="points">{t('points', { points: entry.points })}</span>
                 </div>
               )
