@@ -3,76 +3,102 @@
   flex-direction: column;
   gap: 16px;
 
-  .filters {
+  > .header {
     display: flex;
+    flex-direction: row;
+    justify-content: space-between;
     align-items: center;
     gap: 16px;
-    flex-wrap: wrap;
-  }
 
-  .name-filter {
-    flex: 1;
-    min-width: 220px;
-    max-width: 360px;
-
-    .MuiInputBase-root {
-      background-color: white;
-    }
-  }
-
-  .status-filter {
-    background-color: white;
-    border-radius: 999px;
-    overflow: hidden;
-    flex-shrink: 0;
-
-    .MuiToggleButton-root {
-      border: none;
-      text-transform: none;
-      font-weight: 600;
-      padding: 6px 16px;
-      overflow: hidden;
-      // line-height: 13px;
-    }
-  }
-
-  @media (max-width: 600px) {
     .filters {
-      flex-direction: column;
-      align-items: stretch;
-    }
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
 
-    .name-filter {
-      max-width: 100%;
-      min-width: unset;
-    }
-
-    .status-filter {
-      border-radius: 8px;
-      width: 100%;
-
-      .MuiToggleButton-root {
+      .name-filter {
         flex: 1;
-        padding: 6px 4px;
-        font-size: 11px;
-        line-height: 13px;
+        min-width: 220px;
+        max-width: 360px;
+
+        .MuiInputBase-root {
+          background-color: white;
+        }
+      }
+
+      .status-filter {
+        background-color: white;
+        border: 1px solid #d8dfdd;
+        border-radius: 999px;
+        overflow: hidden;
+        flex-shrink: 0;
+
+        .MuiToggleButton-root {
+          border: none;
+          text-transform: none;
+          font-weight: 600;
+          padding: 6px 16px;
+          overflow: hidden;
+        }
+      }
+    }
+
+    .actions {
+      flex-shrink: 0;
+
+      .create-button {
+        display: flex;
+        flex-shrink: 0;
+        flex-wrap: nowrap;
       }
     }
   }
 
-  .list {
+  > .list {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
-  .empty {
+  > .empty {
     text-align: center;
     padding: 48px 0;
   }
 
-  .paginator {
+  > .paginator {
     display: flex;
     justify-content: center;
+  }
+
+  @media (max-width: 600px) {
+    > .header {
+      flex-direction: column;
+      align-items: stretch;
+
+      flex-direction: column-reverse;
+
+      .filters {
+        .name-filter {
+          max-width: 100%;
+          min-width: unset;
+        }
+    
+        .status-filter {
+          border-radius: 8px;
+          width: 100%;
+    
+          .MuiToggleButton-root {
+            flex: 1;
+            padding: 6px 4px;
+            font-size: 11px;
+            line-height: 13px;
+          }
+        }
+      }
+
+      .actions {
+        
+      }
+    }
   }
 }

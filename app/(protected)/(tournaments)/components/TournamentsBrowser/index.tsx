@@ -1,7 +1,9 @@
 'use client'
 
 import './index.scss'
+import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
+import Button from '@mui/material/Button'
 import InputAdornment from '@mui/material/InputAdornment'
 import Pagination from '@mui/material/Pagination'
 import TextField from '@mui/material/TextField'
@@ -22,6 +24,7 @@ type StatusFilter = TournamentStatus | 'all'
 export interface TournamentsBrowserProps {
   /** Whether to show the name/status filter bar. Defaults to true. */
   showFilters?: boolean
+  showCreationButton?: boolean
   /** Restrict which statuses are fetched. When set, only these statuses are queried and the status toggle is hidden. */
   states?: TournamentStatus[]
   /** When true, only shows tournaments where the signed-in user participates as a competitor. */
@@ -30,6 +33,7 @@ export interface TournamentsBrowserProps {
 
 export default function TournamentsBrowser({
   showFilters = true,
+  showCreationButton = false,
   states,
   ownedByPlayer = false
 }: TournamentsBrowserProps) {
@@ -60,37 +64,46 @@ export default function TournamentsBrowser({
   return (
     <div className="tournaments-browser">
       {showFilters && (
-        <div className="filters">
-          <TextField
-            size="small"
-            placeholder={t('browse.filterByName')}
-            value={nameInput}
-            onChange={(event) => setNameInput(event.target.value)}
-            className="name-filter"
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                )
-              }
-            }}
-          />
-          {!states && (
-            <MuiToggleButtonGroup
+        <div className="header">
+          <div className="filters">
+            <TextField
               size="small"
-              color="primary"
-              exclusive
-              value={status}
-              onChange={(_, value: StatusFilter | null) => value && setStatus(value)}
-              className="status-filter"
-            >
-              <ToggleButton value="all">{t('browse.all')}</ToggleButton>
-              <ToggleButton value={TournamentStatus.STAND_BY}>{t('status.stand_by')}</ToggleButton>
-              <ToggleButton value={TournamentStatus.ONGOING}>{t('status.ongoing')}</ToggleButton>
-              <ToggleButton value={TournamentStatus.FINISHED}>{t('status.finished')}</ToggleButton>
-            </MuiToggleButtonGroup>
+              placeholder={t('browse.filterByName')}
+              value={nameInput}
+              onChange={(event) => setNameInput(event.target.value)}
+              className="name-filter"
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  )
+                }
+              }}
+            />
+            {!states && (
+              <MuiToggleButtonGroup
+                size="small"
+                color="primary"
+                exclusive
+                value={status}
+                onChange={(_, value: StatusFilter | null) => value && setStatus(value)}
+                className="status-filter"
+              >
+                <ToggleButton value="all">{t('browse.all')}</ToggleButton>
+                <ToggleButton value={TournamentStatus.STAND_BY}>{t('status.stand_by')}</ToggleButton>
+                <ToggleButton value={TournamentStatus.ONGOING}>{t('status.ongoing')}</ToggleButton>
+                <ToggleButton value={TournamentStatus.FINISHED}>{t('status.finished')}</ToggleButton>
+              </MuiToggleButtonGroup>
+            )}
+          </div>
+          {showCreationButton && (
+            <div className="actions">
+              <Button href="/tournaments/new" className="create-button" variant="contained" startIcon={<AddIcon />}>
+                {t('browse.create')}
+              </Button>
+            </div>
           )}
         </div>
       )}
