@@ -24,6 +24,8 @@ $card-hover-color: rgb(239, 249, 251);
   .name {
     font-weight: 700;
     font-size: 16px;
+    flex: 1;
+    line-height: 20px;
   }
 
   .tags {

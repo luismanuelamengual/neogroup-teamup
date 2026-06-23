@@ -10,8 +10,9 @@ import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import MuiToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getPlayerActiveTournaments, searchTournaments } from '@/app/(protected)/(tournaments)/actions/tournament'
 import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
 import { useDebouncedValue } from '@/app/(protected)/(tournaments)/hooks/useDebouncedValue'
@@ -38,14 +39,44 @@ export default function TournamentsBrowser({
   ownedByPlayer = false
 }: TournamentsBrowserProps) {
   const t = useTranslations('tournaments')
-  const [nameInput, setNameInput] = useState('')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const urlName = searchParams.get('name') ?? ''
+  const rawStatus = searchParams.get('status')
+  const urlStatus: StatusFilter = rawStatus ? (parseInt(rawStatus) as TournamentStatus) : 'all'
+  const [nameInput, setNameInput] = useState(urlName)
+  const [status, setStatus] = useState<StatusFilter>(urlStatus)
   const debouncedName = useDebouncedValue(nameInput)
-  const [status, setStatus] = useState<StatusFilter>('all')
   const [tournaments, setTournaments] = useState<TournamentDto[]>([])
   const [page, setPage] = useState(1)
   const [pageCount, setPageCount] = useState(1)
+  const lastPushed = useRef({ name: urlName, status: urlStatus })
 
-  // Reset to the first page whenever the filters change.
+  useEffect(() => {
+    const params = new URLSearchParams()
+
+    if (debouncedName) {
+      params.set('name', debouncedName)
+    }
+
+    if (status !== 'all') {
+      params.set('status', String(status))
+    }
+
+    lastPushed.current = { name: debouncedName, status }
+    router.push(`?${params.toString()}`, { scroll: false })
+  }, [debouncedName, router, status])
+
+  useEffect(() => {
+    if (urlName !== lastPushed.current.name) {
+      setNameInput(urlName)
+    }
+
+    if (urlStatus !== lastPushed.current.status) {
+      setStatus(urlStatus)
+    }
+  }, [urlName, urlStatus])
+
   useEffect(() => {
     setPage(1)
   }, [debouncedName, status])
