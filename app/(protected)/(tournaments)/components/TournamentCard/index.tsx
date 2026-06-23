@@ -94,25 +94,22 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
 
 export function TournamentCardSkeleton() {
   return (
-    <Paper className="tournament-card" sx={{ pointerEvents: 'none' }}>
+    <Paper className="tournament-card" sx={{ pointerEvents: 'none', transform: 'none' }}>
       <div className="header">
-        <MuiSkeleton variant="text" width="55%" height={22} />
-        <MuiSkeleton variant="rounded" width={72} height={24} sx={{ borderRadius: 12 }} />
+        <MuiSkeleton variant="text" width={200} height={24} sx={{ transform: 'none' }} />
+        <MuiSkeleton variant="rounded" width={72} height={24} sx={{ borderRadius: 12, transform: 'none' }} />
       </div>
       <div className="tags">
-        <MuiSkeleton variant="rounded" width={80} height={20} sx={{ borderRadius: 8 }} />
-        <MuiSkeleton variant="rounded" width={60} height={20} sx={{ borderRadius: 8 }} />
-        <MuiSkeleton variant="rounded" width={70} height={20} sx={{ borderRadius: 8 }} />
+        <MuiSkeleton variant="rounded" width={60} height={22} sx={{ borderRadius: 8, transform: 'none' }} />
+        <MuiSkeleton variant="rounded" width={90} height={22} sx={{ borderRadius: 8, transform: 'none' }} />
+        <MuiSkeleton variant="rounded" width={80} height={22} sx={{ borderRadius: 8, transform: 'none' }} />
       </div>
       <div className="details">
-        <MuiSkeleton variant="text" width="15%" height={22} />
-        <MuiSkeleton variant="text" width="10%" height={22} />
+        <MuiSkeleton variant="text" width={150} height={19} sx={{ transform: 'none' }} />
+        <MuiSkeleton variant="text" width={100} height={19} sx={{ transform: 'none' }} />
       </div>
       <div className="categories">
-        <div className="category-chip">
-          <MuiSkeleton variant="text" width={80} height={16} />
-          <MuiSkeleton variant="text" width={50} height={16} />
-        </div>
+        <MuiSkeleton className="category-chip" height={22} sx={{ borderRadius: '16px', transform: 'none' }} />
       </div>
     </Paper>
   )

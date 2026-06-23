@@ -1,7 +1,6 @@
 import './page.scss'
 import AddIcon from '@mui/icons-material/Add'
 import Button from '@mui/material/Button'
-import Typography from '@mui/material/Typography'
 import { getTranslations } from 'next-intl/server'
 import { Role } from '@/app/(auth)/models/Role'
 import { auth } from '@/app/(auth)/services/auth'
@@ -15,16 +14,13 @@ export default async function TournamentsPage() {
 
   return (
     <div className="tournaments-page">
-      <div className="header">
-        <Typography variant="h5" component="h1" className="title">
-          {t('browse.title')}
-        </Typography>
-        {isOrganizer && (
+      {isOrganizer && (
+        <div className="header">
           <Button href="/tournaments/new" variant="contained" startIcon={<AddIcon />}>
             {t('browse.create')}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
       <TournamentsBrowser />
     </div>
   )
