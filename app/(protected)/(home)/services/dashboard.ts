@@ -457,50 +457,22 @@ function playerStatisticsToDto(row: PlayerStatistics): PlayerStatisticsDto {
   }
 }
 
-/** Inserts or updates the organization_statistics cache row with freshly computed stats. */
-async function persistOrganizationStatistics(
-  organizationId: number,
-  stats: OrganizationStatisticsDto,
-  existing: OrganizationStatistics | null
-): Promise<void> {
-  const entity = existing ?? new OrganizationStatistics()
-
-  entity.organizationId = organizationId
-  entity.tournamentsTotal = stats.tournamentsTotal
-  entity.tournamentsActive = stats.tournamentsActive
-  entity.tournamentsFinished = stats.tournamentsFinished
-  entity.competitorsTotal = stats.competitorsTotal
-  entity.avgCompetitors = stats.avgCompetitors
-  entity.distinctPlayers = stats.distinctPlayers
-  entity.matchesTotal = stats.matchesTotal
-  entity.matchesPlayed = stats.matchesPlayed
-  entity.matchesPending = stats.matchesPending
-  entity.rankingPointsAwarded = stats.rankingPointsAwarded
-  entity.rankedPlayers = stats.rankedPlayers
-  entity.updatedAt = new Date()
-  await entity.save()
+/**
+ * Inserts or updates the organization_statistics cache row in a single atomic
+ * statement (upsert), so concurrent requests racing to create the first row
+ * never collide on the unique constraint.
+ */
+async function persistOrganizationStatistics(organizationId: number, stats: OrganizationStatisticsDto): Promise<void> {
+  await OrganizationStatistics.upsert([{ organizationId, ...stats, updatedAt: new Date() }], 'organizationId')
 }
 
-/** Inserts or updates the player_statistics cache row with freshly computed stats. */
-async function persistPlayerStatistics(
-  playerId: number,
-  stats: PlayerStatisticsDto,
-  existing: PlayerStatistics | null
-): Promise<void> {
-  const entity = existing ?? new PlayerStatistics()
-
-  entity.playerId = playerId
-  entity.tournamentsPlayed = stats.tournamentsPlayed
-  entity.activeTournaments = stats.activeTournaments
-  entity.matchesPlayed = stats.matchesPlayed
-  entity.matchesWon = stats.matchesWon
-  entity.winRate = stats.winRate
-  entity.titles = stats.titles
-  entity.podiums = stats.podiums
-  entity.rankingPoints = stats.rankingPoints
-  entity.bestRankingPosition = stats.bestRankingPosition
-  entity.updatedAt = new Date()
-  await entity.save()
+/**
+ * Inserts or updates the player_statistics cache row in a single atomic
+ * statement (upsert), so concurrent requests racing to create the first row
+ * never collide on the unique constraint.
+ */
+async function persistPlayerStatistics(playerId: number, stats: PlayerStatisticsDto): Promise<void> {
+  await PlayerStatistics.upsert([{ playerId, ...stats, updatedAt: new Date() }], 'playerId')
 }
 
 /**
@@ -529,7 +501,7 @@ export async function getOrganizationStats(): Promise<OrganizationStatisticsDto>
 
   const stats = await computeOrganizationStats(organizationId)
 
-  await persistOrganizationStatistics(organizationId, stats, cached)
+  await persistOrganizationStatistics(organizationId, stats)
 
   return stats
 }
@@ -561,7 +533,7 @@ export async function getPlayerStats(userId: number): Promise<PlayerStatisticsDt
 
   const stats = await computePlayerStats(userId)
 
-  await persistPlayerStatistics(userId, stats, cached)
+  await persistPlayerStatistics(userId, stats)
 
   return stats
 }
