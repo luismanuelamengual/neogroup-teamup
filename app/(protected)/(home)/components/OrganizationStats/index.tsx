@@ -13,11 +13,12 @@ import SportsScoreIcon from '@mui/icons-material/SportsScore'
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useState } from 'react'
-import { getOrganizationStats } from '@/app/(protected)/(home)/actions/dashboard'
+import { useDashboard } from '@/app/(protected)/(home)/hooks/useDashboard'
 import StatCard, { StatCardSkeleton } from '@/app/(protected)/(home)/components/StatCard'
 import { OrganizationStatisticsDto } from '@/app/(protected)/(home)/models/OrganizationStatisticsDto'
 
 export default function OrganizationStats() {
+  const { getOrganizationStats } = useDashboard()
   const t = useTranslations('dashboard')
   const [stats, setStats] = useState<OrganizationStatisticsDto | null>(null)
   const [loading, setLoading] = useState(true)

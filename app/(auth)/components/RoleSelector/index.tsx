@@ -10,13 +10,14 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { Role } from '@/app/(auth)/models/Role'
-import { setRole } from '@/app/(protected)/(account)/actions/account'
+import { useAccount } from '@/app/(protected)/(account)/hooks/useAccount'
 
 interface RoleSelectorProps {
   callbackUrl: string | null
 }
 
 export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
+  const { setRole } = useAccount()
   const t = useTranslations('roleSelect')
   const tCommon = useTranslations('common')
   const router = useRouter()

@@ -14,9 +14,9 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { UserDto } from '@/app/(auth)/models/UserDto'
-import { searchUsers } from '@/app/(auth)/services/users'
 import { useUserStore } from '@/app/(auth)/stores/users'
-import { getTournament, joinTournament } from '@/app/(protected)/(tournaments)/actions/tournament'
+import { useUsers } from '@/app/(protected)/(account)/hooks/useUsers'
+import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
@@ -30,6 +30,8 @@ interface JoinTournamentFormProps {
 }
 
 export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormProps) {
+  const { getTournament, joinTournament } = useTournaments()
+  const { getUsers } = useUsers()
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
   const router = useRouter()
@@ -75,7 +77,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
     return () => {
       cancelled = true
     }
-  }, [tournamentId, router, userId])
+  }, [tournamentId, router, userId, getTournament])
 
   const needsPartner = tournament
     ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type, tournament.settings ?? {})
@@ -92,7 +94,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
     setSearching(true)
 
     const timeout = setTimeout(async () => {
-      const users = await searchUsers(partnerQuery)
+      const users = await getUsers(partnerQuery)
 
       setPartnerOptions(users)
       setSearching(false)

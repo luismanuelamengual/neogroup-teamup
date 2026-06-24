@@ -20,11 +20,11 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
-import { getTournament, leaveTournament, saveMatchResult } from '@/app/(protected)/(tournaments)/actions/tournament'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import TournamentRoundsView from '@/app/(protected)/(tournaments)/components/TournamentRoundsView'
+import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
@@ -34,7 +34,7 @@ import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFo
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { showErrorMessage } from '@/app/actions/notifications'
+import { useNotifications } from '@/app/hooks/useNotifications'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 
 interface PlayerTournamentViewProps {
@@ -42,6 +42,8 @@ interface PlayerTournamentViewProps {
 }
 
 export default function PlayerTournamentView({ tournamentId }: PlayerTournamentViewProps) {
+  const { getTournament, leaveTournament, saveMatchResult } = useTournaments()
+  const { showErrorMessage } = useNotifications()
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
@@ -54,7 +56,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
 
     setTournament(data)
     setLoading(false)
-  }, [tournamentId])
+  }, [getTournament, tournamentId])
 
   useEffect(() => {
     loadDetail()

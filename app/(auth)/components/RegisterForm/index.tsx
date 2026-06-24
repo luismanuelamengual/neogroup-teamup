@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
-import { registerUser } from '@/app/(auth)/actions/auth'
+import { useAuth } from '@/app/(auth)/hooks/useAuth'
 import { Role } from '@/app/(auth)/models/Role'
 
 interface RegisterFormProps {
@@ -22,6 +22,7 @@ interface RegisterFormProps {
 }
 
 export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
+  const { registerUser } = useAuth()
   const t = useTranslations('auth')
   const router = useRouter()
   const [firstName, setFirstName] = useState('')

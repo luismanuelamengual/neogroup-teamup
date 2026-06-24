@@ -8,9 +8,9 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { searchRankings } from '@/app/(protected)/(rankings)/actions/ranking'
+import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
-import { getCategories } from '@/app/(protected)/(tournaments)/actions/tournament'
+import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline, SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
@@ -23,6 +23,8 @@ const SUB_DISCIPLINES: SubDiscipline[] = [SubDiscipline.SINGLES, SubDiscipline.D
 const ALL_CATEGORIES = 'all'
 
 export default function RankingsBrowser() {
+  const { getCategories } = useTournaments()
+  const { getRankings } = useRankings()
   const t = useTranslations('rankings')
   const tTournaments = useTranslations('tournaments')
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
@@ -56,7 +58,7 @@ export default function RankingsBrowser() {
     return () => {
       cancelled = true
     }
-  }, [discipline, sub])
+  }, [discipline, getCategories, sub])
 
   // Reset to the first page whenever the category filter changes.
   useEffect(() => {
@@ -64,7 +66,7 @@ export default function RankingsBrowser() {
   }, [categoryId])
 
   const { loading } = useLoadingData(async () => {
-    const { data, lastPage } = await searchRankings({
+    const { data, lastPage } = await getRankings({
       discipline,
       subDiscipline: sub,
       categoryId: categoryId === ALL_CATEGORIES ? null : categoryId,

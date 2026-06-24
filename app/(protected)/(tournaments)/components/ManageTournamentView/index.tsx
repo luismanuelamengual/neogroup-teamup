@@ -22,17 +22,12 @@ import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
-import {
-  finishTournament,
-  getTournament,
-  saveMatchResult,
-  startTournament
-} from '@/app/(protected)/(tournaments)/actions/tournament'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import EditTournamentDialog from '@/app/(protected)/(tournaments)/components/EditTournamentDialog'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import TournamentRoundsView from '@/app/(protected)/(tournaments)/components/TournamentRoundsView'
+import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
@@ -41,7 +36,7 @@ import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDi
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { showErrorMessage } from '@/app/actions/notifications'
+import { useNotifications } from '@/app/hooks/useNotifications'
 
 interface ManageTournamentViewProps {
   tournamentId: number
@@ -50,12 +45,14 @@ interface ManageTournamentViewProps {
 
 export default function ManageTournamentView({ tournamentId, appUrl }: ManageTournamentViewProps) {
   const t = useTranslations('tournaments')
+  const { showErrorMessage } = useNotifications()
   const tOrganizer = useTranslations('organizer')
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
+  const { finishTournament, getTournament, saveMatchResult, startTournament } = useTournaments()
   const userId = useUserStore((state) => state.user?.id ?? null)
   const isOwner = tournament != null && userId != null && tournament.ownerId === userId
   const loadDetail = useCallback(async () => {
@@ -63,7 +60,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
 
     setTournament(data)
     setLoading(false)
-  }, [tournamentId])
+  }, [getTournament, tournamentId])
 
   useEffect(() => {
     loadDetail()

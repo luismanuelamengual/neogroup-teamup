@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChangeEvent, FormEvent, useState } from 'react'
-import { setLocale, updateAccount } from '@/app/(protected)/(account)/actions/account'
+import { useAccount } from '@/app/(protected)/(account)/hooks/useAccount'
 import Avatar from '@/app/components/Avatar'
 
 interface AccountFormProps {
@@ -23,6 +23,7 @@ interface AccountFormProps {
 }
 
 export default function AccountForm(props: AccountFormProps) {
+  const { setLocale, updateAccount } = useAccount()
   const t = useTranslations('account')
   const tCommon = useTranslations('common')
   const router = useRouter()

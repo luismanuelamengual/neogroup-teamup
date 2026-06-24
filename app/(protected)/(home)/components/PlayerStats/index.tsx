@@ -10,11 +10,12 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useState } from 'react'
-import { getPlayerStats } from '@/app/(protected)/(home)/actions/dashboard'
+import { useDashboard } from '@/app/(protected)/(home)/hooks/useDashboard'
 import StatCard, { StatCardSkeleton } from '@/app/(protected)/(home)/components/StatCard'
 import { PlayerStatisticsDto } from '@/app/(protected)/(home)/models/PlayerStatisticsDto'
 
 export default function PlayerStats() {
+  const { getPlayerStats } = useDashboard()
   const t = useTranslations('dashboard')
   const [stats, setStats] = useState<PlayerStatisticsDto | null>(null)
   const [loading, setLoading] = useState(true)

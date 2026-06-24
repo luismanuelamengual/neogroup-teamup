@@ -13,8 +13,8 @@ import Typography from '@mui/material/Typography'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
-import { getPlayerActiveTournaments, searchTournaments } from '@/app/(protected)/(tournaments)/actions/tournament'
 import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
+import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { useDebouncedValue } from '@/app/hooks/useDebouncedValue'
@@ -38,6 +38,7 @@ export default function TournamentsBrowser({
   states,
   ownedByPlayer = false
 }: TournamentsBrowserProps) {
+  const { getTournaments } = useTournaments()
   const t = useTranslations('tournaments')
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -85,8 +86,13 @@ export default function TournamentsBrowser({
     const name = debouncedName.trim() || undefined
     const statuses = states ?? (status === 'all' ? undefined : [status as TournamentStatus])
     const { data, lastPage } = ownedByPlayer
-      ? await getPlayerActiveTournaments({ name, statuses, page })
-      : await searchTournaments({ name, statuses, page })
+      ? await getTournaments({
+          name,
+          statuses: [TournamentStatus.STAND_BY, TournamentStatus.ONGOING],
+          ownedByPlayer: true,
+          page
+        })
+      : await getTournaments({ name, statuses, page })
 
     setTournaments(data)
     setPageCount(lastPage)

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { RegisterInput } from '@/app/(auth)/actions/auth'
+import { RegisterInput } from '@/app/(auth)/models/RegisterInput'
 import { User } from '@/app/(auth)/models/User'
 import { isValidRole } from '@/app/(auth)/utils/user'
 import { ApiException } from '@/app/models/ApiException'

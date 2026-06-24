@@ -17,7 +17,7 @@ import dayjs, { Dayjs } from 'dayjs'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
-import { deleteTournament, updateTournament } from '@/app/(protected)/(tournaments)/actions/tournament'
+import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 
 interface EditTournamentDialogProps {
@@ -35,6 +35,7 @@ export default function EditTournamentDialog({
   onSaved,
   onDeleted
 }: EditTournamentDialogProps) {
+  const { deleteTournament, updateTournament } = useTournaments()
   const t = useTranslations('tournaments')
   const router = useRouter()
   const tOrganizer = useTranslations('organizer')
