@@ -44,7 +44,7 @@
     "location": "Lugar",
     "sections": {
       "generalData": "Datos generales",
-      "advancedSettings": "Configuración avanzada",
+      "tournamentSettings": "Configuración de torneo",
       "rankingSettings": "Configuración de Ranking"
     },
     "ranking": {
@@ -131,6 +131,8 @@
       "finishConfirm": "¿Dar por finalizado el torneo?",
       "edit": "Editar",
       "editTitle": "Editar torneo",
+      "deleteTitle": "Eliminar torneo",
+      "deleteConfirm": "¿Estás seguro que querés eliminar el torneo \"{name}\"? Esta acción no se puede deshacer.",
       "loadResult": "Cargar resultado",
       "registeredCompetitors": "Inscriptos",
       "noCompetitors": "Aún no hay inscriptos",

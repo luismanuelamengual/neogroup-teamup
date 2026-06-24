@@ -139,6 +139,12 @@ export async function finishTournament(tournament: Tournament): Promise<void> {
   }
 }
 
+export async function deleteTournament(tournament: Tournament): Promise<boolean> {
+  await tournament.delete()
+
+  return true
+}
+
 export interface ProcessTournamentsResult {
   started: number[]
   startErrors: { id: number; error: string }[]

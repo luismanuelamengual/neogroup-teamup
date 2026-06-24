@@ -1,6 +1,13 @@
 .edit-tournament-dialog {
-  display: flex !important;
-  flex-direction: column;
-  gap: 16px;
-  padding-top: 8px !important;
+  .main-content {
+    display: flex !important;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .actions {
+    padding: 10px 23px 20px;
+  }
 }

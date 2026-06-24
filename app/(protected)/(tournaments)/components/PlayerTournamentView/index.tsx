@@ -34,7 +34,7 @@ import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFo
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { useNotificationsStore } from '@/app/stores/notifications.store'
+import { showErrorMessage } from '@/app/actions/notifications'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 
 interface PlayerTournamentViewProps {
@@ -48,7 +48,6 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const [loading, setLoading] = useState(true)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
-  const notify = useNotificationsStore((state) => state.notify)
   const userId = useUserStore((state) => state.user?.id ?? null)
   const loadDetail = useCallback(async () => {
     const data = await getTournament(tournamentId)
@@ -132,7 +131,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       await leaveTournament(tournament.id)
     } catch (requestError) {
       setWorking(false)
-      notify(tPlayer(`errors.${(requestError as Error).message}`))
+      showErrorMessage(tPlayer(`errors.${(requestError as Error).message}`))
 
       return
     }
@@ -152,7 +151,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       await saveMatchResult(scoreMatch.id, score)
     } catch (requestError) {
       setWorking(false)
-      notify(tPlayer(`errors.${(requestError as Error).message}`))
+      showErrorMessage(tPlayer(`errors.${(requestError as Error).message}`))
 
       return
     }

@@ -1,4 +1,3 @@
-import Typography from '@mui/material/Typography'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { Role } from '@/app/(auth)/models/Role'
@@ -17,9 +16,6 @@ export default async function NewTournamentPage() {
 
   return (
     <div>
-      <Typography variant="h5" component="h1" sx={{ fontWeight: 700, mb: 2 }}>
-        {t('newTournamentTitle')}
-      </Typography>
       <TournamentForm />
     </div>
   )

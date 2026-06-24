@@ -14,6 +14,11 @@ import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { TimePicker } from '@mui/x-date-pickers/TimePicker'
+import { Dayjs } from 'dayjs'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useEffect, useState } from 'react'
@@ -53,8 +58,8 @@ export default function TournamentForm() {
   const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
   const [scoreFormat, setScoreFormat] = useState<ScoreFormat>(ScoreFormat.THREE_SETS)
   const isAmericano = type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
-  const [startDate, setStartDate] = useState('')
-  const [startTime, setStartTime] = useState('')
+  const [startDate, setStartDate] = useState<Dayjs | null>(null)
+  const [startTime, setStartTime] = useState<Dayjs | null>(null)
   const [location, setLocation] = useState('')
   const [categories, setCategories] = useState<string[]>([])
   const [categoryOptions, setCategoryOptions] = useState<string[]>([])
@@ -163,8 +168,8 @@ export default function TournamentForm() {
         subDiscipline: discipline === Discipline.TENNIS ? subDiscipline : null,
         type,
         scoreFormat: isAmericano ? ScoreFormat.BASIC_COUNT : scoreFormat,
-        startDate,
-        startTime: startTime || null,
+        startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
+        startTime: startTime ? startTime.format('HH:mm') : null,
         location,
         categoryNames: categories.map((value) => value.trim()).filter((value) => value !== ''),
         maxCompetitors,
@@ -228,6 +233,54 @@ export default function TournamentForm() {
           </Typography>
         </AccordionSummary>
         <AccordionDetails className="section-content">
+          <TextField
+            label={t('name')}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+            fullWidth
+          />
+          <TextField
+            label={t('description')}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            multiline
+            minRows={2}
+            fullWidth
+          />
+          <TextField
+            label={t('location')}
+            value={location}
+            onChange={(event) => setLocation(event.target.value)}
+            fullWidth
+          />
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <div className="row">
+              <DatePicker
+                label={t('startDate')}
+                value={startDate}
+                onChange={(value) => setStartDate(value)}
+                format="YYYY/MM/DD"
+                slotProps={{ textField: { required: true, fullWidth: true } }}
+              />
+              <TimePicker
+                label={t('startTime')}
+                value={startTime}
+                onChange={(value) => setStartTime(value)}
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </div>
+          </LocalizationProvider>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion defaultExpanded disableGutters elevation={0} className="section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
+          <Typography variant="subtitle1" className="title">
+            {t('sections.tournamentSettings')}
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
           <div className="row">
             <TextField
               select
@@ -271,57 +324,6 @@ export default function TournamentForm() {
               ))}
             </TextField>
           </div>
-          <TextField
-            label={t('name')}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-            fullWidth
-          />
-          <TextField
-            label={t('description')}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            multiline
-            minRows={2}
-            fullWidth
-          />
-          <TextField
-            label={t('location')}
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            fullWidth
-          />
-          <div className="row">
-            <TextField
-              label={t('startDate')}
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-              required
-              fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <TextField
-              label={t('startTime')}
-              type="time"
-              value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
-              fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </div>
-        </AccordionDetails>
-      </Accordion>
-
-      <Accordion disableGutters elevation={0} className="section">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
-          <Typography variant="subtitle1" className="title">
-            {t('sections.advancedSettings')}
-          </Typography>
-        </AccordionSummary>
-        <AccordionDetails className="section-content">
-          {type === TournamentType.GROUPS_PLAYOFF && <Alert severity="info">{t('settings.groupsPlayoffHint')}</Alert>}
 
           <div className="row">
             {!isAmericano && (

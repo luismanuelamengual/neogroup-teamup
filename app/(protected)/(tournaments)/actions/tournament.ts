@@ -44,6 +44,11 @@ export async function updateTournament(tournamentId: number, tournament: Partial
   await executeRequest('/updateTournament', { id: tournamentId, ...tournament })
 }
 
+/** Permanently deletes a tournament. */
+export async function deleteTournament(tournamentId: number): Promise<void> {
+  await executeRequest('/deleteTournament', { id: tournamentId })
+}
+
 /** Starts the tournament: sets it ongoing and generates the first round. */
 export async function startTournament(tournamentId: number): Promise<void> {
   await executeRequest('/startTournament', { id: tournamentId })
@@ -132,4 +137,3 @@ export async function joinTournament(tournamentId: number, input: JoinTournament
 export async function leaveTournament(tournamentId: number): Promise<void> {
   await executeRequest('/leaveTournament', { tournamentId })
 }
-

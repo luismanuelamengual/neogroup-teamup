@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale } from 'next-intl/server'
 import { ReactNode } from 'react'
-import NotificationsSnackbar from '@/app/components/NotificationsSnackbar'
+import { Toaster } from 'react-hot-toast'
 import ThemeRegistry from '@/app/components/ThemeRegistry'
 
 export const metadata: Metadata = {
@@ -25,7 +25,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <NextIntlClientProvider>
           <ThemeRegistry>
             {children}
-            <NotificationsSnackbar />
+            <Toaster position="bottom-center" />
           </ThemeRegistry>
         </NextIntlClientProvider>
       </body>

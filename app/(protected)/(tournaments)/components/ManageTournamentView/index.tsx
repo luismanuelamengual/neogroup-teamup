@@ -41,7 +41,7 @@ import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDi
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { useNotificationsStore } from '@/app/stores/notifications.store'
+import { showErrorMessage } from '@/app/actions/notifications'
 
 interface ManageTournamentViewProps {
   tournamentId: number
@@ -56,7 +56,6 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   const [editOpen, setEditOpen] = useState(false)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
-  const notify = useNotificationsStore((state) => state.notify)
   const userId = useUserStore((state) => state.user?.id ?? null)
   const isOwner = tournament != null && userId != null && tournament.ownerId === userId
   const loadDetail = useCallback(async () => {
@@ -123,7 +122,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
       await action()
     } catch (requestError) {
       setWorking(false)
-      notify(tOrganizer(`errors.${(requestError as Error).message}`))
+      showErrorMessage(tOrganizer(`errors.${(requestError as Error).message}`))
 
       return false
     }

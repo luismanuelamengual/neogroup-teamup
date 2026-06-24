@@ -44,7 +44,7 @@
     "location": "Location",
     "sections": {
       "generalData": "General data",
-      "advancedSettings": "Advanced settings",
+      "tournamentSettings": "Tournament settings",
       "rankingSettings": "Ranking settings"
     },
     "ranking": {
@@ -131,6 +131,8 @@
       "finishConfirm": "Mark the tournament as finished?",
       "edit": "Edit",
       "editTitle": "Edit tournament",
+      "deleteTitle": "Delete tournament",
+      "deleteConfirm": "Are you sure you want to delete the tournament \"{name}\"? This action cannot be undone.",
       "loadResult": "Load result",
       "registeredCompetitors": "Registered",
       "noCompetitors": "No competitors registered yet",
