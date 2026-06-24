@@ -3,7 +3,7 @@ import { ApiResponse } from '../models/ApiResponse'
 import { useNotifications } from './useNotifications'
 
 export function useRequests() {
-  const { showError } = useNotifications()
+  const { showErrorMessage } = useNotifications()
   const executeRequest = useCallback(
     async <T>(url: string, payload: unknown = {}, notifyError = true): Promise<T> => {
       const response = await fetch(`/api${url}`, {
@@ -17,7 +17,7 @@ export function useRequests() {
         const error = new Error(result.error?.message ?? 'internalError')
 
         if (notifyError) {
-          showError(error.message)
+          showErrorMessage(error.message)
         }
 
         throw error
@@ -25,7 +25,7 @@ export function useRequests() {
 
       return result.data as T
     },
-    [showError]
+    [showErrorMessage]
   )
 
   return executeRequest

@@ -1,7 +1,6 @@
 'use client'
 
 import './index.scss'
-import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
@@ -33,8 +32,6 @@ export default function AccountForm(props: AccountFormProps) {
   const [nickname, setNickname] = useState(props.nickname)
   const [phoneNumber, setPhoneNumber] = useState(props.phoneNumber)
   const [language, setLanguage] = useState(locale)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const languages = [
     { value: 'es', label: t('spanish'), flag: '🇪🇸' },
@@ -45,13 +42,11 @@ export default function AccountForm(props: AccountFormProps) {
     const newLocale = event.target.value
 
     setLanguage(newLocale)
-    setError(null)
 
     try {
       await setLocale(newLocale)
     } catch (_error) {
       setLanguage(locale)
-      setError(tCommon('genericError'))
 
       return
     }
@@ -62,20 +57,16 @@ export default function AccountForm(props: AccountFormProps) {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setLoading(true)
-    setSaved(false)
-    setError(null)
 
     try {
       await updateAccount({ firstName, lastName, nickname, phoneNumber })
     } catch (_error) {
       setLoading(false)
-      setError(tCommon('genericError'))
 
       return
     }
 
     setLoading(false)
-    setSaved(true)
     router.refresh()
   }
 
@@ -102,8 +93,6 @@ export default function AccountForm(props: AccountFormProps) {
         </div>
       </div>
       <form onSubmit={handleSubmit} className="form">
-        {saved && <Alert severity="success">{t('saved')}</Alert>}
-        {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label={t('firstName')}
           value={firstName}
