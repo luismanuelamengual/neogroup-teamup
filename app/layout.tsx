@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getLocale } from 'next-intl/server'
 import { ReactNode } from 'react'
 import { Toaster } from 'react-hot-toast'
+import RouterBridge from '@/app/components/RouterBridge'
 import ThemeRegistry from '@/app/components/ThemeRegistry'
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <NextIntlClientProvider>
           <ThemeRegistry>
+            <RouterBridge />
             {children}
             <Toaster position="bottom-center" />
           </ThemeRegistry>
