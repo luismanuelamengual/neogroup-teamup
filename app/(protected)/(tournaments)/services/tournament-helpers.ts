@@ -140,28 +140,29 @@ async function persistRound(
   round.createdAt = new Date()
   await round.save()
 
-  for (const pairing of pairings) {
-    const match = new Match()
-
-    match.tournamentCategoryId = tournamentCategoryId
-    match.roundId = round.id
-    match.position = pairing.position
-    match.homeCompetitorIds = pairing.home
-    match.awayCompetitorIds = pairing.away
-    match.score = null
-
+  // Insert every match of the round in a single batch statement instead of one
+  // INSERT per pairing.
+  const now = new Date()
+  const matchRows = pairings.map((pairing) => {
     // Byes (knockout only) are stored as already resolved in favor of "home".
-    if (pairing.away === null && pairing.home.length > 0) {
-      match.status = MatchStatus.WALKOVER
-      match.winner = MatchSide.HOME
-    } else {
-      match.status = MatchStatus.PENDING
-      match.winner = null
-    }
+    const isBye = pairing.away === null && pairing.home.length > 0
 
-    match.createdAt = new Date()
-    match.updatedAt = new Date()
-    await match.save()
+    return {
+      tournamentCategoryId,
+      roundId: round.id,
+      position: pairing.position,
+      homeCompetitorIds: pairing.home,
+      awayCompetitorIds: pairing.away,
+      score: null,
+      status: isBye ? MatchStatus.WALKOVER : MatchStatus.PENDING,
+      winner: isBye ? MatchSide.HOME : null,
+      createdAt: now,
+      updatedAt: now
+    }
+  })
+
+  if (matchRows.length > 0) {
+    await Match.insert(matchRows)
   }
 
   return round
@@ -174,26 +175,35 @@ async function persistRound(
  * active at once (groups, or a main + consolation bracket).
  */
 async function setFrontier(tournamentCategoryIds: number[], roundNumber: number): Promise<void> {
-  const rounds = await Round.whereIn('tournamentCategoryId', tournamentCategoryIds).get()
-
-  for (const round of rounds) {
-    const shouldBeActive = round.status === RoundStatus.OPEN && round.number === roundNumber
-
-    if (round.active !== shouldBeActive) {
-      round.active = shouldBeActive
-      await round.save()
-    }
+  if (tournamentCategoryIds.length === 0) {
+    return
   }
+
+  // A round is active iff it is OPEN and sits at the frontier number. The result
+  // is the same for every affected row, so two bulk UPDATEs replace the former
+  // per-round save loop: deactivate everything, then activate the frontier.
+  await Round.query()
+    .whereIn('tournamentCategoryId', tournamentCategoryIds)
+    .where('active', true)
+    .update({ active: false })
+
+  await Round.query()
+    .whereIn('tournamentCategoryId', tournamentCategoryIds)
+    .where('number', roundNumber)
+    .where('status', RoundStatus.OPEN)
+    .update({ active: true })
 }
 
 /** Deactivates every round (used when the tournament finishes). */
 async function deactivateAllRounds(tournamentCategoryIds: number[]): Promise<void> {
-  const rounds = await Round.whereIn('tournamentCategoryId', tournamentCategoryIds).where('active', true).get()
-
-  for (const round of rounds) {
-    round.active = false
-    await round.save()
+  if (tournamentCategoryIds.length === 0) {
+    return
   }
+
+  await Round.query()
+    .whereIn('tournamentCategoryId', tournamentCategoryIds)
+    .where('active', true)
+    .update({ active: false })
 }
 
 /**

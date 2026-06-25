@@ -117,7 +117,7 @@ export default function TournamentForm() {
     return () => {
       cancelled = true
     }
-  }, [discipline, subDiscipline])
+  }, [discipline, getCategories, subDiscipline])
 
   // Reset the ranking points to the defaults of the selected tournament type
   // whenever the type (and therefore the ranking scheme) changes.
@@ -584,7 +584,7 @@ export default function TournamentForm() {
 
       <div className="actions">
         <Button onClick={() => router.back()}>{tCommon('cancel')}</Button>
-        <Button type="submit" variant="contained" disabled={loading}>
+        <Button type="submit" variant="contained" disabled={loading} loading={loading}>
           {tOrganizer('create')}
         </Button>
       </div>

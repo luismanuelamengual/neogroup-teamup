@@ -20,7 +20,7 @@
     "@mui/icons-material": "^9.1.0",
     "@mui/material": "^9.1.0",
     "@mui/x-date-pickers": "^9.6.0",
-    "@neogroup/neorm": "0.0.34",
+    "@neogroup/neorm": "0.0.35",
     "bcryptjs": "^3.0.2",
     "dayjs": "^1.11.21",
     "next": "^16.2.6",

@@ -34,6 +34,9 @@ export async function awardRankingPoints(tournamentId: number): Promise<void> {
   const competitors = tournament.competitors ?? []
   const now = new Date()
   const expirationDate = new Date(now.getTime() + ONE_YEAR_MS)
+  // Collect every award across all categories/placements and insert them in a
+  // single batch statement instead of one INSERT per player.
+  const awards: Record<string, unknown>[] = []
 
   for (const category of tournament.categories ?? []) {
     if (category.categoryId == null) {
@@ -58,17 +61,20 @@ export async function awardRankingPoints(tournamentId: number): Promise<void> {
       const userIds = [competitor.userId, competitor.partnerUserId].filter((id): id is number => id != null)
 
       for (const userId of userIds) {
-        const ranking = new Ranking()
-
-        ranking.organizationId = tournament.organizationId
-        ranking.categoryId = category.categoryId
-        ranking.userId = userId
-        ranking.points = points
-        ranking.expirationDate = expirationDate
-        ranking.createdAt = now
-        await ranking.save()
+        awards.push({
+          organizationId: tournament.organizationId,
+          categoryId: category.categoryId,
+          userId,
+          points,
+          expirationDate,
+          createdAt: now
+        })
       }
     }
+  }
+
+  if (awards.length > 0) {
+    await Ranking.insert(awards)
   }
 }
 

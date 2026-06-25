@@ -67,11 +67,27 @@ export async function autoAssignPreclassification(competitors: Competitor[], org
 
   const maxSeeds = getPreclassificationCount(competitors.length)
   let nextSeed = 1
+  const updates: Record<string, unknown>[] = []
 
   for (const { competitor, points } of scored) {
     // Only seed competitors that have ranking points, up to the allowed cap.
     competitor.seedNumber = points > 0 && nextSeed <= maxSeeds ? nextSeed++ : null
-    await competitor.save()
+    // Full row (not just id + seedNumber) so the INSERT branch of the upsert is
+    // valid against NOT NULL columns; on conflict only seedNumber is updated.
+    updates.push({
+      id: competitor.id,
+      tournamentCategoryId: competitor.tournamentCategoryId,
+      userId: competitor.userId,
+      partnerUserId: competitor.partnerUserId,
+      seedNumber: competitor.seedNumber,
+      createdAt: competitor.createdAt
+    })
+  }
+
+  // Persist all seed assignments with a single upsert keyed on the primary key
+  // instead of one UPDATE per competitor.
+  if (updates.length > 0) {
+    await Competitor.upsert(updates, 'id', ['seedNumber'])
   }
 }
 

@@ -45,6 +45,7 @@ export default function EditTournamentDialog({
     tournament.startTime ? dayjs(`2000-01-01T${tournament.startTime}`) : null
   )
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   useEffect(() => {
@@ -68,30 +69,22 @@ export default function EditTournamentDialog({
         startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
         startTime: startTime ? startTime.format('HH:mm') : null
       })
-    } catch (requestError) {
-      setLoading(false)
-
-      return
-    }
+      onSaved()
+    } catch (requestError) {}
 
     setLoading(false)
-    onSaved()
   }
 
   const handleDelete = async () => {
     setConfirmDeleteOpen(false)
-    setLoading(true)
+    setDeleting(true)
 
     try {
       await deleteTournament(tournament.id)
-    } catch (requestError) {
-      setLoading(false)
+      onDeleted?.()
+    } catch (requestError) {}
 
-      return
-    }
-
-    setLoading(false)
-    onDeleted?.()
+    setDeleting(false)
   }
 
   return (
@@ -136,12 +129,18 @@ export default function EditTournamentDialog({
         </LocalizationProvider>
       </DialogContent>
       <DialogActions className="actions">
-        <Button variant="outlined" color="error" onClick={() => setConfirmDeleteOpen(true)} disabled={loading}>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={() => setConfirmDeleteOpen(true)}
+          disabled={deleting}
+          loading={deleting}
+        >
           {tCommon('delete')}
         </Button>
         <div style={{ flex: 1 }} />
         <Button onClick={onClose}>{tCommon('cancel')}</Button>
-        <Button variant="contained" onClick={handleSave} disabled={loading}>
+        <Button variant="contained" onClick={handleSave} disabled={loading} loading={loading}>
           {tCommon('save')}
         </Button>
       </DialogActions>

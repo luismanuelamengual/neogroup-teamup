@@ -212,12 +212,13 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
                 startIcon={<PlayArrowIcon />}
                 onClick={handleStart}
                 disabled={working || competitors.length < 2}
+                loading={working}
               >
                 {tOrganizer('manage.start')}
               </Button>
             )}
             {tournament.status === TournamentStatus.ONGOING && (
-              <Button variant="outlined" color="error" onClick={handleFinish} disabled={working}>
+              <Button variant="outlined" color="error" onClick={handleFinish} disabled={working} loading={working}>
                 {tOrganizer('manage.finish')}
               </Button>
             )}
