@@ -134,7 +134,7 @@ export default function AccountForm(props: AccountFormProps) {
             </MenuItem>
           ))}
         </TextField>
-        <Button type="submit" variant="contained" disabled={loading}>
+        <Button type="submit" variant="contained" disabled={loading} loading={loading}>
           {tCommon('save')}
         </Button>
       </form>

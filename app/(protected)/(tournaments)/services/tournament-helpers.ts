@@ -732,10 +732,99 @@ function havePlayedBefore(idA: number, idB: number, matches: Match[]): boolean {
 }
 
 /**
- * Americano standings-based pairing. Competitors are sorted by current points
- * (descending). The top competitor is paired with the highest-ranked opponent
- * they have not yet faced. Falls back to already-played opponents when no new
- * one is available.
+ * True when a fixed-partner americano plays its complete round-robin (i.e. it is
+ * not cut short by `maxRounds`). A complete americano is scheduled with the
+ * circle method; only a truncated one uses standings-based pairing.
+ */
+function isFullAmericanoRoundRobin(settings: Tournament['settings'], competitorsCount: number): boolean {
+  const maxRounds = settings?.maxRounds
+
+  return maxRounds == null || maxRounds <= 0 || maxRounds >= roundRobinRoundsFor(competitorsCount)
+}
+
+/** Matches actually played per competitor (used to rotate the bye fairly). */
+function countMatchesPlayed(competitorIds: number[], matches: Match[]): Map<number, number> {
+  const played = new Map<number, number>(competitorIds.map((id) => [id, 0]))
+
+  for (const match of matches) {
+    if (match.awayCompetitorIds == null) {
+      continue
+    }
+
+    for (const id of [...match.homeCompetitorIds, ...match.awayCompetitorIds]) {
+      if (played.has(id)) {
+        played.set(id, (played.get(id) ?? 0) + 1)
+      }
+    }
+  }
+
+  return played
+}
+
+/**
+ * Finds a perfect matching of `ranked` (ordered best-first) that contains no
+ * rematch, preferring opponents that are close in the standings. Returns null
+ * when every remaining pairing would be a rematch (the schedule is exhausted).
+ *
+ * Backtracking keeps the greedy "closest opponent first" preference while
+ * guaranteeing the round avoids every avoidable rematch — so an even field plays
+ * a full single round-robin instead of replaying some pairs and skipping others.
+ */
+function findRematchFreeMatching(ranked: number[], matches: Match[]): [number, number][] | null {
+  if (ranked.length === 0) {
+    return []
+  }
+
+  const [first, ...rest] = ranked
+
+  for (let i = 0; i < rest.length; i++) {
+    if (havePlayedBefore(first, rest[i], matches)) {
+      continue
+    }
+
+    const remaining = [...rest.slice(0, i), ...rest.slice(i + 1)]
+    const sub = findRematchFreeMatching(remaining, matches)
+
+    if (sub) {
+      return [[first, rest[i]], ...sub]
+    }
+  }
+
+  return null
+}
+
+/** Greedy fallback used only once the round-robin is exhausted (rematches allowed). */
+function greedyMatching(ranked: number[], matches: Match[]): [number, number][] {
+  const remaining = [...ranked]
+  const pairs: [number, number][] = []
+
+  while (remaining.length >= 2) {
+    const first = remaining[0]
+    let partnerIndex = remaining.findIndex((id, index) => index > 0 && !havePlayedBefore(first, id, matches))
+
+    if (partnerIndex === -1) {
+      partnerIndex = 1
+    }
+
+    pairs.push([first, remaining[partnerIndex]])
+    remaining.splice(partnerIndex, 1)
+    remaining.splice(0, 1)
+  }
+
+  return pairs
+}
+
+/**
+ * Americano standings-based pairing. Competitors are ranked by current points
+ * (descending) and the best-ranked players are paired with the closest-ranked
+ * opponent they have not yet faced, so winners meet winners.
+ *
+ * Two fairness guarantees:
+ *  - No avoidable rematch: while a rematch-free pairing of the field still
+ *    exists it is used (an even field therefore plays a full round-robin).
+ *  - Fair bye: with an odd field the competitor who has played the MOST matches
+ *    so far (i.e. has had the fewest byes) sits out, ties broken by the lowest
+ *    standing — so the bye rotates instead of always benching the weakest player.
  */
 function generateAmericanoStandingsPairings(
   competitorIds: number[],
@@ -744,36 +833,21 @@ function generateAmericanoStandingsPairings(
   scoreFormat: number
 ): Pairing[] {
   const pts = computeAmericanoPoints(competitorIds, allMatches, settings, scoreFormat)
-  const sorted = [...competitorIds].sort((a, b) => (pts.get(b) ?? 0) - (pts.get(a) ?? 0))
-  const remaining = [...sorted]
-  const pairings: Pairing[] = []
-  let position = 0
+  let pool = [...competitorIds]
 
-  while (remaining.length >= 2) {
-    const first = remaining[0]
-    // Find the best-ranked opponent who hasn't faced `first` yet.
-    let partnerIndex = -1
+  if (pool.length % 2 === 1) {
+    const played = countMatchesPlayed(competitorIds, allMatches)
+    const byeId = [...pool].sort(
+      (a, b) => (played.get(b) ?? 0) - (played.get(a) ?? 0) || (pts.get(a) ?? 0) - (pts.get(b) ?? 0) || a - b
+    )[0]
 
-    for (let i = 1; i < remaining.length; i++) {
-      if (!havePlayedBefore(first, remaining[i], allMatches)) {
-        partnerIndex = i
-        break
-      }
-    }
-
-    // If everyone has already been faced, just take the next-ranked player.
-    if (partnerIndex === -1) {
-      partnerIndex = 1
-    }
-
-    const second = remaining[partnerIndex]
-
-    pairings.push({ home: [first], away: [second], position: position++ })
-    remaining.splice(partnerIndex, 1)
-    remaining.splice(0, 1)
+    pool = pool.filter((id) => id !== byeId)
   }
 
-  return pairings
+  const ranked = [...pool].sort((a, b) => (pts.get(b) ?? 0) - (pts.get(a) ?? 0) || a - b)
+  const pairs = findRematchFreeMatching(ranked, allMatches) ?? greedyMatching(ranked, allMatches)
+
+  return pairs.map(([home, away], index) => ({ home: [home], away: [away], position: index }))
 }
 
 /**
@@ -888,7 +962,14 @@ async function materializeCategoryRound(
             settings,
             tournament.scoreFormat
           )
+        } else if (isFullAmericanoRoundRobin(settings, competitorIds.length)) {
+          // A complete americano is a round-robin: schedule it with the circle
+          // method so nobody plays a rematch while unplayed pairs remain and the
+          // bye rotates fairly.
+          pairings = generateRoundRobinRound(competitorIds, roundNumber)
         } else {
+          // maxRounds-truncated americano: pair by current standings (winners vs
+          // winners) since competitors will not face everyone anyway.
           pairings = generateAmericanoStandingsPairings(competitorIds, allMatches, settings, tournament.scoreFormat)
         }
       }
@@ -971,6 +1052,14 @@ async function materializeCategoryRound(
         const knockoutLane: RoundLane = { type: RoundType.KNOCKOUT, groupNumber: null }
 
         if (await roundExists(tournamentCategoryId, roundNumber, knockoutLane)) {
+          return 0
+        }
+
+        // A single group is just a league — skip the knockout (it would only
+        // replay the group). Its standings decide the result.
+        const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+
+        if (groups.filter((group) => group.length > 0).length <= 1) {
           return 0
         }
 
@@ -1114,16 +1203,20 @@ async function buildLaneNextRound(
     const roundIds = laneRounds.map((round) => round.id)
     const allMatches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
 
-    pairings =
-      tournament.type === TournamentType.AMERICANO_WITH_SWAP
-        ? generateAmericanoSwapStandingsPairings(
-            competitorIds,
-            nextNumber,
-            allMatches,
-            settings,
-            tournament.scoreFormat
-          )
-        : generateAmericanoStandingsPairings(competitorIds, allMatches, settings, tournament.scoreFormat)
+    if (tournament.type === TournamentType.AMERICANO_WITH_SWAP) {
+      pairings = generateAmericanoSwapStandingsPairings(
+        competitorIds,
+        nextNumber,
+        allMatches,
+        settings,
+        tournament.scoreFormat
+      )
+    } else if (isFullAmericanoRoundRobin(settings, competitorIds.length)) {
+      // Full americano → clean circle-method round-robin (see materializeCategoryRound).
+      pairings = generateRoundRobinRound(competitorIds, nextNumber)
+    } else {
+      pairings = generateAmericanoStandingsPairings(competitorIds, allMatches, settings, tournament.scoreFormat)
+    }
   } else {
     pairings = generateRoundPairings(tournament.type, settings, competitorIds, nextNumber, [])
   }
@@ -1204,6 +1297,14 @@ async function maybeStartGroupsKnockout(
 
   const settings = tournament.settings ?? {}
   const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+
+  // With a single group there is nothing to cross-seed: a knockout would only
+  // replay the group it came from. The group standings decide the result
+  // instead (getPodiumCompetitorIds falls back to them).
+  if (groups.filter((group) => group.length > 0).length <= 1) {
+    return false
+  }
+
   const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).with('matches').get()
 
   for (let index = 0; index < groups.length; index++) {

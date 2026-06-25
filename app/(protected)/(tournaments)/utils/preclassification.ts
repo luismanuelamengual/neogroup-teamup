@@ -84,8 +84,9 @@ export async function autoAssignPreclassification(competitors: Competitor[], org
     })
   }
 
-  // Persist all seed assignments with a single upsert keyed on the primary key
-  // instead of one UPDATE per competitor.
+  // Persist every seed assignment in a single batch upsert keyed on the primary
+  // key. (Requires neorm ≥ the build that keeps the conflict-target column in the
+  // INSERT, so `ON CONFLICT (id)` matches instead of duplicating every row.)
   if (updates.length > 0) {
     await Competitor.upsert(updates, 'id', ['seedNumber'])
   }

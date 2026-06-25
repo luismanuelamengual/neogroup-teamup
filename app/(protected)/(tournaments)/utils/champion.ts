@@ -32,6 +32,14 @@ export function getPodiumCompetitorIds(tournament: Tournament, category: number 
   )
 
   if (rounds.length === 0) {
+    // A single-group groups+playoff has no knockout (it would only replay the
+    // group); its podium comes from that group's standings.
+    if (tournament.type === TournamentType.GROUPS_PLAYOFF) {
+      return computeStandings(tournament, category, 0)
+        .slice(0, 3)
+        .map((row) => row.competitorId)
+    }
+
     return []
   }
 

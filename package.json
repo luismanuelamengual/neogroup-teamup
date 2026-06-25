@@ -10,7 +10,13 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "db:migrate": "tsx scripts/migrate-database.ts",
     "db:reset": "tsx scripts/reset-database.ts",
-    "db:seed": "tsx scripts/seed-database.ts"
+    "db:seed": "tsx scripts/seed-database.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:flows": "vitest run tests/flows",
+    "test:edge": "vitest run tests/edge tests/unit",
+    "test:regression": "vitest run tests/bugs",
+    "test:node": "node -r ./tests/setup/register.cjs tests/run.ts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -20,7 +26,7 @@
     "@mui/icons-material": "^9.1.0",
     "@mui/material": "^9.1.0",
     "@mui/x-date-pickers": "^9.6.0",
-    "@neogroup/neorm": "0.0.35",
+    "@neogroup/neorm": "0.0.36",
     "bcryptjs": "^3.0.2",
     "dayjs": "^1.11.21",
     "next": "^16.2.6",
@@ -29,8 +35,8 @@
     "pg": "^8.21.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "sass": "^1.86.0",
     "react-hot-toast": "^2.4.1",
+    "sass": "^1.86.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
@@ -48,6 +54,7 @@
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "prettier": "^3.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.9"
   }
 }
