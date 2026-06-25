@@ -8,7 +8,7 @@ import { withAuth } from '@/app/utils/api-server'
  * POST /api/getCategories — categories of the organization for a discipline /
  * sub-discipline. Powers the category autocomplete in the tournament form.
  */
-export const POST = withAuth(async (request, _context, _userId, organizationId) => {
+export const POST = withAuth(async (request) => {
   const { discipline, subDiscipline } = (await request.json()) as {
     discipline?: Discipline
     subDiscipline?: SubDiscipline | null
@@ -18,5 +18,5 @@ export const POST = withAuth(async (request, _context, _userId, organizationId) 
     throw new ApiException('missingFields')
   }
 
-  return getCategories({ organizationId, discipline, subDiscipline: subDiscipline ?? null })
+  return getCategories({ discipline, subDiscipline: subDiscipline ?? null })
 })

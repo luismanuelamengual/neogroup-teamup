@@ -8,6 +8,7 @@ import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/Standing
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { Tournament } from '../models/Tournament'
+import { TournamentDto } from '../models/TournamentDto'
 
 /**
  * Computes the standings table from the resolved matches of a tournament.
@@ -20,7 +21,7 @@ import { Tournament } from '../models/Tournament'
  * of the category counts.
  */
 export function computeStandings(
-  tournament: Tournament,
+  tournament: Tournament | TournamentDto,
   category?: number | null,
   groupNumber?: number | null
 ): StandingsRowDto[] {

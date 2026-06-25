@@ -7,7 +7,6 @@ import {
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
-import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
 import { Tournament } from '../../(tournaments)/models/Tournament'
 
@@ -52,7 +51,7 @@ export function computeCategoryPlacements(tournament: Tournament, tournamentCate
 
 /** Placements of a single knockout bracket (main or consolation) of a category. */
 function computeBracketPlacements(
-  tournament: TournamentDto,
+  tournament: Tournament,
   tournamentCategoryId: number,
   roundType: RoundType,
   consolation: boolean

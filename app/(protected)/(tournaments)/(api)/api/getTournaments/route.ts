@@ -22,10 +22,9 @@ interface GetTournamentsBody {
  *
  * Supports server-side pagination via `page` and `pageSize`.
  */
-export const POST = withAuth(async (request, _context, userId, organizationId) => {
+export const POST = withAuth(async (request, _context, userId) => {
   const body = (await request.json()) as GetTournamentsBody
   const options: TournamentOptions = {
-    organizationId,
     withCompetitors: true,
     name: body.name,
     statuses: body.statuses,
