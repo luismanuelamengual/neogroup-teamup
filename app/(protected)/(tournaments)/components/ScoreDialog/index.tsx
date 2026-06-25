@@ -189,7 +189,7 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{tCommon('cancel')}</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
+        <Button variant="contained" onClick={handleSave} disabled={saving} loading={saving}>
           {tCommon('save')}
         </Button>
       </DialogActions>

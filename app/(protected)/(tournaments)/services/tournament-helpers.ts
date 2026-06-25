@@ -102,9 +102,110 @@ export async function getTournamentCompetitors(tournament: Tournament): Promise<
     .get()
 }
 
+/**
+ * Ordered competitor ids of a category instance. For bracket-style tournaments
+ * that support preclassification, seeded competitors come first (seed 1 first),
+ * then the rest in registration order, so byes go to the top seeds and the same
+ * order is reproducible by every materialisation/seeding helper.
+ */
+async function getSortedCompetitorIds(tournament: Tournament, tournamentCategoryId: number): Promise<number[]> {
+  const competitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
+  const sorted = supportsPreclassification(tournament.type)
+    ? [...competitors].sort((a, b) => {
+        const sa = a.seedNumber ?? Infinity
+        const sb = b.seedNumber ?? Infinity
+
+        return sa !== sb ? sa - sb : a.id - b.id
+      })
+    : competitors
+
+  return sorted.map((competitor) => competitor.id)
+}
+
+/**
+ * Group membership of a groups+playoff category instance. Deterministic: seeded
+ * competitors are snake-seeded across the groups (so seeds land in different
+ * groups), the rest fill the remaining slots. Used both to materialise group
+ * rounds and to reconstruct the groups when seeding the knockout, so ranking and
+ * play always agree.
+ */
+async function computeCategoryGroups(
+  tournamentCategoryId: number,
+  competitorIds: number[],
+  settings: Tournament['settings']
+): Promise<number[][]> {
+  const safeSettings = settings ?? {}
+  const groupSize = safeSettings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+  const allCategoryCompetitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
+  const seededCount = allCategoryCompetitors.filter((competitor) => competitor.seedNumber != null).length
+  const seededIds = competitorIds.slice(0, seededCount)
+  const unseededIds = competitorIds.slice(seededCount)
+  const groupCount = Math.ceil(competitorIds.length / Math.max(2, Math.floor(groupSize)))
+
+  return seededCount > 0 ? snakeSeedGroups(seededIds, unseededIds, groupCount) : assignGroups(competitorIds, groupSize)
+}
+
 /** True when a round matches the given lane (type + group index). */
 function isLane(round: Round, lane: RoundLane): boolean {
   return round.type === lane.type && (round.groupNumber ?? null) === (lane.groupNumber ?? null)
+}
+
+/** Distinct lanes (type + group index) that currently exist in a category instance. */
+async function getCategoryLanes(tournamentCategoryId: number): Promise<RoundLane[]> {
+  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).get()
+  const lanes = new Map<string, RoundLane>()
+
+  for (const round of rounds) {
+    const lane: RoundLane = { type: round.type, groupNumber: round.groupNumber ?? null }
+
+    lanes.set(`${lane.type}:${lane.groupNumber}`, lane)
+  }
+
+  return [...lanes.values()]
+}
+
+/** Whether a (category instance, lane) structure has any round at all. */
+async function laneExists(tournamentCategoryId: number, lane: RoundLane): Promise<boolean> {
+  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).get()
+
+  return rounds.some((round) => isLane(round, lane))
+}
+
+/** Whether a lane already holds at least one real (non-bye) loaded result. */
+async function laneHasResults(tournamentCategoryId: number, lane: RoundLane): Promise<boolean> {
+  const rounds = await getBracketRounds(tournamentCategoryId, lane)
+  const roundIds = rounds.map((round) => round.id)
+
+  if (roundIds.length === 0) {
+    return false
+  }
+
+  const matches = await Match.whereIn('roundId', roundIds).get()
+
+  return matches.some((match) => match.awayCompetitorIds != null && match.status !== MatchStatus.PENDING)
+}
+
+/** Deletes the given rounds and all of their matches. */
+async function deleteRounds(rounds: Round[]): Promise<void> {
+  if (rounds.length === 0) {
+    return
+  }
+
+  const roundIds = rounds.map((round) => round.id)
+  const matches = await Match.whereIn('roundId', roundIds).get()
+
+  for (const match of matches) {
+    await match.delete()
+  }
+
+  for (const round of rounds) {
+    await round.delete()
+  }
+}
+
+/** Deletes an entire lane (every round + match of that category/lane). */
+async function deleteLane(tournamentCategoryId: number, lane: RoundLane): Promise<void> {
+  await deleteRounds(await getBracketRounds(tournamentCategoryId, lane))
 }
 
 /** All rounds of a single (category instance, lane) structure, ordered by number. */
@@ -195,40 +296,43 @@ async function setFrontier(tournamentCategoryIds: number[], roundNumber: number)
 }
 
 /**
- * Activates the OPEN rounds sitting at the given frontier number WITHOUT
- * deactivating anything else. Used to advance to the next round while keeping
- * the round that just closed still active, so its results remain editable for a
- * grace window (see closeRoundAndAdvance / expireEditableWindow).
+ * Ends the editable grace window of the already-closed rounds of one lane that
+ * sit below the given round number. Lane-scoped: entering a result in a lane only
+ * locks that lane's earlier rounds, so other lanes (other groups, the other
+ * bracket, other categories) keep their own independent windows.
  */
-async function activateFrontier(tournamentCategoryIds: number[], roundNumber: number): Promise<void> {
-  if (tournamentCategoryIds.length === 0) {
-    return
-  }
-
-  await Round.query()
-    .whereIn('tournamentCategoryId', tournamentCategoryIds)
-    .where('number', roundNumber)
-    .where('status', RoundStatus.OPEN)
-    .update({ active: true })
-}
-
-/**
- * Ends the editable grace window of every already-closed round that sits below
- * the given round number. Called whenever a result is entered/edited in a round:
- * once a later round starts receiving results, the previous (closed) rounds can
- * no longer be corrected.
- */
-async function expireEditableWindow(tournamentCategoryIds: number[], roundNumber: number): Promise<void> {
-  if (tournamentCategoryIds.length === 0) {
-    return
-  }
-
-  await Round.query()
-    .whereIn('tournamentCategoryId', tournamentCategoryIds)
+async function expireEditableWindow(tournamentCategoryId: number, lane: RoundLane, roundNumber: number): Promise<void> {
+  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId)
     .where('active', true)
     .where('status', RoundStatus.CLOSED)
     .where('number', '<', roundNumber)
-    .update({ active: false })
+    .get()
+
+  for (const round of rounds) {
+    if (isLane(round, lane)) {
+      round.active = false
+      await round.save()
+    }
+  }
+}
+
+/**
+ * Locks every group-phase round of a category: once the knockout bracket has
+ * received a result, group results can no longer be edited (they would change
+ * the bracket seeding). Used as the cross-lane grace expiry of a groups+playoff.
+ */
+async function expireGroupPhaseWindows(tournamentCategoryId: number): Promise<void> {
+  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId)
+    .where('active', true)
+    .where('status', RoundStatus.CLOSED)
+    .get()
+
+  for (const round of rounds) {
+    if (round.type === RoundType.LEAGUE && round.groupNumber != null) {
+      round.active = false
+      await round.save()
+    }
+  }
 }
 
 /** Deactivates every round (used when the tournament finishes). */
@@ -546,12 +650,13 @@ async function computeGroupsKnockoutSeeds(
   settings: Tournament['settings']
 ): Promise<number[]> {
   const safeSettings = settings ?? {}
-  const groupSize = safeSettings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
   const qualifiersPerGroup = Math.max(
     1,
     safeSettings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
   )
-  const groups = assignGroups(competitorIds, groupSize)
+  // Reconstruct the very same groups that were played (snake-seeded when there
+  // are seeds) so the ranking is computed over the right competitors.
+  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
   const allRounds = await getCategoryRounds(tournamentCategoryId)
   const qualifiers: number[][] = []
 
@@ -832,18 +937,7 @@ async function materializeCategoryRound(
       const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length)
 
       if (roundNumber <= groupPhaseRounds) {
-        const groupSize = settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
-        // Use snake seeding: seeded competitors (those at the front of
-        // competitorIds, which are already sorted by seedNumber)
-        // are distributed across groups in alternating order so they end up in
-        // different groups. The remaining unseeded competitors fill the rest.
-        const allCategoryCompetitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
-        const seededCount = allCategoryCompetitors.filter((c) => c.seedNumber != null).length
-        const seededIds = competitorIds.slice(0, seededCount)
-        const unseededIds = competitorIds.slice(seededCount)
-        const groupCount = Math.ceil(competitorIds.length / Math.max(2, Math.floor(groupSize)))
-        const groups =
-          seededCount > 0 ? snakeSeedGroups(seededIds, unseededIds, groupCount) : assignGroups(competitorIds, groupSize)
+        const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
         let created = 0
 
         for (let index = 0; index < groups.length; index++) {
@@ -963,197 +1057,409 @@ export async function createRound(tournament: Tournament, roundNumber: number): 
   await tournament.save()
 
   // Resolve any round made entirely of byes/walkovers and advance accordingly.
-  await closeRoundAndAdvance(tournament)
-}
-
-/** Whether any round exists at the given number (across category instances/lanes). */
-async function hasRoundAtNumber(tournamentCategoryIds: number[], roundNumber: number): Promise<boolean> {
-  const rounds = await Round.whereIn('tournamentCategoryId', tournamentCategoryIds).where('number', roundNumber).get()
-
-  return rounds.length > 0
+  await advanceTournament(tournament)
 }
 
 /**
- * Closes the active frontier (every category/lane sharing the active round
- * number) once all its matches are resolved, then materialises and activates the
- * next round. Loops so that rounds made entirely of byes/walkovers cascade
- * through.
+ * Builds (or finds) the next round of a single lane, returning it ready to be
+ * activated, or null when the lane has no further round.
  *
- * The tournament is finished when, after closing the frontier, there is no next
- * round to play: nothing new was materialised and no round (e.g. a pre-built
- * knockout round) exists at the next number. This structural check naturally
- * supports variable-length structures like the consolation bracket, whose size
- * depends on how many competitors lose their first match.
+ * Knockout lanes are materialised up front, so "next" already exists or the
+ * bracket is over. League / americano / group lanes create their next round on
+ * demand: leagues and groups follow a fixed round-robin schedule, while americano
+ * pairings are recomputed from the current standings.
  */
-async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
-  const tournamentCategoryIds = await getTournamentCategoryIds(tournament)
-
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const activeRounds = await Round.whereIn('tournamentCategoryId', tournamentCategoryIds)
-      .where('active', true)
-      .with('matches')
-      .get()
-
-    if (activeRounds.length === 0) {
-      return
-    }
-
-    const currentNumber = Math.max(...activeRounds.map((round) => round.number))
-    const frontierRounds = activeRounds.filter((round) => round.number === currentNumber)
-    const hasPending = frontierRounds.some((round) =>
-      (round.matches ?? []).some((match) => match.status === MatchStatus.PENDING)
-    )
-
-    if (hasPending) {
-      return
-    }
-
-    for (const round of frontierRounds) {
-      round.status = RoundStatus.CLOSED
-      // Keep the round active (editable) as a grace window so a mistyped result
-      // can still be fixed, but only while it holds at least one real matchup —
-      // rounds made entirely of byes/walkovers have nothing to edit and are
-      // deactivated immediately. The window is closed by expireEditableWindow as
-      // soon as the next round receives its first result.
-      round.active = (round.matches ?? []).some((match) => match.awayCompetitorIds != null)
-      await round.save()
-    }
-
-    const nextNumber = currentNumber + 1
-
-    await materializeRound(tournament, nextNumber)
-
-    if (!(await hasRoundAtNumber(tournamentCategoryIds, nextNumber))) {
-      tournament.status = TournamentStatus.FINISHED
-      tournament.updatedAt = new Date()
-      await tournament.save()
-      await deactivateAllRounds(tournamentCategoryIds)
-
-      return
-    }
-
-    // Activate the next round WITHOUT deactivating the round that just closed,
-    // so both stay open for input during the grace window.
-    await activateFrontier(tournamentCategoryIds, nextNumber)
-    tournament.updatedAt = new Date()
-    await tournament.save()
-  }
-}
-
-/**
- * Deletes the downstream rounds (number >= fromNumber) of a single category
- * instance and rebuilds the one at `fromNumber` from the (now corrected) data,
- * leaving it active. Used after a result is edited in a closed round whose grace
- * window is still open: the round(s) that were derived from it are dropped and
- * regenerated so nobody advances by mistake.
- *
- * Safe to delete without checking results: a closed round is only editable while
- * the round after it has not yet received any result (see expireEditableWindow),
- * so everything from `fromNumber` onward is guaranteed to be resultless.
- */
-async function rebuildRoundsFrom(
+async function buildLaneNextRound(
   tournament: Tournament,
   tournamentCategoryId: number,
-  fromNumber: number
-): Promise<void> {
-  const downstream = await Round.where('tournamentCategoryId', tournamentCategoryId)
-    .where('number', '>=', fromNumber)
-    .get()
+  lane: RoundLane,
+  nextNumber: number,
+  competitorIds: number[]
+): Promise<Round | null> {
+  const settings = tournament.settings ?? {}
+  const laneRounds = await getBracketRounds(tournamentCategoryId, lane)
+  const existing = laneRounds.find((round) => round.number === nextNumber)
 
-  if (downstream.length === 0) {
+  if (existing) {
+    return existing
+  }
+
+  // Knockout brackets are fully pre-built; a missing round means the lane is done.
+  if (isKnockoutType(lane.type)) {
+    return null
+  }
+
+  // Group lane of a groups+playoff tournament (round robin inside the group).
+  if (lane.groupNumber != null) {
+    const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+    const group = groups[lane.groupNumber] ?? []
+
+    if (group.length < 2 || nextNumber > roundRobinRoundsFor(group.length)) {
+      return null
+    }
+
+    const pairings = generateRoundRobinRound(group, nextNumber)
+
+    return pairings.length > 0 ? persistRound(tournamentCategoryId, nextNumber, lane, pairings) : null
+  }
+
+  // Plain league / americano lane.
+  if (nextNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
+    return null
+  }
+
+  let pairings: Pairing[]
+
+  if (tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP) {
+    const roundIds = laneRounds.map((round) => round.id)
+    const allMatches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
+
+    pairings =
+      tournament.type === TournamentType.AMERICANO_WITH_SWAP
+        ? generateAmericanoSwapStandingsPairings(
+            competitorIds,
+            nextNumber,
+            allMatches,
+            settings,
+            tournament.scoreFormat
+          )
+        : generateAmericanoStandingsPairings(competitorIds, allMatches, settings, tournament.scoreFormat)
+  } else {
+    pairings = generateRoundPairings(tournament.type, settings, competitorIds, nextNumber, [])
+  }
+
+  return pairings.length > 0 ? persistRound(tournamentCategoryId, nextNumber, lane, pairings) : null
+}
+
+/**
+ * Advances a single lane independently of every other lane. When the lane's
+ * frontier (its highest-numbered active round) is OPEN and fully resolved, it is
+ * closed and the lane's next round is created/activated. The closed round is kept
+ * active as an editable grace window while it holds a real matchup. Returns true
+ * when it changed something (so the driver loop knows to keep going).
+ */
+async function advanceLane(
+  tournament: Tournament,
+  tournamentCategoryId: number,
+  lane: RoundLane,
+  competitorIds: number[]
+): Promise<boolean> {
+  const laneRounds = await getBracketRounds(tournamentCategoryId, lane)
+  const activeRounds = laneRounds.filter((round) => round.active)
+
+  if (activeRounds.length === 0) {
+    return false
+  }
+
+  // The frontier is the highest-numbered active round. A CLOSED active round is a
+  // grace window already advanced past, so only an OPEN frontier can advance.
+  const frontier = activeRounds[activeRounds.length - 1]
+
+  if (frontier.status !== RoundStatus.OPEN) {
+    return false
+  }
+
+  const matches = await Match.where('roundId', frontier.id).get()
+
+  if (matches.some((match) => match.status === MatchStatus.PENDING)) {
+    return false
+  }
+
+  // Close the frontier; keep it editable (active) as a grace window only while it
+  // holds a real matchup — bye-only rounds have nothing to fix.
+  frontier.status = RoundStatus.CLOSED
+  frontier.active = matches.some((match) => match.awayCompetitorIds != null)
+  await frontier.save()
+
+  const next = await buildLaneNextRound(tournament, tournamentCategoryId, lane, frontier.number + 1, competitorIds)
+
+  if (next) {
+    next.active = true
+    await next.save()
+  }
+
+  return true
+}
+
+/**
+ * Groups+playoff join: once EVERY group of a category has played all its
+ * round-robin rounds with no pending match, builds and activates the knockout
+ * bracket seeded from the final group standings. No-op until then, or if the
+ * bracket already exists. Returns true when the bracket was created.
+ */
+async function maybeStartGroupsKnockout(
+  tournament: Tournament,
+  tournamentCategoryId: number,
+  competitorIds: number[]
+): Promise<boolean> {
+  if (tournament.type !== TournamentType.GROUPS_PLAYOFF) {
+    return false
+  }
+
+  const knockoutLane: RoundLane = { type: RoundType.KNOCKOUT, groupNumber: null }
+
+  if (await laneExists(tournamentCategoryId, knockoutLane)) {
+    return false
+  }
+
+  const settings = tournament.settings ?? {}
+  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).with('matches').get()
+
+  for (let index = 0; index < groups.length; index++) {
+    const group = groups[index]
+
+    if (group.length < 2) {
+      continue
+    }
+
+    const groupRounds = rounds.filter(
+      (round) => round.type === RoundType.LEAGUE && (round.groupNumber ?? null) === index
+    )
+
+    // The group must have materialised all of its rounds and resolved them all.
+    if (groupRounds.length < roundRobinRoundsFor(group.length)) {
+      return false
+    }
+
+    if (groupRounds.some((round) => (round.matches ?? []).some((match) => match.status === MatchStatus.PENDING))) {
+      return false
+    }
+  }
+
+  const seeded = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings)
+  const startNumber = getGroupPhaseRounds(settings, competitorIds.length) + 1
+  const created = await createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, startNumber)
+
+  if (created === 0) {
+    return false
+  }
+
+  const knockoutRounds = await getBracketRounds(tournamentCategoryId, knockoutLane)
+
+  if (knockoutRounds.length > 0) {
+    knockoutRounds[0].active = true
+    await knockoutRounds[0].save()
+  }
+
+  return true
+}
+
+/**
+ * Playoff-with-consolation join: once every competitor has played (and possibly
+ * lost) their first real match, builds and activates the consolation bracket from
+ * the first-round losers. Runs on its own schedule, independent of how far the
+ * main bracket has progressed. Returns true when the bracket was created.
+ */
+async function maybeStartConsolation(tournament: Tournament, tournamentCategoryId: number): Promise<boolean> {
+  if (tournament.type !== TournamentType.PLAYOFF_WITH_CONSOLATION) {
+    return false
+  }
+
+  const consolationLane: RoundLane = { type: RoundType.KNOCKOUT_CONSOLATION, groupNumber: null }
+
+  if (await laneExists(tournamentCategoryId, consolationLane)) {
+    return false
+  }
+
+  const { ready, losers } = await computeConsolationSeeds(tournamentCategoryId)
+
+  if (!ready || losers.length < 2) {
+    return false
+  }
+
+  // The consolation entrants are the round-1 losers, so it starts at number 2.
+  const created = await createKnockoutBracket(tournamentCategoryId, consolationLane, losers, 2)
+
+  if (created === 0) {
+    return false
+  }
+
+  const consolationRounds = await getBracketRounds(tournamentCategoryId, consolationLane)
+
+  if (consolationRounds.length > 0) {
+    consolationRounds[0].active = true
+    await consolationRounds[0].save()
+  }
+
+  return true
+}
+
+/**
+ * Marks the tournament finished once nothing is left to play. The advance loop
+ * has already settled, so an OPEN active round anywhere means a lane is still
+ * waiting for results; when none remain, every lane has reached its closed final
+ * round and the tournament is over.
+ */
+async function finishTournamentIfComplete(tournament: Tournament, categories: TournamentCategory[]): Promise<void> {
+  const tournamentCategoryIds = categories.map((category) => category.id)
+
+  if (tournamentCategoryIds.length === 0) {
     return
   }
 
-  const downstreamIds = downstream.map((round) => round.id)
-  const matches = await Match.whereIn('roundId', downstreamIds).get()
+  const rounds = await Round.whereIn('tournamentCategoryId', tournamentCategoryIds).get()
+  const stillPlaying = rounds.some((round) => round.status === RoundStatus.OPEN && round.active)
 
-  for (const match of matches) {
-    await match.delete()
+  if (stillPlaying) {
+    return
   }
 
-  for (const round of downstream) {
-    await round.delete()
+  tournament.status = TournamentStatus.FINISHED
+  tournament.updatedAt = new Date()
+  await tournament.save()
+  await deactivateAllRounds(tournamentCategoryIds)
+}
+
+/**
+ * Drives the whole tournament forward after a result is saved/edited. Every lane
+ * — each category, each group of the group phase, the main and consolation
+ * brackets — advances on its own schedule, so one can be in the semifinals while
+ * another is still in the round of 16, and a round of one lane never waits for
+ * another. Group phases reconverge into the knockout only once ALL groups of the
+ * category are done. Loops until nothing else can move, cascading bye-only rounds
+ * and freshly-unlocked joins.
+ */
+async function advanceTournament(tournament: Tournament): Promise<void> {
+  if (tournament.status !== TournamentStatus.ONGOING) {
+    return
   }
 
-  // Rebuild the first downstream round from the corrected standings/results. For
-  // knockouts this re-seeds the whole bracket; materializeRound is idempotent for
-  // any sibling category whose rounds were left untouched.
-  await materializeRound(tournament, fromNumber)
-  await activateFrontier(await getTournamentCategoryIds(tournament), fromNumber)
+  const categories = await getTournamentCategories(tournament)
+  let progressed = true
+
+  while (progressed) {
+    progressed = false
+
+    for (const category of categories) {
+      const competitorIds = await getSortedCompetitorIds(tournament, category.id)
+
+      if (competitorIds.length < 2) {
+        continue
+      }
+
+      // 1. Advance every existing lane independently.
+      for (const lane of await getCategoryLanes(category.id)) {
+        if (await advanceLane(tournament, category.id, lane, competitorIds)) {
+          progressed = true
+        }
+      }
+
+      // 2. Cross-lane joins (groups → knockout, and the consolation bracket).
+      if (await maybeStartGroupsKnockout(tournament, category.id, competitorIds)) {
+        progressed = true
+      }
+
+      if (await maybeStartConsolation(tournament, category.id)) {
+        progressed = true
+      }
+    }
+  }
+
+  await finishTournamentIfComplete(tournament, categories)
+}
+
+/**
+ * Deletes a lane from `fromNumber` onward and rebuilds its next round from the
+ * corrected data, leaving it active. Used to regenerate a standings-dependent
+ * round after a result is edited in its (still-resultless) predecessor.
+ */
+async function rebuildLaneFrom(
+  tournament: Tournament,
+  tournamentCategoryId: number,
+  lane: RoundLane,
+  fromNumber: number
+): Promise<void> {
+  const laneRounds = await getBracketRounds(tournamentCategoryId, lane)
+  const toDelete = laneRounds.filter((round) => round.number >= fromNumber)
+
+  if (toDelete.length === 0) {
+    return
+  }
+
+  await deleteRounds(toDelete)
+
+  const competitorIds = await getSortedCompetitorIds(tournament, tournamentCategoryId)
+  const next = await buildLaneNextRound(tournament, tournamentCategoryId, lane, fromNumber, competitorIds)
+
+  if (next) {
+    next.active = true
+    await next.save()
+  }
 }
 
 /**
  * After a result is edited in an already-closed round (during its grace window),
- * rebuilds the downstream rounds that were derived from it so a competitor that
- * advanced by mistake is corrected.
+ * rebuilds the downstream structures derived from it so a competitor that
+ * advanced by mistake is corrected. Always safe because a closed round is only
+ * editable while its dependent structure has not yet received any result.
  *
- * - League: the round-robin schedule is fixed and only standings change, so
- *   there is nothing to rebuild.
- * - Americano (and with swap): the next round's pairings depend on the standings,
- *   so the (resultless) next round is dropped and regenerated.
- * - Groups+playoff: editing a group-phase result can change who qualifies, so the
- *   knockout bracket (seeded from the group standings) is rebuilt.
- * - Playoff / consolation: winner propagation is handled by syncKnockoutNextRound.
+ * - League / group phase: round-robin schedules are fixed, so nothing to rebuild
+ *   beyond what the knockout join recomputes.
+ * - Americano: the next round's pairings depend on the standings → regenerate it.
+ * - Groups+playoff group edit: drop the knockout bracket; advanceTournament
+ *   reseeds it from the corrected group standings.
+ * - Playoff with consolation main-bracket edit: drop the still-resultless
+ *   consolation bracket; advanceTournament reseeds it from the corrected losers.
+ * - Knockout winner propagation is handled by syncKnockoutNextRound.
  */
 async function regenerateDownstreamRounds(tournament: Tournament, editedRound: Round): Promise<void> {
-  const settings = tournament.settings ?? {}
-
   switch (tournament.type) {
     case TournamentType.AMERICANO:
 
     case TournamentType.AMERICANO_WITH_SWAP: {
-      await rebuildRoundsFrom(tournament, editedRound.tournamentCategoryId, editedRound.number + 1)
+      const lane: RoundLane = { type: RoundType.AMERICANO, groupNumber: null }
+
+      await rebuildLaneFrom(tournament, editedRound.tournamentCategoryId, lane, editedRound.number + 1)
       break
     }
 
     case TournamentType.GROUPS_PLAYOFF: {
-      const competitorCount = await Competitor.where('tournamentCategoryId', editedRound.tournamentCategoryId).count()
-      const groupPhaseRounds = getGroupPhaseRounds(settings, competitorCount)
+      // A group-phase edit can change who qualifies → drop the knockout so it is
+      // reseeded. Only reachable while the knockout holds no results yet.
+      if (editedRound.type === RoundType.LEAGUE && editedRound.groupNumber != null) {
+        await deleteLane(editedRound.tournamentCategoryId, { type: RoundType.KNOCKOUT, groupNumber: null })
+      }
 
-      // Only group-phase edits can change the knockout seeding. Knockout-phase
-      // edits propagate winners through syncKnockoutNextRound instead.
-      if (editedRound.number <= groupPhaseRounds) {
-        await rebuildRoundsFrom(tournament, editedRound.tournamentCategoryId, groupPhaseRounds + 1)
+      break
+    }
+
+    case TournamentType.PLAYOFF_WITH_CONSOLATION: {
+      // A main-bracket edit can change who drops to the consolation bracket. Only
+      // reseed it when it exists and has not started yet (never clobber results).
+      if (editedRound.type === RoundType.KNOCKOUT) {
+        const consolationLane: RoundLane = { type: RoundType.KNOCKOUT_CONSOLATION, groupNumber: null }
+
+        if (
+          (await laneExists(editedRound.tournamentCategoryId, consolationLane)) &&
+          !(await laneHasResults(editedRound.tournamentCategoryId, consolationLane))
+        ) {
+          await deleteLane(editedRound.tournamentCategoryId, consolationLane)
+        }
       }
 
       break
     }
 
     default:
-      // LEAGUE: fixed schedule. PLAYOFF / PLAYOFF_WITH_CONSOLATION: handled by
-      // syncKnockoutNextRound in progressTournamentAfterResult.
+      // LEAGUE / PLAYOFF: nothing extra; syncKnockoutNextRound handles brackets.
       break
   }
 }
 
 /**
- * Drives the whole tournament flow after a single result is saved or edited, so
- * organizers never have to close rounds or trigger the next ones by hand.
- *
- * - League / Americano: scores are reflected immediately and the next round is
- *   generated automatically once the last result of the round is loaded.
- * - Playoff (and groups+playoff knockout / consolation brackets): every result
- *   propagates the winners into the next bracket round (already materialised) so
- *   the upcoming rounds fill in live; the round closes and advances once all of
- *   its matches are resolved.
- * - Groups+playoff group phase: behaves like a league; when the last group
- *   match is loaded the knockout phase is seeded from the group standings.
- *
- * A just-completed round stays editable as a grace window (see
- * closeRoundAndAdvance). When a result of such a closed round is edited, the
- * rounds derived from it are rebuilt; loading a result into a later round ends
- * every earlier round's grace window.
- *
- * When the final round completes the tournament is marked as finished.
+ * Entry point after a single result is saved or edited. Propagates knockout
+ * winners, rebuilds any structure derived from an edited closed round, advances
+ * every lane independently, and finally expires the editable grace windows that
+ * this result has locked.
  */
 export async function progressTournamentAfterResult(tournament: Tournament, round: Round): Promise<void> {
   if (tournament.status !== TournamentStatus.ONGOING) {
     return
   }
 
-  // The round was already closed → this is a correction made during its grace
-  // window, so rebuild whatever was derived from it.
+  const lane: RoundLane = { type: round.type, groupNumber: round.groupNumber ?? null }
+  // A CLOSED round here means a correction made during its grace window.
   const isEditOfClosedRound = round.status === RoundStatus.CLOSED
 
   if (isKnockoutType(round.type)) {
@@ -1164,9 +1470,14 @@ export async function progressTournamentAfterResult(tournament: Tournament, roun
     await regenerateDownstreamRounds(tournament, round)
   }
 
-  await closeRoundAndAdvance(tournament)
+  await advanceTournament(tournament)
 
-  // Entering/editing a result in this round ends the grace window of every
-  // earlier completed round.
-  await expireEditableWindow(await getTournamentCategoryIds(tournament), round.number)
+  // Entering a result ends the grace window of earlier closed rounds of the SAME
+  // lane. In a groups+playoff, a knockout result additionally locks every
+  // group-phase round (they can no longer change the bracket seeding).
+  await expireEditableWindow(round.tournamentCategoryId, lane, round.number)
+
+  if (tournament.type === TournamentType.GROUPS_PLAYOFF && round.type === RoundType.KNOCKOUT) {
+    await expireGroupPhaseWindows(round.tournamentCategoryId)
+  }
 }
