@@ -137,7 +137,11 @@
       "registeredCompetitors": "Registered",
       "noCompetitors": "No competitors registered yet",
       "currentRound": "Current round",
-      "allRoundsPlayed": "All rounds have been played"
+      "allRoundsPlayed": "All rounds have been played",
+      "tournamentStarted": "Tournament started successfully !!",
+      "tournamentFinished": "Tournament finished successfully !!",
+      "tournamentUpdated": "Tournament updated successfully !!",
+      "tournamentDeleted": "Tournament deleted successfully !!"
     },
     "errors": {
       "unauthorized": "You are not allowed to perform this action",
@@ -176,6 +180,9 @@
     "loadResult": "Load result",
     "editResult": "Edit result",
     "viewTournament": "View tournament",
+    "resultSubmitted": "Score saved !!",
+    "tournamentJoined": "Joined tournament successfully !!",
+    "tournamentLeft": "Left tournament successfully !!",
     "errors": {
       "unauthorized": "You need to sign in",
       "notFound": "Tournament not found",

@@ -19,6 +19,7 @@ module.exports = {
     ],
     'no-redeclare': 'off',
     'no-console': 'error',
+    'no-useless-catch': 'off',
     'no-trailing-spaces': 'error',
     'no-constant-condition': 'off',
     'no-case-declarations': 'off',

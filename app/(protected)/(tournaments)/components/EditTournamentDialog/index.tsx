@@ -1,7 +1,6 @@
 'use client'
 
 import './index.scss'
-import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -14,7 +13,6 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import dayjs, { Dayjs } from 'dayjs'
-import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
@@ -37,7 +35,6 @@ export default function EditTournamentDialog({
 }: EditTournamentDialogProps) {
   const { deleteTournament, updateTournament } = useTournaments()
   const t = useTranslations('tournaments')
-  const router = useRouter()
   const tOrganizer = useTranslations('organizer')
   const tCommon = useTranslations('common')
   const [name, setName] = useState(tournament.name)
@@ -47,7 +44,6 @@ export default function EditTournamentDialog({
   const [startTime, setStartTime] = useState<Dayjs | null>(
     tournament.startTime ? dayjs(`2000-01-01T${tournament.startTime}`) : null
   )
-  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
@@ -58,13 +54,11 @@ export default function EditTournamentDialog({
       setLocation(tournament.location ?? '')
       setStartDate(tournament.startDate ? dayjs(tournament.startDate) : null)
       setStartTime(tournament.startTime ? dayjs(`2000-01-01T${tournament.startTime}`) : null)
-      setError(null)
     }
   }, [open, tournament])
 
   const handleSave = async () => {
     setLoading(true)
-    setError(null)
 
     try {
       await updateTournament(tournament.id, {
@@ -76,7 +70,6 @@ export default function EditTournamentDialog({
       })
     } catch (requestError) {
       setLoading(false)
-      setError(tOrganizer(`errors.${(requestError as Error).message}`))
 
       return
     }
@@ -88,27 +81,23 @@ export default function EditTournamentDialog({
   const handleDelete = async () => {
     setConfirmDeleteOpen(false)
     setLoading(true)
-    setError(null)
 
     try {
       await deleteTournament(tournament.id)
     } catch (requestError) {
       setLoading(false)
-      setError(tOrganizer(`errors.${(requestError as Error).message}`))
 
       return
     }
 
     setLoading(false)
     onDeleted?.()
-    router.push('/tournaments')
   }
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" className="edit-tournament-dialog">
       <DialogTitle>{tOrganizer('manage.editTitle')}</DialogTitle>
       <DialogContent className="main-content">
-        {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label={t('name')}
           value={name}

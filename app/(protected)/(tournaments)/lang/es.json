@@ -137,7 +137,11 @@
       "registeredCompetitors": "Inscriptos",
       "noCompetitors": "Aún no hay inscriptos",
       "currentRound": "Ronda actual",
-      "allRoundsPlayed": "Se jugaron todas las rondas"
+      "allRoundsPlayed": "Se jugaron todas las rondas",
+      "tournamentStarted": "Torneo iniciado exitosamente !!",
+      "tournamentFinished": "Torneo finalizado exitosamente !!",
+      "tournamentUpdated": "Torneo editado exitosamente !!",
+      "tournamentDeleted": "Torneo borrado exitosamente !!"
     },
     "errors": {
       "unauthorized": "No tenés permisos para esta acción",
@@ -176,6 +180,9 @@
     "loadResult": "Cargar resultado",
     "editResult": "Editar resultado",
     "viewTournament": "Ver torneo",
+    "resultSubmitted": "Resultado guardado !!",
+    "tournamentJoined": "Inscripción el torneo exitosa !!",
+    "tournamentLeft": "Des-inscripción del torneo exitosa !!",
     "errors": {
       "unauthorized": "Tenés que iniciar sesión",
       "notFound": "Torneo no encontrado",

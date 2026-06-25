@@ -34,7 +34,6 @@ import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFo
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { useNotifications } from '@/app/hooks/useNotifications'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 
 interface PlayerTournamentViewProps {
@@ -43,7 +42,6 @@ interface PlayerTournamentViewProps {
 
 export default function PlayerTournamentView({ tournamentId }: PlayerTournamentViewProps) {
   const { getTournament, leaveTournament, saveMatchResult } = useTournaments()
-  const { showErrorMessage } = useNotifications()
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
@@ -51,17 +49,6 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const userId = useUserStore((state) => state.user?.id ?? null)
-  const loadDetail = useCallback(async () => {
-    const data = await getTournament(tournamentId)
-
-    setTournament(data)
-    setLoading(false)
-  }, [getTournament, tournamentId])
-
-  useEffect(() => {
-    loadDetail()
-  }, [loadDetail])
-
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
   const rounds = useMemo(() => tournament?.rounds ?? [], [tournament])
   const matches = useMemo(() => tournament?.matches ?? [], [tournament])
@@ -91,6 +78,16 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     () => new Map(categories.map((category) => [category.id, category.category?.name ?? null])),
     [categories]
   )
+  const loadTournament = useCallback(async () => {
+    const data = await getTournament(tournamentId)
+
+    setTournament(data)
+    setLoading(false)
+  }, [getTournament, tournamentId])
+
+  useEffect(() => {
+    loadTournament()
+  }, [loadTournament])
 
   if (loading) {
     return (
@@ -133,12 +130,11 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       await leaveTournament(tournament.id)
     } catch (requestError) {
       setWorking(false)
-      showErrorMessage(tPlayer(`errors.${(requestError as Error).message}`))
 
       return
     }
 
-    await loadDetail()
+    await loadTournament()
     setWorking(false)
   }
 
@@ -153,13 +149,12 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       await saveMatchResult(scoreMatch.id, score)
     } catch (requestError) {
       setWorking(false)
-      showErrorMessage(tPlayer(`errors.${(requestError as Error).message}`))
 
       return
     }
 
     setScoreMatch(null)
-    await loadDetail()
+    await loadTournament()
     setWorking(false)
   }
 

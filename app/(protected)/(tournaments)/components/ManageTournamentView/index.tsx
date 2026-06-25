@@ -36,7 +36,6 @@ import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDi
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { useNotifications } from '@/app/hooks/useNotifications'
 
 interface ManageTournamentViewProps {
   tournamentId: number
@@ -45,7 +44,6 @@ interface ManageTournamentViewProps {
 
 export default function ManageTournamentView({ tournamentId, appUrl }: ManageTournamentViewProps) {
   const t = useTranslations('tournaments')
-  const { showErrorMessage } = useNotifications()
   const tOrganizer = useTranslations('organizer')
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,17 +53,6 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   const { finishTournament, getTournament, saveMatchResult, startTournament } = useTournaments()
   const userId = useUserStore((state) => state.user?.id ?? null)
   const isOwner = tournament != null && userId != null && tournament.ownerId === userId
-  const loadDetail = useCallback(async () => {
-    const data = await getTournament(tournamentId)
-
-    setTournament(data)
-    setLoading(false)
-  }, [getTournament, tournamentId])
-
-  useEffect(() => {
-    loadDetail()
-  }, [loadDetail])
-
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
   const rounds = tournament?.rounds ?? []
   const categories = useMemo(() => tournament?.categories ?? [], [tournament])
@@ -78,6 +65,16 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
     () => new Map(categories.map((category) => [category.id, category.maxCompetitors])),
     [categories]
   )
+  const loadTournament = useCallback(async () => {
+    const data = await getTournament(tournamentId)
+
+    setTournament(data)
+    setLoading(false)
+  }, [getTournament, tournamentId])
+
+  useEffect(() => {
+    loadTournament()
+  }, [loadTournament])
 
   if (loading) {
     return (
@@ -119,12 +116,11 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
       await action()
     } catch (requestError) {
       setWorking(false)
-      showErrorMessage(tOrganizer(`errors.${(requestError as Error).message}`))
 
       return false
     }
 
-    await loadDetail()
+    await loadTournament()
     setWorking(false)
 
     return true
@@ -273,7 +269,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         onClose={() => setEditOpen(false)}
         onSaved={() => {
           setEditOpen(false)
-          loadDetail()
+          loadTournament()
         }}
       />
       <ScoreDialog
