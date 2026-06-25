@@ -6,7 +6,6 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
-import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 
@@ -130,10 +129,9 @@ export default function BracketView({
       (tournament.rounds ?? [])
         .filter(
           (r) =>
-            r.active &&
-            r.status === RoundStatus.OPEN &&
-            r.type === roundType &&
-            (category == null || r.tournamentCategoryId === category)
+            // Active rounds are editable: the current frontier plus any
+            // just-closed round still in its grace window.
+            r.active && r.type === roundType && (category == null || r.tournamentCategoryId === category)
         )
         .map((r) => r.id)
     )

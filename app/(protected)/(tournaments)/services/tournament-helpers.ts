@@ -194,6 +194,43 @@ async function setFrontier(tournamentCategoryIds: number[], roundNumber: number)
     .update({ active: true })
 }
 
+/**
+ * Activates the OPEN rounds sitting at the given frontier number WITHOUT
+ * deactivating anything else. Used to advance to the next round while keeping
+ * the round that just closed still active, so its results remain editable for a
+ * grace window (see closeRoundAndAdvance / expireEditableWindow).
+ */
+async function activateFrontier(tournamentCategoryIds: number[], roundNumber: number): Promise<void> {
+  if (tournamentCategoryIds.length === 0) {
+    return
+  }
+
+  await Round.query()
+    .whereIn('tournamentCategoryId', tournamentCategoryIds)
+    .where('number', roundNumber)
+    .where('status', RoundStatus.OPEN)
+    .update({ active: true })
+}
+
+/**
+ * Ends the editable grace window of every already-closed round that sits below
+ * the given round number. Called whenever a result is entered/edited in a round:
+ * once a later round starts receiving results, the previous (closed) rounds can
+ * no longer be corrected.
+ */
+async function expireEditableWindow(tournamentCategoryIds: number[], roundNumber: number): Promise<void> {
+  if (tournamentCategoryIds.length === 0) {
+    return
+  }
+
+  await Round.query()
+    .whereIn('tournamentCategoryId', tournamentCategoryIds)
+    .where('active', true)
+    .where('status', RoundStatus.CLOSED)
+    .where('number', '<', roundNumber)
+    .update({ active: false })
+}
+
 /** Deactivates every round (used when the tournament finishes). */
 async function deactivateAllRounds(tournamentCategoryIds: number[]): Promise<void> {
   if (tournamentCategoryIds.length === 0) {
@@ -974,7 +1011,12 @@ async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
 
     for (const round of frontierRounds) {
       round.status = RoundStatus.CLOSED
-      round.active = false
+      // Keep the round active (editable) as a grace window so a mistyped result
+      // can still be fixed, but only while it holds at least one real matchup —
+      // rounds made entirely of byes/walkovers have nothing to edit and are
+      // deactivated immediately. The window is closed by expireEditableWindow as
+      // soon as the next round receives its first result.
+      round.active = (round.matches ?? []).some((match) => match.awayCompetitorIds != null)
       await round.save()
     }
 
@@ -991,9 +1033,97 @@ async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
       return
     }
 
-    await setFrontier(tournamentCategoryIds, nextNumber)
+    // Activate the next round WITHOUT deactivating the round that just closed,
+    // so both stay open for input during the grace window.
+    await activateFrontier(tournamentCategoryIds, nextNumber)
     tournament.updatedAt = new Date()
     await tournament.save()
+  }
+}
+
+/**
+ * Deletes the downstream rounds (number >= fromNumber) of a single category
+ * instance and rebuilds the one at `fromNumber` from the (now corrected) data,
+ * leaving it active. Used after a result is edited in a closed round whose grace
+ * window is still open: the round(s) that were derived from it are dropped and
+ * regenerated so nobody advances by mistake.
+ *
+ * Safe to delete without checking results: a closed round is only editable while
+ * the round after it has not yet received any result (see expireEditableWindow),
+ * so everything from `fromNumber` onward is guaranteed to be resultless.
+ */
+async function rebuildRoundsFrom(
+  tournament: Tournament,
+  tournamentCategoryId: number,
+  fromNumber: number
+): Promise<void> {
+  const downstream = await Round.where('tournamentCategoryId', tournamentCategoryId)
+    .where('number', '>=', fromNumber)
+    .get()
+
+  if (downstream.length === 0) {
+    return
+  }
+
+  const downstreamIds = downstream.map((round) => round.id)
+  const matches = await Match.whereIn('roundId', downstreamIds).get()
+
+  for (const match of matches) {
+    await match.delete()
+  }
+
+  for (const round of downstream) {
+    await round.delete()
+  }
+
+  // Rebuild the first downstream round from the corrected standings/results. For
+  // knockouts this re-seeds the whole bracket; materializeRound is idempotent for
+  // any sibling category whose rounds were left untouched.
+  await materializeRound(tournament, fromNumber)
+  await activateFrontier(await getTournamentCategoryIds(tournament), fromNumber)
+}
+
+/**
+ * After a result is edited in an already-closed round (during its grace window),
+ * rebuilds the downstream rounds that were derived from it so a competitor that
+ * advanced by mistake is corrected.
+ *
+ * - League: the round-robin schedule is fixed and only standings change, so
+ *   there is nothing to rebuild.
+ * - Americano (and with swap): the next round's pairings depend on the standings,
+ *   so the (resultless) next round is dropped and regenerated.
+ * - Groups+playoff: editing a group-phase result can change who qualifies, so the
+ *   knockout bracket (seeded from the group standings) is rebuilt.
+ * - Playoff / consolation: winner propagation is handled by syncKnockoutNextRound.
+ */
+async function regenerateDownstreamRounds(tournament: Tournament, editedRound: Round): Promise<void> {
+  const settings = tournament.settings ?? {}
+
+  switch (tournament.type) {
+    case TournamentType.AMERICANO:
+
+    case TournamentType.AMERICANO_WITH_SWAP: {
+      await rebuildRoundsFrom(tournament, editedRound.tournamentCategoryId, editedRound.number + 1)
+      break
+    }
+
+    case TournamentType.GROUPS_PLAYOFF: {
+      const competitorCount = await Competitor.where('tournamentCategoryId', editedRound.tournamentCategoryId).count()
+      const groupPhaseRounds = getGroupPhaseRounds(settings, competitorCount)
+
+      // Only group-phase edits can change the knockout seeding. Knockout-phase
+      // edits propagate winners through syncKnockoutNextRound instead.
+      if (editedRound.number <= groupPhaseRounds) {
+        await rebuildRoundsFrom(tournament, editedRound.tournamentCategoryId, groupPhaseRounds + 1)
+      }
+
+      break
+    }
+
+    default:
+      // LEAGUE: fixed schedule. PLAYOFF / PLAYOFF_WITH_CONSOLATION: handled by
+      // syncKnockoutNextRound in progressTournamentAfterResult.
+      break
   }
 }
 
@@ -1010,6 +1140,11 @@ async function closeRoundAndAdvance(tournament: Tournament): Promise<void> {
  * - Groups+playoff group phase: behaves like a league; when the last group
  *   match is loaded the knockout phase is seeded from the group standings.
  *
+ * A just-completed round stays editable as a grace window (see
+ * closeRoundAndAdvance). When a result of such a closed round is edited, the
+ * rounds derived from it are rebuilt; loading a result into a later round ends
+ * every earlier round's grace window.
+ *
  * When the final round completes the tournament is marked as finished.
  */
 export async function progressTournamentAfterResult(tournament: Tournament, round: Round): Promise<void> {
@@ -1017,9 +1152,21 @@ export async function progressTournamentAfterResult(tournament: Tournament, roun
     return
   }
 
+  // The round was already closed → this is a correction made during its grace
+  // window, so rebuild whatever was derived from it.
+  const isEditOfClosedRound = round.status === RoundStatus.CLOSED
+
   if (isKnockoutType(round.type)) {
     await syncKnockoutNextRound(round)
   }
 
+  if (isEditOfClosedRound) {
+    await regenerateDownstreamRounds(tournament, round)
+  }
+
   await closeRoundAndAdvance(tournament)
+
+  // Entering/editing a result in this round ends the grace window of every
+  // earlier completed round.
+  await expireEditableWindow(await getTournamentCategoryIds(tournament), round.number)
 }

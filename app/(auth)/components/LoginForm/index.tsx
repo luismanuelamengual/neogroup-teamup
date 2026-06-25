@@ -92,7 +92,7 @@ export default function LoginForm({ callbackUrl }: LoginFormProps) {
           fullWidth
           autoComplete="current-password"
         />
-        <Button type="submit" variant="contained" fullWidth disabled={loading}>
+        <Button type="submit" variant="contained" fullWidth disabled={loading} loading={loading}>
           {t('signIn')}
         </Button>
       </form>

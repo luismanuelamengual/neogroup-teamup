@@ -2,7 +2,6 @@ import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
@@ -30,7 +29,9 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
 
   const round = match.round ?? null
 
-  if (!round || round.status !== RoundStatus.OPEN) {
+  // A round is editable while it is active: the current frontier, plus any
+  // just-completed round still inside its grace window (closed but active).
+  if (!round || !round.active) {
     throw new ApiException('roundClosed')
   }
 

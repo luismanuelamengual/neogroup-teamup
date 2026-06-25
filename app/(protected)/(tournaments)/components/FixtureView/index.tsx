@@ -60,8 +60,9 @@ export default function FixtureView({
       (tournament.rounds ?? [])
         .filter(
           (r) =>
+            // Active rounds are editable: the current frontier plus any
+            // just-closed round still in its grace window.
             r.active &&
-            r.status === RoundStatus.OPEN &&
             (r.settings?.groupNumber ?? null) === (groupNumber ?? null) &&
             (category == null || r.tournamentCategoryId === category)
         )

@@ -29,7 +29,6 @@ import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipli
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
@@ -57,7 +56,9 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     [competitors, userId]
   )
   const openCurrentRoundIds = useMemo(
-    () => new Set(rounds.filter((round) => round.active && round.status === RoundStatus.OPEN).map((round) => round.id)),
+    // Active rounds are editable: the current frontier plus any just-closed
+    // round still in its grace window.
+    () => new Set(rounds.filter((round) => round.active).map((round) => round.id)),
     [rounds]
   )
   const myMatches = useMemo(() => {
