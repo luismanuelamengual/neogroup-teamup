@@ -61,8 +61,10 @@
   }
 
   > .empty {
+    border-radius: 10px;
     text-align: center;
     padding: 48px 0;
+    border: 2px dashed #c7c7c7;
   }
 
   > .paginator {

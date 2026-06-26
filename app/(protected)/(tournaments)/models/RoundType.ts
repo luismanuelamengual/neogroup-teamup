@@ -3,18 +3,18 @@
  *
  * This replaces the former free-text `rounds.bracket` discriminator. A round's
  * parallel structure inside its category is identified by its type, together
- * with the optional `settings.groupNumber` stored in the round's JSONB settings:
+ * with the optional `groupNumber` stored in the round's JSONB settings:
  *
  *  - KNOCKOUT             → main knockout bracket (playoff, or the knockout
  *                           phase of a groups+playoff tournament)
  *  - KNOCKOUT_CONSOLATION → the consolation knockout bracket
  *  - LEAGUE               → a round-robin flow. A plain league has
- *                           settings.groupNumber = null; a group of a
+ *                           groupNumber = null; a group of a
  *                           groups+playoff tournament carries its group index
- *                           in settings.groupNumber.
+ *                           in groupNumber.
  *                           (A "group of a playoff" is just a league, so both
  *                           share this type — there is no separate value.)
- *  - AMERICANO            → an americano flow (settings.groupNumber = null)
+ *  - AMERICANO            → an americano flow (groupNumber = null)
  *
  * Spanish labels: KNOCKOUT = "Eliminatoria", KNOCKOUT_CONSOLATION =
  * "Eliminatoria Consuelo", LEAGUE = "Liga" / "Grupo de Eliminatoria",

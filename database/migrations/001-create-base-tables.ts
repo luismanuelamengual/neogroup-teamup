@@ -151,7 +151,7 @@ export default {
           number INTEGER NOT NULL,
           status INTEGER NOT NULL DEFAULT 1,
           type INTEGER NOT NULL,
-          settings ${JSON_TYPE},
+          groupNumber INTEGER,
           active ${BOOLEAN_FALSE},
           createdAt ${TIMESTAMP}
         )

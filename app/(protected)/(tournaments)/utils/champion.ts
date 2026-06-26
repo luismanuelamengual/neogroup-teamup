@@ -28,7 +28,7 @@ export function getPodiumCompetitorIds(tournament: Tournament, category: number 
     (round) =>
       (category == null || round.tournamentCategoryId === category) &&
       round.type === RoundType.KNOCKOUT &&
-      (round.settings?.groupNumber ?? null) === null
+      (round.groupNumber ?? null) === null
   )
 
   if (rounds.length === 0) {

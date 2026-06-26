@@ -1,4 +1,3 @@
-import { RoundSettings } from '@/app/(protected)/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 
@@ -9,7 +8,7 @@ export interface RoundDto {
   number: number
   status: RoundStatus
   type: RoundType
-  settings: RoundSettings | null
+  groupNumber: number | null
   active: boolean
   createdAt: string
 }

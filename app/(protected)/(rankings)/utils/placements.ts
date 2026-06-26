@@ -61,7 +61,7 @@ function computeBracketPlacements(
       (round) =>
         round.tournamentCategoryId === tournamentCategoryId &&
         round.type === roundType &&
-        (round.settings?.groupNumber ?? null) === null
+        (round.groupNumber ?? null) === null
     )
     .sort((a, b) => a.number - b.number)
 
