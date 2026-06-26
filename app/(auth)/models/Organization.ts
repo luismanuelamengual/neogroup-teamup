@@ -16,6 +16,14 @@ export class Organization extends BaseEntity {
   @Column()
   allowOrganizersCreation!: boolean
 
+  /**
+   * IANA timezone of the organization (e.g. "America/Argentina/Buenos_Aires").
+   * Used to interpret a tournament's startDate/startTime so the processTournaments
+   * cron starts each tournament at the organization's local scheduled time.
+   */
+  @Column()
+  timezone!: string
+
   @Column({ cast: 'date' })
   createdAt!: Date
 }

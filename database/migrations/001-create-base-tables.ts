@@ -37,6 +37,7 @@ export default {
           name VARCHAR(150) NOT NULL,
           domainName VARCHAR(100) NOT NULL UNIQUE,
           allowOrganizersCreation ${BOOLEAN_FALSE},
+          timezone VARCHAR(64) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
           createdAt ${TIMESTAMP}
         )
       `)

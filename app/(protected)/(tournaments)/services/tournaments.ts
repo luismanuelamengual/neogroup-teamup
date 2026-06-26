@@ -1,4 +1,5 @@
 import { DB } from '@neogroup/neorm'
+import { Organization } from '@/app/(auth)/models/Organization'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
@@ -171,30 +172,119 @@ export interface ProcessTournamentsResult {
 }
 
 /**
+ * Offset (timeZone − UTC) in milliseconds at the given instant. Uses the Intl
+ * API, so any IANA zone name works and DST is taken into account. Throws when the
+ * zone name is invalid.
+ */
+function timeZoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).formatToParts(instant)
+  const get = (type: string): number => Number(parts.find((part) => part.type === type)?.value)
+  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
+
+  return asUtc - instant.getTime()
+}
+
+/**
+ * Converts a wall-clock date/time ("YYYY-MM-DD" + "HH:mm") expressed in
+ * `timeZone` into the absolute UTC instant it represents. Falls back to
+ * interpreting the wall time as UTC when the zone name is invalid/unknown.
+ */
+function zonedWallTimeToInstant(dateStr: string, timeStr: string, timeZone: string): Date {
+  const naiveUtc = new Date(`${dateStr}T${timeStr}:00Z`)
+
+  if (Number.isNaN(naiveUtc.getTime())) {
+    return naiveUtc
+  }
+
+  try {
+    // Two passes so an offset that changes right around the instant (DST edges)
+    // still resolves to the correct UTC moment.
+    let offset = timeZoneOffsetMs(naiveUtc, timeZone)
+
+    offset = timeZoneOffsetMs(new Date(naiveUtc.getTime() - offset), timeZone)
+
+    return new Date(naiveUtc.getTime() - offset)
+  } catch {
+    return naiveUtc
+  }
+}
+
+/**
+ * Whether a STAND_BY tournament's scheduled start instant has arrived, evaluated
+ * in the organization's `timeZone`.
+ *
+ * - No startTime set → due at the start of its start day (00:00) in the org's
+ *   timezone, so it never starts before the organization's calendar day begins.
+ * - startTime ("HH:mm") set → the full local start instant (startDate at startTime
+ *   in the org's timezone) must be now or in the past, so a tournament scheduled
+ *   for later today is NOT started ahead of its time.
+ *
+ * `timeZone` is an IANA name (e.g. "America/Argentina/Buenos_Aires"); an
+ * unknown/empty value is treated as UTC.
+ */
+export function isTournamentStartDue(tournament: Tournament, timeZone = 'UTC', now: Date = new Date()): boolean {
+  const time = tournament.startTime ?? '00:00'
+  const startAt = zonedWallTimeToInstant(tournament.startDate, time, timeZone || 'UTC')
+
+  // Unparseable startDate/startTime → don't block the start (date prefilter decided).
+  if (Number.isNaN(startAt.getTime())) {
+    return true
+  }
+
+  return startAt.getTime() <= now.getTime()
+}
+
+/** Maps each organization id to its configured IANA timezone (UTC when unset). */
+async function loadOrganizationTimezones(): Promise<Map<number, string>> {
+  const organizations = await Organization.get()
+
+  return new Map(organizations.map((organization) => [organization.id, organization.timezone || 'UTC']))
+}
+
+/**
  * Processes all tournaments across every organization:
- *  1. Starts every STAND_BY tournament whose startDate is today or in the past.
+ *  1. Starts every STAND_BY tournament whose scheduled start (startDate, and
+ *     startTime when set) is now or in the past.
  *  2. Finishes every ONGOING tournament that has all rounds and matches completed.
  *
- * Intended to be called by the Vercel Cron Job endpoint.
+ * Intended to be called by the Vercel Cron Job endpoint. `now` is injectable for
+ * testing; it defaults to the current instant.
  */
-export async function processTournaments(): Promise<ProcessTournamentsResult> {
+export async function processTournaments(now: Date = new Date()): Promise<ProcessTournamentsResult> {
   const result: ProcessTournamentsResult = {
     started: [],
     startErrors: [],
     finished: [],
     finishedErrors: []
   }
-  const today = new Date()
-
-  today.setHours(0, 0, 0, 0)
-  const todayStr = today.toISOString().slice(0, 10)
-  // ── 1. Start overdue STAND_BY tournaments ────────────────────────────────
+  // Prefilter by date with a one-day margin (in UTC) so no organization timezone
+  // can hide a tournament that is actually due at a date boundary; the precise
+  // decision — including startTime and the org timezone — is made per tournament
+  // by isTournamentStartDue.
+  const cutoffStr = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  // ── 1. Start due STAND_BY tournaments ─────────────────────────────────────
   const standByTournaments = await Tournament.withoutGlobalScopes()
     .where('status', TournamentStatus.STAND_BY)
-    .where('startDate', '<=', todayStr)
+    .where('startDate', '<=', cutoffStr)
     .get()
+  const timezonesByOrg = await loadOrganizationTimezones()
 
   for (const tournament of standByTournaments) {
+    const timeZone = timezonesByOrg.get(tournament.organizationId) ?? 'UTC'
+
+    if (!isTournamentStartDue(tournament, timeZone, now)) {
+      continue
+    }
+
     try {
       await startTournament(tournament)
       result.started.push(tournament.id)
