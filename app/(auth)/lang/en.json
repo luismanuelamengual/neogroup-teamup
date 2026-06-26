@@ -24,13 +24,26 @@
     "verifyEmailSuccess": "Your email has been verified. You can now sign in.",
     "verifyEmailInvalidToken": "The verification link is invalid. Please register again.",
     "verifyEmailExpiredToken": "The verification link has expired. Please register again.",
+    "forgotPassword": "Forgot your password?",
+    "forgotPasswordTitle": "Reset password",
+    "forgotPasswordSubtitle": "Enter your email and we'll send you a link to reset your password.",
+    "forgotPasswordSubmit": "Send link",
+    "forgotPasswordSent": "If an account exists for {email}, you'll receive an email with instructions to reset your password.",
+    "resetPasswordTitle": "New password",
+    "resetPasswordSubmit": "Save password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "passwordResetSuccess": "Your password has been updated. You can now sign in.",
     "errors": {
       "invalidCredentials": "Invalid email or password",
       "invalidEmail": "The email is not valid",
       "passwordTooShort": "Password must be at least 6 characters long",
+      "passwordMismatch": "Passwords do not match",
       "missingFields": "Please fill in all required fields",
       "emailAlreadyRegistered": "An account with that email already exists",
-      "invalidRole": "The selected role is not valid"
+      "invalidRole": "The selected role is not valid",
+      "invalidToken": "The link is invalid or has already been used.",
+      "expiredToken": "The link has expired. Please request a new one."
     }
   },
   "roleSelect": {

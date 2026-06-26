@@ -84,6 +84,16 @@ export default {
         )
       `)
 
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id ${ID},
+          userId INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+          token VARCHAR(255) NOT NULL UNIQUE,
+          expiresAt ${TIMESTAMP},
+          createdAt ${TIMESTAMP}
+        )
+      `)
+
       // Catalogue of categories, scoped to an organization and a
       // discipline/subDiscipline. Tournaments materialise these into concrete
       // tournament_categories instances (see below); competitors, rounds and
@@ -232,6 +242,7 @@ export default {
         )
       `)
 
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens (userId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_organization ON users (organizationId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_categories_lookup ON categories (organizationId, discipline)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_organization ON tournaments (organizationId)')
