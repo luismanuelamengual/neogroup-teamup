@@ -4,7 +4,7 @@ import LoginForm from '@/app/(auth)/components/LoginForm'
 import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
 import { Organization } from '@/app/(auth)/models/Organization'
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string; verified?: string }> }) {
   const headersList = await headers()
   const orgDomain = headersList.get('x-org-domain') ?? ''
 
@@ -20,7 +20,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     return <OrgNotFound orgDomain={orgDomain} />
   }
 
-  const { callbackUrl } = await searchParams
+  const { callbackUrl, verified } = await searchParams
 
-  return <LoginForm callbackUrl={callbackUrl ?? null} />
+  return <LoginForm callbackUrl={callbackUrl ?? null} verified={verified === '1'} />
 }

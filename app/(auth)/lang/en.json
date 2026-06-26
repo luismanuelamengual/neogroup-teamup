@@ -18,6 +18,12 @@
     "roleLabel": "I want to use TeamUp as",
     "rolePlayer": "Player",
     "roleOrganizer": "Organizer",
+    "verifyEmailTitle": "Verify your email",
+    "verifyEmailSent": "We sent a verification link to {email}. Please check your inbox and click the link to activate your account.",
+    "verifyEmailPending": "Check your inbox and click the verification link to activate your account.",
+    "verifyEmailSuccess": "Your email has been verified. You can now sign in.",
+    "verifyEmailInvalidToken": "The verification link is invalid. Please register again.",
+    "verifyEmailExpiredToken": "The verification link has expired. Please register again.",
     "errors": {
       "invalidCredentials": "Invalid email or password",
       "invalidEmail": "The email is not valid",

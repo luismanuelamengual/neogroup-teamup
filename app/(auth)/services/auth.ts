@@ -59,6 +59,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
+        if (!user.emailVerified) {
+          return null
+        }
+
         return { id: String(user.id), email: user.email }
       }
     })
@@ -89,6 +93,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             dbUser.lastName = (profile?.family_name as string | undefined) ?? null
             dbUser.nickname = null
             dbUser.roleId = null
+            dbUser.emailVerified = true
             await dbUser.save()
           }
 

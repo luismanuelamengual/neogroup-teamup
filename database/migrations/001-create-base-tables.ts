@@ -56,8 +56,19 @@ export default {
           nickname VARCHAR(100),
           phoneNumber VARCHAR(50),
           roleId INTEGER,
+          emailVerified ${BOOLEAN_FALSE},
           createdAt ${TIMESTAMP},
           UNIQUE (organizationId, email)
+        )
+      `)
+
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS email_verification_tokens (
+          id ${ID},
+          userId INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+          token VARCHAR(255) NOT NULL UNIQUE,
+          expiresAt ${TIMESTAMP},
+          createdAt ${TIMESTAMP}
         )
       `)
 

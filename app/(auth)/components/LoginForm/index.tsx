@@ -16,9 +16,10 @@ import { FormEvent, useState } from 'react'
 
 interface LoginFormProps {
   callbackUrl: string | null
+  verified?: boolean
 }
 
-export default function LoginForm({ callbackUrl }: LoginFormProps) {
+export default function LoginForm({ callbackUrl, verified }: LoginFormProps) {
   const t = useTranslations('auth')
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -73,6 +74,7 @@ export default function LoginForm({ callbackUrl }: LoginFormProps) {
       </Button>
       <Divider className="divider">{t('or')}</Divider>
       <form onSubmit={handleSubmit} className="form">
+        {verified && <Alert severity="success">{t('verifyEmailSuccess')}</Alert>}
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label={t('email')}

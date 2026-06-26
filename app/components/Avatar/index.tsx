@@ -36,7 +36,9 @@ const PALETTE = [
 ]
 
 async function computeGravatarHash(email: string): Promise<string> {
-  const normalized = email.trim().toLowerCase()
+  const raw = email.trim().toLowerCase()
+  const atIndex = raw.lastIndexOf('@')
+  const normalized = atIndex !== -1 ? raw.slice(0, atIndex).replace(/\+.*$/, '') + raw.slice(atIndex) : raw
   const buffer = new TextEncoder().encode(normalized)
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
 

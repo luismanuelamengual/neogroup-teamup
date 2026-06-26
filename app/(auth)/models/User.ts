@@ -34,6 +34,10 @@ export class User extends BaseEntity {
   @Column()
   roleId!: Role | null
 
+  /** True when the user verified their email address. Always true for Google-authenticated users. */
+  @Column({ cast: 'boolean' })
+  emailVerified!: boolean
+
   @Column({ cast: 'date' })
   createdAt!: Date
 

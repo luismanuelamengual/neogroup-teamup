@@ -10,8 +10,6 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { signIn } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
 import { useAuth } from '@/app/(auth)/hooks/useAuth'
@@ -24,7 +22,6 @@ interface RegisterFormProps {
 export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
   const { registerUser } = useAuth()
   const t = useTranslations('auth')
-  const router = useRouter()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -33,7 +30,7 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
   const [roleId, setRoleId] = useState<Role>(Role.PLAYER)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const targetUrl = callbackUrl ? `/?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/'
+  const [registered, setRegistered] = useState(false)
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -49,13 +46,27 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
       return
     }
 
-    await signIn('credentials', {
-      email,
-      password,
-      redirect: false
-    })
-    router.push(targetUrl)
-    router.refresh()
+    setLoading(false)
+    setRegistered(true)
+  }
+
+  if (registered) {
+    return (
+      <div className="register-form">
+        <Typography variant="h5" component="h1" className="title">
+          {t('verifyEmailTitle')}
+        </Typography>
+        <Alert severity="success" sx={{ mt: 2 }}>
+          {t('verifyEmailSent', { email })}
+        </Alert>
+        <Typography variant="body2" className="footer" sx={{ mt: 2 }}>
+          {t('haveAccount')}{' '}
+          <Link href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>
+            {t('signIn')}
+          </Link>
+        </Typography>
+      </div>
+    )
   }
 
   return (
