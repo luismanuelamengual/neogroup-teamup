@@ -17,9 +17,10 @@ import { Role } from '@/app/(auth)/models/Role'
 
 interface RegisterFormProps {
   callbackUrl: string | null
+  allowOrganizersCreation: boolean
 }
 
-export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
+export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: RegisterFormProps) {
   const { registerUser } = useAuth()
   const t = useTranslations('auth')
   const [firstName, setFirstName] = useState('')
@@ -116,30 +117,32 @@ export default function RegisterForm({ callbackUrl }: RegisterFormProps) {
           fullWidth
           autoComplete="new-password"
         />
-        <div className="role">
-          <Typography variant="body2" color="text.secondary">
-            {t('roleLabel')}
-          </Typography>
-          <ToggleButtonGroup
-            exclusive
-            fullWidth
-            value={roleId}
-            onChange={(_, value: Role | null) => {
-              if (value) {
-                setRoleId(value)
-              }
-            }}
-          >
-            <ToggleButton value={Role.PLAYER}>
-              <SportsTennisIcon fontSize="small" sx={{ mr: 1 }} />
-              {t('rolePlayer')}
-            </ToggleButton>
-            <ToggleButton value={Role.ORGANIZER}>
-              <EmojiEventsIcon fontSize="small" sx={{ mr: 1 }} />
-              {t('roleOrganizer')}
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </div>
+        {allowOrganizersCreation && (
+          <div className="role">
+            <Typography variant="body2" color="text.secondary">
+              {t('roleLabel')}
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              value={roleId}
+              onChange={(_, value: Role | null) => {
+                if (value) {
+                  setRoleId(value)
+                }
+              }}
+            >
+              <ToggleButton value={Role.PLAYER}>
+                <SportsTennisIcon fontSize="small" sx={{ mr: 1 }} />
+                {t('rolePlayer')}
+              </ToggleButton>
+              <ToggleButton value={Role.ORGANIZER}>
+                <EmojiEventsIcon fontSize="small" sx={{ mr: 1 }} />
+                {t('roleOrganizer')}
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </div>
+        )}
         <Button type="submit" variant="contained" fullWidth loading={loading} disabled={loading}>
           {t('createAccount')}
         </Button>

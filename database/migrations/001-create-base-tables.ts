@@ -36,14 +36,25 @@ export default {
           id ${ID},
           name VARCHAR(150) NOT NULL,
           domainName VARCHAR(100) NOT NULL UNIQUE,
+          allowOrganizersCreation ${BOOLEAN_FALSE},
           createdAt ${TIMESTAMP}
         )
       `)
 
       // Seed the three initial organizations.
-      await conn.execute(`INSERT INTO organizations (name, domainName) VALUES ('Demo', 'demo')`)
-      await conn.execute(`INSERT INTO organizations (name, domainName) VALUES ('Club Alemán', 'club-aleman')`)
-      await conn.execute(`INSERT INTO organizations (name, domainName) VALUES ('Punto Deporte', 'punto-deporte')`)
+      // org 1 & 2: organizers can self-register; org 3: players only (organizers created manually).
+      const TRUE_VAL = IS_SQLITE ? '1' : 'TRUE'
+      const FALSE_VAL = IS_SQLITE ? '0' : 'FALSE'
+
+      await conn.execute(
+        `INSERT INTO organizations (name, domainName, allowOrganizersCreation) VALUES ('Demo', 'demo', ${TRUE_VAL})`
+      )
+      await conn.execute(
+        `INSERT INTO organizations (name, domainName, allowOrganizersCreation) VALUES ('Club Alemán', 'club-aleman', ${TRUE_VAL})`
+      )
+      await conn.execute(
+        `INSERT INTO organizations (name, domainName, allowOrganizersCreation) VALUES ('Punto Deporte', 'punto-deporte', ${FALSE_VAL})`
+      )
 
       await conn.execute(`
         CREATE TABLE IF NOT EXISTS users (

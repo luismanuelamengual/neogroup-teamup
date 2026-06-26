@@ -22,5 +22,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
 
   const { callbackUrl } = await searchParams
 
-  return <RegisterForm callbackUrl={callbackUrl ?? null} />
+  return (
+    <RegisterForm callbackUrl={callbackUrl ?? null} allowOrganizersCreation={organization.allowOrganizersCreation} />
+  )
 }

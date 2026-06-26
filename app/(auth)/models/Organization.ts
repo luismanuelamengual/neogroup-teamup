@@ -12,6 +12,10 @@ export class Organization extends BaseEntity {
   @Column()
   domainName!: string
 
+  /** When true, users can self-register with the "organizer" role. When false, all self-registered users become players. */
+  @Column()
+  allowOrganizersCreation!: boolean
+
   @Column({ cast: 'date' })
   createdAt!: Date
 }
