@@ -120,7 +120,7 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
 
     // Q4b: rounds belonging to those finished categories
     DB.table('rounds')
-      .select('id', 'tournamentCategoryId', 'number', 'type', 'status', 'settings', 'active')
+      .select('id', 'tournamentCategoryId', 'number', 'type', 'status', 'groupNumber', 'active')
       .where('tournamentCategoryId', 'IN', finishedPlayerCategoryIds)
       .get(),
 
@@ -183,12 +183,6 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
 
   for (const row of podiumRoundRows) {
     const catId = Number(row.tournamentcategoryid)
-    const settings =
-      row.settings != null
-        ? typeof row.settings === 'string'
-          ? JSON.parse(row.settings as string)
-          : row.settings
-        : null
 
     if (!roundsByCategory.has(catId)) {
       roundsByCategory.set(catId, [])
@@ -201,7 +195,7 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
       type: Number(row.type),
       status: Number(row.status),
       active: Boolean(row.active),
-      settings
+      groupNumber: row.groupnumber != null ? Number(row.groupnumber) : null
     })
   }
 
