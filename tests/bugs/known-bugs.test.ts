@@ -13,6 +13,7 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import {
   buildTournament,
+  finalizeIfComplete,
   getMatches,
   getPendingActiveMatches,
   getRounds,
@@ -182,6 +183,9 @@ describe('REGRESSION #4 — single-group groups+playoff must not replay the same
     }
 
     expect(realMatches).toBe(1)
+
+    // Loading the last match no longer finishes the tournament; the cron does.
+    await finalizeIfComplete(built.tournament.id)
     expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
   })
 })

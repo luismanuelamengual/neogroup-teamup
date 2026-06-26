@@ -8,6 +8,7 @@ import { getChampionCompetitorId } from '@/app/(protected)/(tournaments)/utils/c
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
 import {
   buildTournament,
+  finalizeIfComplete,
   getAllMatches,
   getPendingActiveMatches,
   getTournamentStatus,
@@ -33,6 +34,10 @@ async function resolveAll(built: { tournament: { id: number; scoreFormat: ScoreF
       await setResult(match.id, score)
     }
   }
+
+  // Loading the last match no longer finishes the tournament — finalise it the
+  // way the processTournaments cron would once nothing is left to play.
+  await finalizeIfComplete(built.tournament.id)
 }
 
 describe('walkovers', () => {

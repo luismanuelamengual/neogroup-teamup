@@ -1,7 +1,12 @@
+import { DB } from '@neogroup/neorm'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { createRound, isTournamentComplete } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import {
+  createRound,
+  deactivateTournamentRounds,
+  isTournamentComplete
+} from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import {
   autoAssignPreclassification,
   supportsPreclassification
@@ -88,55 +93,68 @@ export async function startTournament(tournament: Tournament): Promise<void> {
     throw new ApiException('invalidStatus')
   }
 
-  // Remove real category instances that have no registered competitors.
-  // The single category (categoryId = null) is always kept.
-  const categories = await TournamentCategory.where('tournamentId', tournament.id).get()
-  const realCategories = categories.filter((category) => category.categoryId != null)
-  const allCompetitors = await Competitor.whereIn(
-    'tournamentCategoryId',
-    categories.map((category) => category.id)
-  ).get()
+  // Everything that mutates the database is wrapped in a single transaction so the
+  // whole start operation is atomic: if anything fails (or the serverless
+  // function is killed mid-way, e.g. the Vercel cron 10s timeout), nothing is
+  // committed and the tournament is left untouched in STAND_BY instead of in a
+  // half-initialised state.
+  await DB.transaction(async () => {
+    // Remove real category instances that have no registered competitors.
+    // The single category (categoryId = null) is always kept.
+    const categories = await TournamentCategory.where('tournamentId', tournament.id).get()
+    const realCategories = categories.filter((category) => category.categoryId != null)
+    const allCompetitors = await Competitor.whereIn(
+      'tournamentCategoryId',
+      categories.map((category) => category.id)
+    ).get()
 
-  if (realCategories.length > 0) {
-    const usedCategoryIds = new Set(allCompetitors.map((c) => c.tournamentCategoryId))
+    if (realCategories.length > 0) {
+      const usedCategoryIds = new Set(allCompetitors.map((c) => c.tournamentCategoryId))
 
-    for (const category of realCategories) {
-      if (!usedCategoryIds.has(category.id)) {
-        await category.delete()
+      for (const category of realCategories) {
+        if (!usedCategoryIds.has(category.id)) {
+          await category.delete()
+        }
       }
     }
-  }
 
-  // Auto-assign preclassification seeds from ranking when the tournament type
-  // supports it (Playoff, Groups+Playoff, Playoff with consolation).
-  if (supportsPreclassification(tournament.type)) {
-    await autoAssignPreclassification(allCompetitors, tournament.organizationId)
-  }
+    // Auto-assign preclassification seeds from ranking when the tournament type
+    // supports it (Playoff, Groups+Playoff, Playoff with consolation).
+    if (supportsPreclassification(tournament.type)) {
+      await autoAssignPreclassification(allCompetitors, tournament.organizationId)
+    }
 
-  tournament.status = TournamentStatus.ONGOING
-  await createRound(tournament, 1)
-  await tournament.save()
+    tournament.status = TournamentStatus.ONGOING
+    await createRound(tournament, 1)
+    await tournament.save()
+  })
 }
 
 /**
- * Finalises a tournament: marks it as finished and awards ranking points.
- * Analogous to startTournament but for the ONGOING → FINISHED transition.
+ * Finalises a tournament: marks it as finished, deactivates every (grace-window)
+ * round and awards ranking points. Analogous to startTournament but for the
+ * ONGOING → FINISHED transition.
+ *
+ * The whole operation runs in a single transaction so it is atomic: status
+ * change, round deactivation and ranking awards are committed together or not at
+ * all. This matters because finalisation can be triggered by the processTournaments
+ * cron, whose 10s timeout on Vercel's Hobby plan could otherwise interrupt it and
+ * leave the tournament FINISHED with only some of its ranking points awarded. If
+ * the transaction is rolled back the tournament stays ONGOING, so the next cron
+ * run simply retries it cleanly.
  */
 export async function finishTournament(tournament: Tournament): Promise<void> {
   if (tournament.status !== TournamentStatus.ONGOING) {
     throw new ApiException('invalidStatus')
   }
 
-  tournament.status = TournamentStatus.FINISHED
-  tournament.updatedAt = new Date()
-  await tournament.save()
-
-  try {
+  await DB.transaction(async () => {
+    tournament.status = TournamentStatus.FINISHED
+    tournament.updatedAt = new Date()
+    await tournament.save()
+    await deactivateTournamentRounds(tournament)
     await awardRankingPoints(tournament.id)
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error(`[finishTournament] Failed to award ranking points for tournament ${tournament.id}:`, error)
-  }
+  })
 }
 
 export async function deleteTournament(tournament: Tournament): Promise<boolean> {

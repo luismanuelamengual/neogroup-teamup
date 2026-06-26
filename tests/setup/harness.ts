@@ -26,8 +26,11 @@ import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
-import { startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
+import {
+  isTournamentComplete,
+  progressTournamentAfterResult
+} from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
 
 const TABLES = [
@@ -206,6 +209,21 @@ export async function reloadTournament(id: number): Promise<Tournament> {
 /** Starts the tournament through the real service (assigns seeds, builds round 1). */
 export async function start(built: BuiltTournament): Promise<void> {
   await startTournament(built.tournament)
+}
+
+/**
+ * Finalises a tournament the same way the processTournaments cron does: if every
+ * round is closed with no pending match, it is finished (status FINISHED + ranking
+ * points awarded). A tournament is no longer finished automatically when its last
+ * match is loaded, so tests that expect a FINISHED tournament call this once the
+ * play is over.
+ */
+export async function finalizeIfComplete(tournamentId: number): Promise<void> {
+  const tournament = await Tournament.withoutGlobalScopes().where('id', tournamentId).first()
+
+  if (tournament && (await isTournamentComplete(tournament))) {
+    await finishTournament(tournament)
+  }
 }
 
 export interface SetResultError extends Error {
@@ -390,6 +408,9 @@ export async function playToCompletion(
     const pending = await getPendingActiveMatches(built.categoryIds)
 
     if (pending.length === 0) {
+      // Nothing left to play → finalise it the way the cron would, then stop.
+      await finalizeIfComplete(built.tournament.id)
+
       const stillStatus = await getTournamentStatus(built.tournament.id)
 
       if (stillStatus === TournamentStatus.FINISHED) {

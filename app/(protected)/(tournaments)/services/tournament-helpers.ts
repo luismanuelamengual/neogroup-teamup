@@ -348,6 +348,17 @@ async function deactivateAllRounds(tournamentCategoryIds: number[]): Promise<voi
 }
 
 /**
+ * Deactivates every (grace-window) round of a tournament. Called by
+ * finishTournament so that, once the tournament is finalised, no round is left
+ * active/editable. The tournament is no longer finished automatically when its
+ * last match is loaded — finalisation is now an explicit step (organizer action
+ * or the processTournaments cron).
+ */
+export async function deactivateTournamentRounds(tournament: Tournament): Promise<void> {
+  await deactivateAllRounds(await getTournamentCategoryIds(tournament))
+}
+
+/**
  * Creates a full knockout bracket up to the final: round 1 is seeded from
  * `seededIds` (top seeds get the byes) and every later round is materialised as
  * empty "to be defined" matches. Known winners (byes) are then propagated
@@ -1387,32 +1398,6 @@ async function maybeStartConsolation(tournament: Tournament, tournamentCategoryI
 }
 
 /**
- * Marks the tournament finished once nothing is left to play. The advance loop
- * has already settled, so an OPEN active round anywhere means a lane is still
- * waiting for results; when none remain, every lane has reached its closed final
- * round and the tournament is over.
- */
-async function finishTournamentIfComplete(tournament: Tournament, categories: TournamentCategory[]): Promise<void> {
-  const tournamentCategoryIds = categories.map((category) => category.id)
-
-  if (tournamentCategoryIds.length === 0) {
-    return
-  }
-
-  const rounds = await Round.whereIn('tournamentCategoryId', tournamentCategoryIds).get()
-  const stillPlaying = rounds.some((round) => round.status === RoundStatus.OPEN && round.active)
-
-  if (stillPlaying) {
-    return
-  }
-
-  tournament.status = TournamentStatus.FINISHED
-  tournament.updatedAt = new Date()
-  await tournament.save()
-  await deactivateAllRounds(tournamentCategoryIds)
-}
-
-/**
  * Drives the whole tournament forward after a result is saved/edited. Every lane
  * — each category, each group of the group phase, the main and consolation
  * brackets — advances on its own schedule, so one can be in the semifinals while
@@ -1457,7 +1442,10 @@ async function advanceTournament(tournament: Tournament): Promise<void> {
     }
   }
 
-  await finishTournamentIfComplete(tournament, categories)
+  // NOTE: the tournament is intentionally NOT finished here anymore. Loading the
+  // last match leaves it ONGOING so a wrong final result can still be corrected.
+  // Finalisation happens explicitly via finishTournament (organizer button) or
+  // the processTournaments cron once isTournamentComplete() is true.
 }
 
 /**
