@@ -125,6 +125,7 @@ export default function EditTournamentDialog({
             value={startTime}
             onChange={(value) => setStartTime(value)}
             slotProps={{ textField: { fullWidth: true } }}
+            ampm={false}
           />
         </LocalizationProvider>
       </DialogContent>

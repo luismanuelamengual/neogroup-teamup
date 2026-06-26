@@ -269,6 +269,7 @@ export default function TournamentForm() {
                 value={startTime}
                 onChange={(value) => setStartTime(value)}
                 slotProps={{ textField: { fullWidth: true } }}
+                ampm={false}
               />
             </div>
           </LocalizationProvider>

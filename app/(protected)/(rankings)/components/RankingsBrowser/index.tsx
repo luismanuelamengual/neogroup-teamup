@@ -6,6 +6,7 @@ import Pagination from '@mui/material/Pagination'
 import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import classNames from 'classnames'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
@@ -135,7 +136,7 @@ export default function RankingsBrowser() {
           {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="ranking-row skeleton">
               <Skeleton variant="text" width={28} />
-              <Skeleton variant="circular" width={40} height={40} />
+              <Skeleton variant="circular" width={45} height={45} />
               <Skeleton variant="text" className="grow" />
               <Skeleton variant="text" width={48} />
             </div>
@@ -147,7 +148,11 @@ export default function RankingsBrowser() {
         </Typography>
       ) : (
         <>
-          <div className="list">
+          <div
+            className={classNames('list', {
+              'list-colored': page == 1
+            })}
+          >
             {entries.map((entry, index) => {
               const position = (page - 1) * PAGE_SIZE + index + 1
 

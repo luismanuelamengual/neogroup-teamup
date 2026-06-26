@@ -231,6 +231,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
   organizer.nickname = null
   organizer.phoneNumber = randomPhone()
   organizer.roleId = Role.ORGANIZER
+  organizer.emailVerified = true
   await organizer.save()
 
   if (organizer.id !== 1) {
@@ -249,6 +250,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
     player.phoneNumber = randomPhone()
     player.passwordHash = passwordHash
     player.roleId = Role.PLAYER
+    player.emailVerified = true
     // Temporary placeholder — replaced with "demo{id}" once we know the id.
     player.email = `seed_placeholder_${Date.now()}_${i}`
     await player.save()
