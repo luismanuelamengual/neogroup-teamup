@@ -35,7 +35,7 @@ export default function FixtureView({
     const filtered = all.filter(
       (r) =>
         (category == null || r.tournamentCategoryId === category) &&
-        (r.settings?.groupNumber ?? null) === (groupNumber ?? null) &&
+        (r.groupNumber ?? null) === (groupNumber ?? null) &&
         (r.type === RoundType.LEAGUE || r.type === RoundType.AMERICANO)
     )
 
@@ -63,7 +63,7 @@ export default function FixtureView({
             // Active rounds are editable: the current frontier plus any
             // just-closed round still in its grace window.
             r.active &&
-            (r.settings?.groupNumber ?? null) === (groupNumber ?? null) &&
+            (r.groupNumber ?? null) === (groupNumber ?? null) &&
             (category == null || r.tournamentCategoryId === category)
         )
         .map((r) => r.id)
