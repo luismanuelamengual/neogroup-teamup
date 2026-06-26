@@ -37,6 +37,18 @@
     font-size: 13px;
   }
 
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .category-section {
+    flex-direction: column;
+    gap: 12px;
+    display: flex;
+  }
+
   .footer {
     display: flex;
     align-items: center;

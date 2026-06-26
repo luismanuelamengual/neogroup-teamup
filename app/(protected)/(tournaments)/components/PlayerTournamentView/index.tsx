@@ -20,6 +20,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
+import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
@@ -43,6 +44,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const { getTournament, leaveTournament, saveMatchResult } = useTournaments()
   const t = useTranslations('tournaments')
   const tPlayer = useTranslations('player')
+  const tOrganizer = useTranslations('organizer')
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
@@ -77,6 +79,10 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const categoryKeys = useMemo<number[]>(() => categories.map((category) => category.id), [categories])
   const categoryNameById = useMemo(
     () => new Map(categories.map((category) => [category.id, category.category?.name ?? null])),
+    [categories]
+  )
+  const maxByCategory = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.maxCompetitors])),
     [categories]
   )
   const loadTournament = useCallback(async () => {
@@ -115,9 +121,10 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   }
 
   const categoryGroups = categoryKeys.map((key) => {
+    const groupCompetitors = competitors.filter((competitor) => competitor.tournamentCategoryId === key)
     const groupRounds = rounds.filter((round) => round.tournamentCategoryId === key)
 
-    return { key, groupRounds }
+    return { key, groupCompetitors, groupRounds }
   })
 
   const handleLeave = async () => {
@@ -231,17 +238,34 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         </Paper>
       )}
 
-      {categoryGroups.map(({ key, groupRounds }) => (
+      {categoryGroups.map(({ key, groupCompetitors, groupRounds }) => (
         <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
           <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
-            <Typography variant="h6" className="category-title">
-              {categoryNameById.get(key) ?? t('uniqueCategory')}
-            </Typography>
+            <div className="category-header">
+              <Typography variant="h6" className="category-title">
+                {categoryNameById.get(key) ?? t('uniqueCategory')}
+              </Typography>
+              <Chip
+                size="small"
+                label={`${groupCompetitors.length} / ${maxByCategory.get(key)}`}
+                color="primary"
+                variant="outlined"
+              />
+            </div>
           </AccordionSummary>
           <Divider />
           <AccordionDetails className="category-details">
+            <div className="category-section">
+              <Typography variant="subtitle1" className="section-title">
+                {tOrganizer('manage.registeredCompetitors')}
+              </Typography>
+              <CompetitorsList tournament={tournament} category={key} />
+            </div>
             {groupRounds.length > 0 && (
-              <TournamentRoundsView tournament={tournament} category={key} onEditMatch={setScoreMatch} />
+              <>
+                <Divider />
+                <TournamentRoundsView tournament={tournament} category={key} onEditMatch={setScoreMatch} />
+              </>
             )}
           </AccordionDetails>
         </Accordion>
