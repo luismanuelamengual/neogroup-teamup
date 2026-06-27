@@ -70,7 +70,6 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
     const rounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.KNOCKOUT)
     const round1 = rounds.find((r) => r.number === 1)!
     const round1Matches = await getMatches(round1.id)
-
     // Resolve round 1 (home wins) to know who the losers are.
     const { setResult, homeWinScore } = await import('@/tests/setup/harness')
     const expectedLosers: number[] = []

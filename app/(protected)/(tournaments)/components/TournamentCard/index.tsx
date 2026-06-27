@@ -7,11 +7,15 @@ import PlaceIcon from '@mui/icons-material/Place'
 import Paper from '@mui/material/Paper'
 import MuiSkeleton from '@mui/material/Skeleton'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import {
+  DISCIPLINE_LABELS,
+  SUB_DISCIPLINE_LABELS,
+  TOURNAMENT_TYPE_LABELS
+} from '@/app/(protected)/(tournaments)/utils/labels'
 import { TournamentDto } from '../../models/TournamentDto'
 
 interface TournamentCardProps {
@@ -20,7 +24,6 @@ interface TournamentCardProps {
 
 export default function TournamentCard({ tournament }: TournamentCardProps) {
   const router = useRouter()
-  const t = useTranslations('tournaments')
 
   const handleClick = async () => {
     router.push(`/tournaments/${tournament.id}`)
@@ -37,11 +40,18 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         <StatusChip status={tournament.status} />
       </div>
       <div className="tags">
-        <span className="tag">{t(`discipline.${DisciplineNames[tournament.discipline]}`)}</span>
+        <span className="tag">
+          {DISCIPLINE_LABELS[DisciplineNames[tournament.discipline]] ?? DisciplineNames[tournament.discipline]}
+        </span>
         {tournament.subDiscipline && (
-          <span className="tag">{t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)}</span>
+          <span className="tag">
+            {SUB_DISCIPLINE_LABELS[SubDisciplineNames[tournament.subDiscipline]] ??
+              SubDisciplineNames[tournament.subDiscipline]}
+          </span>
         )}
-        <span className="tag">{t(`type.${TournamentTypeNames[tournament.type]}`)}</span>
+        <span className="tag">
+          {TOURNAMENT_TYPE_LABELS[TournamentTypeNames[tournament.type]] ?? TournamentTypeNames[tournament.type]}
+        </span>
       </div>
       <div className="details">
         {tournament.location && (
@@ -59,7 +69,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
       <div className="categories">
         {!hasCategories && (
           <div className="category-chip">
-            <label>{t(`uniqueCategory`)}</label>
+            <label>Categoría única</label>
             <div className="inscriptions">
               <GroupsIcon fontSize="inherit" />
               {tournament.competitors?.length ?? 0} / {singleCategory?.maxCompetitors ?? 0}

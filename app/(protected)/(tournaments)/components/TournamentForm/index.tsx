@@ -20,7 +20,6 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import { Dayjs } from 'dayjs'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { FormEvent, useEffect, useState } from 'react'
 import {
   getDefaultRankingSettings,
@@ -42,15 +41,18 @@ import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline, SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { isDoublesDiscipline } from '@/app/(protected)/(tournaments)/utils/discipline'
+import {
+  DISCIPLINE_LABELS,
+  ORGANIZER_ERROR_MESSAGES,
+  SUB_DISCIPLINE_LABELS,
+  TOURNAMENT_TYPE_LABELS
+} from '../../utils/labels'
 
 const DISCIPLINES: Discipline[] = [Discipline.PADEL, Discipline.TENNIS]
 const SUB_DISCIPLINES: SubDiscipline[] = [SubDiscipline.SINGLES, SubDiscipline.DOUBLES]
 
 export default function TournamentForm() {
   const { createTournament, getCategories } = useTournaments()
-  const t = useTranslations('tournaments')
-  const tOrganizer = useTranslations('organizer')
-  const tCommon = useTranslations('common')
   const router = useRouter()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -191,7 +193,7 @@ export default function TournamentForm() {
       createdId = created.id
     } catch (requestError) {
       setLoading(false)
-      setError(tOrganizer(`errors.${(requestError as Error).message}`))
+      setError(ORGANIZER_ERROR_MESSAGES[(requestError as Error).message] ?? 'Algo salió mal. Intentá de nuevo.')
 
       return
     }
@@ -211,15 +213,23 @@ export default function TournamentForm() {
       slotProps={{ htmlInput: { min: 0 } }}
     />
   )
+  const KNOCKOUT_STAGE_LABELS: Record<string, string> = {
+    finalist: 'Finalista',
+    semifinalist: 'Semifinalista',
+    quarterfinalist: 'Cuartodefinalista',
+    round_16: 'Octavos de final',
+    round_32: 'Dieciseisavos de final',
+    round_64: 'Treintaidosavos de final'
+  }
   const positionFields = Array.from({ length: POSITION_COUNT }, (_, i) => ({
     key: positionKey(i + 1),
-    label: t('ranking.position', { number: i + 1 })
+    label: `Posición ${i + 1}`
   }))
   const knockoutFields = (consolation: boolean) => [
-    { key: knockoutStageKey('winner', consolation), label: t('ranking.winner') },
+    { key: knockoutStageKey('winner', consolation), label: 'Ganador' },
     ...KNOCKOUT_STAGE_KEYS.map((stage) => ({
       key: knockoutStageKey(stage, consolation),
-      label: t(`ranking.${stage}`)
+      label: KNOCKOUT_STAGE_LABELS[stage] ?? stage
     }))
   ]
 
@@ -230,42 +240,31 @@ export default function TournamentForm() {
       <Accordion defaultExpanded disableGutters elevation={0} className="section">
         <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
-            {t('sections.generalData')}
+            Datos generales
           </Typography>
         </AccordionSummary>
         <AccordionDetails className="section-content">
+          <TextField label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
           <TextField
-            label={t('name')}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-            fullWidth
-          />
-          <TextField
-            label={t('description')}
+            label="Descripción"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             multiline
             minRows={2}
             fullWidth
           />
-          <TextField
-            label={t('location')}
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            fullWidth
-          />
+          <TextField label="Lugar" value={location} onChange={(event) => setLocation(event.target.value)} fullWidth />
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <div className="row">
               <DatePicker
-                label={t('startDate')}
+                label="Fecha de inicio"
                 value={startDate}
                 onChange={(value) => setStartDate(value)}
                 format="YYYY/MM/DD"
                 slotProps={{ textField: { required: true, fullWidth: true } }}
               />
               <TimePicker
-                label={t('startTime')}
+                label="Hora de inicio"
                 value={startTime}
                 onChange={(value) => setStartTime(value)}
                 slotProps={{ textField: { fullWidth: true } }}
@@ -279,49 +278,49 @@ export default function TournamentForm() {
       <Accordion defaultExpanded disableGutters elevation={0} className="section">
         <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
-            {t('sections.tournamentSettings')}
+            Configuración del torneo
           </Typography>
         </AccordionSummary>
         <AccordionDetails className="section-content">
           <div className="row">
             <TextField
               select
-              label={t('discipline.label')}
+              label="Disciplina"
               value={discipline}
               onChange={(event) => handleDisciplineChange(Number(event.target.value) as Discipline)}
               fullWidth
             >
               {DISCIPLINES.map((value) => (
                 <MenuItem key={value} value={value}>
-                  {t(`discipline.${DisciplineNames[value]}`)}
+                  {DISCIPLINE_LABELS[DisciplineNames[value]] ?? value}
                 </MenuItem>
               ))}
             </TextField>
             {discipline === Discipline.TENNIS && (
               <TextField
                 select
-                label={t('subDiscipline.label')}
+                label="Modalidad"
                 value={subDiscipline}
                 onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
                 fullWidth
               >
                 {SUB_DISCIPLINES.map((value) => (
                   <MenuItem key={value} value={value}>
-                    {t(`subDiscipline.${SubDisciplineNames[value]}`)}
+                    {SUB_DISCIPLINE_LABELS[SubDisciplineNames[value]] ?? value}
                   </MenuItem>
                 ))}
               </TextField>
             )}
             <TextField
               select
-              label={t('type.label')}
+              label="Tipo"
               value={type}
               onChange={(event) => setType(Number(event.target.value) as TournamentType)}
               fullWidth
             >
               {availableTypes.map((value) => (
                 <MenuItem key={value} value={value}>
-                  {t(`type.${TournamentTypeNames[value]}`)}
+                  {TOURNAMENT_TYPE_LABELS[TournamentTypeNames[value]] ?? value}
                 </MenuItem>
               ))}
             </TextField>
@@ -331,19 +330,17 @@ export default function TournamentForm() {
             {!isAmericano && (
               <TextField
                 select
-                label={t('scoreFormat.label')}
+                label="Formato de puntaje"
                 value={scoreFormat}
                 onChange={(event) => setScoreFormat(Number(event.target.value) as ScoreFormat)}
                 fullWidth
               >
-                <MenuItem value={ScoreFormat.THREE_SETS}>{t('scoreFormat.three_sets')}</MenuItem>
-                <MenuItem value={ScoreFormat.TWO_SETS_SUPER_TIEBREAK}>
-                  {t('scoreFormat.two_sets_super_tiebreak')}
-                </MenuItem>
+                <MenuItem value={ScoreFormat.THREE_SETS}>3 sets</MenuItem>
+                <MenuItem value={ScoreFormat.TWO_SETS_SUPER_TIEBREAK}>2 sets + Super tiebreak</MenuItem>
               </TextField>
             )}
             <TextField
-              label={isDoubles ? t('maxTeams') : t('maxCompetitors')}
+              label={isDoubles ? 'Máx. parejas' : 'Máx. competidores'}
               type="number"
               value={maxCompetitors}
               onChange={(event) => setMaxCompetitors(Math.max(2, Number(event.target.value)))}
@@ -356,7 +353,7 @@ export default function TournamentForm() {
           {type === TournamentType.LEAGUE && (
             <div className="row">
               <TextField
-                label={t('settings.pointsPerPresent')}
+                label="Puntos por presencia"
                 type="number"
                 value={leagueSettings.pointsPerPresent}
                 onChange={(event) =>
@@ -366,7 +363,7 @@ export default function TournamentForm() {
                 slotProps={{ htmlInput: { min: 0 } }}
               />
               <TextField
-                label={t('settings.pointsPerSetWon')}
+                label="Puntos por set ganado"
                 type="number"
                 value={leagueSettings.pointsPerSetWon}
                 onChange={(event) =>
@@ -376,7 +373,7 @@ export default function TournamentForm() {
                 slotProps={{ htmlInput: { min: 0 } }}
               />
               <TextField
-                label={t('settings.pointsPerMatchWon')}
+                label="Puntos por partido ganado"
                 type="number"
                 value={leagueSettings.pointsPerMatchWon}
                 onChange={(event) =>
@@ -391,7 +388,7 @@ export default function TournamentForm() {
             <>
               <div className="row">
                 <TextField
-                  label={t('settings.pointsPerGameWon')}
+                  label="Puntos por game ganado"
                   type="number"
                   value={americanoSettings.pointsPerGameWon}
                   onChange={(event) =>
@@ -401,7 +398,7 @@ export default function TournamentForm() {
                   slotProps={{ htmlInput: { min: 0 } }}
                 />
                 <TextField
-                  label={t('settings.pointsPerMatchWon')}
+                  label="Puntos por partido ganado"
                   type="number"
                   value={americanoSettings.pointsPerMatchWon}
                   onChange={(event) =>
@@ -413,7 +410,7 @@ export default function TournamentForm() {
               </div>
               <div className="row">
                 <TextField
-                  label={t('settings.maxRounds')}
+                  label="Máx. rondas"
                   type="number"
                   value={americanoSettings.maxRounds ?? ''}
                   onChange={(event) => {
@@ -426,7 +423,7 @@ export default function TournamentForm() {
                   }}
                   fullWidth
                   slotProps={{ htmlInput: { min: 1 } }}
-                  helperText={t('settings.maxRoundsHint')}
+                  helperText="Dejar vacío para sin límite"
                 />
               </div>
             </>
@@ -435,7 +432,7 @@ export default function TournamentForm() {
             <>
               <div className="row">
                 <TextField
-                  label={t('settings.competitorsPerGroup')}
+                  label="Competidores por grupo"
                   type="number"
                   value={groupsSettings.competitorsPerGroup}
                   onChange={(event) =>
@@ -448,7 +445,7 @@ export default function TournamentForm() {
                   slotProps={{ htmlInput: { min: 2 } }}
                 />
                 <TextField
-                  label={t('settings.qualifiersPerGroup')}
+                  label="Clasificados por grupo"
                   type="number"
                   value={groupsSettings.qualifiersPerGroup}
                   onChange={(event) =>
@@ -463,7 +460,7 @@ export default function TournamentForm() {
               </div>
               <div className="row">
                 <TextField
-                  label={t('settings.pointsPerPresent')}
+                  label="Puntos por presencia"
                   type="number"
                   value={groupsSettings.pointsPerPresent}
                   onChange={(event) =>
@@ -473,7 +470,7 @@ export default function TournamentForm() {
                   slotProps={{ htmlInput: { min: 0 } }}
                 />
                 <TextField
-                  label={t('settings.pointsPerSetWon')}
+                  label="Puntos por set ganado"
                   type="number"
                   value={groupsSettings.pointsPerSetWon}
                   onChange={(event) =>
@@ -483,7 +480,7 @@ export default function TournamentForm() {
                   slotProps={{ htmlInput: { min: 0 } }}
                 />
                 <TextField
-                  label={t('settings.pointsPerMatchWon')}
+                  label="Puntos por partido ganado"
                   type="number"
                   value={groupsSettings.pointsPerMatchWon}
                   onChange={(event) =>
@@ -501,15 +498,17 @@ export default function TournamentForm() {
       <Accordion disableGutters elevation={0} className="section">
         <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
-            {t('categories')}
+            Categorías
           </Typography>
         </AccordionSummary>
         <AccordionDetails className="section-content">
-          <Alert severity="info">{t('categoriesHint')}</Alert>
+          <Alert severity="info">
+            Las categorías permiten segmentar a los competidores del torneo. Podés agregar varias.
+          </Alert>
           {categories.map((category, index) => (
             <div key={category} className="category-row">
               <TextField value={category} fullWidth slotProps={{ input: { readOnly: true } }} />
-              <IconButton aria-label={tCommon('delete')} onClick={() => handleRemoveCategory(index)}>
+              <IconButton aria-label="Eliminar" onClick={() => handleRemoveCategory(index)}>
                 <DeleteOutlineIcon />
               </IconButton>
             </div>
@@ -526,8 +525,8 @@ export default function TournamentForm() {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label={t('categories')}
-                  placeholder={t('addCategory')}
+                  label="Categorías"
+                  placeholder="Agregar categoría..."
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
                       event.preventDefault()
@@ -538,7 +537,7 @@ export default function TournamentForm() {
               )}
             />
             <Button variant="outlined" onClick={handleAddCategory} disabled={categoryInput.trim() === ''}>
-              {tCommon('add')}
+              Agregar
             </Button>
           </div>
         </AccordionDetails>
@@ -548,11 +547,13 @@ export default function TournamentForm() {
         <Accordion disableGutters elevation={0} className="section">
           <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
             <Typography variant="subtitle1" className="title">
-              {t('sections.rankingSettings')}
+              Puntos de ranking
             </Typography>
           </AccordionSummary>
           <AccordionDetails className="section-content">
-            <Alert severity="info">{t('ranking.hint')}</Alert>
+            <Alert severity="info">
+              Configurá los puntos de ranking que se otorgan según la posición final en el torneo.
+            </Alert>
             {rankingScheme === RankingScheme.POSITION ? (
               <div className="ranking-grid">
                 {positionFields.map((field) => renderRankingField(field.key, field.label))}
@@ -561,7 +562,7 @@ export default function TournamentForm() {
               <>
                 {rankingScheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION && (
                   <Typography variant="subtitle2" className="ranking-group-title">
-                    {t('ranking.mainBracket')}
+                    Cuadro principal
                   </Typography>
                 )}
                 <div className="ranking-grid">
@@ -570,7 +571,7 @@ export default function TournamentForm() {
                 {rankingScheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION && (
                   <>
                     <Typography variant="subtitle2" className="ranking-group-title">
-                      {t('ranking.consolationBracket')}
+                      Cuadro consuelo
                     </Typography>
                     <div className="ranking-grid">
                       {knockoutFields(true).map((field) => renderRankingField(field.key, field.label))}
@@ -584,9 +585,9 @@ export default function TournamentForm() {
       )}
 
       <div className="actions">
-        <Button onClick={() => router.back()}>{tCommon('cancel')}</Button>
+        <Button onClick={() => router.back()}>Cancelar</Button>
         <Button type="submit" variant="contained" disabled={loading} loading={loading}>
-          {tOrganizer('create')}
+          Crear torneo
         </Button>
       </div>
     </Paper>

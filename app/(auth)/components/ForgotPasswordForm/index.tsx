@@ -5,12 +5,10 @@ import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
-import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
 import { useRequests } from '@/app/hooks/useRequests'
 
 export default function ForgotPasswordForm() {
-  const t = useTranslations('auth')
   const executeRequest = useRequests()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,11 +34,13 @@ export default function ForgotPasswordForm() {
     return (
       <div className="login-form">
         <Typography variant="h5" component="h1" className="title">
-          {t('forgotPasswordTitle')}
+          Recuperar contraseña
         </Typography>
-        <Alert severity="success">{t('forgotPasswordSent', { email })}</Alert>
+        <Alert severity="success">
+          Si existe una cuenta asociada a {email}, recibirás un correo con instrucciones para restablecer tu contraseña.
+        </Alert>
         <Typography variant="body2" className="footer">
-          <Link href="/login">{t('signIn')}</Link>
+          <Link href="/login">Ingresar</Link>
         </Typography>
       </div>
     )
@@ -49,15 +49,15 @@ export default function ForgotPasswordForm() {
   return (
     <div className="login-form">
       <Typography variant="h5" component="h1" className="title">
-        {t('forgotPasswordTitle')}
+        Recuperar contraseña
       </Typography>
       <Typography variant="body2" color="text.secondary" className="subtitle">
-        {t('forgotPasswordSubtitle')}
+        Ingresá tu email y te enviaremos un enlace para restablecer tu contraseña.
       </Typography>
       <form onSubmit={handleSubmit} className="form">
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
-          label={t('email')}
+          label="Email"
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -66,11 +66,11 @@ export default function ForgotPasswordForm() {
           autoComplete="email"
         />
         <Button type="submit" variant="contained" fullWidth disabled={loading} loading={loading}>
-          {t('forgotPasswordSubmit')}
+          Enviar enlace
         </Button>
       </form>
       <Typography variant="body2" className="footer">
-        <Link href="/login">{t('signIn')}</Link>
+        <Link href="/login">Ingresar</Link>
       </Typography>
     </div>
   )

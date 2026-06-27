@@ -7,7 +7,6 @@ import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
-import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
@@ -22,7 +21,6 @@ interface StandingsTableProps {
 }
 
 export default function StandingsTable({ tournament, category, groupNumber }: StandingsTableProps) {
-  const t = useTranslations('tournaments.standingsTable')
   const [modalCompetitors, setModalCompetitors] = useState<CompetitorDto[]>([])
   const rows = useMemo(() => computeStandings(tournament, category, groupNumber), [tournament, category, groupNumber])
   const competitorsById = useMemo(
@@ -47,14 +45,14 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell className="position-cell">{t('position')}</TableCell>
-              <TableCell>{t('competitor')}</TableCell>
-              <TableCell align="center">{t('played')}</TableCell>
-              <TableCell align="center">{t('won')}</TableCell>
-              {showSets && <TableCell align="center">{t('setsWon')}</TableCell>}
-              {showGames && <TableCell align="center">{t('gamesWon')}</TableCell>}
+              <TableCell className="position-cell">#</TableCell>
+              <TableCell>Competidor</TableCell>
+              <TableCell align="center">PJ</TableCell>
+              <TableCell align="center">PG</TableCell>
+              {showSets && <TableCell align="center">Sets</TableCell>}
+              {showGames && <TableCell align="center">Games</TableCell>}
               <TableCell align="center" className="points-cell">
-                {t('points')}
+                Pts
               </TableCell>
             </TableRow>
           </TableHead>

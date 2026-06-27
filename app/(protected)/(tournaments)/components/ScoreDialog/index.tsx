@@ -12,7 +12,6 @@ import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
-import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
@@ -45,8 +44,6 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
   const homeName = match?.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ')
   const awayName = (match?.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ')
   const initialRawScore = match?.score ?? null
-  const t = useTranslations('score')
-  const tCommon = useTranslations('common')
   const [walkover, setWalkover] = useState(false)
   const [walkoverWinner, setWalkoverWinner] = useState<MatchSide>(MatchSide.HOME)
   const [sets, setSets] = useState<SetInput[]>(EMPTY_SET_INPUTS)
@@ -114,15 +111,13 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
   }
 
   const setLabel = (index: number) =>
-    scoreFormat === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && index === 2
-      ? t('superTiebreak')
-      : t('set', { number: index + 1 })
+    scoreFormat === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && index === 2 ? 'Super tiebreak' : `Set ${index + 1}`
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>{t('dialogTitle')}</DialogTitle>
+      <DialogTitle>Resultado</DialogTitle>
       <DialogContent className="score-dialog">
-        {invalid && <Alert severity="error">{t('invalid')}</Alert>}
+        {invalid && <Alert severity="error">El resultado ingresado no es válido</Alert>}
         <div className="header">
           <span className="competitor home">{homeName}</span>
           <span className="vs">vs</span>
@@ -130,11 +125,11 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
         </div>
         <FormControlLabel
           control={<Switch checked={walkover} onChange={(event) => setWalkover(event.target.checked)} />}
-          label={t('walkoverLabel')}
+          label="W.O. (no se presentó)"
         />
         {walkover ? (
           <div className="walkover">
-            <span className="walkover-title">{t('walkoverWinner')}</span>
+            <span className="walkover-title">¿Quién ganó por W.O.?</span>
             <RadioGroup
               value={walkoverWinner}
               onChange={(event) => setWalkoverWinner(Number(event.target.value) as MatchSide)}
@@ -168,7 +163,7 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
           </div>
         ) : (
           <div className="set-row">
-            <span className="set-label">{t('games')}</span>
+            <span className="set-label">Games</span>
             <TextField
               type="number"
               size="small"
@@ -188,9 +183,9 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{tCommon('cancel')}</Button>
+        <Button onClick={onClose}>Cancelar</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving} loading={saving}>
-          {tCommon('save')}
+          Guardar
         </Button>
       </DialogActions>
     </Dialog>

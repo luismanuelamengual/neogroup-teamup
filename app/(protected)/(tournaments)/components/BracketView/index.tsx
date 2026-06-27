@@ -1,7 +1,6 @@
 'use client'
 
 import './index.scss'
-import { useTranslations } from 'next-intl'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
@@ -60,32 +59,26 @@ interface TitleLayout {
 }
 
 /** Stage label for a round, counting Final/Semifinal/4tos/8vos from the end. */
-function roundLabel(
-  roundIndex: number,
-  totalRounds: number,
-  matchCount: number,
-  t: ReturnType<typeof useTranslations>
-): string {
+function roundLabel(roundIndex: number, totalRounds: number, matchCount: number): string {
   const fromEnd = totalRounds - 1 - roundIndex
 
-  // Only treat the last column as the Final when it is a single match.
   if (fromEnd === 0 && matchCount <= 1) {
-    return t('finalRound')
+    return 'Final'
   }
 
   if (fromEnd === 1) {
-    return t('semifinalRound')
+    return 'Semifinal'
   }
 
   if (fromEnd === 2) {
-    return t('quarterfinalsRound')
+    return 'Cuartos de final'
   }
 
   if (fromEnd === 3) {
-    return t('roundOf16')
+    return 'Octavos de final'
   }
 
-  return t('playoffRound', { number: roundIndex + 1 })
+  return `Ronda ${roundIndex + 1}`
 }
 
 /** Horizontal knockout bracket: one column per round, with bent connectors. */
@@ -97,7 +90,6 @@ export default function BracketView({
   onEditMatch
 }: BracketViewProps) {
   const userId = useUserStore((state) => state.user?.id ?? null)
-  const t = useTranslations('tournaments')
   const scrollRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
   /** Index of the first round still (at least partially) visible from the left. */
@@ -211,7 +203,7 @@ export default function BracketView({
       titles.push({
         key: rounds[r]!.id,
         x,
-        label: roundLabel(r, total, roundMatchLists[r].length, t)
+        label: roundLabel(r, total, roundMatchLists[r].length)
       })
 
       roundMatchLists[r].forEach((match, i) => {
@@ -270,7 +262,7 @@ export default function BracketView({
     const canvasWidth = total > 0 ? (total - 1) * COL_STEP + COLUMN_WIDTH : 0
 
     return { nodes, titles, segments, canvasWidth, canvasHeight }
-  }, [rounds, roundMatchLists, baseRound, t])
+  }, [rounds, roundMatchLists, baseRound])
   /** Recompute the first visible round from the horizontal scroll offset. */
   const handleScroll = useCallback(() => {
     if (rafRef.current != null) {

@@ -7,7 +7,6 @@ import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { Role } from '@/app/(auth)/models/Role'
 import { useAccount } from '@/app/(protected)/(account)/hooks/useAccount'
@@ -18,8 +17,6 @@ interface RoleSelectorProps {
 
 export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
   const { setRole } = useAccount()
-  const t = useTranslations('roleSelect')
-  const tCommon = useTranslations('common')
   const router = useRouter()
   const [selected, setSelected] = useState<Role | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -37,7 +34,7 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
       await setRole(selected)
     } catch (_error) {
       setLoading(false)
-      setError(tCommon('genericError'))
+      setError('Algo salió mal. Intentá de nuevo.')
 
       return
     }
@@ -49,10 +46,10 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
   return (
     <div className="role-selector">
       <Typography variant="h5" component="h1" className="title">
-        {t('title')}
+        ¿Cómo vas a usar TeamUp?
       </Typography>
       <Typography variant="body2" color="text.secondary" className="subtitle">
-        {t('subtitle')}
+        Selecciona el rol que quieres en la plataforma.
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
       <div className="options">
@@ -62,8 +59,8 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
           onClick={() => setSelected(Role.ORGANIZER)}
         >
           <EmojiEventsIcon className="option-icon" />
-          <span className="option-title">{t('organizerTitle')}</span>
-          <span className="option-description">{t('organizerDescription')}</span>
+          <span className="option-title">Organizador</span>
+          <span className="option-description">Creo y administro torneos y ligas</span>
         </button>
         <button
           type="button"
@@ -71,12 +68,12 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
           onClick={() => setSelected(Role.PLAYER)}
         >
           <SportsTennisIcon className="option-icon" />
-          <span className="option-title">{t('playerTitle')}</span>
-          <span className="option-description">{t('playerDescription')}</span>
+          <span className="option-title">Jugador</span>
+          <span className="option-description">Me inscribo en torneos y cargo mis resultados</span>
         </button>
       </div>
       <Button variant="contained" fullWidth disabled={!selected || loading} onClick={handleContinue}>
-        {t('continue')}
+        Continuar
       </Button>
     </div>
   )

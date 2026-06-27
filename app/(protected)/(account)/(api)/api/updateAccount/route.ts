@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
 import { auth, unstable_update } from '@/app/(auth)/services/auth'
@@ -6,37 +5,19 @@ import { isValidRole } from '@/app/(auth)/utils/user'
 import { AccountInput } from '@/app/(protected)/(account)/models/AccountInput'
 import { ApiException } from '@/app/models/ApiException'
 import { withApi } from '@/app/utils/api-server'
-import { LOCALE_COOKIE, SUPPORTED_LOCALES, SupportedLocale } from '@/app/utils/lang'
 
-type UpdateAccountBody = Partial<AccountInput & { roleId: Role; locale: string }>
+type UpdateAccountBody = Partial<AccountInput & { roleId: Role }>
 
 /**
  * POST /api/updateAccount — unified account update endpoint.
  *
  * Dispatches based on which fields are present in the body:
- * - { locale }                        → changes the interface language (no auth required)
  * - { roleId }                        → assigns the user role once (auth required)
  * - { firstName, lastName, nickname } → updates personal information (auth required)
  */
 export const POST = withApi(async (request, _context, _organizationId) => {
   const body = (await request.json()) as UpdateAccountBody
-
-  // — Locale (no auth required) —
-  if ('locale' in body) {
-    const { locale } = body
-
-    if (!SUPPORTED_LOCALES.includes(locale as SupportedLocale)) {
-      throw new ApiException('invalidLocale')
-    }
-
-    const cookieStore = await cookies()
-
-    cookieStore.set(LOCALE_COOKIE, locale as string, { maxAge: 60 * 60 * 24 * 365, path: '/' })
-
-    return
-  }
-
-  // — Auth required for the remaining operations —
+  // — Auth required for all operations —
   const session = await auth()
   const userId = session?.user?.id ? Number(session.user.id) : null
 

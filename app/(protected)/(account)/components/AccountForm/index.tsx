@@ -2,14 +2,12 @@
 
 import './index.scss'
 import Button from '@mui/material/Button'
-import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
-import { ChangeEvent, FormEvent, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import { useAccount } from '@/app/(protected)/(account)/hooks/useAccount'
 import Avatar from '@/app/components/Avatar'
 
@@ -22,37 +20,13 @@ interface AccountFormProps {
 }
 
 export default function AccountForm(props: AccountFormProps) {
-  const { setLocale, updateAccount } = useAccount()
-  const t = useTranslations('account')
-  const tCommon = useTranslations('common')
+  const { updateAccount } = useAccount()
   const router = useRouter()
-  const locale = useLocale()
   const [firstName, setFirstName] = useState(props.firstName)
   const [lastName, setLastName] = useState(props.lastName)
   const [nickname, setNickname] = useState(props.nickname)
   const [phoneNumber, setPhoneNumber] = useState(props.phoneNumber)
-  const [language, setLanguage] = useState(locale)
   const [loading, setLoading] = useState(false)
-  const languages = [
-    { value: 'es', label: t('spanish'), flag: '🇪🇸' },
-    { value: 'en', label: t('english'), flag: '🇬🇧' }
-  ]
-
-  const handleLanguageChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const newLocale = event.target.value
-
-    setLanguage(newLocale)
-
-    try {
-      await setLocale(newLocale)
-    } catch (_error) {
-      setLanguage(locale)
-
-      return
-    }
-
-    router.refresh()
-  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -73,10 +47,10 @@ export default function AccountForm(props: AccountFormProps) {
   return (
     <Paper className="account-form">
       <Typography variant="h5" component="h1" className="title">
-        {t('title')}
+        Mi cuenta
       </Typography>
       <div className="avatar-section">
-        <Tooltip title={t('avatarEdit')}>
+        <Tooltip title="Editar avatar en Gravatar">
           <Avatar
             email={props.email}
             name={[firstName, lastName].filter(Boolean).join(' ') || props.email}
@@ -88,54 +62,42 @@ export default function AccountForm(props: AccountFormProps) {
         <div className="avatar-info">
           <Typography variant="body2">{props.email}</Typography>
           <Typography variant="caption" color="text.secondary">
-            {t('avatarHelp')}
+            Tu avatar se obtiene de Gravatar usando tu email. Hacé click en él para editarlo
           </Typography>
         </div>
       </div>
       <form onSubmit={handleSubmit} className="form">
         <TextField
-          label={t('firstName')}
+          label="Nombre"
           value={firstName}
           onChange={(event) => setFirstName(event.target.value)}
           required
           fullWidth
         />
         <TextField
-          label={t('lastName')}
+          label="Apellido"
           value={lastName}
           onChange={(event) => setLastName(event.target.value)}
           required
           fullWidth
         />
         <TextField
-          label={t('nickname')}
+          label="Apodo"
           value={nickname}
           onChange={(event) => setNickname(event.target.value)}
-          helperText={t('nicknameHelp')}
+          helperText="Si lo establecés, se muestra siempre en lugar de tu nombre"
           fullWidth
         />
         <TextField
-          label={t('phoneNumber')}
+          label="Teléfono"
           type="tel"
           value={phoneNumber}
           onChange={(event) => setPhoneNumber(event.target.value)}
           fullWidth
           autoComplete="tel"
         />
-        <TextField select label={t('language')} value={language} onChange={handleLanguageChange} fullWidth>
-          {languages.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              <span className="account-form-language-option">
-                <span className="flag" aria-hidden="true">
-                  {option.flag}
-                </span>
-                {option.label}
-              </span>
-            </MenuItem>
-          ))}
-        </TextField>
         <Button type="submit" variant="contained" disabled={loading} loading={loading}>
-          {tCommon('save')}
+          Guardar
         </Button>
       </form>
     </Paper>

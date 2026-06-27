@@ -13,7 +13,6 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import dayjs, { Dayjs } from 'dayjs'
-import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -34,9 +33,6 @@ export default function EditTournamentDialog({
   onDeleted
 }: EditTournamentDialogProps) {
   const { deleteTournament, updateTournament } = useTournaments()
-  const t = useTranslations('tournaments')
-  const tOrganizer = useTranslations('organizer')
-  const tCommon = useTranslations('common')
   const [name, setName] = useState(tournament.name)
   const [description, setDescription] = useState(tournament.description ?? '')
   const [location, setLocation] = useState(tournament.location ?? '')
@@ -89,39 +85,28 @@ export default function EditTournamentDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" className="edit-tournament-dialog">
-      <DialogTitle>{tOrganizer('manage.editTitle')}</DialogTitle>
+      <DialogTitle>Editar torneo</DialogTitle>
       <DialogContent className="main-content">
+        <TextField label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
         <TextField
-          label={t('name')}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          required
-          fullWidth
-        />
-        <TextField
-          label={t('description')}
+          label="Descripción"
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           multiline
           minRows={2}
           fullWidth
         />
-        <TextField
-          label={t('location')}
-          value={location}
-          onChange={(event) => setLocation(event.target.value)}
-          fullWidth
-        />
+        <TextField label="Lugar" value={location} onChange={(event) => setLocation(event.target.value)} fullWidth />
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DatePicker
-            label={t('startDate')}
+            label="Fecha de inicio"
             value={startDate}
             onChange={(value) => setStartDate(value)}
             format="YYYY/MM/DD"
             slotProps={{ textField: { fullWidth: true } }}
           />
           <TimePicker
-            label={t('startTime')}
+            label="Hora de inicio"
             value={startTime}
             onChange={(value) => setStartTime(value)}
             slotProps={{ textField: { fullWidth: true } }}
@@ -137,24 +122,27 @@ export default function EditTournamentDialog({
           disabled={deleting}
           loading={deleting}
         >
-          {tCommon('delete')}
+          Eliminar
         </Button>
         <div style={{ flex: 1 }} />
-        <Button onClick={onClose}>{tCommon('cancel')}</Button>
+        <Button onClick={onClose}>Cancelar</Button>
         <Button variant="contained" onClick={handleSave} disabled={loading} loading={loading}>
-          {tCommon('save')}
+          Guardar
         </Button>
       </DialogActions>
 
       <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
-        <DialogTitle>{tOrganizer('manage.deleteTitle')}</DialogTitle>
+        <DialogTitle>Eliminar torneo</DialogTitle>
         <DialogContent>
-          <DialogContentText>{tOrganizer('manage.deleteConfirm', { name: tournament.name })}</DialogContentText>
+          <DialogContentText>
+            ¿Estás seguro que querés eliminar el torneo &ldquo;{tournament.name}&rdquo;? Esta acción no se puede
+            deshacer.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDeleteOpen(false)}>{tCommon('cancel')}</Button>
+          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancelar</Button>
           <Button color="error" variant="contained" onClick={handleDelete}>
-            {tCommon('delete')}
+            Eliminar
           </Button>
         </DialogActions>
       </Dialog>

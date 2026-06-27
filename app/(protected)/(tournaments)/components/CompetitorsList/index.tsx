@@ -3,7 +3,6 @@
 import './index.scss'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
@@ -15,7 +14,6 @@ interface CompetitorsListProps {
 }
 
 export default function CompetitorsList({ tournament, category }: CompetitorsListProps) {
-  const tOrganizer = useTranslations('organizer')
   const [selectedCompetitors, setSelectedCompetitors] = useState<CompetitorDto[]>([])
   const competitors = useMemo(() => {
     const all = tournament.competitors ?? []
@@ -30,7 +28,7 @@ export default function CompetitorsList({ tournament, category }: CompetitorsLis
   if (competitors.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
-        {tOrganizer('manage.noCompetitors')}
+        Aún no hay inscriptos
       </Typography>
     )
   }

@@ -3,7 +3,6 @@
 import './index.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
-import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
@@ -28,7 +27,6 @@ export default function MatchCard({
   editable = false,
   onEdit
 }: MatchCardProps) {
-  const t = useTranslations('tournaments')
   const [modalCompetitors, setModalCompetitors] = useState<CompetitorDto[]>([])
   const competitorsById: Record<number, CompetitorDto> = Object.fromEntries(
     (tournament.competitors ?? []).map((c) => [c.id, c])
@@ -81,12 +79,12 @@ export default function MatchCard({
       <div className={`match-card ${highlighted ? 'highlighted' : ''}`}>
         <div className="sides">
           {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
-          {isBye ? <div className="bye">{t('bye')}</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
+          {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
         </div>
         <div className="result">
           {!isBye &&
             (match.status === MatchStatus.PENDING ? (
-              <span className="pending">{t('pendingResult')}</span>
+              <span className="pending">Pendiente</span>
             ) : (
               <span className="score">{formatScore(parseScore(match.score), scoreFormat)}</span>
             ))}

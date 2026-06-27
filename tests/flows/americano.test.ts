@@ -107,6 +107,7 @@ describe('AMERICANO — full flows', () => {
     const standings = computeStandings(tournament, built.categoryIds[0])
 
     expect(standings.length).toBe(4)
+
     // points must equal games won when pointsPerGameWon=1, pointsPerMatchWon=0
     for (const row of standings) {
       expect(row.points).toBe(row.gamesWon ?? 0)

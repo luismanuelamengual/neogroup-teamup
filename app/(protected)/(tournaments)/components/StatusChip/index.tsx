@@ -1,9 +1,9 @@
 'use client'
 
 import Chip from '@mui/material/Chip'
-import { useTranslations } from 'next-intl'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentStatusNames } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { TOURNAMENT_STATUS_LABELS } from '@/app/(protected)/(tournaments)/utils/labels'
 
 const STATUS_COLORS: Record<TournamentStatus, 'default' | 'info' | 'success'> = {
   [TournamentStatus.STAND_BY]: 'info',
@@ -18,7 +18,11 @@ export default function StatusChip({
   status: TournamentStatus
   size?: 'small' | 'medium'
 }) {
-  const t = useTranslations('tournaments.status')
-
-  return <Chip label={t(TournamentStatusNames[status])} color={STATUS_COLORS[status]} size={size} />
+  return (
+    <Chip
+      label={TOURNAMENT_STATUS_LABELS[TournamentStatusNames[status]] ?? TournamentStatusNames[status]}
+      color={STATUS_COLORS[status]}
+      size={size}
+    />
+  )
 }

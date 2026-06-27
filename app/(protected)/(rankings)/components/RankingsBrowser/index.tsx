@@ -7,7 +7,6 @@ import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import classNames from 'classnames'
-import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
@@ -22,12 +21,18 @@ const PAGE_SIZE = 20
 const DISCIPLINES: Discipline[] = [Discipline.PADEL, Discipline.TENNIS]
 const SUB_DISCIPLINES: SubDiscipline[] = [SubDiscipline.SINGLES, SubDiscipline.DOUBLES]
 const ALL_CATEGORIES = 'all'
+const DISCIPLINE_LABELS: Record<string, string> = {
+  padel: 'Pádel',
+  tennis: 'Tenis'
+}
+const SUB_DISCIPLINE_LABELS: Record<string, string> = {
+  singles: 'Singles',
+  doubles: 'Dobles'
+}
 
 export default function RankingsBrowser() {
   const { getCategories } = useTournaments()
   const { getRankings } = useRankings()
-  const t = useTranslations('rankings')
-  const tTournaments = useTranslations('tournaments')
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [categoryOptions, setCategoryOptions] = useState<CategoryDto[]>([])
@@ -85,14 +90,14 @@ export default function RankingsBrowser() {
         <TextField
           select
           size="small"
-          label={t('filters.discipline')}
+          label="Disciplina"
           value={discipline}
           onChange={(event) => setDiscipline(Number(event.target.value) as Discipline)}
           className="filter"
         >
           {DISCIPLINES.map((value) => (
             <MenuItem key={value} value={value}>
-              {tTournaments(`discipline.${DisciplineNames[value]}`)}
+              {DISCIPLINE_LABELS[DisciplineNames[value]] ?? DisciplineNames[value]}
             </MenuItem>
           ))}
         </TextField>
@@ -100,14 +105,14 @@ export default function RankingsBrowser() {
           <TextField
             select
             size="small"
-            label={t('filters.subDiscipline')}
+            label="Modalidad"
             value={subDiscipline}
             onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
             className="filter"
           >
             {SUB_DISCIPLINES.map((value) => (
               <MenuItem key={value} value={value}>
-                {tTournaments(`subDiscipline.${SubDisciplineNames[value]}`)}
+                {SUB_DISCIPLINE_LABELS[SubDisciplineNames[value]] ?? SubDisciplineNames[value]}
               </MenuItem>
             ))}
           </TextField>
@@ -115,14 +120,14 @@ export default function RankingsBrowser() {
         <TextField
           select
           size="small"
-          label={t('filters.category')}
+          label="Categoría"
           value={categoryId}
           onChange={(event) =>
             setCategoryId(event.target.value === ALL_CATEGORIES ? ALL_CATEGORIES : Number(event.target.value))
           }
           className="filter"
         >
-          <MenuItem value={ALL_CATEGORIES}>{t('filters.allCategories')}</MenuItem>
+          <MenuItem value={ALL_CATEGORIES}>Todas las categorías</MenuItem>
           {categoryOptions.map((category) => (
             <MenuItem key={category.id} value={category.id}>
               {category.name}
@@ -144,7 +149,7 @@ export default function RankingsBrowser() {
         </div>
       ) : entries.length === 0 ? (
         <Typography color="text.secondary" className="empty">
-          {t('empty')}
+          Todavía no hay puntos de ranking para estos filtros
         </Typography>
       ) : (
         <>
@@ -163,7 +168,7 @@ export default function RankingsBrowser() {
                     <Avatar email={entry.email} name={entry.displayName} size="md" className="avatar" />
                     <span className="name">{entry.displayName}</span>
                   </div>
-                  <span className="points">{t('points', { points: entry.points })}</span>
+                  <span className="points">{entry.points} pts</span>
                 </div>
               )
             })}

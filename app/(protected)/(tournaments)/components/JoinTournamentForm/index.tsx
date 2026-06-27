@@ -11,7 +11,6 @@ import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { UserDto } from '@/app/(auth)/models/UserDto'
 import { useUserStore } from '@/app/(auth)/stores/users'
@@ -24,6 +23,12 @@ import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/Tour
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import Avatar from '@/app/components/Avatar'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
+import {
+  DISCIPLINE_LABELS,
+  PLAYER_ERROR_MESSAGES,
+  SUB_DISCIPLINE_LABELS,
+  TOURNAMENT_TYPE_LABELS
+} from '../../utils/labels'
 
 interface JoinTournamentFormProps {
   tournamentId: number
@@ -32,8 +37,6 @@ interface JoinTournamentFormProps {
 export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormProps) {
   const { getTournament, joinTournament } = useTournaments()
   const { getUsers } = useUsers()
-  const t = useTranslations('tournaments')
-  const tPlayer = useTranslations('player')
   const router = useRouter()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const userId = useUserStore((state) => state.user?.id ?? null)
@@ -80,7 +83,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   }, [tournamentId, router, userId, getTournament])
 
   const needsPartner = tournament
-    ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type, tournament.settings ?? {})
+    ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
     : false
 
   // Debounced platform user search.
@@ -101,7 +104,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
     }, 350)
 
     return () => clearTimeout(timeout)
-  }, [partnerQuery])
+  }, [getUsers, partnerQuery])
 
   if (initializing) {
     return (
@@ -112,7 +115,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   }
 
   if (!tournament) {
-    return <Alert severity="error">{tPlayer('errors.notFound')}</Alert>
+    return <Alert severity="error">{PLAYER_ERROR_MESSAGES['notFound'] ?? 'Torneo no encontrado'}</Alert>
   }
 
   // Only real categories are selectable; the single category (categoryId = null)
@@ -131,7 +134,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
       })
     } catch (requestError) {
       setLoading(false)
-      setError(tPlayer(`errors.${(requestError as Error).message}`))
+      setError(PLAYER_ERROR_MESSAGES[(requestError as Error).message] ?? 'Algo salió mal. Intentá de nuevo.')
 
       return
     }
@@ -142,7 +145,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
   return (
     <Paper className="join-tournament">
       <Typography variant="h5" component="h1" className="title">
-        {tPlayer('joinTitle')}
+        Unirse al torneo
       </Typography>
       <div className="info">
         <Typography variant="h6" className="tournament-name">
@@ -154,24 +157,30 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
           </Typography>
         )}
         <div className="tags">
-          <Chip size="small" label={t(`discipline.${DisciplineNames[tournament.discipline]}`)} />
+          <Chip
+            size="small"
+            label={DISCIPLINE_LABELS[DisciplineNames[tournament.discipline]] ?? tournament.discipline}
+          />
           {tournament.subDiscipline && (
-            <Chip size="small" label={t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)} />
+            <Chip
+              size="small"
+              label={SUB_DISCIPLINE_LABELS[SubDisciplineNames[tournament.subDiscipline]] ?? tournament.subDiscipline}
+            />
           )}
-          <Chip size="small" label={t(`type.${TournamentTypeNames[tournament.type]}`)} />
+          <Chip size="small" label={TOURNAMENT_TYPE_LABELS[TournamentTypeNames[tournament.type]] ?? tournament.type} />
         </div>
       </div>
       {error && <Alert severity="error">{error}</Alert>}
       {hasCategories && (
         <div className="category">
           <Typography variant="subtitle1" className="category-title">
-            {t('category')}
+            Categoría
           </Typography>
           <TextField
             select
             value={categoryId}
             onChange={(event) => setCategoryId(Number(event.target.value))}
-            placeholder={tPlayer('selectCategory')}
+            placeholder="Seleccionar categoría"
             size="small"
             fullWidth
             required
@@ -187,7 +196,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
       {needsPartner && (
         <div className="partner">
           <Typography variant="subtitle1" className="partner-title">
-            {tPlayer('partnerTitle')}
+            Compañero/a
           </Typography>
           <Autocomplete
             options={partnerOptions}
@@ -209,9 +218,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
                 </div>
               </li>
             )}
-            renderInput={(params) => (
-              <TextField {...params} placeholder={tPlayer('partnerSearchPlaceholder')} size="small" />
-            )}
+            renderInput={(params) => <TextField {...params} placeholder="Buscar jugador..." size="small" />}
           />
         </div>
       )}
@@ -221,7 +228,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
         onClick={handleJoin}
         disabled={loading || (needsPartner && !partnerUser) || (hasCategories && categoryId === '')}
       >
-        {tPlayer('confirmRegistration')}
+        Confirmar inscripción
       </Button>
     </Paper>
   )

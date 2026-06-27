@@ -10,7 +10,6 @@
  */
 import { DB } from '@neogroup/neorm'
 import { User } from '@/app/(auth)/models/User'
-import migration from '@/database/migrations/001-create-base-tables'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -19,7 +18,6 @@ import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { Round } from '@/app/(protected)/(tournaments)/models/Round'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
@@ -32,6 +30,7 @@ import {
 } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import migration from '@/database/migrations/001-create-base-tables'
 
 const TABLES = [
   'matches',
@@ -358,9 +357,19 @@ export function homeWinScore(format: ScoreFormat): MatchScore {
     case ScoreFormat.BASIC_COUNT:
       return { home: 16, away: 8 }
     case ScoreFormat.THREE_SETS:
-      return { sets: [{ home: 6, away: 3 }, { home: 6, away: 4 }] }
+      return {
+        sets: [
+          { home: 6, away: 3 },
+          { home: 6, away: 4 }
+        ]
+      }
     case ScoreFormat.TWO_SETS_SUPER_TIEBREAK:
-      return { sets: [{ home: 6, away: 3 }, { home: 6, away: 4 }] }
+      return {
+        sets: [
+          { home: 6, away: 3 },
+          { home: 6, away: 4 }
+        ]
+      }
   }
 }
 
@@ -370,9 +379,19 @@ export function awayWinScore(format: ScoreFormat): MatchScore {
     case ScoreFormat.BASIC_COUNT:
       return { home: 8, away: 16 }
     case ScoreFormat.THREE_SETS:
-      return { sets: [{ home: 3, away: 6 }, { home: 4, away: 6 }] }
+      return {
+        sets: [
+          { home: 3, away: 6 },
+          { home: 4, away: 6 }
+        ]
+      }
     case ScoreFormat.TWO_SETS_SUPER_TIEBREAK:
-      return { sets: [{ home: 3, away: 6 }, { home: 4, away: 6 }] }
+      return {
+        sets: [
+          { home: 3, away: 6 },
+          { home: 4, away: 6 }
+        ]
+      }
   }
 }
 
@@ -417,9 +436,7 @@ export async function playToCompletion(
         break
       }
 
-      throw new Error(
-        `playToCompletion stalled: no pending active matches but tournament status is ${stillStatus}`
-      )
+      throw new Error(`playToCompletion stalled: no pending active matches but tournament status is ${stillStatus}`)
     }
 
     for (const match of pending) {

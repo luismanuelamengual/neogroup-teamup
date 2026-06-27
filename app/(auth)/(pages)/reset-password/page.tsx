@@ -3,7 +3,6 @@ import Box from '@mui/material/Box'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { getTranslations } from 'next-intl/server'
 import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
 import ResetPasswordForm from '@/app/(auth)/components/ResetPasswordForm'
 import { Organization } from '@/app/(auth)/models/Organization'
@@ -23,14 +22,13 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
   }
 
   const { token } = await searchParams
-  const t = await getTranslations('auth')
 
   if (!token) {
     return (
       <Box sx={{ maxWidth: 420, mx: 'auto', mt: 8, px: 2 }}>
-        <Alert severity="error">{t('errors.invalidToken')}</Alert>
+        <Alert severity="error">El enlace no es válido o ya fue utilizado.</Alert>
         <Box sx={{ mt: 2 }}>
-          <Link href="/forgot-password">{t('forgotPasswordTitle')}</Link>
+          <Link href="/forgot-password">Recuperar contraseña</Link>
         </Box>
       </Box>
     )

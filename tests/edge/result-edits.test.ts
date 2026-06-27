@@ -46,7 +46,6 @@ describe('result edits — grace window', () => {
     const pairingsBefore = (await getMatches(round2Before.id))
       .map((m) => `${m.homeCompetitorIds}-${m.awayCompetitorIds}`)
       .join('|')
-
     // Edit round 1 (still active as a grace window): flip the first match.
     const round1Now = await getMatches(round1.id)
 

@@ -4,7 +4,6 @@ import './index.scss'
 import { GravatarQuickEditorCore } from '@gravatar-com/quick-editor'
 import EditIcon from '@mui/icons-material/Edit'
 import Image from 'next/image'
-import { useLocale } from 'next-intl'
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
@@ -67,7 +66,6 @@ interface AvatarProps {
 }
 
 export default function Avatar({ email, name, size = 'md', className, editable = false, onUpdated }: AvatarProps) {
-  const locale = useLocale()
   const px = SIZE_PX[size]
   const [gravatarUrl, setGravatarUrl] = useState<string | null>(null)
   const [cacheKey, setCacheKey] = useState(0)
@@ -93,7 +91,7 @@ export default function Avatar({ email, name, size = 'md', className, editable =
     quickEditorRef.current ??= new GravatarQuickEditorCore({
       email,
       scope: ['avatars'],
-      locale,
+      locale: 'es',
       onProfileUpdated: () => {
         setCacheKey(Date.now())
         onUpdated?.()

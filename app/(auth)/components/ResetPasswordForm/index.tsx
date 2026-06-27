@@ -6,16 +6,20 @@ import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
 import { useRequests } from '@/app/hooks/useRequests'
+
+const ERROR_MESSAGES: Record<string, string> = {
+  passwordMismatch: 'Las contraseñas no coinciden',
+  invalidToken: 'El enlace no es válido o ya fue utilizado.',
+  expiredToken: 'El enlace expiró. Solicitá uno nuevo.'
+}
 
 interface ResetPasswordFormProps {
   token: string
 }
 
 export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
-  const t = useTranslations('auth')
   const executeRequest = useRequests()
   const router = useRouter()
   const [password, setPassword] = useState('')
@@ -28,7 +32,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
     setError(null)
 
     if (password !== confirmPassword) {
-      setError(t('errors.passwordMismatch'))
+      setError('Las contraseñas no coinciden')
 
       return
     }
@@ -39,7 +43,9 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       await executeRequest('/resetPassword', { token, password }, false)
       router.push('/login?passwordReset=1')
     } catch (requestError) {
-      setError(t(`errors.${(requestError as Error).message}`))
+      const key = (requestError as Error).message
+
+      setError(ERROR_MESSAGES[key] ?? 'Algo salió mal. Intentá de nuevo.')
       setLoading(false)
     }
   }
@@ -47,12 +53,12 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   return (
     <div className="login-form">
       <Typography variant="h5" component="h1" className="title">
-        {t('resetPasswordTitle')}
+        Nueva contraseña
       </Typography>
       <form onSubmit={handleSubmit} className="form">
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
-          label={t('newPassword')}
+          label="Nueva contraseña"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -61,7 +67,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           autoComplete="new-password"
         />
         <TextField
-          label={t('confirmPassword')}
+          label="Confirmar contraseña"
           type="password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
@@ -70,7 +76,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           autoComplete="new-password"
         />
         <Button type="submit" variant="contained" fullWidth disabled={loading} loading={loading}>
-          {t('resetPasswordSubmit')}
+          Guardar contraseña
         </Button>
       </form>
     </div>

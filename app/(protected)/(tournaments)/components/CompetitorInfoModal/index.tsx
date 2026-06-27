@@ -9,9 +9,8 @@ import DialogTitle from '@mui/material/DialogTitle'
 import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
-import Avatar from '@/app/components/Avatar'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
+import Avatar from '@/app/components/Avatar'
 
 interface CompetitorInfoModalProps {
   open: boolean
@@ -50,12 +49,10 @@ function PersonCard({ firstName, lastName, phoneNumber, email }: PersonCardProps
 }
 
 export default function CompetitorInfoModal({ open, competitors, onClose }: CompetitorInfoModalProps) {
-  const t = useTranslations('tournaments')
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle className="competitor-info-modal-title">
-        {t('competitorInfo')}
+        Información del competidor
         <IconButton size="small" onClick={onClose} className="close-btn">
           <CloseIcon fontSize="small" />
         </IconButton>

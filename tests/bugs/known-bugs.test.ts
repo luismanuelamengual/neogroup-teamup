@@ -7,7 +7,6 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -28,11 +27,7 @@ describe('REGRESSION #1 — starting a seeded tournament must not duplicate comp
     await resetDatabase()
   })
 
-  for (const type of [
-    TournamentType.PLAYOFF,
-    TournamentType.GROUPS_PLAYOFF,
-    TournamentType.PLAYOFF_WITH_CONSOLATION
-  ]) {
+  for (const type of [TournamentType.PLAYOFF, TournamentType.GROUPS_PLAYOFF, TournamentType.PLAYOFF_WITH_CONSOLATION]) {
     it(`keeps the competitor count stable when starting ${TournamentType[type]}`, async () => {
       const built = await buildTournament({ type, competitors: 8, scoreFormat: ScoreFormat.BASIC_COUNT })
 

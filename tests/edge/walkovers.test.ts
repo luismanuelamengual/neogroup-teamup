@@ -18,7 +18,10 @@ import {
   start
 } from '@/tests/setup/harness'
 
-async function resolveAll(built: { tournament: { id: number; scoreFormat: ScoreFormat }; categoryIds: number[] }, score: any): Promise<void> {
+async function resolveAll(
+  built: { tournament: { id: number; scoreFormat: ScoreFormat }; categoryIds: number[] },
+  score: any
+): Promise<void> {
   for (let guard = 0; guard < 100; guard++) {
     if ((await getTournamentStatus(built.tournament.id)) === TournamentStatus.FINISHED) {
       break

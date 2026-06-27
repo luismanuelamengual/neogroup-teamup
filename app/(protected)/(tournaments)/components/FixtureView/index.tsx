@@ -2,7 +2,6 @@
 
 import './index.scss'
 import Chip from '@mui/material/Chip'
-import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
@@ -29,7 +28,6 @@ export default function FixtureView({
   onEditMatch
 }: FixtureViewProps) {
   const userId = useUserStore((state) => state.user?.id ?? null)
-  const t = useTranslations('tournaments')
   const rounds = useMemo(() => {
     const all = tournament.rounds ?? []
     const filtered = all.filter(
@@ -60,8 +58,6 @@ export default function FixtureView({
       (tournament.rounds ?? [])
         .filter(
           (r) =>
-            // Active rounds are editable: the current frontier plus any
-            // just-closed round still in its grace window.
             r.active &&
             (r.groupNumber ?? null) === (groupNumber ?? null) &&
             (category == null || r.tournamentCategoryId === category)
@@ -104,9 +100,9 @@ export default function FixtureView({
         return (
           <section key={round.id} className="round">
             <header className="round-header">
-              <h3 className="round-title">{t('round', { number: round.number })}</h3>
+              <h3 className="round-title">Fecha {round.number}</h3>
               {round.status === RoundStatus.OPEN && (
-                <Chip size="small" color="success" variant="outlined" label={t('status.ongoing')} />
+                <Chip size="small" color="success" variant="outlined" label="En juego" />
               )}
             </header>
             <div className="matches">

@@ -17,7 +17,6 @@ import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
-import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
@@ -35,6 +34,13 @@ import { TournamentDto } from '@/app/(protected)/(tournaments)/models/Tournament
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
+import {
+  DISCIPLINE_LABELS,
+  PLAYER_ERROR_MESSAGES,
+  SCORE_FORMAT_LABELS,
+  SUB_DISCIPLINE_LABELS,
+  TOURNAMENT_TYPE_LABELS
+} from '../../utils/labels'
 
 interface PlayerTournamentViewProps {
   tournamentId: number
@@ -42,9 +48,6 @@ interface PlayerTournamentViewProps {
 
 export default function PlayerTournamentView({ tournamentId }: PlayerTournamentViewProps) {
   const { getTournament, leaveTournament, saveMatchResult } = useTournaments()
-  const t = useTranslations('tournaments')
-  const tPlayer = useTranslations('player')
-  const tOrganizer = useTranslations('organizer')
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
@@ -117,7 +120,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   }
 
   if (!tournament) {
-    return <Alert severity="error">{tPlayer('errors.notFound')}</Alert>
+    return <Alert severity="error">{PLAYER_ERROR_MESSAGES['notFound'] ?? 'Torneo no encontrado'}</Alert>
   }
 
   const categoryGroups = categoryKeys.map((key) => {
@@ -128,7 +131,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   })
 
   const handleLeave = async () => {
-    if (!window.confirm(tPlayer('leaveConfirm'))) {
+    if (!window.confirm('¿Estás seguro que querés darte de baja del torneo?')) {
       return
     }
 
@@ -181,12 +184,21 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           </Typography>
         )}
         <div className="meta">
-          <Chip size="small" label={t(`discipline.${DisciplineNames[tournament.discipline]}`)} />
+          <Chip
+            size="small"
+            label={DISCIPLINE_LABELS[DisciplineNames[tournament.discipline]] ?? tournament.discipline}
+          />
           {tournament.subDiscipline && (
-            <Chip size="small" label={t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)} />
+            <Chip
+              size="small"
+              label={SUB_DISCIPLINE_LABELS[SubDisciplineNames[tournament.subDiscipline]] ?? tournament.subDiscipline}
+            />
           )}
-          <Chip size="small" label={t(`type.${TournamentTypeNames[tournament.type]}`)} />
-          <Chip size="small" label={t(`scoreFormat.${ScoreFormatNames[tournament.scoreFormat]}`)} />
+          <Chip size="small" label={TOURNAMENT_TYPE_LABELS[TournamentTypeNames[tournament.type]] ?? tournament.type} />
+          <Chip
+            size="small"
+            label={SCORE_FORMAT_LABELS[ScoreFormatNames[tournament.scoreFormat]] ?? tournament.scoreFormat}
+          />
           <span className="meta-item">
             <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
             {tournament.startTime ? ` · ${tournament.startTime}` : ''}
@@ -200,12 +212,12 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         {tournament.status === TournamentStatus.STAND_BY && (
           <div className="footer">
             <div className="info-area">
-              {userEntry ? <Chip icon={<CheckCircleIcon />} color="success" label={tPlayer('registered')} /> : <></>}
+              {userEntry ? <Chip icon={<CheckCircleIcon />} color="success" label="Inscripto" /> : <></>}
             </div>
             <div className="actions-area">
               {userEntry ? (
                 <Button color="error" variant="outlined" onClick={handleLeave} disabled={working}>
-                  {tPlayer('leave')}
+                  Darme de baja
                 </Button>
               ) : (
                 <Button
@@ -214,7 +226,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
                   variant="contained"
                   startIcon={<HowToRegIcon />}
                 >
-                  {tPlayer('join')}
+                  Inscribirme
                 </Button>
               )}
             </div>
@@ -225,13 +237,13 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
       {myMatches.length > 0 && (
         <Paper className="section my-match">
           <Typography variant="h6" className="section-title">
-            {tPlayer('yourMatch')}
+            Tu partido
           </Typography>
           {myMatches.map((match) => (
             <div key={match.id} className="my-match-row">
               <MatchCard match={match} tournament={tournament} highlighted />
               <Button variant="contained" size="small" onClick={() => setScoreMatch(match)}>
-                {match.status === MatchStatus.PENDING ? tPlayer('loadResult') : tPlayer('editResult')}
+                {match.status === MatchStatus.PENDING ? 'Cargar resultado' : 'Editar resultado'}
               </Button>
             </div>
           ))}
@@ -243,7 +255,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
             <div className="category-header">
               <Typography variant="h6" className="category-title">
-                {categoryNameById.get(key) ?? t('uniqueCategory')}
+                {categoryNameById.get(key) ?? 'Categoría única'}
               </Typography>
               {tournament.status == TournamentStatus.STAND_BY && (
                 <Chip
@@ -259,7 +271,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           <AccordionDetails className="category-details">
             <div className="category-section">
               <Typography variant="subtitle1" className="section-title">
-                {tOrganizer('manage.registeredCompetitors')}
+                Competidores inscriptos
               </Typography>
               <CompetitorsList tournament={tournament} category={key} />
             </div>

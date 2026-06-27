@@ -1,7 +1,5 @@
 import './globals.scss'
 import type { Metadata, Viewport } from 'next'
-import { NextIntlClientProvider } from 'next-intl'
-import { getLocale } from 'next-intl/server'
 import { ReactNode } from 'react'
 import { Toaster } from 'react-hot-toast'
 import ThemeRegistry from '@/app/components/ThemeRegistry'
@@ -16,18 +14,14 @@ export const viewport: Viewport = {
   initialScale: 1
 }
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const locale = await getLocale()
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang={locale}>
+    <html lang="es">
       <body>
-        <NextIntlClientProvider>
-          <ThemeRegistry>
-            {children}
-            <Toaster position="bottom-center" />
-          </ThemeRegistry>
-        </NextIntlClientProvider>
+        <ThemeRegistry>
+          {children}
+          <Toaster position="bottom-center" />
+        </ThemeRegistry>
       </body>
     </html>
   )

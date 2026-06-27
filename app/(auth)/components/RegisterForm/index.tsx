@@ -10,10 +10,21 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
-import { useTranslations } from 'next-intl'
 import { FormEvent, useState } from 'react'
 import { useAuth } from '@/app/(auth)/hooks/useAuth'
 import { Role } from '@/app/(auth)/models/Role'
+
+const ERROR_MESSAGES: Record<string, string> = {
+  invalidCredentials: 'Email o contraseña incorrectos',
+  invalidEmail: 'El email no es válido',
+  passwordTooShort: 'La contraseña debe tener al menos 6 caracteres',
+  passwordMismatch: 'Las contraseñas no coinciden',
+  missingFields: 'Completá todos los campos obligatorios',
+  emailAlreadyRegistered: 'Ya existe una cuenta con ese email',
+  invalidRole: 'El rol seleccionado no es válido',
+  invalidToken: 'El enlace no es válido o ya fue utilizado.',
+  expiredToken: 'El enlace expiró. Solicitá uno nuevo.'
+}
 
 interface RegisterFormProps {
   callbackUrl: string | null
@@ -22,7 +33,6 @@ interface RegisterFormProps {
 
 export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: RegisterFormProps) {
   const { registerUser } = useAuth()
-  const t = useTranslations('auth')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -42,7 +52,9 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
       await registerUser({ email, password, firstName, lastName, phoneNumber, roleId })
     } catch (requestError) {
       setLoading(false)
-      setError(t(`errors.${(requestError as Error).message}`))
+      const key = (requestError as Error).message
+
+      setError(ERROR_MESSAGES[key] ?? 'Algo salió mal. Intentá de nuevo.')
 
       return
     }
@@ -55,16 +67,15 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
     return (
       <div className="register-form">
         <Typography variant="h5" component="h1" className="title">
-          {t('verifyEmailTitle')}
+          Verificá tu email
         </Typography>
         <Alert severity="success" sx={{ mt: 2 }}>
-          {t('verifyEmailSent', { email })}
+          Te enviamos un enlace de verificación a {email}. Revisá tu bandeja de entrada y hacé clic para activar tu
+          cuenta.
         </Alert>
         <Typography variant="body2" className="footer" sx={{ mt: 2 }}>
-          {t('haveAccount')}{' '}
-          <Link href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>
-            {t('signIn')}
-          </Link>
+          ¿Ya tenés cuenta?{' '}
+          <Link href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>Ingresar</Link>
         </Typography>
       </div>
     )
@@ -73,26 +84,26 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
   return (
     <div className="register-form">
       <Typography variant="h5" component="h1" className="title">
-        {t('registerTitle')}
+        Crear cuenta
       </Typography>
       <form onSubmit={handleSubmit} className="form">
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
-          label={t('firstName')}
+          label="Nombre"
           value={firstName}
           onChange={(event) => setFirstName(event.target.value)}
           required
           fullWidth
         />
         <TextField
-          label={t('lastName')}
+          label="Apellido"
           value={lastName}
           onChange={(event) => setLastName(event.target.value)}
           required
           fullWidth
         />
         <TextField
-          label={t('phoneNumber')}
+          label="Teléfono"
           type="tel"
           value={phoneNumber}
           onChange={(event) => setPhoneNumber(event.target.value)}
@@ -100,7 +111,7 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
           autoComplete="tel"
         />
         <TextField
-          label={t('email')}
+          label="Email"
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -109,7 +120,7 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
           autoComplete="email"
         />
         <TextField
-          label={t('password')}
+          label="Contraseña"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -120,7 +131,7 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
         {allowOrganizersCreation && (
           <div className="role">
             <Typography variant="body2" color="text.secondary">
-              {t('roleLabel')}
+              Quiero usar TeamUp como
             </Typography>
             <ToggleButtonGroup
               exclusive
@@ -134,24 +145,22 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
             >
               <ToggleButton value={Role.PLAYER}>
                 <SportsTennisIcon fontSize="small" sx={{ mr: 1 }} />
-                {t('rolePlayer')}
+                Jugador
               </ToggleButton>
               <ToggleButton value={Role.ORGANIZER}>
                 <EmojiEventsIcon fontSize="small" sx={{ mr: 1 }} />
-                {t('roleOrganizer')}
+                Organizador
               </ToggleButton>
             </ToggleButtonGroup>
           </div>
         )}
         <Button type="submit" variant="contained" fullWidth loading={loading} disabled={loading}>
-          {t('createAccount')}
+          Crear cuenta
         </Button>
       </form>
       <Typography variant="body2" className="footer">
-        {t('haveAccount')}{' '}
-        <Link href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>
-          {t('signIn')}
-        </Link>
+        ¿Ya tenés cuenta?{' '}
+        <Link href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>Ingresar</Link>
       </Typography>
     </div>
   )

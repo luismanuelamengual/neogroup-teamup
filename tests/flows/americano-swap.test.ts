@@ -36,7 +36,6 @@ describe('AMERICANO_WITH_SWAP — full flows', () => {
 
       const categoryId = built.categoryIds[0]
       const rounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.AMERICANO)
-
       // Each match is two individuals vs two individuals.
       const all = await getAllMatches(categoryId)
 

@@ -59,6 +59,7 @@ async function main(): Promise<void> {
 
   if (result.failures.length > 0) {
     console.log('\nFailures:')
+
     for (const failure of result.failures) {
       console.log(`  • ${failure.name}`)
     }

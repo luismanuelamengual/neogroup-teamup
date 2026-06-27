@@ -59,7 +59,6 @@ describe('GROUPS_PLAYOFF — full flows', () => {
 
       const categoryId = built.categoryIds[0]
       const sizes = expectedGroupSizes(config.n, config.competitorsPerGroup)
-
       // One LEAGUE lane (group) per expected group, identified by groupNumber.
       const groupNumbers = new Set(
         (await getRounds(categoryId))

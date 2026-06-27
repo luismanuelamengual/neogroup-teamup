@@ -19,7 +19,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { getSession, signOut } from 'next-auth/react'
-import { useTranslations } from 'next-intl'
 import { MouseEvent, ReactNode, useEffect, useState } from 'react'
 import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
@@ -34,7 +33,6 @@ interface NavItem {
 }
 
 export default function AppShell({ children, user: initialUser }: { children: ReactNode; user: SessionUser }) {
-  const t = useTranslations('nav')
   const router = useRouter()
   const pathname = usePathname()
   const storeUser = useUserStore((state) => state.user)
@@ -60,19 +58,19 @@ export default function AppShell({ children, user: initialUser }: { children: Re
   const navItems: NavItem[] = [
     {
       key: 'home',
-      label: t('home'),
+      label: 'Inicio',
       href: '/home',
       icon: <HomeIcon />
     },
     {
       key: 'tournaments',
-      label: t('tournaments'),
+      label: 'Torneos',
       href: '/tournaments',
       icon: <EmojiEventsIcon />
     },
     {
       key: 'rankings',
-      label: t('rankings'),
+      label: 'Rankings',
       href: '/rankings',
       icon: <LeaderboardIcon />
     }
@@ -134,21 +132,21 @@ export default function AppShell({ children, user: initialUser }: { children: Re
           >
             <div className="app-shell-menu-header">
               <span className="name">{user?.displayName}</span>
-              <span className="profile">{isOrganizer ? t('profileOrganizer') : t('profilePlayer')}</span>
+              <span className="profile">{isOrganizer ? 'Organizador' : 'Jugador'}</span>
             </div>
             <Divider className="app-shell-menu-divider" />
             <MenuItem component={Link} href="/account" onClick={closeMenu}>
               <ListItemIcon>
                 <PersonIcon fontSize="small" />
               </ListItemIcon>
-              {t('account')}
+              Mi cuenta
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>
                 <LogoutIcon fontSize="small" />
               </ListItemIcon>
-              {t('logout')}
+              Cerrar sesión
             </MenuItem>
           </Menu>
         </Toolbar>

@@ -3,7 +3,6 @@
 import './index.scss'
 import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import BracketView from '@/app/(protected)/(tournaments)/components/BracketView'
 import FixtureView from '@/app/(protected)/(tournaments)/components/FixtureView'
@@ -29,18 +28,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-/**
- * Renders the rounds area of one category: fixtures/standings for leagues and
- * americano, the bracket (plus an optional consolation bracket) for playoffs,
- * and the groups phase plus the knockout bracket for groups+playoff.
- */
 export default function TournamentRoundsView({
   tournament,
   category,
   organizerMode = false,
   onEditMatch
 }: TournamentRoundsViewProps) {
-  const t = useTranslations('tournaments')
   const { hasConsolation, hasKnockout } = useMemo(() => {
     const rounds = (tournament.rounds ?? []).filter((r) => category == null || r.tournamentCategoryId === category)
 
@@ -58,12 +51,12 @@ export default function TournamentRoundsView({
     return (
       <div className="rounds-view">
         <div className="rounds-section">
-          <SectionTitle>{t('standings')}</SectionTitle>
+          <SectionTitle>Posiciones</SectionTitle>
           <StandingsTable tournament={tournament} category={category} />
         </div>
         <Divider />
         <div className="rounds-section">
-          <SectionTitle>{t('fixture')}</SectionTitle>
+          <SectionTitle>Fixture</SectionTitle>
           <FixtureView
             tournament={tournament}
             category={category}
@@ -79,7 +72,7 @@ export default function TournamentRoundsView({
     return (
       <div className="rounds-view">
         <div className="rounds-section">
-          <SectionTitle>{hasConsolation ? t('mainBracket') : t('bracket')}</SectionTitle>
+          <SectionTitle>{hasConsolation ? 'Cuadro principal' : 'Llave'}</SectionTitle>
           <BracketView
             tournament={tournament}
             category={category}
@@ -89,7 +82,7 @@ export default function TournamentRoundsView({
         </div>
         {hasConsolation && (
           <div className="rounds-section">
-            <SectionTitle>{t('consolationBracketTitle')}</SectionTitle>
+            <SectionTitle>Cuadro consuelo</SectionTitle>
             <BracketView
               tournament={tournament}
               category={category}
@@ -107,7 +100,7 @@ export default function TournamentRoundsView({
   return (
     <div className="rounds-view">
       <div className="rounds-section">
-        <SectionTitle>{t('groupPhase')}</SectionTitle>
+        <SectionTitle>Fase de grupos</SectionTitle>
         <GroupsView
           tournament={tournament}
           category={category}
@@ -119,7 +112,7 @@ export default function TournamentRoundsView({
         <>
           <Divider />
           <div className="rounds-section">
-            <SectionTitle>{t('knockoutPhase')}</SectionTitle>
+            <SectionTitle>Fase eliminatoria</SectionTitle>
             <BracketView
               tournament={tournament}
               category={category}

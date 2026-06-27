@@ -11,7 +11,6 @@ import ToggleButton from '@mui/material/ToggleButton'
 import MuiToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
 import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
@@ -39,7 +38,6 @@ export default function TournamentsBrowser({
   ownedByPlayer = false
 }: TournamentsBrowserProps) {
   const { getTournaments } = useTournaments()
-  const t = useTranslations('tournaments')
   const router = useRouter()
   const searchParams = useSearchParams()
   const urlName = searchParams.get('name') ?? ''
@@ -105,7 +103,7 @@ export default function TournamentsBrowser({
           <div className="filters">
             <TextField
               size="small"
-              placeholder={t('browse.filterByName')}
+              placeholder="Buscar por nombre"
               value={nameInput}
               onChange={(event) => setNameInput(event.target.value)}
               className="name-filter"
@@ -128,17 +126,17 @@ export default function TournamentsBrowser({
                 onChange={(_, value: StatusFilter | null) => value && setStatus(value)}
                 className="status-filter"
               >
-                <ToggleButton value="all">{t('browse.all')}</ToggleButton>
-                <ToggleButton value={TournamentStatus.STAND_BY}>{t('status.stand_by')}</ToggleButton>
-                <ToggleButton value={TournamentStatus.ONGOING}>{t('status.ongoing')}</ToggleButton>
-                <ToggleButton value={TournamentStatus.FINISHED}>{t('status.finished')}</ToggleButton>
+                <ToggleButton value="all">Todos</ToggleButton>
+                <ToggleButton value={TournamentStatus.STAND_BY}>Inscripción abierta</ToggleButton>
+                <ToggleButton value={TournamentStatus.ONGOING}>En juego</ToggleButton>
+                <ToggleButton value={TournamentStatus.FINISHED}>Finalizado</ToggleButton>
               </MuiToggleButtonGroup>
             )}
           </div>
           {showCreationButton && (
             <div className="actions">
               <Button href="/tournaments/new" className="create-button" variant="contained" startIcon={<AddIcon />}>
-                {t('browse.create')}
+                Crear torneo
               </Button>
             </div>
           )}
@@ -153,7 +151,7 @@ export default function TournamentsBrowser({
         </div>
       ) : tournaments.length === 0 ? (
         <Typography color="text.secondary" className="empty">
-          {t('browse.empty')}
+          No se encontraron torneos
         </Typography>
       ) : (
         <>

@@ -4,9 +4,7 @@ import { TournamentType } from '@/app/(protected)/(tournaments)/models/Tournamen
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
 import {
   buildTournament,
-  getMatches,
   getPendingActiveMatches,
-  getRounds,
   reloadTournament,
   resetDatabase,
   setResult,
@@ -71,7 +69,12 @@ describe('standings — type-specific behavior', () => {
       }
 
       for (const match of pending) {
-        await setResult(match.id, { sets: [{ home: 6, away: 3 }, { home: 6, away: 4 }] })
+        await setResult(match.id, {
+          sets: [
+            { home: 6, away: 3 },
+            { home: 6, away: 4 }
+          ]
+        })
       }
     }
 

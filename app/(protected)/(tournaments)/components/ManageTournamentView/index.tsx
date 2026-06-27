@@ -19,7 +19,6 @@ import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/app/(auth)/stores/users'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
@@ -36,6 +35,13 @@ import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDi
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import {
+  DISCIPLINE_LABELS,
+  ORGANIZER_ERROR_MESSAGES,
+  SCORE_FORMAT_LABELS,
+  SUB_DISCIPLINE_LABELS,
+  TOURNAMENT_TYPE_LABELS
+} from '../../utils/labels'
 
 interface ManageTournamentViewProps {
   tournamentId: number
@@ -43,8 +49,6 @@ interface ManageTournamentViewProps {
 }
 
 export default function ManageTournamentView({ tournamentId, appUrl }: ManageTournamentViewProps) {
-  const t = useTranslations('tournaments')
-  const tOrganizer = useTranslations('organizer')
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
@@ -97,7 +101,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   }
 
   if (!tournament || !isOwner) {
-    return <Alert severity="error">{tOrganizer('errors.notFound')}</Alert>
+    return <Alert severity="error">{ORGANIZER_ERROR_MESSAGES['notFound'] ?? 'Torneo no encontrado'}</Alert>
   }
 
   // The single category (categoryId = null) renders the flat layout; real
@@ -127,20 +131,20 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   }
 
   const handleStart = () => {
-    if (window.confirm(tOrganizer('manage.startConfirm', { count: competitors.length }))) {
+    if (window.confirm(`¿Iniciar el torneo con ${competitors.length} competidores?`)) {
       runAction(() => startTournament(tournament.id))
     }
   }
 
   const handleFinish = () => {
-    if (window.confirm(tOrganizer('manage.finishConfirm'))) {
+    if (window.confirm('¿Estás seguro que querés finalizar el torneo?')) {
       runAction(() => finishTournament(tournament.id))
     }
   }
 
   const handleShare = () => {
     const url = `${appUrl}/tournaments/${tournament.id}/join`
-    const message = tOrganizer('manage.shareMessage', { name: tournament.name, url })
+    const message = `¡Te invito a inscribirte en el torneo "${tournament.name}"! Entrá desde acá: ${url}`
 
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
   }
@@ -165,7 +169,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             <Typography variant="h5" component="h1" className="name">
               {tournament.name}
             </Typography>
-            <Tooltip title={tOrganizer('manage.edit')}>
+            <Tooltip title="Editar">
               <IconButton size="small" onClick={() => setEditOpen(true)}>
                 <EditIcon fontSize="small" />
               </IconButton>
@@ -181,12 +185,21 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           </Typography>
         )}
         <div className="meta">
-          <Chip size="small" label={t(`discipline.${DisciplineNames[tournament.discipline]}`)} />
+          <Chip
+            size="small"
+            label={DISCIPLINE_LABELS[DisciplineNames[tournament.discipline]] ?? tournament.discipline}
+          />
           {tournament.subDiscipline && (
-            <Chip size="small" label={t(`subDiscipline.${SubDisciplineNames[tournament.subDiscipline]}`)} />
+            <Chip
+              size="small"
+              label={SUB_DISCIPLINE_LABELS[SubDisciplineNames[tournament.subDiscipline]] ?? tournament.subDiscipline}
+            />
           )}
-          <Chip size="small" label={t(`type.${TournamentTypeNames[tournament.type]}`)} />
-          <Chip size="small" label={t(`scoreFormat.${ScoreFormatNames[tournament.scoreFormat]}`)} />
+          <Chip size="small" label={TOURNAMENT_TYPE_LABELS[TournamentTypeNames[tournament.type]] ?? tournament.type} />
+          <Chip
+            size="small"
+            label={SCORE_FORMAT_LABELS[ScoreFormatNames[tournament.scoreFormat]] ?? tournament.scoreFormat}
+          />
           {tournament.location && (
             <span className="meta-item">
               <PlaceIcon fontSize="inherit" /> {tournament.location}
@@ -201,7 +214,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           <div className="info-area">
             {tournament.status === TournamentStatus.STAND_BY && (
               <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
-                {tOrganizer('manage.share')}
+                Compartir
               </Button>
             )}
           </div>
@@ -214,12 +227,12 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
                 disabled={working || competitors.length < 2}
                 loading={working}
               >
-                {tOrganizer('manage.start')}
+                Iniciar torneo
               </Button>
             )}
             {tournament.status === TournamentStatus.ONGOING && (
               <Button variant="outlined" color="error" onClick={handleFinish} disabled={working} loading={working}>
-                {tOrganizer('manage.finish')}
+                Finalizar torneo
               </Button>
             )}
           </div>
@@ -231,7 +244,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
             <div className="category-header">
               <Typography variant="h6" className="category-title">
-                {categoryNameById.get(key) ?? t('uniqueCategory')}
+                {categoryNameById.get(key) ?? 'Categoría única'}
               </Typography>
               <Chip
                 size="small"
@@ -245,7 +258,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           <AccordionDetails className="category-details">
             <div className="category-section">
               <Typography variant="subtitle1" className="category-subtitle">
-                {tOrganizer('manage.registeredCompetitors')}
+                Competidores inscriptos
               </Typography>
               <CompetitorsList tournament={tournament} category={key} />
             </div>

@@ -78,7 +78,6 @@ describe('processTournaments — starts tournaments at the organization local ti
     await org!.save()
 
     const now = new Date('2026-06-26T12:00:00Z') // = 09:00 in Buenos Aires
-
     // Due: 08:00 BA = 11:00 UTC, already passed at `now`.
     const due = await buildTournament({ type: TournamentType.AMERICANO, competitors: 4, startDate: '2026-06-26' })
 

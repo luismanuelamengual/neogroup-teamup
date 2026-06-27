@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { useCallback } from 'react'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -18,8 +17,6 @@ import { TournamentFilters } from '../models/TournamentFilters'
 export function useTournaments() {
   const executeRequest = useRequests()
   const { showSuccessMessage } = useNotifications()
-  const tOrganizer = useTranslations('organizer')
-  const tPlayer = useTranslations('player')
   const router = useRouter()
   const getTournament = useCallback(
     (tournamentId: number): Promise<TournamentDto | null> =>
@@ -39,46 +36,46 @@ export function useTournaments() {
   const updateTournament = useCallback(
     async (tournamentId: number, tournament: Partial<TournamentDto>): Promise<void> => {
       await executeRequest('/updateTournament', { id: tournamentId, ...tournament })
-      showSuccessMessage(tOrganizer('manage.tournamentUpdated'))
+      showSuccessMessage('Torneo actualizado correctamente')
     },
-    [executeRequest, showSuccessMessage, tOrganizer]
+    [executeRequest, showSuccessMessage]
   )
   const deleteTournament = useCallback(
     async (tournamentId: number): Promise<void> => {
       await executeRequest('/deleteTournament', { id: tournamentId })
-      showSuccessMessage(tOrganizer('manage.tournamentDeleted'))
+      showSuccessMessage('Torneo eliminado correctamente')
       router.push('/tournaments')
     },
-    [executeRequest, router, showSuccessMessage, tOrganizer]
+    [executeRequest, router, showSuccessMessage]
   )
   const startTournament = useCallback(
     async (tournamentId: number): Promise<void> => {
       try {
         await executeRequest('/startTournament', { id: tournamentId })
-        showSuccessMessage(tOrganizer('manage.tournamentStarted'))
+        showSuccessMessage('Torneo iniciado correctamente')
       } catch (e) {
         throw e
       }
     },
-    [executeRequest, showSuccessMessage, tOrganizer]
+    [executeRequest, showSuccessMessage]
   )
   const finishTournament = useCallback(
     async (tournamentId: number): Promise<void> => {
       try {
         await executeRequest('/finishTournament', { id: tournamentId })
-        showSuccessMessage(tOrganizer('manage.tournamentFinished'))
+        showSuccessMessage('Torneo finalizado correctamente')
       } catch (e) {}
     },
-    [executeRequest, showSuccessMessage, tOrganizer]
+    [executeRequest, showSuccessMessage]
   )
   const saveMatchResult = useCallback(
     async (matchId: number, score: MatchScore): Promise<void> => {
       try {
         await executeRequest('/setMatchResult', { id: matchId, score })
-        showSuccessMessage(tPlayer('resultSubmitted'))
+        showSuccessMessage('Resultado guardado correctamente')
       } catch (e) {}
     },
-    [executeRequest, showSuccessMessage, tPlayer]
+    [executeRequest, showSuccessMessage]
   )
   const getTournaments = useCallback(
     ({
@@ -101,19 +98,19 @@ export function useTournaments() {
     async (tournamentId: number, input: JoinTournamentInput): Promise<void> => {
       try {
         await executeRequest('/joinTournament', { tournamentId, ...input })
-        showSuccessMessage(tPlayer('tournamentJoined'))
+        showSuccessMessage('Te inscribiste al torneo correctamente')
       } catch (e) {}
     },
-    [executeRequest, showSuccessMessage, tPlayer]
+    [executeRequest, showSuccessMessage]
   )
   const leaveTournament = useCallback(
     async (tournamentId: number): Promise<void> => {
       try {
         await executeRequest('/leaveTournament', { tournamentId })
-        showSuccessMessage(tPlayer('tournamentLeft'))
+        showSuccessMessage('Te diste de baja del torneo correctamente')
       } catch (e) {}
     },
-    [executeRequest, showSuccessMessage, tPlayer]
+    [executeRequest, showSuccessMessage]
   )
 
   return {

@@ -4,7 +4,6 @@ import './index.scss'
 import Divider from '@mui/material/Divider'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
-import { useTranslations } from 'next-intl'
 import { useEffect, useMemo, useState } from 'react'
 import FixtureView from '@/app/(protected)/(tournaments)/components/FixtureView'
 import StandingsTable from '@/app/(protected)/(tournaments)/components/StandingsTable'
@@ -21,7 +20,6 @@ interface GroupsViewProps {
 
 /** Round-robin group phase of a "groups + playoff" tournament, one tab per group. */
 export default function GroupsView({ tournament, category, organizerMode = false, onEditMatch }: GroupsViewProps) {
-  const t = useTranslations('tournaments')
   const groups = useMemo(() => {
     const numbers = new Set<number>()
 
@@ -63,7 +61,7 @@ export default function GroupsView({ tournament, category, organizerMode = false
         className="groups-tabs"
       >
         {groups.map((groupNumber, index) => (
-          <Tab key={groupNumber} label={t('group', { number: index + 1 })} />
+          <Tab key={groupNumber} label={`Grupo ${index + 1}`} />
         ))}
       </Tabs>
       <div className="group-panel">
