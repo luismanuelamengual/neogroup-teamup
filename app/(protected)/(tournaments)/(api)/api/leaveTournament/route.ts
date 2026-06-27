@@ -11,11 +11,11 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   const tournament = await Tournament.find(Number(tournamentId))
 
   if (!tournament) {
-    throw new ApiException('notFound')
+    throw new ApiException('Torneo no encontrado')
   }
 
   if (tournament.status !== TournamentStatus.STAND_BY) {
-    throw new ApiException('registrationClosed')
+    throw new ApiException('Torneo en juego. Desregistración no permitida')
   }
 
   const categories = await getTournamentCategories(tournament)
@@ -23,11 +23,11 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     'tournamentCategoryId',
     categories.map((category) => category.id)
   )
-    .where('userId', userId)
+    .where((q) => q.where('userId', userId).orWhere('partnerUserId', userId))
     .first()
 
   if (!entry) {
-    throw new ApiException('notRegistered')
+    throw new ApiException('Usuario no inscripto en el torneo')
   }
 
   await entry.delete()

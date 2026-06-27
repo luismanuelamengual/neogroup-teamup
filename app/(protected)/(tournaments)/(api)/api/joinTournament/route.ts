@@ -13,11 +13,11 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   const tournament = await Tournament.where('id', Number(tournamentId)).with('categories', 'competitors').first()
 
   if (!tournament) {
-    throw new ApiException('notFound')
+    throw new ApiException('Torneo no encontrado')
   }
 
   if (tournament.status !== TournamentStatus.STAND_BY) {
-    throw new ApiException('registrationClosed')
+    throw new ApiException('Torneo ya iniciado. Inscripciones cerradas')
   }
 
   const competitors = tournament.competitors ?? []
@@ -56,21 +56,27 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   }
 
   const alreadyRegistered = competitors.some(
-    (competitor) =>
-      competitor.userId === userId ||
-      competitor.partnerUserId === userId ||
-      (input.partnerUserId &&
-        (competitor.userId === input.partnerUserId || competitor.partnerUserId === input.partnerUserId))
+    (competitor) => competitor.userId === userId || competitor.partnerUserId === userId
   )
 
   if (alreadyRegistered) {
-    throw new ApiException('alreadyRegistered')
+    throw new ApiException('Usuario ya inscripto en el torneo')
+  }
+
+  if (input.partnerUserId) {
+    const partnerAlreadyRegistered = competitors.some(
+      (competitor) => competitor.userId === input.partnerUserId || competitor.partnerUserId === input.partnerUserId
+    )
+
+    if (partnerAlreadyRegistered) {
+      throw new ApiException('Usuario compañero ya inscripto en el torneo')
+    }
   }
 
   const user = await User.find(userId)
 
   if (!user) {
-    throw new ApiException('unauthorized')
+    throw new ApiException('Usuario no encontrado')
   }
 
   const needsPartner = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
@@ -78,13 +84,13 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
 
   if (needsPartner) {
     if (!input.partnerUserId) {
-      throw new ApiException('partnerRequired')
+      throw new ApiException('El usuario compañero es requerido')
     }
 
     const partner = await User.find(input.partnerUserId)
 
     if (!partner) {
-      throw new ApiException('partnerNotFound')
+      throw new ApiException('Usuario compañero no encontrado')
     }
 
     partnerUserId = partner.id
