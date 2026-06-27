@@ -9,7 +9,6 @@
  * logic end to end.
  */
 import { DB } from '@neogroup/neorm'
-import { User } from '@/app/(auth)/models/User'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -30,6 +29,7 @@ import {
 } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'
 
 const TABLES = [

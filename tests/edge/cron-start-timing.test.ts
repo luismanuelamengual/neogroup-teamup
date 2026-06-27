@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { Organization } from '@/app/(auth)/models/Organization'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { isTournamentStartDue, processTournaments } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { Organization } from '@/app/models/Organization'
 import { buildTournament, getTournamentStatus, resetDatabase } from '@/tests/setup/harness'
 
 /** Minimal STAND_BY tournament with just the scheduling fields the check reads. */
