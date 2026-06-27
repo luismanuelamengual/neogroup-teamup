@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { FormEvent, useState } from 'react'
 import { useAuth } from '@/app/(auth)/hooks/useAuth'
-import { Role } from '@/app/(auth)/models/Role'
+import { Role } from '@/app/models/Role'
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalidCredentials: 'Email o contraseña incorrectos',

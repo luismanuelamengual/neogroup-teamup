@@ -1,10 +1,10 @@
-import { Role } from '@/app/(auth)/models/Role'
-import { User } from '@/app/(auth)/models/User'
 import { auth, unstable_update } from '@/app/(auth)/services/auth'
-import { isValidRole } from '@/app/(auth)/utils/user'
 import { AccountInput } from '@/app/(protected)/(account)/models/AccountInput'
 import { ApiException } from '@/app/models/ApiException'
+import { Role } from '@/app/models/Role'
+import { User } from '@/app/models/User'
 import { withApi } from '@/app/utils/api-server'
+import { isValidRole } from '@/app/utils/users'
 
 type UpdateAccountBody = Partial<AccountInput & { roleId: Role }>
 

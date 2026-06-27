@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback } from 'react'
-import { UserDto } from '@/app/(auth)/models/UserDto'
 import { useRequests } from '@/app/hooks/useRequests'
+import { UserDto } from '@/app/models/UserDto'
 
 export function useUsers() {
   const executeRequest = useRequests()

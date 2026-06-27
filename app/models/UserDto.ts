@@ -1,4 +1,4 @@
-import { Role } from '@/app/(auth)/models/Role'
+import { Role } from '@/app/models/Role'
 
 /** Serializable representation of a User — safe to pass server→client. */
 export interface UserDto {

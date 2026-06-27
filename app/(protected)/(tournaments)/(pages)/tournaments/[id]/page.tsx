@@ -1,7 +1,7 @@
-import { Role } from '@/app/(auth)/models/Role'
 import { auth } from '@/app/(auth)/services/auth'
 import ManageTournamentView from '@/app/(protected)/(tournaments)/components/ManageTournamentView'
 import PlayerTournamentView from '@/app/(protected)/(tournaments)/components/PlayerTournamentView'
+import { Role } from '@/app/models/Role'
 
 /** Tournament detail: management view for organizers, read/play view for players. */
 export default async function TournamentPage({ params }: { params: Promise<{ id: string }> }) {

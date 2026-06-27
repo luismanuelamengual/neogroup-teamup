@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { EmailVerificationToken } from '@/app/(auth)/models/EmailVerificationToken'
-import { User } from '@/app/(auth)/models/User'
+import { User } from '@/app/models/User'
 
 /** GET /api/verifyEmail?token=... — validates token and marks the user email as verified. */
 export async function GET(request: NextRequest): Promise<NextResponse> {

@@ -1,8 +1,8 @@
 import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity, Serializable } from '@neogroup/neorm'
-import { User } from '@/app/(auth)/models/User'
-import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
+import { User } from '@/app/models/User'
+import { getUserDisplayName } from '@/app/utils/users'
 
 @Entity({ table: 'competitors' })
 export class Competitor extends BaseEntity {

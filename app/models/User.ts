@@ -1,8 +1,8 @@
 import { BaseEntity, Column, Entity, Serializable } from '@neogroup/neorm'
-import { Role } from '@/app/(auth)/models/Role'
-import { getUserDisplayName } from '@/app/(auth)/utils/user'
 import { OrganizationScope } from '@/app/models/OrganizationScope'
+import { Role } from '@/app/models/Role'
 import { getGravatarUrl } from '@/app/utils/gravatar'
+import { getUserDisplayName } from '@/app/utils/users'
 
 @Entity({ table: 'users' })
 export class User extends BaseEntity {

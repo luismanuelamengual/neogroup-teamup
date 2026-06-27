@@ -2,11 +2,11 @@
 
 import './index.scss'
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { useUserStore } from '@/app/(auth)/stores/users'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { useUserStore } from '@/app/stores/users'
 
 interface BracketViewProps {
   tournament: TournamentDto

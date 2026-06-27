@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { PasswordResetToken } from '@/app/(auth)/models/PasswordResetToken'
-import { User } from '@/app/(auth)/models/User'
 import { ApiException } from '@/app/models/ApiException'
+import { User } from '@/app/models/User'
 import { withApi } from '@/app/utils/api-server'
 
 /** POST /api/resetPassword — validates a reset token and updates the user password. */

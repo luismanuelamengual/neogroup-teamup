@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback } from 'react'
-import type { Role } from '@/app/(auth)/models/Role'
 import type { AccountInput } from '@/app/(protected)/(account)/models/AccountInput'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { useRequests } from '@/app/hooks/useRequests'
+import type { Role } from '@/app/models/Role'
 
 export function useAccount() {
   const executeRequest = useRequests()

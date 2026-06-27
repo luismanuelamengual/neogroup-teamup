@@ -1,4 +1,4 @@
-import type { Role } from '@/app/(auth)/models/Role'
+import type { Role } from '@/app/models/Role'
 
 /** Payload to create a new user with email/password credentials. */
 export interface RegisterInput {

@@ -20,10 +20,10 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { getSession, signOut } from 'next-auth/react'
 import { MouseEvent, ReactNode, useEffect, useState } from 'react'
-import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
-import { useUserStore } from '@/app/(auth)/stores/users'
 import Avatar from '@/app/components/Avatar'
+import { Role } from '@/app/models/Role'
+import { useUserStore } from '@/app/stores/users'
 
 interface NavItem {
   key: string

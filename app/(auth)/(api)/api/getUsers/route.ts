@@ -1,4 +1,4 @@
-import { User } from '@/app/(auth)/models/User'
+import { User } from '@/app/models/User'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/getUsers — searches users by name, nickname or email (partner selection). */

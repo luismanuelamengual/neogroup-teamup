@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
-import { Role } from '@/app/(auth)/models/Role'
 import { auth } from '@/app/(auth)/services/auth'
 import JoinTournamentForm from '@/app/(protected)/(tournaments)/components/JoinTournamentForm'
+import { Role } from '@/app/models/Role'
 
 /** Tournament registration (player only). */
 export default async function JoinTournamentPage({ params }: { params: Promise<{ id: string }> }) {

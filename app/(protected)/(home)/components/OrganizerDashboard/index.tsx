@@ -5,10 +5,10 @@ import AddIcon from '@mui/icons-material/Add'
 import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
-import { useUserStore } from '@/app/(auth)/stores/users'
 import OrganizationStats from '@/app/(protected)/(home)/components/OrganizationStats'
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { useUserStore } from '@/app/stores/users'
 
 export default function OrganizerDashboard() {
   const user = useUserStore((state) => state.user)

@@ -4,13 +4,13 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
 import { cache } from 'react'
-import { Role } from '@/app/(auth)/models/Role'
-import { User } from '@/app/(auth)/models/User'
 import { authConfig } from '@/app/(auth)/services/auth.config'
-import { getUserDisplayName } from '@/app/(auth)/utils/user'
+import { Role } from '@/app/models/Role'
+import { User } from '@/app/models/User'
 import { getOrganization } from '@/app/services/organizations'
 import { getGravatarUrl } from '@/app/utils/gravatar'
 import { resolveOrgDomainFromHost } from '@/app/utils/org-domain'
+import { getUserDisplayName } from '@/app/utils/users'
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,

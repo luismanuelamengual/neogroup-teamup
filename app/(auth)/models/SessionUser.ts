@@ -1,4 +1,4 @@
-import { UserDto } from '@/app/(auth)/models/UserDto'
+import { UserDto } from '@/app/models/UserDto'
 
 /** Serializable subset of UserDto — safe to pass server→client and store in the user store. */
 export type SessionUser = Pick<

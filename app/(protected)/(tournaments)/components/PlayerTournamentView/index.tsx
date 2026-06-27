@@ -18,7 +18,6 @@ import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useUserStore } from '@/app/(auth)/stores/users'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
@@ -33,6 +32,7 @@ import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFo
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { useUserStore } from '@/app/stores/users'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 import {
   DISCIPLINE_LABELS,

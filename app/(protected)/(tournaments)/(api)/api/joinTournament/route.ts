@@ -1,9 +1,9 @@
-import { User } from '@/app/(auth)/models/User'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { ApiException } from '@/app/models/ApiException'
+import { User } from '@/app/models/User'
 import { withAuth } from '@/app/utils/api-server'
 import { JoinTournamentInput } from '../../../models/JoinTournamentInput'
 

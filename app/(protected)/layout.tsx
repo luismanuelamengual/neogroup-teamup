@@ -2,11 +2,11 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ReactNode, Suspense } from 'react'
 import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
-import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/(protected)/components/AppShell'
 import Loading from '@/app/components/Loading'
+import { Role } from '@/app/models/Role'
 import { getOrganization } from '@/app/services/organizations'
 
 /**

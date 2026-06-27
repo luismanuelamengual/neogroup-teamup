@@ -1,6 +1,6 @@
-import { Role } from '@/app/(auth)/models/Role'
+import { Role } from '@/app/models/Role'
 
-/** User helpers shared across the app (the auth module owns the user concept). */
+/** User helpers shared across the app. */
 
 export function isValidRole(value: unknown): value is Role {
   return value === Role.ORGANIZER || value === Role.PLAYER

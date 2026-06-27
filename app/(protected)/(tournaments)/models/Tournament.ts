@@ -1,5 +1,4 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany, HasManyThrough } from '@neogroup/neorm'
-import { User } from '@/app/(auth)/models/User'
 import { RankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -12,6 +11,7 @@ import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { OrganizationScope } from '@/app/models/OrganizationScope'
+import { User } from '@/app/models/User'
 
 @Entity({ table: 'tournaments' })
 export class Tournament extends BaseEntity {

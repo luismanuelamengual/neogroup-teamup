@@ -20,7 +20,6 @@ import Skeleton from '@mui/material/Skeleton'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useUserStore } from '@/app/(auth)/stores/users'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import EditTournamentDialog from '@/app/(protected)/(tournaments)/components/EditTournamentDialog'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
@@ -35,6 +34,7 @@ import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDi
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { useUserStore } from '@/app/stores/users'
 import {
   DISCIPLINE_LABELS,
   ORGANIZER_ERROR_MESSAGES,

@@ -4,10 +4,10 @@ import './index.scss'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
-import { useUserStore } from '@/app/(auth)/stores/users'
 import PlayerStats from '@/app/(protected)/(home)/components/PlayerStats'
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { useUserStore } from '@/app/stores/users'
 
 export default function PlayerDashboard() {
   const user = useUserStore((state) => state.user)

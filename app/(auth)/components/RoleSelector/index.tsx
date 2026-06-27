@@ -8,8 +8,8 @@ import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Role } from '@/app/(auth)/models/Role'
 import { useAccount } from '@/app/(protected)/(account)/hooks/useAccount'
+import { Role } from '@/app/models/Role'
 
 interface RoleSelectorProps {
   callbackUrl: string | null

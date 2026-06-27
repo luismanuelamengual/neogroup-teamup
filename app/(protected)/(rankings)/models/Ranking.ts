@@ -1,7 +1,7 @@
 import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
-import { User } from '@/app/(auth)/models/User'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { OrganizationScope } from '@/app/models/OrganizationScope'
+import { User } from '@/app/models/User'
 
 /**
  * A single ranking award granted to a player when a tournament finishes. Each

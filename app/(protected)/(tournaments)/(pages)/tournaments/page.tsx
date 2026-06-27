@@ -1,7 +1,7 @@
 import './page.scss'
-import { Role } from '@/app/(auth)/models/Role'
 import { getSession } from '@/app/(auth)/services/auth'
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
+import { Role } from '@/app/models/Role'
 
 /** Unified tournaments browser: the same generic search for players and organizers. */
 export default async function TournamentsPage() {

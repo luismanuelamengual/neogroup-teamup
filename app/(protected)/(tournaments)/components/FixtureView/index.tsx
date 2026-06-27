@@ -3,12 +3,12 @@
 import './index.scss'
 import Chip from '@mui/material/Chip'
 import { useMemo } from 'react'
-import { useUserStore } from '@/app/(auth)/stores/users'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { useUserStore } from '@/app/stores/users'
 
 interface FixtureViewProps {
   tournament: TournamentDto
