@@ -5,7 +5,7 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
-import { Organization } from '@/app/(auth)/models/Organization'
+import { getOrganization } from '@/app/services/organizations'
 
 export default async function VerifyEmailPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const headersList = await headers()
@@ -15,7 +15,7 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
     redirect('/')
   }
 
-  const organization = await Organization.where('domainName', orgDomain).first()
+  const organization = await getOrganization({ domainName: orgDomain })
 
   if (!organization) {
     return <OrgNotFound orgDomain={orgDomain} />

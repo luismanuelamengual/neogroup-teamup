@@ -4,11 +4,11 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
 import { cache } from 'react'
-import { Organization } from '@/app/(auth)/models/Organization'
 import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
 import { authConfig } from '@/app/(auth)/services/auth.config'
 import { getUserDisplayName } from '@/app/(auth)/utils/user'
+import { getOrganization } from '@/app/services/organizations'
 import { getGravatarUrl } from '@/app/utils/gravatar'
 import { resolveOrgDomainFromHost } from '@/app/utils/org-domain'
 
@@ -38,7 +38,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
-        const organization = await Organization.where('domainName', orgDomain).first()
+        const organization = await getOrganization({ domainName: orgDomain })
 
         if (!organization) {
           return null
@@ -75,7 +75,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         const headersList = await nextHeaders()
         const host = headersList.get('host') ?? ''
         const orgDomain = resolveOrgDomainFromHost(host)
-        const organization = orgDomain !== '__root__' ? await Organization.where('domainName', orgDomain).first() : null
+        const organization = orgDomain !== '__root__' ? await getOrganization({ domainName: orgDomain }) : null
 
         if (organization) {
           const email = token.email.toLowerCase()

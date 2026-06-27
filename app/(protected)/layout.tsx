@@ -2,12 +2,12 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ReactNode, Suspense } from 'react'
 import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
-import { Organization } from '@/app/(auth)/models/Organization'
 import { Role } from '@/app/(auth)/models/Role'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/(protected)/components/AppShell'
 import Loading from '@/app/components/Loading'
+import { getOrganization } from '@/app/services/organizations'
 
 /**
  * Shared layout for every authenticated page: requires a session with an
@@ -34,7 +34,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
   // loop forever because the authorized callback would bounce them back to /.
   const headersList = await headers()
   const orgDomain = headersList.get('x-org-domain') ?? ''
-  const organization = await Organization.where('domainName', orgDomain).first()
+  const organization = await getOrganization({ domainName: orgDomain })
 
   if (!organization || session.user.organizationId !== organization.id) {
     // Writing cookies (required to clear the session) is not allowed in Server

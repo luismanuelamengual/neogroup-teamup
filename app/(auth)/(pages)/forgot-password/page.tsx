@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import ForgotPasswordForm from '@/app/(auth)/components/ForgotPasswordForm'
 import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
-import { Organization } from '@/app/(auth)/models/Organization'
+import { getOrganization } from '@/app/services/organizations'
 
 export default async function ForgotPasswordPage() {
   const headersList = await headers()
@@ -12,7 +12,7 @@ export default async function ForgotPasswordPage() {
     redirect('/')
   }
 
-  const organization = await Organization.where('domainName', orgDomain).first()
+  const organization = await getOrganization({ domainName: orgDomain })
 
   if (!organization) {
     return <OrgNotFound orgDomain={orgDomain} />

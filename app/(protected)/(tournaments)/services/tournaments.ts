@@ -1,5 +1,4 @@
 import { DB } from '@neogroup/neorm'
-import { Organization } from '@/app/(auth)/models/Organization'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
@@ -13,6 +12,7 @@ import {
   supportsPreclassification
 } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { ApiException } from '@/app/models/ApiException'
+import { Organization } from '@/app/models/Organization'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { Competitor } from '../models/Competitor'
 import { TournamentCategory } from '../models/TournamentCategory'

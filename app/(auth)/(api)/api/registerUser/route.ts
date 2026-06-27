@@ -1,12 +1,12 @@
 import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
 import { EmailVerificationToken } from '@/app/(auth)/models/EmailVerificationToken'
-import { Organization } from '@/app/(auth)/models/Organization'
 import { RegisterInput } from '@/app/(auth)/models/RegisterInput'
 import { Role } from '@/app/(auth)/models/Role'
 import { User } from '@/app/(auth)/models/User'
 import { isValidRole } from '@/app/(auth)/utils/user'
 import { ApiException } from '@/app/models/ApiException'
+import { getOrganization } from '@/app/services/organizations'
 import { withApi } from '@/app/utils/api-server'
 import { sendEmail } from '@/app/utils/email'
 
@@ -37,7 +37,7 @@ export const POST = withApi(async (request, context, organizationId) => {
   }
 
   // If the organization does not allow organizer self-registration, force the player role.
-  const organization = await Organization.where('id', organizationId).first()
+  const organization = await getOrganization({ id: organizationId })
   const roleId = organization?.allowOrganizersCreation ? input.roleId : Role.PLAYER
   const existing = await User.withoutGlobalScopes()
     .where('organizationId', organizationId)

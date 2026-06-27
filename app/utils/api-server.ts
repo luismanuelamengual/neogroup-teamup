@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Organization } from '@/app/(auth)/models/Organization'
 import { auth } from '@/app/(auth)/services/auth'
 import { ApiException } from '@/app/models/ApiException'
 import { ApiResponse } from '@/app/models/ApiResponse'
+import { getOrganization } from '@/app/services/organizations'
 
 /** Helpers shared by the /api route handlers. */
 
@@ -50,7 +50,7 @@ function errorResponse(error: unknown): NextResponse {
  */
 async function resolveOrganizationId(request: NextRequest): Promise<number> {
   const orgDomain = request.headers.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
-  const organization = await Organization.where('domainName', orgDomain).first()
+  const organization = await getOrganization({ domainName: orgDomain })
 
   if (!organization) {
     throw new ApiException('organizationNotFound', 404)
