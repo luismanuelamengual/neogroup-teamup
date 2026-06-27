@@ -34,23 +34,14 @@ import {
 import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
-import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
-import { SubDiscipline, SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { isDoublesDiscipline } from '@/app/(protected)/(tournaments)/utils/discipline'
-import {
-  DISCIPLINE_LABELS,
-  ORGANIZER_ERROR_MESSAGES,
-  SUB_DISCIPLINE_LABELS,
-  TOURNAMENT_TYPE_LABELS
-} from '../../utils/labels'
-
-const DISCIPLINES: Discipline[] = [Discipline.PADEL, Discipline.TENNIS]
-const SUB_DISCIPLINES: SubDiscipline[] = [SubDiscipline.SINGLES, SubDiscipline.DOUBLES]
 
 export default function TournamentForm() {
   const { createTournament } = useTournaments()
@@ -195,7 +186,6 @@ export default function TournamentForm() {
       createdId = created.id
     } catch (requestError) {
       setLoading(false)
-      setError(ORGANIZER_ERROR_MESSAGES[(requestError as Error).message] ?? 'Algo salió mal. Intentá de nuevo.')
 
       return
     }
@@ -292,9 +282,9 @@ export default function TournamentForm() {
               onChange={(event) => handleDisciplineChange(Number(event.target.value) as Discipline)}
               fullWidth
             >
-              {DISCIPLINES.map((value) => (
+              {Disciplines.map((value) => (
                 <MenuItem key={value} value={value}>
-                  {DISCIPLINE_LABELS[DisciplineNames[value]] ?? value}
+                  {DisciplineNames[value]}
                 </MenuItem>
               ))}
             </TextField>
@@ -306,9 +296,9 @@ export default function TournamentForm() {
                 onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
                 fullWidth
               >
-                {SUB_DISCIPLINES.map((value) => (
+                {SubDisciplines.map((value) => (
                   <MenuItem key={value} value={value}>
-                    {SUB_DISCIPLINE_LABELS[SubDisciplineNames[value]] ?? value}
+                    {SubDisciplineNames[value]}
                   </MenuItem>
                 ))}
               </TextField>
@@ -322,7 +312,7 @@ export default function TournamentForm() {
             >
               {availableTypes.map((value) => (
                 <MenuItem key={value} value={value}>
-                  {TOURNAMENT_TYPE_LABELS[TournamentTypeNames[value]] ?? value}
+                  {TournamentTypeNames[value]}
                 </MenuItem>
               ))}
             </TextField>

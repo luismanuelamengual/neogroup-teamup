@@ -8,11 +8,15 @@ export enum TournamentType {
   AMERICANO_WITH_SWAP = 6
 }
 
+export const TournamentTypes = Object.values(TournamentType).filter(
+  (value) => typeof value === 'number'
+) as TournamentType[]
+
 export const TournamentTypeNames: Record<TournamentType, string> = {
-  [TournamentType.LEAGUE]: 'league',
-  [TournamentType.AMERICANO]: 'americano',
-  [TournamentType.PLAYOFF]: 'playoff',
-  [TournamentType.GROUPS_PLAYOFF]: 'groups_playoff',
-  [TournamentType.PLAYOFF_WITH_CONSOLATION]: 'playoff_with_consolation',
-  [TournamentType.AMERICANO_WITH_SWAP]: 'americano_with_swap'
+  [TournamentType.LEAGUE]: 'Liga',
+  [TournamentType.AMERICANO]: 'Americana',
+  [TournamentType.AMERICANO_WITH_SWAP]: 'Americana con intercambio',
+  [TournamentType.PLAYOFF]: 'Eliminatoria',
+  [TournamentType.PLAYOFF_WITH_CONSOLATION]: 'Eliminatoria con cuadro consuelo',
+  [TournamentType.GROUPS_PLAYOFF]: 'Grupos + Eliminatoria'
 }

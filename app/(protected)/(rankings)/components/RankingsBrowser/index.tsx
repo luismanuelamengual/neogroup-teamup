@@ -12,23 +12,13 @@ import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
 import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline, SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import Avatar from '@/app/components/Avatar'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
 const PAGE_SIZE = 20
-const DISCIPLINES: Discipline[] = [Discipline.PADEL, Discipline.TENNIS]
-const SUB_DISCIPLINES: SubDiscipline[] = [SubDiscipline.SINGLES, SubDiscipline.DOUBLES]
 const ALL_CATEGORIES = 'all'
-const DISCIPLINE_LABELS: Record<string, string> = {
-  padel: 'Pádel',
-  tennis: 'Tenis'
-}
-const SUB_DISCIPLINE_LABELS: Record<string, string> = {
-  singles: 'Singles',
-  doubles: 'Dobles'
-}
 
 export default function RankingsBrowser() {
   const { getCategories } = useCategories()
@@ -95,9 +85,9 @@ export default function RankingsBrowser() {
           onChange={(event) => setDiscipline(Number(event.target.value) as Discipline)}
           className="filter"
         >
-          {DISCIPLINES.map((value) => (
+          {Disciplines.map((value) => (
             <MenuItem key={value} value={value}>
-              {DISCIPLINE_LABELS[DisciplineNames[value]] ?? DisciplineNames[value]}
+              {DisciplineNames[value]}
             </MenuItem>
           ))}
         </TextField>
@@ -110,9 +100,9 @@ export default function RankingsBrowser() {
             onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
             className="filter"
           >
-            {SUB_DISCIPLINES.map((value) => (
+            {SubDisciplines.map((value) => (
               <MenuItem key={value} value={value}>
-                {SUB_DISCIPLINE_LABELS[SubDisciplineNames[value]] ?? SubDisciplineNames[value]}
+                {SubDisciplineNames[value]}
               </MenuItem>
             ))}
           </TextField>

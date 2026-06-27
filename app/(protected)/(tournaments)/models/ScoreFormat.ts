@@ -6,7 +6,7 @@ export enum ScoreFormat {
 }
 
 export const ScoreFormatNames: Record<ScoreFormat, string> = {
-  [ScoreFormat.THREE_SETS]: 'three_sets',
-  [ScoreFormat.TWO_SETS_SUPER_TIEBREAK]: 'two_sets_super_tiebreak',
-  [ScoreFormat.BASIC_COUNT]: 'basic_count'
+  [ScoreFormat.THREE_SETS]: '3 sets',
+  [ScoreFormat.TWO_SETS_SUPER_TIEBREAK]: '2 sets + Super tiebreak',
+  [ScoreFormat.BASIC_COUNT]: 'Contador básico'
 }

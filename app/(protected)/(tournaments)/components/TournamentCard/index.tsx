@@ -11,11 +11,6 @@ import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import {
-  DISCIPLINE_LABELS,
-  SUB_DISCIPLINE_LABELS,
-  TOURNAMENT_TYPE_LABELS
-} from '@/app/(protected)/(tournaments)/utils/labels'
 import { TournamentDto } from '../../models/TournamentDto'
 
 interface TournamentCardProps {
@@ -40,18 +35,9 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         <StatusChip status={tournament.status} />
       </div>
       <div className="tags">
-        <span className="tag">
-          {DISCIPLINE_LABELS[DisciplineNames[tournament.discipline]] ?? DisciplineNames[tournament.discipline]}
-        </span>
-        {tournament.subDiscipline && (
-          <span className="tag">
-            {SUB_DISCIPLINE_LABELS[SubDisciplineNames[tournament.subDiscipline]] ??
-              SubDisciplineNames[tournament.subDiscipline]}
-          </span>
-        )}
-        <span className="tag">
-          {TOURNAMENT_TYPE_LABELS[TournamentTypeNames[tournament.type]] ?? TournamentTypeNames[tournament.type]}
-        </span>
+        <span className="tag">{DisciplineNames[tournament.discipline]}</span>
+        {tournament.subDiscipline && <span className="tag">{SubDisciplineNames[tournament.subDiscipline]}</span>}
+        <span className="tag">{TournamentTypeNames[tournament.type]}</span>
       </div>
       <div className="details">
         {tournament.location && (

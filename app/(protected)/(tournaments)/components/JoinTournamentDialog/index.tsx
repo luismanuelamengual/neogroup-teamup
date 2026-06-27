@@ -20,12 +20,6 @@ import Avatar from '@/app/components/Avatar'
 import { useUsers } from '@/app/hooks/useUsers'
 import { UserDto } from '@/app/models/UserDto'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
-import {
-  DISCIPLINE_LABELS,
-  PLAYER_ERROR_MESSAGES,
-  SUB_DISCIPLINE_LABELS,
-  TOURNAMENT_TYPE_LABELS
-} from '../../utils/labels'
 
 interface JoinTournamentModalProps {
   open: boolean
@@ -92,14 +86,12 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
         partnerUserId: needsPartner ? (partnerUser?.id ?? null) : null,
         tournamentCategoryId: hasCategories && categoryId !== '' ? categoryId : null
       })
+      onSuccess()
     } catch (requestError) {
-      setLoading(false)
-      setError(PLAYER_ERROR_MESSAGES[(requestError as Error).message] ?? 'Algo salió mal. Intentá de nuevo.')
-
       return
     }
 
-    onSuccess()
+    setLoading(false)
   }
 
   return (
@@ -119,22 +111,9 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
               </Typography>
             )}
             <div className="tags">
-              <Chip
-                size="small"
-                label={DISCIPLINE_LABELS[DisciplineNames[tournament.discipline]] ?? tournament.discipline}
-              />
-              {tournament.subDiscipline && (
-                <Chip
-                  size="small"
-                  label={
-                    SUB_DISCIPLINE_LABELS[SubDisciplineNames[tournament.subDiscipline]] ?? tournament.subDiscipline
-                  }
-                />
-              )}
-              <Chip
-                size="small"
-                label={TOURNAMENT_TYPE_LABELS[TournamentTypeNames[tournament.type]] ?? tournament.type}
-              />
+              <Chip size="small" label={DisciplineNames[tournament.discipline]} />
+              {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
+              <Chip size="small" label={TournamentTypeNames[tournament.type]} />
             </div>
           </div>
           {error && <Alert severity="error">{error}</Alert>}

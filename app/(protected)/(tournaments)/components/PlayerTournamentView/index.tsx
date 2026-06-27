@@ -39,13 +39,6 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { useUserStore } from '@/app/stores/users'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
-import {
-  DISCIPLINE_LABELS,
-  PLAYER_ERROR_MESSAGES,
-  SCORE_FORMAT_LABELS,
-  SUB_DISCIPLINE_LABELS,
-  TOURNAMENT_TYPE_LABELS
-} from '../../utils/labels'
 
 interface PlayerTournamentViewProps {
   tournamentId: number
@@ -127,7 +120,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   }
 
   if (!tournament) {
-    return <Alert severity="error">{PLAYER_ERROR_MESSAGES['notFound'] ?? 'Torneo no encontrado'}</Alert>
+    return <Alert severity="error">Torneo no encontrado</Alert>
   }
 
   const categoryGroups = categoryKeys.map((key) => {
@@ -192,21 +185,10 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           </Typography>
         )}
         <div className="meta">
-          <Chip
-            size="small"
-            label={DISCIPLINE_LABELS[DisciplineNames[tournament.discipline]] ?? tournament.discipline}
-          />
-          {tournament.subDiscipline && (
-            <Chip
-              size="small"
-              label={SUB_DISCIPLINE_LABELS[SubDisciplineNames[tournament.subDiscipline]] ?? tournament.subDiscipline}
-            />
-          )}
-          <Chip size="small" label={TOURNAMENT_TYPE_LABELS[TournamentTypeNames[tournament.type]] ?? tournament.type} />
-          <Chip
-            size="small"
-            label={SCORE_FORMAT_LABELS[ScoreFormatNames[tournament.scoreFormat]] ?? tournament.scoreFormat}
-          />
+          <Chip size="small" label={DisciplineNames[tournament.discipline]} />
+          {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
+          <Chip size="small" label={TournamentTypeNames[tournament.type]} />
+          <Chip size="small" label={ScoreFormatNames[tournament.scoreFormat]} />
           <span className="meta-item">
             <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
             {tournament.startTime ? ` · ${tournament.startTime}` : ''}

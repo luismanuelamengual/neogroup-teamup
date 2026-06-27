@@ -7,7 +7,11 @@ export enum SubDiscipline {
   DOUBLES = 2
 }
 
+export const SubDisciplines = Object.values(SubDiscipline).filter(
+  (value) => typeof value === 'number'
+) as SubDiscipline[]
+
 export const SubDisciplineNames: Record<SubDiscipline, string> = {
-  [SubDiscipline.SINGLES]: 'singles',
-  [SubDiscipline.DOUBLES]: 'doubles'
+  [SubDiscipline.SINGLES]: 'Singles',
+  [SubDiscipline.DOUBLES]: 'Dobles'
 }

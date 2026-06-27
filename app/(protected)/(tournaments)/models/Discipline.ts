@@ -4,7 +4,9 @@ export enum Discipline {
   TENNIS = 2
 }
 
+export const Disciplines = Object.values(Discipline).filter((value) => typeof value === 'number') as Discipline[]
+
 export const DisciplineNames: Record<Discipline, string> = {
-  [Discipline.PADEL]: 'padel',
-  [Discipline.TENNIS]: 'tennis'
+  [Discipline.PADEL]: 'Pádel',
+  [Discipline.TENNIS]: 'Tenis'
 }

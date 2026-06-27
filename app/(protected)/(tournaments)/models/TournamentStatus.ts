@@ -6,7 +6,7 @@ export enum TournamentStatus {
 }
 
 export const TournamentStatusNames: Record<TournamentStatus, string> = {
-  [TournamentStatus.STAND_BY]: 'stand_by',
-  [TournamentStatus.ONGOING]: 'ongoing',
-  [TournamentStatus.FINISHED]: 'finished'
+  [TournamentStatus.STAND_BY]: 'Inscripción abierta',
+  [TournamentStatus.ONGOING]: 'En juego',
+  [TournamentStatus.FINISHED]: 'Finalizado'
 }
