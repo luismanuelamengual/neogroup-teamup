@@ -13,6 +13,11 @@ import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogTitle from '@mui/material/DialogTitle'
 import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
@@ -54,6 +59,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   const [editOpen, setEditOpen] = useState(false)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
+  const [confirmStartOpen, setConfirmStartOpen] = useState(false)
+  const [confirmFinishOpen, setConfirmFinishOpen] = useState(false)
   const { finishTournament, getTournament, saveMatchResult, startTournament } = useTournaments()
   const userId = useUserStore((state) => state.user?.id ?? null)
   const isOwner = tournament != null && userId != null && tournament.ownerId === userId
@@ -131,15 +138,21 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   }
 
   const handleStart = () => {
-    if (window.confirm(`¿Iniciar el torneo con ${competitors.length} competidores?`)) {
-      runAction(() => startTournament(tournament.id))
-    }
+    setConfirmStartOpen(true)
+  }
+
+  const handleConfirmStart = () => {
+    setConfirmStartOpen(false)
+    runAction(() => startTournament(tournament.id))
   }
 
   const handleFinish = () => {
-    if (window.confirm('¿Estás seguro que querés finalizar el torneo?')) {
-      runAction(() => finishTournament(tournament.id))
-    }
+    setConfirmFinishOpen(true)
+  }
+
+  const handleConfirmFinish = () => {
+    setConfirmFinishOpen(false)
+    runAction(() => finishTournament(tournament.id))
   }
 
   const handleShare = () => {
@@ -294,6 +307,34 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         onClose={() => setScoreMatch(null)}
         onSave={handleSaveScore}
       />
+
+      <Dialog open={confirmStartOpen} onClose={() => setConfirmStartOpen(false)}>
+        <DialogTitle>Iniciar torneo</DialogTitle>
+        <DialogContent>
+          <DialogContentText>¿Iniciár el torneo con {competitors.length} competidores?</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmStartOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleConfirmStart}>
+            Iniciar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmFinishOpen} onClose={() => setConfirmFinishOpen(false)}>
+        <DialogTitle>Finalizar torneo</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ¿Estás seguro que querés finalizar el torneo? Esta acción no se puede deshacer.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmFinishOpen(false)}>Cancelar</Button>
+          <Button color="error" variant="contained" onClick={handleConfirmFinish}>
+            Finalizar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }

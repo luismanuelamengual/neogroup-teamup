@@ -12,6 +12,11 @@ import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogTitle from '@mui/material/DialogTitle'
 import Divider from '@mui/material/Divider'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
@@ -53,6 +58,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const [joinOpen, setJoinOpen] = useState(false)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
+  const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false)
   const userId = useUserStore((state) => state.user?.id ?? null)
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
   const rounds = useMemo(() => tournament?.rounds ?? [], [tournament])
@@ -131,11 +137,12 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     return { key, groupCompetitors, groupRounds }
   })
 
-  const handleLeave = async () => {
-    if (!window.confirm('¿Estás seguro que querés darte de baja del torneo?')) {
-      return
-    }
+  const handleLeave = () => {
+    setConfirmLeaveOpen(true)
+  }
 
+  const handleConfirmLeave = async () => {
+    setConfirmLeaveOpen(false)
     setWorking(true)
 
     try {
@@ -300,6 +307,21 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           await loadTournament()
         }}
       />
+
+      <Dialog open={confirmLeaveOpen} onClose={() => setConfirmLeaveOpen(false)}>
+        <DialogTitle>Darse de baja</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ¿Estás seguro que querés darte de baja del torneo? Esta acción no se puede deshacer.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmLeaveOpen(false)}>Cancelar</Button>
+          <Button color="error" variant="contained" onClick={handleConfirmLeave}>
+            Darme de baja
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }
