@@ -10,7 +10,7 @@ import classNames from 'classnames'
 import { useEffect, useState } from 'react'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
-import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
+import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline, SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
@@ -31,7 +31,7 @@ const SUB_DISCIPLINE_LABELS: Record<string, string> = {
 }
 
 export default function RankingsBrowser() {
-  const { getCategories } = useTournaments()
+  const { getCategories } = useCategories()
   const { getRankings } = useRankings()
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)

@@ -32,19 +32,19 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     const requested = input.tournamentCategoryId != null ? Number(input.tournamentCategoryId) : null
 
     if (!requested) {
-      throw new ApiException('categoryRequired')
+      throw new ApiException('Se requiere una categoría para la inscripción')
     }
 
     targetCategory = realCategories.find((category) => category.id === requested)
 
     if (!targetCategory) {
-      throw new ApiException('invalidCategory')
+      throw new ApiException('Categoría inválida')
     }
   } else {
     targetCategory = categories[0]
 
     if (!targetCategory) {
-      throw new ApiException('invalidCategory')
+      throw new ApiException('Categoría inválida')
     }
   }
 
@@ -52,7 +52,7 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   const categoryCount = competitors.filter((c) => c.tournamentCategoryId === targetCategory.id).length
 
   if (categoryCount >= targetCategory.maxCompetitors) {
-    throw new ApiException('tournamentFull')
+    throw new ApiException('No se aceptan más inscripciónes (cupo máximo)')
   }
 
   const alreadyRegistered = competitors.some(
@@ -73,12 +73,7 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     throw new ApiException('unauthorized')
   }
 
-  const needsPartner = registersAsPairs(
-    tournament.discipline,
-    tournament.subDiscipline,
-    tournament.type,
-    tournament.settings ?? {}
-  )
+  const needsPartner = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
   let partnerUserId: number | null = null
 
   if (needsPartner) {

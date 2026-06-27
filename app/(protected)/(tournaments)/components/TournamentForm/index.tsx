@@ -31,6 +31,7 @@ import {
   RankingScheme,
   RankingSettings
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
+import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -52,7 +53,8 @@ const DISCIPLINES: Discipline[] = [Discipline.PADEL, Discipline.TENNIS]
 const SUB_DISCIPLINES: SubDiscipline[] = [SubDiscipline.SINGLES, SubDiscipline.DOUBLES]
 
 export default function TournamentForm() {
-  const { createTournament, getCategories } = useTournaments()
+  const { createTournament } = useTournaments()
+  const { getCategories } = useCategories()
   const router = useRouter()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')

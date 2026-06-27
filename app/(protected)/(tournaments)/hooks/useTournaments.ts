@@ -2,10 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback } from 'react'
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import type { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { useRequests } from '@/app/hooks/useRequests'
@@ -26,11 +23,6 @@ export function useTournaments() {
   const createTournament = useCallback(
     (tournament: CreateTournamentInput): Promise<{ id: number }> =>
       executeRequest<{ id: number }>('/createTournament', tournament),
-    [executeRequest]
-  )
-  const getCategories = useCallback(
-    (discipline: Discipline, subDiscipline: SubDiscipline | null): Promise<CategoryDto[]> =>
-      executeRequest<CategoryDto[]>('/getCategories', { discipline, subDiscipline }),
     [executeRequest]
   )
   const updateTournament = useCallback(
@@ -123,7 +115,6 @@ export function useTournaments() {
     finishTournament,
     joinTournament,
     leaveTournament,
-    saveMatchResult,
-    getCategories
+    saveMatchResult
   }
 }
