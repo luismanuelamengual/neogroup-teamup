@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
 import RegisterForm from '@/app/(auth)/components/RegisterForm'
-import { Organization } from '@/app/(auth)/models/Organization'
+import { Organization } from '@/app/models/Organization'
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
   const headersList = await headers()
@@ -20,9 +20,14 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
     return <OrgNotFound orgDomain={orgDomain} />
   }
 
+  // No roles allowed to self-register — redirect to login.
+  if (organization.allowedRegistrationRoles.length === 0) {
+    redirect('/login')
+  }
+
   const { callbackUrl } = await searchParams
 
   return (
-    <RegisterForm callbackUrl={callbackUrl ?? null} allowOrganizersCreation={organization.allowOrganizersCreation} />
+    <RegisterForm callbackUrl={callbackUrl ?? null} allowedRegistrationRoles={organization.allowedRegistrationRoles} />
   )
 }

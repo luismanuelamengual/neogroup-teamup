@@ -36,9 +36,9 @@ config({ path: '.env' })
 
 import { DB } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
-import { Organization } from '@/app/(auth)/models/Organization'
-import { Role } from '@/app/(auth)/models/Role'
-import { User } from '@/app/(auth)/models/User'
+import { Organization } from '@/app//models/Organization'
+import { Role } from '@/app//models/Role'
+import { User } from '@/app//models/User'
 import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { getDefaultRankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
@@ -337,12 +337,7 @@ async function registerCompetitors(
   competitorCount: number,
   tournamentCategories: TournamentCategory[]
 ): Promise<void> {
-  const isPairs = registersAsPairs(
-    tournament.discipline,
-    tournament.subDiscipline,
-    tournament.type,
-    tournament.settings ?? {}
-  )
+  const isPairs = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
   const withPreclassification =
     supportsPreclassification(tournament.type) && tournament.status !== TournamentStatus.STAND_BY
   const players = shuffle(pool)

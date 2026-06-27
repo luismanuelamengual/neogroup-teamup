@@ -17,9 +17,10 @@ interface LoginFormProps {
   callbackUrl: string | null
   verified?: boolean
   passwordReset?: boolean
+  allowRegistrations?: boolean
 }
 
-export default function LoginForm({ callbackUrl, verified, passwordReset }: LoginFormProps) {
+export default function LoginForm({ callbackUrl, verified, passwordReset, allowRegistrations = true }: LoginFormProps) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -62,16 +63,20 @@ export default function LoginForm({ callbackUrl, verified, passwordReset }: Logi
       <Typography variant="body2" color="text.secondary" className="subtitle">
         Organizá y jugá torneos de tenis y pádel
       </Typography>
-      <Button
-        variant="outlined"
-        fullWidth
-        startIcon={<GoogleIcon />}
-        onClick={handleGoogleSignIn}
-        className="google-button"
-      >
-        Continuar con Google
-      </Button>
-      <Divider className="divider">o</Divider>
+      {allowRegistrations && (
+        <>
+          <Button
+            variant="outlined"
+            fullWidth
+            startIcon={<GoogleIcon />}
+            onClick={handleGoogleSignIn}
+            className="google-button"
+          >
+            Continuar con Google
+          </Button>
+          <Divider className="divider">o</Divider>
+        </>
+      )}
       <form onSubmit={handleSubmit} className="form">
         {verified && <Alert severity="success">Tu email fue verificado. Ya podés iniciar sesión.</Alert>}
         {passwordReset && <Alert severity="success">Tu contraseña fue actualizada. Ya podés iniciar sesión.</Alert>}
@@ -101,12 +106,14 @@ export default function LoginForm({ callbackUrl, verified, passwordReset }: Logi
           <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
         </Typography>
       </form>
-      <Typography variant="body2" className="footer">
-        ¿No tenés cuenta?{' '}
-        <Link href={`/register${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>
-          Registrate
-        </Link>
-      </Typography>
+      {allowRegistrations && (
+        <Typography variant="body2" className="footer">
+          ¿No tenés cuenta?{' '}
+          <Link href={`/register${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}>
+            Registrate
+          </Link>
+        </Typography>
+      )}
     </div>
   )
 }

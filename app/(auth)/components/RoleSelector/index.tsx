@@ -13,9 +13,10 @@ import { Role } from '@/app/models/Role'
 
 interface RoleSelectorProps {
   callbackUrl: string | null
+  allowedRoles: number[]
 }
 
-export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
+export default function RoleSelector({ callbackUrl, allowedRoles }: RoleSelectorProps) {
   const { setRole } = useAccount()
   const router = useRouter()
   const [selected, setSelected] = useState<Role | null>(null)
@@ -53,24 +54,28 @@ export default function RoleSelector({ callbackUrl }: RoleSelectorProps) {
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
       <div className="options">
-        <button
-          type="button"
-          className={`option ${selected === Role.ORGANIZER ? 'selected' : ''}`}
-          onClick={() => setSelected(Role.ORGANIZER)}
-        >
-          <EmojiEventsIcon className="option-icon" />
-          <span className="option-title">Organizador</span>
-          <span className="option-description">Creo y administro torneos y ligas</span>
-        </button>
-        <button
-          type="button"
-          className={`option ${selected === Role.PLAYER ? 'selected' : ''}`}
-          onClick={() => setSelected(Role.PLAYER)}
-        >
-          <SportsTennisIcon className="option-icon" />
-          <span className="option-title">Jugador</span>
-          <span className="option-description">Me inscribo en torneos y cargo mis resultados</span>
-        </button>
+        {allowedRoles.includes(Role.ORGANIZER) && (
+          <button
+            type="button"
+            className={`option ${selected === Role.ORGANIZER ? 'selected' : ''}`}
+            onClick={() => setSelected(Role.ORGANIZER)}
+          >
+            <EmojiEventsIcon className="option-icon" />
+            <span className="option-title">Organizador</span>
+            <span className="option-description">Creo y administro torneos y ligas</span>
+          </button>
+        )}
+        {allowedRoles.includes(Role.PLAYER) && (
+          <button
+            type="button"
+            className={`option ${selected === Role.PLAYER ? 'selected' : ''}`}
+            onClick={() => setSelected(Role.PLAYER)}
+          >
+            <SportsTennisIcon className="option-icon" />
+            <span className="option-title">Jugador</span>
+            <span className="option-description">Me inscribo en torneos y cargo mis resultados</span>
+          </button>
+        )}
       </div>
       <Button variant="contained" fullWidth disabled={!selected || loading} onClick={handleContinue}>
         Continuar

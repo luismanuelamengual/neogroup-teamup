@@ -12,9 +12,13 @@ export class Organization extends BaseEntity {
   @Column()
   domainName!: string
 
-  /** When true, users can self-register with the "organizer" role. When false, all self-registered users become players. */
-  @Column()
-  allowOrganizersCreation!: boolean
+  /**
+   * Roles allowed to self-register through the platform.
+   * Empty array means no self-registration is allowed — all users must be created manually.
+   * E.g. [Role.PLAYER] allows only players; [Role.PLAYER, Role.ORGANIZER] allows both.
+   */
+  @Column({ cast: 'json' })
+  allowedRegistrationRoles!: number[]
 
   /**
    * IANA timezone of the organization (e.g. "America/Argentina/Buenos_Aires").

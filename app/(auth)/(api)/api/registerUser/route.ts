@@ -3,7 +3,6 @@ import { randomBytes } from 'crypto'
 import { EmailVerificationToken } from '@/app/(auth)/models/EmailVerificationToken'
 import { RegisterInput } from '@/app/(auth)/models/RegisterInput'
 import { ApiException } from '@/app/models/ApiException'
-import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
 import { getOrganization } from '@/app/services/organizations'
 import { withApi } from '@/app/utils/api-server'
@@ -36,9 +35,20 @@ export const POST = withApi(async (request, context, organizationId) => {
     throw new ApiException('invalidRole')
   }
 
-  // If the organization does not allow organizer self-registration, force the player role.
   const organization = await getOrganization({ id: organizationId })
-  const roleId = organization?.allowOrganizersCreation ? input.roleId : Role.PLAYER
+  const allowedRoles = organization?.allowedRegistrationRoles ?? []
+
+  // If the organization does not allow self-registration for any role, reject the request.
+  if (allowedRoles.length === 0) {
+    throw new ApiException('Registración no autorizada para la organización')
+  }
+
+  // Reject the request if the requested role is not in the allowed list.
+  if (!allowedRoles.includes(input.roleId)) {
+    throw new ApiException('Registración de rol no autorizada para la organización')
+  }
+
+  const roleId = input.roleId
   const existing = await User.withoutGlobalScopes()
     .where('organizationId', organizationId)
     .where('email', email)

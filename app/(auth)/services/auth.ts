@@ -85,6 +85,13 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             .first()
 
           if (!dbUser) {
+            const allowedRoles = organization.allowedRegistrationRoles ?? []
+
+            // No self-registration allowed for this org — block the login.
+            if (allowedRoles.length === 0) {
+              return null
+            }
+
             dbUser = new User()
             dbUser.organizationId = organization.id
             dbUser.email = email
@@ -92,7 +99,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             dbUser.firstName = (profile?.given_name as string | undefined) ?? null
             dbUser.lastName = (profile?.family_name as string | undefined) ?? null
             dbUser.nickname = null
-            dbUser.roleId = null
+            // Assign the role directly when only one is allowed; otherwise leave null for select-role.
+            dbUser.roleId = allowedRoles.length === 1 ? allowedRoles[0] : null
             dbUser.emailVerified = true
             await dbUser.save()
           }

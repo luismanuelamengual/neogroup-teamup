@@ -28,10 +28,10 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 interface RegisterFormProps {
   callbackUrl: string | null
-  allowOrganizersCreation: boolean
+  allowedRegistrationRoles: number[]
 }
 
-export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: RegisterFormProps) {
+export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: RegisterFormProps) {
   const { registerUser } = useAuth()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -128,7 +128,7 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
           fullWidth
           autoComplete="new-password"
         />
-        {allowOrganizersCreation && (
+        {!!allowedRegistrationRoles && allowedRegistrationRoles.length > 0 && (
           <div className="role">
             <Typography variant="body2" color="text.secondary">
               Quiero usar TeamUp como
@@ -143,14 +143,18 @@ export default function RegisterForm({ callbackUrl, allowOrganizersCreation }: R
                 }
               }}
             >
-              <ToggleButton value={Role.PLAYER}>
-                <SportsTennisIcon fontSize="small" sx={{ mr: 1 }} />
-                Jugador
-              </ToggleButton>
-              <ToggleButton value={Role.ORGANIZER}>
-                <EmojiEventsIcon fontSize="small" sx={{ mr: 1 }} />
-                Organizador
-              </ToggleButton>
+              {allowedRegistrationRoles.includes(Role.PLAYER) && (
+                <ToggleButton value={Role.PLAYER}>
+                  <SportsTennisIcon fontSize="small" sx={{ mr: 1 }} />
+                  Jugador
+                </ToggleButton>
+              )}
+              {allowedRegistrationRoles.includes(Role.ORGANIZER) && (
+                <ToggleButton value={Role.ORGANIZER}>
+                  <EmojiEventsIcon fontSize="small" sx={{ mr: 1 }} />
+                  Organizador
+                </ToggleButton>
+              )}
             </ToggleButtonGroup>
           </div>
         )}

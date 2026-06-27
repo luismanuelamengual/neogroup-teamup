@@ -3,6 +3,7 @@ import { AccountInput } from '@/app/(protected)/(account)/models/AccountInput'
 import { ApiException } from '@/app/models/ApiException'
 import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
+import { getOrganization } from '@/app/services/organizations'
 import { withApi } from '@/app/utils/api-server'
 import { isValidRole } from '@/app/utils/users'
 
@@ -15,7 +16,7 @@ type UpdateAccountBody = Partial<AccountInput & { roleId: Role }>
  * - { roleId }                        → assigns the user role once (auth required)
  * - { firstName, lastName, nickname } → updates personal information (auth required)
  */
-export const POST = withApi(async (request, _context, _organizationId) => {
+export const POST = withApi(async (request, _context, organizationId) => {
   const body = (await request.json()) as UpdateAccountBody
   // — Auth required for all operations —
   const session = await auth()
@@ -30,6 +31,13 @@ export const POST = withApi(async (request, _context, _organizationId) => {
     const { roleId } = body
 
     if (!isValidRole(roleId!)) {
+      throw new ApiException('invalidRole')
+    }
+
+    const organization = await getOrganization({ id: organizationId })
+    const allowedRoles = organization?.allowedRegistrationRoles ?? []
+
+    if (!allowedRoles.includes(roleId!)) {
       throw new ApiException('invalidRole')
     }
 

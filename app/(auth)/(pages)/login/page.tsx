@@ -27,6 +27,11 @@ export default async function LoginPage({
   const { callbackUrl, verified, passwordReset } = await searchParams
 
   return (
-    <LoginForm callbackUrl={callbackUrl ?? null} verified={verified === '1'} passwordReset={passwordReset === '1'} />
+    <LoginForm
+      callbackUrl={callbackUrl ?? null}
+      verified={verified === '1'}
+      passwordReset={passwordReset === '1'}
+      allowRegistrations={!!organization.allowedRegistrationRoles && organization.allowedRegistrationRoles.length > 0}
+    />
   )
 }

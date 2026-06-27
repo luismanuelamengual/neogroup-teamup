@@ -25,6 +25,8 @@ const INT_ARRAY = IS_SQLITE ? 'TEXT' : 'INT[]'
 const JSON_TYPE = IS_SQLITE ? 'TEXT' : 'JSONB'
 /** Boolean column: native BOOLEAN on PostgreSQL, INTEGER (0/1) on SQLite. */
 const BOOLEAN_FALSE = IS_SQLITE ? 'INTEGER NOT NULL DEFAULT 0' : 'BOOLEAN NOT NULL DEFAULT FALSE'
+/** Array of integers for allowed roles: native INT[] on PostgreSQL, JSON-encoded TEXT on SQLite. */
+const ROLES_ARRAY = IS_SQLITE ? "TEXT NOT NULL DEFAULT '[]'" : "INT[] NOT NULL DEFAULT '{}'"
 
 export default {
   name: '001-create-base-tables',
@@ -36,25 +38,29 @@ export default {
           id ${ID},
           name VARCHAR(150) NOT NULL,
           domainName VARCHAR(100) NOT NULL UNIQUE,
-          allowOrganizersCreation ${BOOLEAN_FALSE},
+          allowedRegistrationRoles ${ROLES_ARRAY},
           timezone VARCHAR(64) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
           createdAt ${TIMESTAMP}
         )
       `)
 
       // Seed the three initial organizations.
-      // org 1 & 2: organizers can self-register; org 3: players only (organizers created manually).
-      const TRUE_VAL = IS_SQLITE ? '1' : 'TRUE'
-      const FALSE_VAL = IS_SQLITE ? '0' : 'FALSE'
+      // demo: no self-registration allowed (empty roles array).
+      // club-aleman: players and organizers can self-register.
+      // punto-deporte: players only (organizers must be created manually).
+      // Role values: ORGANIZER=1, PLAYER=2
+      const ROLES_EMPTY = IS_SQLITE ? "'[]'" : 'ARRAY[]::INT[]'
+      const ROLES_PLAYER = IS_SQLITE ? "'[2]'" : 'ARRAY[2]'
+      const ROLES_PLAYER_ORGANIZER = IS_SQLITE ? "'[1,2]'" : 'ARRAY[1,2]'
 
       await conn.execute(
-        `INSERT INTO organizations (name, domainName, allowOrganizersCreation) VALUES ('Demo', 'demo', ${TRUE_VAL})`
+        `INSERT INTO organizations (name, domainName, allowedRegistrationRoles) VALUES ('Demo', 'demo', ${ROLES_EMPTY})`
       )
       await conn.execute(
-        `INSERT INTO organizations (name, domainName, allowOrganizersCreation) VALUES ('Club Alemán', 'club-aleman', ${TRUE_VAL})`
+        `INSERT INTO organizations (name, domainName, allowedRegistrationRoles) VALUES ('Club Alemán', 'club-aleman', ${ROLES_PLAYER_ORGANIZER})`
       )
       await conn.execute(
-        `INSERT INTO organizations (name, domainName, allowOrganizersCreation) VALUES ('Punto Deporte', 'punto-deporte', ${FALSE_VAL})`
+        `INSERT INTO organizations (name, domainName, allowedRegistrationRoles) VALUES ('Punto Deporte', 'punto-deporte', ${ROLES_PLAYER})`
       )
 
       await conn.execute(`
