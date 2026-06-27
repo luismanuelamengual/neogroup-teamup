@@ -46,7 +46,7 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
           <TableHead>
             <TableRow>
               <TableCell className="position-cell">#</TableCell>
-              <TableCell>Competidor</TableCell>
+              <TableCell className="competitor-name-cell">Competidor</TableCell>
               <TableCell align="center">PJ</TableCell>
               <TableCell align="center">PG</TableCell>
               {showSets && <TableCell align="center">Sets</TableCell>}
@@ -58,9 +58,12 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
           </TableHead>
           <TableBody>
             {rows.map((row, index) => (
-              <TableRow key={row.competitorId} className={index < 1 ? 'leader' : ''}>
+              <TableRow key={row.competitorId} className={index < 1 ? 'highlighted' : ''}>
                 <TableCell className="position-cell">{index + 1}</TableCell>
-                <TableCell className="competitor-cell" onClick={() => handleCompetitorClick(row.competitorId)}>
+                <TableCell
+                  className="competitor-cell competitor-name-cell"
+                  onClick={() => handleCompetitorClick(row.competitorId)}
+                >
                   {competitorsById[row.competitorId]?.seedNumber != null
                     ? `[${competitorsById[row.competitorId].seedNumber}] ${row.displayName}`
                     : row.displayName}
