@@ -141,15 +141,19 @@ export function getSetsWon(score: MatchScore): { home: number; away: number } {
   return result
 }
 
-/** Counts games won by each side. For BASIC_COUNT scores, the counters are used as games. */
+/** Counts games won by each side. For BASIC_COUNT scores, the counters are used as games.
+ *  For TWO_SETS_SUPER_TIEBREAK, the super tiebreak (3rd set) is excluded because it counts
+ *  as a set win rather than individual games. */
 export function getGamesWon(score: MatchScore, format: ScoreFormat): { home: number; away: number } {
   if (format === ScoreFormat.BASIC_COUNT) {
     return { home: score.home ?? 0, away: score.away ?? 0 }
   }
 
+  const sets = score.sets ?? []
+  const setsToCount = format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK ? sets.slice(0, 2) : sets
   const result = { home: 0, away: 0 }
 
-  for (const set of score.sets ?? []) {
+  for (const set of setsToCount) {
     result.home += set.home
     result.away += set.away
   }

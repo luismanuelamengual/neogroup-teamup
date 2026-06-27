@@ -27,8 +27,9 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
     () => Object.fromEntries((tournament.competitors ?? []).map((c) => [c.id, c])),
     [tournament.competitors]
   )
-  const showSets = tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.GROUPS_PLAYOFF
-  const showGames =
+  const showLeagueColumns =
+    tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.GROUPS_PLAYOFF
+  const showAmericanoColumns =
     tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP
 
   const handleCompetitorClick = (competitorId: number) => {
@@ -49,8 +50,13 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
               <TableCell className="competitor-name-cell">Competidor</TableCell>
               <TableCell align="center">PJ</TableCell>
               <TableCell align="center">PG</TableCell>
-              {showSets && <TableCell align="center">Sets</TableCell>}
-              {showGames && <TableCell align="center">Games</TableCell>}
+              {showLeagueColumns && <TableCell align="center">SF</TableCell>}
+              {showLeagueColumns && <TableCell align="center">SC</TableCell>}
+              {showLeagueColumns && <TableCell align="center">DS</TableCell>}
+              {showLeagueColumns && <TableCell align="center">DG</TableCell>}
+              {showAmericanoColumns && <TableCell align="center">PF</TableCell>}
+              {showAmericanoColumns && <TableCell align="center">PC</TableCell>}
+              {showAmericanoColumns && <TableCell align="center">DP</TableCell>}
               <TableCell align="center" className="points-cell">
                 Pts
               </TableCell>
@@ -70,8 +76,17 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
                 </TableCell>
                 <TableCell align="center">{row.played}</TableCell>
                 <TableCell align="center">{row.won}</TableCell>
-                {showSets && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
-                {showGames && <TableCell align="center">{row.gamesWon ?? 0}</TableCell>}
+                {showLeagueColumns && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
+                {showLeagueColumns && <TableCell align="center">{row.setsLost ?? 0}</TableCell>}
+                {showLeagueColumns && <TableCell align="center">{(row.setsWon ?? 0) - (row.setsLost ?? 0)}</TableCell>}
+                {showLeagueColumns && (
+                  <TableCell align="center">{(row.gamesWon ?? 0) - (row.gamesLost ?? 0)}</TableCell>
+                )}
+                {showAmericanoColumns && <TableCell align="center">{row.gamesWon ?? 0}</TableCell>}
+                {showAmericanoColumns && <TableCell align="center">{row.gamesLost ?? 0}</TableCell>}
+                {showAmericanoColumns && (
+                  <TableCell align="center">{(row.gamesWon ?? 0) - (row.gamesLost ?? 0)}</TableCell>
+                )}
                 <TableCell align="center" className="points-cell">
                   {row.points}
                 </TableCell>

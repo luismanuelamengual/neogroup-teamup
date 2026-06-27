@@ -115,11 +115,14 @@ export function computeStandings(
 
     if (type === TournamentType.LEAGUE) {
       const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
+      const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
 
       addToSide(match.homeCompetitorIds, (row) => {
         row.played++
         row.setsWon = (row.setsWon ?? 0) + sets.home
         row.setsLost = (row.setsLost ?? 0) + sets.away
+        row.gamesWon = (row.gamesWon ?? 0) + games.home
+        row.gamesLost = (row.gamesLost ?? 0) + games.away
         row.points += sets.home * leagueSettings.pointsPerSetWon
 
         if (!isWalkover || score.walkover === MatchSide.HOME) {
@@ -135,6 +138,8 @@ export function computeStandings(
         row.played++
         row.setsWon = (row.setsWon ?? 0) + sets.away
         row.setsLost = (row.setsLost ?? 0) + sets.home
+        row.gamesWon = (row.gamesWon ?? 0) + games.away
+        row.gamesLost = (row.gamesLost ?? 0) + games.home
         row.points += sets.away * leagueSettings.pointsPerSetWon
 
         if (!isWalkover || score.walkover === MatchSide.AWAY) {
