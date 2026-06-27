@@ -216,7 +216,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
             </div>
             <div className="actions-area">
               {userEntry ? (
-                <Button color="error" variant="outlined" onClick={handleLeave} disabled={working}>
+                <Button color="error" variant="outlined" onClick={handleLeave} disabled={working} loading={working}>
                   Darme de baja
                 </Button>
               ) : (

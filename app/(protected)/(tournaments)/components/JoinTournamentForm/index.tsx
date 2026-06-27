@@ -227,6 +227,7 @@ export default function JoinTournamentForm({ tournamentId }: JoinTournamentFormP
         size="large"
         onClick={handleJoin}
         disabled={loading || (needsPartner && !partnerUser) || (hasCategories && categoryId === '')}
+        loading={loading}
       >
         Confirmar inscripción
       </Button>
