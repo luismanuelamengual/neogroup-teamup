@@ -43,13 +43,15 @@ export default function TournamentsBrowser({
   const urlName = searchParams.get('name') ?? ''
   const rawStatus = searchParams.get('status')
   const urlStatus: StatusFilter = rawStatus ? (parseInt(rawStatus) as TournamentStatus) : 'all'
+  const urlPage = parseInt(searchParams.get('page') ?? '1') || 1
   const [nameInput, setNameInput] = useState(urlName)
   const [status, setStatus] = useState<StatusFilter>(urlStatus)
   const debouncedName = useDebouncedValue(nameInput)
   const [tournaments, setTournaments] = useState<TournamentDto[]>([])
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(urlPage)
   const [pageCount, setPageCount] = useState(1)
-  const lastPushed = useRef({ name: urlName, status: urlStatus })
+  const lastPushed = useRef({ name: urlName, status: urlStatus, page: urlPage })
+  const prevFilters = useRef({ name: debouncedName, status })
 
   useEffect(() => {
     const params = new URLSearchParams()
@@ -62,9 +64,13 @@ export default function TournamentsBrowser({
       params.set('status', String(status))
     }
 
-    lastPushed.current = { name: debouncedName, status }
+    if (page > 1) {
+      params.set('page', String(page))
+    }
+
+    lastPushed.current = { name: debouncedName, status, page }
     router.push(`?${params.toString()}`, { scroll: false })
-  }, [debouncedName, router, status])
+  }, [debouncedName, router, status, page])
 
   useEffect(() => {
     if (urlName !== lastPushed.current.name) {
@@ -74,9 +80,18 @@ export default function TournamentsBrowser({
     if (urlStatus !== lastPushed.current.status) {
       setStatus(urlStatus)
     }
-  }, [urlName, urlStatus])
+
+    if (urlPage !== lastPushed.current.page) {
+      setPage(urlPage)
+    }
+  }, [urlName, urlStatus, urlPage])
 
   useEffect(() => {
+    if (prevFilters.current.name === debouncedName && prevFilters.current.status === status) {
+      return
+    }
+
+    prevFilters.current = { name: debouncedName, status }
     setPage(1)
   }, [debouncedName, status])
 
