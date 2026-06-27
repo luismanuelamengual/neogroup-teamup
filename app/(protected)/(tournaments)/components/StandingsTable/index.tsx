@@ -1,7 +1,6 @@
 'use client'
 
 import './index.scss'
-import Paper from '@mui/material/Paper'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
@@ -44,7 +43,7 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
 
   return (
     <>
-      <TableContainer component={Paper} className="standings-table">
+      <TableContainer className="standings-table">
         <Table size="small">
           <TableHead>
             <TableRow>

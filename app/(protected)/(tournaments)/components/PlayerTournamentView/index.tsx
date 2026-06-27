@@ -245,12 +245,14 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
               <Typography variant="h6" className="category-title">
                 {categoryNameById.get(key) ?? t('uniqueCategory')}
               </Typography>
-              <Chip
-                size="small"
-                label={`${groupCompetitors.length} / ${maxByCategory.get(key)}`}
-                color="primary"
-                variant="outlined"
-              />
+              {tournament.status == TournamentStatus.STAND_BY && (
+                <Chip
+                  size="small"
+                  label={`${groupCompetitors.length} / ${maxByCategory.get(key)}`}
+                  color="primary"
+                  variant="outlined"
+                />
+              )}
             </div>
           </AccordionSummary>
           <Divider />
@@ -261,6 +263,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
               </Typography>
               <CompetitorsList tournament={tournament} category={key} />
             </div>
+
             {groupRounds.length > 0 && (
               <>
                 <Divider />
