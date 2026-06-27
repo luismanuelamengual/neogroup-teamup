@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react'
 import StatCard, { StatCardSkeleton } from '@/app/(protected)/(home)/components/StatCard'
 import { useDashboard } from '@/app/(protected)/(home)/hooks/useDashboard'
 import { OrganizationStatisticsDto } from '@/app/(protected)/(home)/models/OrganizationStatisticsDto'
+import Stats from '../Stats'
 
 export default function OrganizationStats() {
   const { getOrganizationStats } = useDashboard()
@@ -33,16 +34,16 @@ export default function OrganizationStats() {
 
   if (loading || !stats) {
     return (
-      <>
+      <Stats>
         {Array.from({ length: 11 }).map((_, i) => (
           <StatCardSkeleton key={i} />
         ))}
-      </>
+      </Stats>
     )
   }
 
   return (
-    <>
+    <Stats>
       <StatCard icon={<ApartmentIcon />} accent="info" value={stats.tournamentsTotal} label="Torneos totales" />
       <StatCard
         icon={<LocalFireDepartmentIcon />}
@@ -69,6 +70,6 @@ export default function OrganizationStats() {
         label="Puntos de ranking"
       />
       <StatCard icon={<MilitaryTechIcon />} accent="success" value={stats.rankedPlayers} label="Jugadores rankeados" />
-    </>
+    </Stats>
   )
 }

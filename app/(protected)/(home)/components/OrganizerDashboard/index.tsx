@@ -29,9 +29,7 @@ export default function OrganizerDashboard() {
       </Paper>
 
       <section className="block">
-        <div className="stats">
-          <OrganizationStats />
-        </div>
+        <OrganizationStats />
       </section>
 
       <section className="block">

@@ -25,7 +25,7 @@ export default function PlayerDashboard() {
         <EmojiEventsIcon className="hero-icon" />
       </Paper>
 
-      <section className="stats">
+      <section className="player-stats">
         <PlayerStats />
       </section>
 
