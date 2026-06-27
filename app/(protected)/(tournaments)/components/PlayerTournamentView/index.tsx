@@ -16,9 +16,9 @@ import Divider from '@mui/material/Divider'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
-import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
+import JoinTournamentDialog from '@/app/(protected)/(tournaments)/components/JoinTournamentDialog'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
@@ -50,6 +50,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const { getTournament, leaveTournament, saveMatchResult } = useTournaments()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
+  const [joinOpen, setJoinOpen] = useState(false)
   const [scoreMatch, setScoreMatch] = useState<MatchDto | null>(null)
   const [working, setWorking] = useState(false)
   const userId = useUserStore((state) => state.user?.id ?? null)
@@ -220,12 +221,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
                   Darme de baja
                 </Button>
               ) : (
-                <Button
-                  component={Link}
-                  href={`/tournaments/${tournament.id}/join`}
-                  variant="contained"
-                  startIcon={<HowToRegIcon />}
-                >
+                <Button variant="contained" startIcon={<HowToRegIcon />} onClick={() => setJoinOpen(true)}>
                   Inscribirme
                 </Button>
               )}
@@ -293,6 +289,16 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         saving={working}
         onClose={() => setScoreMatch(null)}
         onSave={handleSaveScore}
+      />
+
+      <JoinTournamentDialog
+        open={joinOpen}
+        tournament={tournament}
+        onClose={() => setJoinOpen(false)}
+        onSuccess={async () => {
+          setJoinOpen(false)
+          await loadTournament()
+        }}
       />
     </div>
   )
