@@ -5,9 +5,10 @@ import { User } from '@/app/models/User'
 
 /**
  * A single ranking award granted to a player when a tournament finishes. Each
- * row is worth `points` for the player in the catalogue category, valid until
- * `expirationDate` (one year after it is granted). The rankings browser sums
- * the still-valid rows per player and category.
+ * row is worth `points` for the player, valid until `expirationDate` (one year
+ * after it is granted). `categoryId` is null for tournaments without categories;
+ * when set, it references the catalogue category. The rankings browser sums the
+ * still-valid rows per player and category.
  */
 @Entity({ table: 'rankings' })
 export class Ranking extends BaseEntity {
@@ -18,7 +19,7 @@ export class Ranking extends BaseEntity {
   organizationId!: number
 
   @Column({ cast: 'number' })
-  categoryId!: number
+  categoryId!: number | null
 
   @Column({ cast: 'number' })
   userId!: number

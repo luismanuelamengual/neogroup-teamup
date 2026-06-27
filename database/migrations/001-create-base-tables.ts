@@ -185,14 +185,16 @@ export default {
       `)
 
       // Ranking points awarded to players when a tournament finishes. Each row
-      // is a single award (organization + catalogue category + player) worth
-      // `points`, valid until `expirationDate` (one year after it is granted).
-      // The rankings browser sums the still-valid rows per player and category.
+      // is a single award (organization + player) worth `points`, valid until
+      // `expirationDate` (one year after it is granted). categoryId is NULL for
+      // tournaments without categories (no-category mode); when set it references
+      // the catalogue category. The rankings browser sums the still-valid rows
+      // per player and category.
       await conn.execute(`
         CREATE TABLE IF NOT EXISTS rankings (
           id ${ID},
           organizationId INTEGER NOT NULL REFERENCES organizations (id),
-          categoryId INTEGER NOT NULL REFERENCES categories (id),
+          categoryId INTEGER REFERENCES categories (id),
           userId INTEGER NOT NULL REFERENCES users (id),
           points INTEGER NOT NULL DEFAULT 0,
           expirationDate ${TIMESTAMP},

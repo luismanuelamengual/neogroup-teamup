@@ -169,8 +169,7 @@ export default function TournamentForm() {
         location,
         categoryNames: categories.map((value) => value.trim()).filter((value) => value !== ''),
         maxCompetitors,
-        // Ranking points only apply when the tournament defines categories.
-        rankingSettings: categories.length > 0 ? rankingSettings : null,
+        rankingSettings,
         settings:
           type === TournamentType.LEAGUE
             ? leagueSettings
@@ -535,8 +534,7 @@ export default function TournamentForm() {
         </AccordionDetails>
       </Accordion>
 
-      {categories.length > 0 && (
-        <Accordion disableGutters elevation={0} className="section">
+      <Accordion disableGutters elevation={0} className="section">
           <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
             <Typography variant="subtitle1" className="title">
               Puntos de ranking
@@ -574,7 +572,6 @@ export default function TournamentForm() {
             )}
           </AccordionDetails>
         </Accordion>
-      )}
 
       <div className="actions">
         <Button onClick={() => router.back()}>Cancelar</Button>

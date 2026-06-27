@@ -13,10 +13,10 @@ const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
 /**
  * Grants the ranking points configured in `tournament.rankingSettings` to the
  * players of a finished tournament. One award row per player and category is
- * inserted, valid for one year from now. Only category instances mapped to a
- * catalogue category (categoryId not null) are considered — single-category
- * tournaments do not feed the ranking. Idempotent enough for a one-shot finish:
- * callers must only invoke it once, right after marking the tournament finished.
+ * inserted, valid for one year from now. Category instances without a catalogue
+ * category (categoryId null, i.e. no-category tournaments) produce ranking rows
+ * with categoryId null. Idempotent enough for a one-shot finish: callers must
+ * only invoke it once, right after marking the tournament finished.
  */
 export async function awardRankingPoints(tournamentId: number): Promise<void> {
   const tournament = (await getTournament({
@@ -39,10 +39,6 @@ export async function awardRankingPoints(tournamentId: number): Promise<void> {
   const awards: Record<string, unknown>[] = []
 
   for (const category of tournament.categories ?? []) {
-    if (category.categoryId == null) {
-      continue
-    }
-
     const placements = computeCategoryPlacements(tournament, category.id)
 
     for (const placement of placements) {
@@ -63,7 +59,8 @@ export async function awardRankingPoints(tournamentId: number): Promise<void> {
       for (const userId of userIds) {
         awards.push({
           organizationId: tournament.organizationId,
-          categoryId: category.categoryId,
+          // null when the tournament has no categories (no-category mode)
+          categoryId: category.categoryId ?? null,
           userId,
           points,
           expirationDate,
@@ -97,14 +94,15 @@ export interface OrganizationRankingSummary {
 /** Player ranking summary: total points and best position across categories. */
 export async function getPlayerRankingSummary(userId: number): Promise<PlayerRankingSummary> {
   const rankings = await Ranking.get()
-  // category -> (user -> summed points)
-  const byCategory = new Map<number, Map<number, number>>()
+  // category (or null for no-category tournaments) -> (user -> summed points)
+  const byCategory = new Map<number | null, Map<number, number>>()
 
   for (const ranking of rankings) {
-    const users = byCategory.get(ranking.categoryId) ?? new Map<number, number>()
+    const key = ranking.categoryId ?? null
+    const users = byCategory.get(key) ?? new Map<number, number>()
 
     users.set(ranking.userId, (users.get(ranking.userId) ?? 0) + ranking.points)
-    byCategory.set(ranking.categoryId, users)
+    byCategory.set(key, users)
   }
 
   let points = 0
