@@ -72,7 +72,7 @@ export default function TournamentRoundsView({
     return (
       <div className="rounds-view">
         <div className="rounds-section">
-          <SectionTitle>{hasConsolation ? 'Cuadro principal' : 'Llave'}</SectionTitle>
+          <SectionTitle>{'Cuadro principal'}</SectionTitle>
           <BracketView
             tournament={tournament}
             category={category}
@@ -81,16 +81,19 @@ export default function TournamentRoundsView({
           />
         </div>
         {hasConsolation && (
-          <div className="rounds-section">
-            <SectionTitle>Cuadro consuelo</SectionTitle>
-            <BracketView
-              tournament={tournament}
-              category={category}
-              roundType={RoundType.KNOCKOUT_CONSOLATION}
-              organizerMode={organizerMode}
-              onEditMatch={onEditMatch}
-            />
-          </div>
+          <>
+            <Divider />
+            <div className="rounds-section">
+              <SectionTitle>Cuadro consuelo</SectionTitle>
+              <BracketView
+                tournament={tournament}
+                category={category}
+                roundType={RoundType.KNOCKOUT_CONSOLATION}
+                organizerMode={organizerMode}
+                onEditMatch={onEditMatch}
+              />
+            </div>
+          </>
         )}
       </div>
     )
