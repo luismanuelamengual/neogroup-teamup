@@ -52,11 +52,12 @@ export default function MercadoPagoCard() {
     }
 
     const message = CALLBACK_MESSAGES[result]
+    const reason = searchParams.get('reason')
 
     if (message?.type === 'success') {
       showSuccessMessage(message.text)
     } else if (message) {
-      showErrorMessage(message.text)
+      showErrorMessage(reason ? `${message.text} (${reason})` : message.text)
     }
 
     router.replace('/account')

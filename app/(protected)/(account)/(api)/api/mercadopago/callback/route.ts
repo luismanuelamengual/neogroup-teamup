@@ -15,18 +15,38 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = new URL(request.url)
   const origin = url.origin
   const code = url.searchParams.get('code')
+  const oauthError = url.searchParams.get('error')
   const payload = verifyOAuthState(url.searchParams.get('state'))
 
   // Without a valid state we don't know where to return to: fall back to the
   // canonical origin's account page with an error.
-  if (!payload || !isAllowedReturnOrigin(payload.returnOrigin)) {
-    return NextResponse.redirect(new URL('/account?mp=error', origin))
+  if (!payload) {
+    // eslint-disable-next-line no-console
+    console.error('[mercadopago/callback] Invalid or missing state')
+
+    return NextResponse.redirect(new URL('/account?mp=error&reason=invalid_state', origin))
   }
 
-  const accountUrl = (status: string) => NextResponse.redirect(`${payload.returnOrigin}/account?mp=${status}`)
+  if (!isAllowedReturnOrigin(payload.returnOrigin)) {
+    // eslint-disable-next-line no-console
+    console.error(`[mercadopago/callback] Return origin not allowed: ${payload.returnOrigin}`)
+
+    return NextResponse.redirect(new URL('/account?mp=error&reason=bad_origin', origin))
+  }
+
+  const accountUrl = (status: string, reason?: string) =>
+    NextResponse.redirect(`${payload.returnOrigin}/account?mp=${status}${reason ? `&reason=${reason}` : ''}`)
+
+  // Mercado Pago can return ?error=access_denied when the seller cancels.
+  if (oauthError) {
+    // eslint-disable-next-line no-console
+    console.error(`[mercadopago/callback] Mercado Pago returned error: ${oauthError}`)
+
+    return accountUrl('error', oauthError === 'access_denied' ? 'cancelled' : 'mp_error')
+  }
 
   if (!code) {
-    return accountUrl('error')
+    return accountUrl('error', 'no_code')
   }
 
   try {
@@ -45,8 +65,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return accountUrl('connected')
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('[mercadopago/callback] Failed to connect account:', error)
+    console.error('[mercadopago/callback] Failed to exchange code:', JSON.stringify(error))
 
-    return accountUrl('error')
+    return accountUrl('error', 'exchange')
   }
 }
