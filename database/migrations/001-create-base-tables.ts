@@ -165,9 +165,9 @@ export default {
           mpUserId VARCHAR(64) NOT NULL,
           accessToken TEXT NOT NULL,
           refreshToken TEXT,
-          publicKey VARCHAR(255),
+          publicKey TEXT,
           liveMode ${BOOLEAN_NULL},
-          scope VARCHAR(255),
+          scope TEXT,
           expiresAt ${TIMESTAMP_NULL},
           createdAt ${TIMESTAMP},
           updatedAt ${TIMESTAMP}
