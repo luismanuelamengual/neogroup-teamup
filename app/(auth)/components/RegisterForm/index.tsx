@@ -128,7 +128,7 @@ export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: 
           fullWidth
           autoComplete="new-password"
         />
-        {!!allowedRegistrationRoles && allowedRegistrationRoles.length > 0 && (
+        {!!allowedRegistrationRoles && allowedRegistrationRoles.length > 1 && (
           <div className="role">
             <Typography variant="body2" color="text.secondary">
               Quiero usar TeamUp como
