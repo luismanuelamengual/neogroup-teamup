@@ -6,4 +6,9 @@
   .clickable {
     cursor: pointer;
   }
+
+  .highlighted {
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 2px #f59e0b40;
+  }
 }

@@ -3,10 +3,12 @@
 import './index.scss'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
+import classNames from 'classnames'
 import { useMemo, useState } from 'react'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { useUserStore } from '@/app/stores/users'
 
 interface CompetitorsListProps {
   tournament: TournamentDto
@@ -14,6 +16,7 @@ interface CompetitorsListProps {
 }
 
 export default function CompetitorsList({ tournament, category }: CompetitorsListProps) {
+  const userId = useUserStore((state) => state.user?.id ?? null)
   const [selectedCompetitors, setSelectedCompetitors] = useState<CompetitorDto[]>([])
   const competitors = useMemo(() => {
     const all = tournament.competitors ?? []
@@ -46,7 +49,9 @@ export default function CompetitorsList({ tournament, category }: CompetitorsLis
             }
             variant="outlined"
             onClick={() => setSelectedCompetitors([competitor])}
-            className="clickable"
+            className={classNames('clickable', {
+              highlighted: userId === competitor.userId || userId === competitor.partnerUserId
+            })}
           />
         ))}
       </div>
