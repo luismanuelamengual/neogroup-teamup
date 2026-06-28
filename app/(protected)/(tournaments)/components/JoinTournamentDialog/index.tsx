@@ -16,6 +16,7 @@ import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipli
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import Avatar from '@/app/components/Avatar'
 import { useUsers } from '@/app/hooks/useUsers'
 import { UserDto } from '@/app/models/UserDto'
@@ -76,16 +77,24 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
   // is resolved automatically by the server.
   const categories = (tournament.categories ?? []).filter((category) => category.categoryId != null)
   const hasCategories = categories.length > 0
+  const isPaid = tournament.paid && !!tournament.entryFee && tournament.entryFee > 0
 
   const handleJoin = async () => {
     setError(null)
     setLoading(true)
 
     try {
-      await joinTournament(tournament.id, {
+      const result = await joinTournament(tournament.id, {
         partnerUserId: needsPartner ? (partnerUser?.id ?? null) : null,
         tournamentCategoryId: hasCategories && categoryId !== '' ? categoryId : null
       })
+
+      // Paid tournaments redirect to Mercado Pago; keep the dialog in its loading
+      // state until the browser navigates away.
+      if (result.paid) {
+        return
+      }
+
       onSuccess()
     } catch (requestError) {
       return
@@ -116,6 +125,12 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
               <Chip size="small" label={TournamentTypeNames[tournament.type]} />
             </div>
           </div>
+          {isPaid && (
+            <Alert severity="info" icon={false} className="entry-fee">
+              Costo de inscripción: <strong>{formatMoney(tournament.entryFee!, tournament.currency)}</strong>. El pago
+              se realiza de forma segura con Mercado Pago.
+            </Alert>
+          )}
           {error && <Alert severity="error">{error}</Alert>}
           {hasCategories && (
             <div className="category">
@@ -175,7 +190,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
             disabled={loading || (needsPartner && !partnerUser) || (hasCategories && categoryId === '')}
             loading={loading}
           >
-            Confirmar inscripción
+            {isPaid ? 'Pagar e inscribirme' : 'Confirmar inscripción'}
           </Button>
         </div>
       </DialogContent>

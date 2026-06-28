@@ -25,8 +25,20 @@ const INT_ARRAY = IS_SQLITE ? 'TEXT' : 'INT[]'
 const JSON_TYPE = IS_SQLITE ? 'TEXT' : 'JSONB'
 /** Boolean column: native BOOLEAN on PostgreSQL, INTEGER (0/1) on SQLite. */
 const BOOLEAN_FALSE = IS_SQLITE ? 'INTEGER NOT NULL DEFAULT 0' : 'BOOLEAN NOT NULL DEFAULT FALSE'
+/** Nullable boolean column: native BOOLEAN on PostgreSQL, INTEGER (0/1) on SQLite. */
+const BOOLEAN_NULL = IS_SQLITE ? 'INTEGER' : 'BOOLEAN'
 /** Array of integers for allowed roles: native INT[] on PostgreSQL, JSON-encoded TEXT on SQLite. */
 const ROLES_ARRAY = IS_SQLITE ? "TEXT NOT NULL DEFAULT '[]'" : "INT[] NOT NULL DEFAULT '{}'"
+/** Nullable timestamp (no default): plain TIMESTAMP on both engines. */
+const TIMESTAMP_NULL = 'TIMESTAMP'
+/**
+ * Money amount: NUMERIC(12,2) on PostgreSQL, REAL on SQLite. Stored in the
+ * organization currency major unit (e.g. ARS pesos, not cents). Models cast it
+ * with `number`.
+ */
+const MONEY = IS_SQLITE ? 'REAL' : 'NUMERIC(12,2)'
+/** Percentage value (e.g. 4 = 4%): NUMERIC(5,2) on PostgreSQL, REAL on SQLite. */
+const PERCENTAGE = IS_SQLITE ? 'REAL' : 'NUMERIC(5,2)'
 
 export default {
   name: '001-create-base-tables',
@@ -40,6 +52,7 @@ export default {
           domainName VARCHAR(100) NOT NULL UNIQUE,
           allowedRegistrationRoles ${ROLES_ARRAY},
           timezone VARCHAR(64) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
+          serviceFeePercentage ${PERCENTAGE} NOT NULL DEFAULT 4,
           createdAt ${TIMESTAMP}
         )
       `)
@@ -131,6 +144,31 @@ export default {
           location VARCHAR(255),
           settings ${JSON_TYPE},
           rankingSettings ${JSON_TYPE},
+          paid ${BOOLEAN_FALSE},
+          entryFee ${MONEY},
+          currency VARCHAR(3) NOT NULL DEFAULT 'ARS',
+          createdAt ${TIMESTAMP},
+          updatedAt ${TIMESTAMP}
+        )
+      `)
+
+      // Mercado Pago account a tournament organizer (an organizer-role user)
+      // connects via OAuth so the platform can create split payments on their
+      // behalf. Kept in a dedicated table — never eager-loaded with users — so
+      // the access/refresh tokens are never serialized into a UserDto. The
+      // marketplace owner (TeamUp) collects its service fee through
+      // marketplace_fee on each preference; the rest is settled to this account.
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS mercadopago_accounts (
+          id ${ID},
+          userId INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
+          mpUserId VARCHAR(64) NOT NULL,
+          accessToken TEXT NOT NULL,
+          refreshToken TEXT,
+          publicKey VARCHAR(255),
+          liveMode ${BOOLEAN_NULL},
+          scope VARCHAR(255),
+          expiresAt ${TIMESTAMP_NULL},
           createdAt ${TIMESTAMP},
           updatedAt ${TIMESTAMP}
         )
@@ -250,6 +288,39 @@ export default {
         )
       `)
 
+      // Registration payment for a paid tournament. A row is created (status
+      // PENDING) when a player initiates the checkout for a paid tournament; it
+      // snapshots the intended entry (tournamentCategoryId, userId, optional
+      // partnerUserId) and the money split at that moment (amount, the service
+      // fee percentage/amount that goes to TeamUp and the remainder for the
+      // organizer). When Mercado Pago confirms the payment (webhook) the status
+      // becomes APPROVED and the competitor is created, linked via competitorId.
+      // Status values map to the PaymentStatus enum (PENDING=1, APPROVED=2,
+      // REJECTED=3, CANCELLED=4, REFUNDED=5).
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS tournament_payments (
+          id ${ID},
+          organizationId INTEGER NOT NULL REFERENCES organizations (id),
+          tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
+          tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
+          userId INTEGER NOT NULL REFERENCES users (id),
+          partnerUserId INTEGER REFERENCES users (id),
+          status INTEGER NOT NULL DEFAULT 1,
+          amount ${MONEY} NOT NULL,
+          currency VARCHAR(3) NOT NULL DEFAULT 'ARS',
+          serviceFeePercentage ${PERCENTAGE} NOT NULL,
+          serviceFeeAmount ${MONEY} NOT NULL,
+          organizerAmount ${MONEY} NOT NULL,
+          provider VARCHAR(32) NOT NULL DEFAULT 'mercadopago',
+          preferenceId VARCHAR(255),
+          mpPaymentId VARCHAR(64),
+          initPoint TEXT,
+          competitorId INTEGER REFERENCES competitors (id) ON DELETE SET NULL,
+          createdAt ${TIMESTAMP},
+          updatedAt ${TIMESTAMP}
+        )
+      `)
+
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens (userId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_organization ON users (organizationId)')
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_categories_lookup ON categories (organizationId, discipline)')
@@ -274,6 +345,15 @@ export default {
         'CREATE INDEX IF NOT EXISTS idx_organization_statistics_org ON organization_statistics (organizationId)'
       )
       await conn.execute('CREATE INDEX IF NOT EXISTS idx_player_statistics_player ON player_statistics (playerId)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_mercadopago_accounts_user ON mercadopago_accounts (userId)')
+      await conn.execute(
+        'CREATE INDEX IF NOT EXISTS idx_tournament_payments_tournament ON tournament_payments (tournamentId)'
+      )
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournament_payments_user ON tournament_payments (userId)')
+      await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournament_payments_status ON tournament_payments (status)')
+      await conn.execute(
+        'CREATE INDEX IF NOT EXISTS idx_tournament_payments_preference ON tournament_payments (preferenceId)'
+      )
     })
   }
 }

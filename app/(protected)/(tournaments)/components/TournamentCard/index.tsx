@@ -3,6 +3,7 @@
 import './index.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import GroupsIcon from '@mui/icons-material/Groups'
+import PaidIcon from '@mui/icons-material/Paid'
 import PlaceIcon from '@mui/icons-material/Place'
 import Paper from '@mui/material/Paper'
 import MuiSkeleton from '@mui/material/Skeleton'
@@ -11,6 +12,7 @@ import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { TournamentDto } from '../../models/TournamentDto'
 
 interface TournamentCardProps {
@@ -38,6 +40,13 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         <span className="tag">{DisciplineNames[tournament.discipline]}</span>
         {tournament.subDiscipline && <span className="tag">{SubDisciplineNames[tournament.subDiscipline]}</span>}
         <span className="tag">{TournamentTypeNames[tournament.type]}</span>
+        {tournament.paid && tournament.entryFee ? (
+          <span className="tag paid">
+            <PaidIcon fontSize="inherit" /> {formatMoney(tournament.entryFee, tournament.currency)}
+          </span>
+        ) : (
+          <span className="tag">Gratuito</span>
+        )}
       </div>
       <div className="details">
         {tournament.location && (

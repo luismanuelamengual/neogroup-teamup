@@ -4,6 +4,7 @@ import './index.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import EditIcon from '@mui/icons-material/Edit'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import PaidIcon from '@mui/icons-material/Paid'
 import PlaceIcon from '@mui/icons-material/Place'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
@@ -25,6 +26,7 @@ import Skeleton from '@mui/material/Skeleton'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMercadoPago } from '@/app/(protected)/(account)/hooks/useMercadoPago'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import EditTournamentDialog from '@/app/(protected)/(tournaments)/components/EditTournamentDialog'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
@@ -39,6 +41,7 @@ import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDi
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { useUserStore } from '@/app/stores/users'
 
 interface ManageTournamentViewProps {
@@ -55,6 +58,8 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   const [confirmStartOpen, setConfirmStartOpen] = useState(false)
   const [confirmFinishOpen, setConfirmFinishOpen] = useState(false)
   const { finishTournament, getTournament, saveMatchResult, startTournament } = useTournaments()
+  const { getStatus } = useMercadoPago()
+  const [mpConnected, setMpConnected] = useState<boolean | null>(null)
   const userId = useUserStore((state) => state.user?.id ?? null)
   const isOwner = tournament != null && userId != null && tournament.ownerId === userId
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
@@ -79,6 +84,18 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   useEffect(() => {
     loadTournament()
   }, [loadTournament])
+
+  // Check the organizer's Mercado Pago connection so we can warn them if a paid
+  // tournament has no account to collect into.
+  useEffect(() => {
+    if (!isOwner || !tournament?.paid) {
+      return
+    }
+
+    getStatus()
+      .then((status) => setMpConnected(status.connected))
+      .catch(() => setMpConnected(null))
+  }, [getStatus, isOwner, tournament?.paid])
 
   if (loading) {
     return (
@@ -195,6 +212,16 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
           {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
           <Chip size="small" label={TournamentTypeNames[tournament.type]} />
           <Chip size="small" label={ScoreFormatNames[tournament.scoreFormat]} />
+          <Chip
+            size="small"
+            color={tournament.paid && tournament.entryFee ? 'success' : 'default'}
+            icon={tournament.paid && tournament.entryFee ? <PaidIcon /> : undefined}
+            label={
+              tournament.paid && tournament.entryFee
+                ? formatMoney(tournament.entryFee, tournament.currency)
+                : 'Gratuito'
+            }
+          />
           {tournament.location && (
             <span className="meta-item">
               <PlaceIcon fontSize="inherit" /> {tournament.location}
@@ -205,6 +232,12 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             {tournament.startTime ? ` · ${tournament.startTime}` : ''}
           </span>
         </div>
+        {isOwner && tournament.paid && mpConnected === false && (
+          <Alert severity="warning" className="mp-warning">
+            Este torneo tiene inscripción de pago, pero todavía no vinculaste tu cuenta de Mercado Pago. Los jugadores
+            no podrán inscribirse hasta que la conectes desde <strong>Mi cuenta</strong>.
+          </Alert>
+        )}
         <div className="footer">
           <div className="info-area">
             {tournament.status === TournamentStatus.STAND_BY && (

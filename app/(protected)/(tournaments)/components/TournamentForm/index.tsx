@@ -9,9 +9,13 @@ import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -61,6 +65,8 @@ export default function TournamentForm() {
   const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [categoryInput, setCategoryInput] = useState('')
   const [maxCompetitors, setMaxCompetitors] = useState(16)
+  const [paid, setPaid] = useState(false)
+  const [entryFee, setEntryFee] = useState(0)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
   const [playoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
@@ -169,6 +175,9 @@ export default function TournamentForm() {
         location,
         categoryNames: categories.map((value) => value.trim()).filter((value) => value !== ''),
         maxCompetitors,
+        paid,
+        entryFee: paid ? entryFee : null,
+        currency: 'ARS',
         rankingSettings,
         settings:
           type === TournamentType.LEAGUE
@@ -489,6 +498,39 @@ export default function TournamentForm() {
       <Accordion disableGutters elevation={0} className="section">
         <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
+            Inscripciones
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
+          <Alert severity="info">
+            Elegí si la inscripción al torneo es gratuita o tiene un costo. En los torneos de pago, los jugadores abonan
+            el monto con Mercado Pago al inscribirse y la inscripción se confirma cuando se acredita el pago.
+          </Alert>
+          <RadioGroup value={paid ? 'paid' : 'free'} onChange={(event) => setPaid(event.target.value === 'paid')}>
+            <FormControlLabel value="free" control={<Radio />} label="Gratuito" />
+            <FormControlLabel value="paid" control={<Radio />} label="De pago" />
+          </RadioGroup>
+          {paid && (
+            <TextField
+              label="Monto de inscripción"
+              type="number"
+              value={entryFee}
+              onChange={(event) => setEntryFee(Math.max(0, Number(event.target.value)))}
+              required
+              fullWidth
+              slotProps={{
+                htmlInput: { min: 0, step: '0.01' },
+                input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }
+              }}
+              helperText="Monto en pesos argentinos (ARS) que paga cada jugador al inscribirse."
+            />
+          )}
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion disableGutters elevation={0} className="section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
+          <Typography variant="subtitle1" className="title">
             Categorías
           </Typography>
         </AccordionSummary>
@@ -535,43 +577,43 @@ export default function TournamentForm() {
       </Accordion>
 
       <Accordion disableGutters elevation={0} className="section">
-          <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
-            <Typography variant="subtitle1" className="title">
-              Puntos de ranking
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails className="section-content">
-            <Alert severity="info">
-              Configurá los puntos de ranking que se otorgan según la posición final en el torneo.
-            </Alert>
-            {rankingScheme === RankingScheme.POSITION ? (
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
+          <Typography variant="subtitle1" className="title">
+            Puntos de ranking
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
+          <Alert severity="info">
+            Configurá los puntos de ranking que se otorgan según la posición final en el torneo.
+          </Alert>
+          {rankingScheme === RankingScheme.POSITION ? (
+            <div className="ranking-grid">
+              {positionFields.map((field) => renderRankingField(field.key, field.label))}
+            </div>
+          ) : (
+            <>
+              {rankingScheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION && (
+                <Typography variant="subtitle2" className="ranking-group-title">
+                  Cuadro principal
+                </Typography>
+              )}
               <div className="ranking-grid">
-                {positionFields.map((field) => renderRankingField(field.key, field.label))}
+                {knockoutFields(false).map((field) => renderRankingField(field.key, field.label))}
               </div>
-            ) : (
-              <>
-                {rankingScheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION && (
+              {rankingScheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION && (
+                <>
                   <Typography variant="subtitle2" className="ranking-group-title">
-                    Cuadro principal
+                    Cuadro consuelo
                   </Typography>
-                )}
-                <div className="ranking-grid">
-                  {knockoutFields(false).map((field) => renderRankingField(field.key, field.label))}
-                </div>
-                {rankingScheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION && (
-                  <>
-                    <Typography variant="subtitle2" className="ranking-group-title">
-                      Cuadro consuelo
-                    </Typography>
-                    <div className="ranking-grid">
-                      {knockoutFields(true).map((field) => renderRankingField(field.key, field.label))}
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </AccordionDetails>
-        </Accordion>
+                  <div className="ranking-grid">
+                    {knockoutFields(true).map((field) => renderRankingField(field.key, field.label))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </AccordionDetails>
+      </Accordion>
 
       <div className="actions">
         <Button onClick={() => router.back()}>Cancelar</Button>

@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback } from 'react'
+import type { PaymentStatusResult } from '@/app/(protected)/(tournaments)/(api)/api/getPaymentStatus/route'
+import type { JoinTournamentResult } from '@/app/(protected)/(tournaments)/(api)/api/joinTournament/route'
 import type { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useNotifications } from '@/app/hooks/useNotifications'
@@ -87,11 +89,18 @@ export function useTournaments() {
     [executeRequest]
   )
   const joinTournament = useCallback(
-    async (tournamentId: number, input: JoinTournamentInput): Promise<void> => {
-      try {
-        await executeRequest('/joinTournament', { tournamentId, ...input })
+    async (tournamentId: number, input: JoinTournamentInput): Promise<JoinTournamentResult> => {
+      const result = await executeRequest<JoinTournamentResult>('/joinTournament', { tournamentId, ...input })
+
+      // Paid tournaments redirect to Mercado Pago instead of confirming here.
+      if (result.paid && result.initPoint) {
+        showSuccessMessage('Redirigiendo a Mercado Pago para completar el pago...')
+        window.location.href = result.initPoint
+      } else {
         showSuccessMessage('Te inscribiste al torneo correctamente')
-      } catch (e) {}
+      }
+
+      return result
     },
     [executeRequest, showSuccessMessage]
   )
@@ -104,6 +113,11 @@ export function useTournaments() {
     },
     [executeRequest, showSuccessMessage]
   )
+  const getPaymentStatus = useCallback(
+    (tournamentId: number): Promise<PaymentStatusResult | null> =>
+      executeRequest<PaymentStatusResult>('/getPaymentStatus', { tournamentId }, false).catch(() => null),
+    [executeRequest]
+  )
 
   return {
     getTournament,
@@ -115,6 +129,7 @@ export function useTournaments() {
     finishTournament,
     joinTournament,
     leaveTournament,
-    saveMatchResult
+    saveMatchResult,
+    getPaymentStatus
   }
 }

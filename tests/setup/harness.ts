@@ -33,6 +33,7 @@ import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'
 
 const TABLES = [
+  'tournament_payments',
   'matches',
   'rounds',
   'competitors',
@@ -42,6 +43,7 @@ const TABLES = [
   'player_statistics',
   'organization_statistics',
   'categories',
+  'mercadopago_accounts',
   'users',
   'organizations',
   'migrations'

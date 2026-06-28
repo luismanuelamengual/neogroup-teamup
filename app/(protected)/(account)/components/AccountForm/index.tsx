@@ -34,11 +34,7 @@ export default function AccountForm(props: AccountFormProps) {
 
     try {
       await updateAccount({ firstName, lastName, nickname, phoneNumber })
-    } catch (_error) {
-      setLoading(false)
-
-      return
-    }
+    } catch (e) {}
 
     setLoading(false)
     router.refresh()

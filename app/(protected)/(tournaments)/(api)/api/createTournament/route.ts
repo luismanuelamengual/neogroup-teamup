@@ -26,6 +26,10 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
     throw new ApiException('missingFields')
   }
 
+  if (input.paid && (!input.entryFee || input.entryFee <= 0)) {
+    throw new ApiException('El monto de inscripción debe ser mayor a cero')
+  }
+
   if (input.discipline === Discipline.TENNIS && !input.subDiscipline) {
     throw new ApiException('missingFields')
   }
@@ -85,6 +89,9 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
   tournament.startDate = input.startDate
   tournament.startTime = startTime
   tournament.location = input.location?.trim() || null
+  tournament.paid = Boolean(input.paid)
+  tournament.entryFee = input.paid && input.entryFee && input.entryFee > 0 ? input.entryFee : null
+  tournament.currency = input.currency?.trim() || 'ARS'
   tournament.settings = settings
   // Ranking points only apply to tournaments that define categories.
   tournament.rankingSettings =

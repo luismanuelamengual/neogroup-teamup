@@ -1,0 +1,23 @@
+.mercadopago-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 28px 24px;
+
+  .subtitle {
+    margin-bottom: 4px;
+  }
+
+  .connected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .spacer {
+      flex: 1;
+    }
+  }
+}

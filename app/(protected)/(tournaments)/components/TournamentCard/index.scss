@@ -41,6 +41,9 @@ $card-hover-color: rgb(239, 249, 251);
     color: var(--color-primary-dark);
     font-size: 12px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 
     &--config {
       background-color: rgba(99, 102, 241, 0.1);

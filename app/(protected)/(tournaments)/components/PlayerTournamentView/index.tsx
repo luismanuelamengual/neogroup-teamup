@@ -5,6 +5,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
+import PaidIcon from '@mui/icons-material/Paid'
 import PlaceIcon from '@mui/icons-material/Place'
 import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
@@ -21,7 +22,8 @@ import Divider from '@mui/material/Divider'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import JoinTournamentDialog from '@/app/(protected)/(tournaments)/components/JoinTournamentDialog'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
@@ -33,10 +35,13 @@ import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipli
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
+import { PaymentStatus } from '@/app/(protected)/(tournaments)/models/PaymentStatus'
 import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
+import { useNotifications } from '@/app/hooks/useNotifications'
 import { useUserStore } from '@/app/stores/users'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 
@@ -45,7 +50,11 @@ interface PlayerTournamentViewProps {
 }
 
 export default function PlayerTournamentView({ tournamentId }: PlayerTournamentViewProps) {
-  const { getTournament, leaveTournament, saveMatchResult } = useTournaments()
+  const { getTournament, leaveTournament, saveMatchResult, getPaymentStatus } = useTournaments()
+  const { showSuccessMessage, showWarningMessage, showErrorMessage } = useNotifications()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const paymentHandled = useRef(false)
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [joinOpen, setJoinOpen] = useState(false)
@@ -98,6 +107,76 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   useEffect(() => {
     loadTournament()
   }, [loadTournament])
+
+  // Handle the return from Mercado Pago checkout (?payment=success|failure|pending):
+  // notify the player and, on success, poll the payment status until the
+  // registration is confirmed by the webhook, then refresh the tournament.
+  useEffect(() => {
+    const result = searchParams.get('payment')
+
+    if (!result || paymentHandled.current) {
+      return
+    }
+
+    paymentHandled.current = true
+    router.replace(`/tournaments/${tournamentId}`)
+
+    if (result === 'failure') {
+      showErrorMessage('El pago no se completó. No se realizó la inscripción')
+
+      return
+    }
+
+    if (result === 'pending') {
+      showWarningMessage('Tu pago está pendiente de acreditación. Te inscribiremos cuando se confirme')
+
+      return
+    }
+
+    if (result !== 'success') {
+      return
+    }
+
+    showSuccessMessage('Pago recibido. Confirmando tu inscripción...')
+
+    let attempts = 0
+
+    const poll = async () => {
+      attempts += 1
+
+      const status = await getPaymentStatus(tournamentId)
+
+      if (status?.status === PaymentStatus.APPROVED) {
+        showSuccessMessage('¡Inscripción confirmada!')
+        await loadTournament()
+
+        return
+      }
+
+      if (status?.status === PaymentStatus.REFUNDED) {
+        showErrorMessage('Tu pago fue reembolsado porque no se pudo completar la inscripción')
+
+        return
+      }
+
+      if (attempts < 6) {
+        setTimeout(poll, 2500)
+      } else {
+        showWarningMessage('Estamos confirmando tu pago. La inscripción aparecerá en unos instantes')
+      }
+    }
+
+    poll()
+  }, [
+    searchParams,
+    router,
+    tournamentId,
+    getPaymentStatus,
+    loadTournament,
+    showSuccessMessage,
+    showWarningMessage,
+    showErrorMessage
+  ])
 
   if (loading) {
     return (
@@ -189,6 +268,16 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
           {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
           <Chip size="small" label={TournamentTypeNames[tournament.type]} />
           <Chip size="small" label={ScoreFormatNames[tournament.scoreFormat]} />
+          <Chip
+            size="small"
+            color={tournament.paid && tournament.entryFee ? 'success' : 'default'}
+            icon={tournament.paid && tournament.entryFee ? <PaidIcon /> : undefined}
+            label={
+              tournament.paid && tournament.entryFee
+                ? formatMoney(tournament.entryFee, tournament.currency)
+                : 'Gratuito'
+            }
+          />
           <span className="meta-item">
             <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
             {tournament.startTime ? ` · ${tournament.startTime}` : ''}

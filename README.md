@@ -191,3 +191,17 @@ Rules:
 - The organizer starts the tournament, closes each round once all results are loaded and opens the next one; pairings are computed automatically based on the tournament type.
 - Players register from the tournament page (or via the shared WhatsApp link `/tournaments/:id/join`), choosing a platform user or a free-text name as partner in doubles disciplines.
 - Avatars come from Gravatar based on the account email.
+
+## Registration payments (Mercado Pago)
+
+Tournaments can be **free** or **paid**. When creating (or editing, while in `stand_by`) a tournament, the organizer chooses in the **Inscripciones** section whether registration is free or has an entry fee (`tournaments.paid` / `entryFee` / `currency`).
+
+The money is split using Mercado Pago **Split payments (marketplace)**:
+
+- **TeamUp** is the marketplace application (`MP_CLIENT_ID` / `MP_CLIENT_SECRET`). Its `marketplace_fee` is the **service fee**, configured per organization in `organizations.serviceFeePercentage` (default **4%**, not editable by organizers — it is TeamUp's cut).
+- Each **organizer** connects their own Mercado Pago account via OAuth from **Mi cuenta → Cobros** (`/api/mercadopago/connect` → `/api/mercadopago/callback`). Tokens live in the `mercadopago_accounts` table, isolated from `users` so they are never serialized into a `UserDto`.
+- **Multi-subdomain OAuth**: Mercado Pago only accepts a single static `redirect_uri` (no wildcards), but the app runs on a subdomain per organization. The callback is therefore a single canonical URL (`MP_REDIRECT_URI`, e.g. `https://teamup.ar/api/mercadopago/callback`) and the OAuth `state` is HMAC-signed (with `AUTH_SECRET`) carrying the user id and the originating subdomain. The callback authenticates from the signed state — not the session cookie, which is not shared across subdomains — and redirects the organizer back to their own subdomain. See `app/services/mercadopago-oauth.ts`.
+- When a player joins a paid tournament, `joinTournament` validates the entry, creates a `tournament_payments` row (status `PENDING`) and a Checkout Pro **preference** using the organizer's token with `marketplace_fee = entryFee × serviceFeePercentage`, and returns the `init_point`; the player is redirected to Mercado Pago. The competitor is **not** created yet.
+- Mercado Pago notifies `/api/mercadopago/webhook?ref=<paymentId>`. The handler fetches the real payment, and on `approved` it registers the competitor (re-validating capacity/duplicates inside a transaction) and marks the payment `APPROVED`. If the place can no longer be honoured it refunds the payment (`REFUNDED`). The webhook is idempotent.
+
+Environment variables: `MP_CLIENT_ID`, `MP_CLIENT_SECRET`, the canonical `MP_REDIRECT_URI` (required in multi-subdomain production), and the optional `MP_ACCESS_TOKEN` / `MP_WEBHOOK_SECRET` (see `.env.example`). The signed OAuth state uses `AUTH_SECRET`. For local development the webhook needs a public URL reachable by Mercado Pago (e.g. an ngrok tunnel) and `NEXT_PUBLIC_APP_URL` set to it.

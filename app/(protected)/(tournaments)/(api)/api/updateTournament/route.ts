@@ -1,4 +1,5 @@
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { normalizeStartTime } from '@/app/(protected)/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
@@ -30,6 +31,21 @@ export const POST = withAuth(async (request) => {
   tournament.location = input.location?.trim() || null
   tournament.startDate = input.startDate
   tournament.startTime = startTime
+
+  // Registration pricing can only be changed while registrations are open.
+  if (input.paid !== undefined && tournament.status === TournamentStatus.STAND_BY) {
+    if (input.paid && (!input.entryFee || input.entryFee <= 0)) {
+      throw new ApiException('El monto de inscripción debe ser mayor a cero')
+    }
+
+    tournament.paid = Boolean(input.paid)
+    tournament.entryFee = input.paid && input.entryFee && input.entryFee > 0 ? input.entryFee : null
+
+    if (input.currency) {
+      tournament.currency = input.currency.trim() || tournament.currency
+    }
+  }
+
   tournament.updatedAt = new Date()
   await tournament.save()
 })

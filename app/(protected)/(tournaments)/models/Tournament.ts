@@ -60,6 +60,18 @@ export class Tournament extends BaseEntity {
   @Column({ cast: 'json' })
   rankingSettings!: RankingSettings | null
 
+  /** When true, players must pay `entryFee` to register; otherwise the tournament is free. */
+  @Column({ cast: 'boolean' })
+  paid!: boolean
+
+  /** Entry fee amount (in `currency`) required to register. Null/0 when the tournament is free. */
+  @Column({ cast: 'number' })
+  entryFee!: number | null
+
+  /** ISO currency code of the entry fee (e.g. "ARS"). */
+  @Column()
+  currency!: string
+
   @Column({ cast: 'date' })
   createdAt!: Date
 

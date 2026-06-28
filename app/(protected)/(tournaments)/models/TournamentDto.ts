@@ -24,6 +24,12 @@ export interface TournamentDto {
   startDate: string
   startTime: string | null
   location: string | null
+  /** When true, players must pay `entryFee` to register; otherwise the tournament is free. */
+  paid: boolean
+  /** Entry fee amount (in `currency`) required to register. Null/0 when the tournament is free. */
+  entryFee: number | null
+  /** ISO currency code of the entry fee (e.g. "ARS"). */
+  currency: string
   /**
    * Concrete category instances of this tournament (always at least one). When
    * the tournament has no organizer-defined categories there is a single one

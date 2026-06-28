@@ -1,7 +1,6 @@
 'use client'
 
 import './index.scss'
-import Divider from '@mui/material/Divider'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import { useEffect, useMemo, useState } from 'react'
@@ -66,7 +65,6 @@ export default function GroupsView({ tournament, category, organizerMode = false
       </Tabs>
       <div className="group-panel">
         <StandingsTable tournament={tournament} category={category} groupNumber={activeGroup} />
-        <Divider />
         <FixtureView
           tournament={tournament}
           category={category}
