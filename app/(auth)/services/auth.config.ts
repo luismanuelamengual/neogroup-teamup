@@ -47,6 +47,15 @@ export const authConfig = {
         return true
       }
 
+      // The root path is always allowed — page.tsx owns the routing decision
+      // for '/': it renders the landing page when the org doesn't exist, and
+      // redirects authenticated users to /home otherwise. Without this, an
+      // unknown subdomain would loop: authorized→/login, login→redirect('/'),
+      // authorized→/login, ...
+      if (nextUrl.pathname === '/') {
+        return true
+      }
+
       const isLoggedIn = !!auth?.user
       const isPublicPath = PUBLIC_PATHS.some((path) => nextUrl.pathname.startsWith(path))
 
