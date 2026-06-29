@@ -89,7 +89,7 @@ export async function createRegistrationPayment(input: CreateRegistrationPayment
     ],
     marketplaceFee: serviceFeeAmount,
     externalReference: String(payment.id),
-    notificationUrl: `${appUrl}/api/mercadopago/webhook?ref=${payment.id}`,
+    notificationUrl: `${appUrl}/api/processTournamentPaymentState?ref=${payment.id}`,
     backUrls: {
       success: `${origin}/tournaments/${tournament.id}?payment=success`,
       failure: `${origin}/tournaments/${tournament.id}?payment=failure`,
