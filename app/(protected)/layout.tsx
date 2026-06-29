@@ -33,8 +33,8 @@ export default async function Layout({ children }: { children: ReactNode }) {
   // If they don't, sign them out entirely — a plain redirect to /login would
   // loop forever because the authorized callback would bounce them back to /.
   const headersList = await headers()
-  const orgDomain = headersList.get('x-org-domain') ?? ''
-  const organization = await getOrganization({ domainName: orgDomain })
+  const orgDomain = headersList.get('x-org-domain')
+  const organization = orgDomain ? await getOrganization({ domainName: orgDomain }) : null
 
   if (!organization || session.user.organizationId !== organization.id) {
     // Writing cookies (required to clear the session) is not allowed in Server

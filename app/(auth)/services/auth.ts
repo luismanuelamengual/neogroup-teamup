@@ -9,7 +9,6 @@ import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
 import { getOrganization } from '@/app/services/organizations'
 import { getGravatarUrl } from '@/app/utils/gravatar'
-import { resolveOrgDomainFromHost } from '@/app/utils/org-domain'
 import { getUserDisplayName } from '@/app/utils/users'
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
@@ -31,14 +30,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
-        const host = (request as Request).headers.get('host') ?? ''
-        const orgDomain = resolveOrgDomainFromHost(host)
-
-        if (orgDomain === '__root__') {
-          return null
-        }
-
-        const organization = await getOrganization({ domainName: orgDomain })
+        const organization = await getOrganization({ host: (request as Request).headers.get('host') ?? '' })
 
         if (!organization) {
           return null
@@ -73,9 +65,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async jwt({ token, user, account, profile, trigger }) {
       if (account?.provider === 'google' && token.email) {
         const headersList = await nextHeaders()
-        const host = headersList.get('host') ?? ''
-        const orgDomain = resolveOrgDomainFromHost(host)
-        const organization = orgDomain !== '__root__' ? await getOrganization({ domainName: orgDomain }) : null
+        const organization = await getOrganization({ host: headersList.get('host') ?? '' })
 
         if (organization) {
           const email = token.email.toLowerCase()

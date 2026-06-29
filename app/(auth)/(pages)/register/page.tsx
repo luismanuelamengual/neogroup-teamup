@@ -1,15 +1,14 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
 import RegisterForm from '@/app/(auth)/components/RegisterForm'
 import { Organization } from '@/app/models/Organization'
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
   const headersList = await headers()
-  const orgDomain = headersList.get('x-org-domain') ?? ''
+  const orgDomain = headersList.get('x-org-domain')
 
   // Root domain: no org context — redirect to landing.
-  if (orgDomain === '__root__') {
+  if (!orgDomain) {
     redirect('/')
   }
 
@@ -17,7 +16,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   const organization = await Organization.where('domainName', orgDomain).first()
 
   if (!organization) {
-    return <OrgNotFound orgDomain={orgDomain} />
+    redirect('/')
   }
 
   // No roles allowed to self-register — redirect to login.

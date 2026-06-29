@@ -3,22 +3,21 @@ import Box from '@mui/material/Box'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import OrgNotFound from '@/app/(auth)/components/OrgNotFound'
 import ResetPasswordForm from '@/app/(auth)/components/ResetPasswordForm'
 import { getOrganization } from '@/app/services/organizations'
 
 export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const headersList = await headers()
-  const orgDomain = headersList.get('x-org-domain') ?? ''
+  const orgDomain = headersList.get('x-org-domain')
 
-  if (orgDomain === '__root__') {
+  if (!orgDomain) {
     redirect('/')
   }
 
   const organization = await getOrganization({ domainName: orgDomain })
 
   if (!organization) {
-    return <OrgNotFound orgDomain={orgDomain} />
+    redirect('/')
   }
 
   const { token } = await searchParams

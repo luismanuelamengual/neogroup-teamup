@@ -8,9 +8,11 @@ const SESSION_MAX_AGE = process.env.AUTH_SESSION_MAX_AGE
 
 /**
  * Returns true when the request comes from the root domain (e.g. "teamup.ar")
- * with no subdomain. Also treats "www.teamup.ar" as root. Duplicated from
- * proxy.ts to keep the Edge-safe config self-contained (no shared imports
- * between edge and Node runtimes).
+ * with no subdomain. Also treats "www.teamup.ar" as root.
+ *
+ * Kept local (not imported from proxy.ts) to preserve Edge-safe isolation:
+ * both this file and proxy.ts run on the Edge Runtime and must not share
+ * imports with Node.js-only modules.
  */
 function isRootDomain(host: string): boolean {
   if (!host || host.startsWith('localhost') || host.startsWith('127.0.0.1')) {

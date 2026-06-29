@@ -1,7 +1,10 @@
 import { unstable_cache } from 'next/cache'
 import { Organization } from '@/app/models/Organization'
 
-type GetOrganizationOptions = { domainName: string; id?: never } | { id: number; domainName?: never }
+type GetOrganizationOptions =
+  | { id: number; domainName?: never; host?: never }
+  | { domainName: string; id?: never; host?: never }
+  | { host: string; id?: never; domainName?: never }
 
 const getOrganizationByDomain = unstable_cache(
   async (domainName: string): Promise<Organization | null> => {
@@ -22,10 +25,30 @@ const getOrganizationById = unstable_cache(
  * Returns an organization by domainName or id.
  * Results are cached by Next.js Data Cache (1 hour, tag "organizations").
  */
-export function getOrganization(options: GetOrganizationOptions): Promise<Organization | null> {
-  if (options.id !== undefined) {
-    return getOrganizationById(options.id)
+export async function getOrganization({ id, domainName, host }: GetOrganizationOptions): Promise<Organization | null> {
+  if (id !== undefined) {
+    return getOrganizationById(id)
   }
 
-  return getOrganizationByDomain(options.domainName)
+  if (domainName !== undefined) {
+    return getOrganizationByDomain(domainName)
+  }
+
+  if (host !== undefined) {
+    let domainFromHost: string | undefined = process.env.DEV_ORGANIZATION_DOMAIN
+
+    if (host) {
+      const parts = host.split('.')
+
+      if (parts.length === 3) {
+        domainFromHost = parts[0]
+      }
+    }
+
+    if (domainFromHost) {
+      return getOrganizationByDomain(domainFromHost)
+    }
+  }
+
+  return null
 }

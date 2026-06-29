@@ -45,15 +45,19 @@ function errorResponse(error: unknown): NextResponse {
 
 /**
  * Resolves the organizationId from the x-org-domain header set by the middleware.
- * Falls back to DEFAULT_ORG_DOMAIN env var (default: "demo") for requests that
- * bypass the middleware (e.g. direct API calls in local dev without the header).
+ * Throws 404 if the header is missing or no organization matches the domain.
  */
 async function resolveOrganizationId(request: NextRequest): Promise<number> {
-  const orgDomain = request.headers.get('x-org-domain') ?? process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
+  const orgDomain = request.headers.get('x-org-domain')
+
+  if (!orgDomain) {
+    throw new ApiException('Organización not found', 404)
+  }
+
   const organization = await getOrganization({ domainName: orgDomain })
 
   if (!organization) {
-    throw new ApiException('organizationNotFound', 404)
+    throw new ApiException('Organización not found', 404)
   }
 
   return organization.id
@@ -83,7 +87,7 @@ export function withAuth<P = Record<string, string>>(handler: AuthenticatedApiHa
     const userId = session?.user?.id ? Number(session.user.id) : null
 
     if (!userId) {
-      return errorResponse(new ApiException('unauthorized', 401))
+      return errorResponse(new ApiException('Usuario no autenticado', 401))
     }
 
     try {

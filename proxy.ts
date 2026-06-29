@@ -5,43 +5,26 @@ import { authConfig } from '@/app/(auth)/services/auth.config'
 const { auth } = NextAuth(authConfig)
 
 /**
- * Returns true when the request comes from the root domain (e.g. "teamup.ar")
- * with no subdomain. Also treats "www.teamup.ar" as root. Localhost is never
- * treated as the root domain.
+ * Resolves the organization domain slug from an HTTP Host header value.
+ * Edge-safe: pure string manipulation, no DB access.
+ *
+ * - "teamup.ar" | "www.teamup.ar"  →  null  (root domain, no org)
+ * - "club-aleman.teamup.ar"        →  "club-aleman"
+ * - "localhost:3000"               →  DEV_ORGANIZATION_DOMAIN env var (or null)
  */
-function isRootDomain(host: string): boolean {
+function resolveOrgDomain(host: string): string | null {
   if (!host || host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
-    return false
+    return process.env.DEV_ORGANIZATION_DOMAIN ?? null
   }
 
   const parts = host.split('.')
 
-  // "teamup.ar"              → 2 parts → root domain
-  // "www.teamup.ar"          → 3 parts, first is 'www' → root domain
-  // "club-aleman.teamup.ar"  → 3 parts, first is 'club-aleman' → subdomain
-  return parts.length === 2 || (parts.length === 3 && parts[0] === 'www')
-}
-
-/**
- * Resolves the organization domain from the incoming request host.
- *
- * - Production root:    teamup.ar               →  "__root__" (landing page)
- * - Production sub:     club-aleman.teamup.ar   →  "club-aleman"
- * - Local dev:          localhost:3000           →  DEFAULT_ORG_DOMAIN env var (defaults to "demo")
- */
-function resolveOrgDomain(host: string): string {
-  if (!host || host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
-    return process.env.DEFAULT_ORG_DOMAIN ?? 'demo'
+  // Root domain: "teamup.ar" (2 parts) or "www.teamup.ar" (3 parts, first === 'www')
+  if (parts.length === 2 || (parts.length === 3 && parts[0] === 'www')) {
+    return null
   }
 
-  if (isRootDomain(host)) {
-    return '__root__'
-  }
-
-  // e.g. "club-aleman.teamup.ar" → "club-aleman"
-  const subdomain = host.split('.')[0]
-
-  return subdomain || (process.env.DEFAULT_ORG_DOMAIN ?? 'demo')
+  return parts[0] || null
 }
 
 /**
@@ -54,16 +37,20 @@ function resolveOrgDomain(host: string): string {
  *
  * Note: the middleware runs on the Edge — it must stay free of Node.js-only
  * modules (no DB access). The actual organizationId lookup from the domain
- * name is done in the Node.js runtime inside each API route handler.
+ * name is done in the Node.js runtime inside each Server Component or API route.
  */
 export const proxy = auth((request) => {
-  const host = request.headers.get('host') ?? ''
-  const orgDomain = resolveOrgDomain(host)
-  const headers = new Headers(request.headers)
+  const orgDomain = resolveOrgDomain(request.headers.get('host') ?? '')
 
-  headers.set('x-org-domain', orgDomain)
+  if (orgDomain) {
+    const headers = new Headers(request.headers)
 
-  return NextResponse.next({ request: { headers } })
+    headers.set('x-org-domain', orgDomain)
+
+    return NextResponse.next({ request: { headers } })
+  }
+
+  return NextResponse.next()
 })
 
 export const config = {
