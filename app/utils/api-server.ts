@@ -44,20 +44,18 @@ function errorResponse(error: unknown): NextResponse {
 }
 
 /**
- * Resolves the organizationId from the x-org-domain header set by the middleware.
- * Throws 404 if the header is missing or no organization matches the domain.
+ * Resolves the organizationId for the current request.
+ *
+ * API routes (/api/*) are excluded from the middleware matcher, so the
+ * x-org-domain header is never present here. We resolve the organization
+ * directly from the Host header — safe because api-server runs in Node.js
+ * runtime (no Edge restriction).
  */
 async function resolveOrganizationId(request: NextRequest): Promise<number> {
-  const orgDomain = request.headers.get('x-org-domain')
-
-  if (!orgDomain) {
-    throw new ApiException('Organización not found', 404)
-  }
-
-  const organization = await getOrganization({ domainName: orgDomain })
+  const organization = await getOrganization({ host: request.headers.get('host') ?? '' })
 
   if (!organization) {
-    throw new ApiException('Organización not found', 404)
+    throw new ApiException('Organización no encontrada', 404)
   }
 
   return organization.id
