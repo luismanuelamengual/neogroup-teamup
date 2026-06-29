@@ -43,7 +43,7 @@ export const POST = withAuth(async (request, context, userId, organizationId): P
   const organization = await getOrganization({ id: organizationId })
 
   if (!organization) {
-    throw new ApiException('organizationNotFound', 404)
+    throw new ApiException('Organización no encontrada', 404)
   }
 
   const origin = new URL(request.url).origin

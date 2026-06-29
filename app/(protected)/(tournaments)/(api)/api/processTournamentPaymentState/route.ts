@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { confirmPaymentFromWebhook } from '@/app/(protected)/(tournaments)/services/payments'
 
 /**
- * POST /api/mercadopago/webhook — Mercado Pago payment notifications (IPN/Webhooks).
+ * POST /api/processTournamentPaymentState — Mercado Pago payment notifications (IPN/Webhooks).
  *
  * Public endpoint. The preference's notification_url carries `?ref=<paymentId>`
  * (our payment row id) so we can resolve the organizer/token without knowing the
