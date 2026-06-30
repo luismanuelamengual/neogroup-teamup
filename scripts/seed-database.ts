@@ -17,6 +17,12 @@
  *       · different scoring settings (custom league/americano points, partner swap)
  *       · tournaments with and without categories
  *
+ * Every tournament always has at least one `tournament_category` row, so each
+ * SPECS entry's `categories` is a list of `{ category, competitorsCount }`:
+ * a single `{ category: null, competitorsCount }` entry for tournaments
+ * without real categories, or one entry per named category otherwise, e.g.
+ * `categories: [{ category: 'Primera', competitorsCount: 13 }, { category: 'Segunda', competitorsCount: 9 }]`.
+ *
  * Knockout brackets (playoff, consolation and the groups+playoff knockout phase)
  * are fully materialised up to the final the moment they are created, so even a
  * just-started playoff shows its whole bracket.
@@ -251,12 +257,8 @@ async function createUsers(playerCount: number, organizationId: number): Promise
     player.passwordHash = passwordHash
     player.roleId = Role.PLAYER
     player.emailVerified = true
-    // Temporary placeholder — replaced with "demo{id}" once we know the id.
-    player.email = `seed_placeholder_${Date.now()}_${i}`
+    player.email = `demo${i + 1}@gmail.com`
     await player.save()
-
-    player.email = `demo${player.id}@gmail.com`
-    await DB.table('users').where('id', player.id).update({ email: player.email })
 
     players.push(player)
   }
@@ -334,55 +336,47 @@ function generateScore(format: ScoreFormat, allowWalkover: boolean): MatchScore 
 async function registerCompetitors(
   tournament: Tournament,
   pool: User[],
-  competitorCount: number,
-  tournamentCategories: TournamentCategory[]
+  tournamentCategories: TournamentCategory[],
+  competitorCounts: number[]
 ): Promise<void> {
   const isPairs = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
   const withPreclassification =
     supportsPreclassification(tournament.type) && tournament.status !== TournamentStatus.STAND_BY
   const players = shuffle(pool)
   let cursor = 0
-  // Track per-category competitor index for seed assignment.
-  const categoryIndexMap = new Map<number, number>()
 
-  for (let i = 0; i < competitorCount; i++) {
-    const competitor = new Competitor()
+  // Register each category instance independently, so each one can have its
+  // own competitor count (e.g. 10 in one category, 19 in another).
+  for (let categoryIndex = 0; categoryIndex < tournamentCategories.length; categoryIndex++) {
+    const categoryId = tournamentCategories[categoryIndex].id
+    const categorySize = competitorCounts[categoryIndex]
+    // In the seed script, ranking data isn't available at registration time,
+    // so we assign sequential seed numbers based on insertion order within
+    // each category, capped by getPreclassificationCount so the result
+    // mirrors what autoAssignPreclassification would produce at tournament start.
+    const maxSeeds = getPreclassificationCount(categorySize)
 
-    if (isPairs) {
-      const player = players[cursor++]
-      const partner = players[cursor++]
+    for (let i = 0; i < categorySize; i++) {
+      const competitor = new Competitor()
 
-      competitor.userId = player.id
-      competitor.partnerUserId = partner.id
-    } else {
-      const player = players[cursor++]
+      if (isPairs) {
+        const player = players[cursor++]
+        const partner = players[cursor++]
 
-      competitor.userId = player.id
-      competitor.partnerUserId = null
+        competitor.userId = player.id
+        competitor.partnerUserId = partner.id
+      } else {
+        const player = players[cursor++]
+
+        competitor.userId = player.id
+        competitor.partnerUserId = null
+      }
+
+      competitor.tournamentCategoryId = categoryId
+      competitor.createdAt = new Date()
+      competitor.seedNumber = withPreclassification && i < maxSeeds ? i + 1 : null
+      await competitor.save()
     }
-
-    // Round-robin assignment keeps every category instance evenly filled.
-    const categoryId = tournamentCategories[i % tournamentCategories.length].id
-
-    competitor.tournamentCategoryId = categoryId
-    competitor.createdAt = new Date()
-
-    if (withPreclassification) {
-      // In the seed script, ranking data isn't available at registration time,
-      // so we assign sequential seed numbers based on insertion order within
-      // each category, capped by getPreclassificationCount so the result
-      // mirrors what autoAssignPreclassification would produce at tournament start.
-      const categorySize = Math.ceil(competitorCount / tournamentCategories.length)
-      const maxSeeds = getPreclassificationCount(categorySize)
-      const categoryIndex = categoryIndexMap.get(categoryId) ?? 0
-
-      competitor.seedNumber = categoryIndex < maxSeeds ? categoryIndex + 1 : null
-      categoryIndexMap.set(categoryId, categoryIndex + 1)
-    } else {
-      competitor.seedNumber = null
-    }
-
-    await competitor.save()
   }
 }
 
@@ -471,6 +465,12 @@ async function playFullRounds(tournament: Tournament, maxRounds: number): Promis
 
 type OngoingPhase = 'just_started' | 'partial' | 'mid'
 
+/** One `tournament_category` instance: a named catalogue category, or `null` for the single uncategorised instance. */
+interface CategorySpec {
+  category: string | null
+  competitorsCount: number
+}
+
 interface TournamentSpec {
   name: string
   description: string
@@ -478,9 +478,14 @@ interface TournamentSpec {
   subDiscipline: SubDiscipline | null
   type: TournamentType
   scoreFormat: ScoreFormat
-  categories: string[] | null
-  competitorCount: number
-  /** Defaults to competitorCount; set higher to leave open inscription slots. */
+  /**
+   * One entry per `tournament_category` instance. Use a single
+   * `{ category: null, competitorsCount }` entry when the tournament has no
+   * real categories, or one named entry per category otherwise — each with
+   * its own independent competitor count (e.g. 13 in 'Primera', 9 in 'Segunda').
+   */
+  categories: CategorySpec[]
+  /** Defaults to the sum of every category's competitorsCount; set higher to leave open inscription slots. */
   maxCompetitors?: number
   settings: TournamentSettings
   status: TournamentStatus
@@ -514,7 +519,6 @@ function startDateFor(status: TournamentStatus): string {
 }
 
 const SPECS: TournamentSpec[] = [
-  // ---- Padel · League ----
   {
     name: 'Liga Apertura de Pádel 2026',
     description: 'Liga regular de parejas, todos contra todos.',
@@ -522,8 +526,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 8 }],
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.FINISHED
   },
@@ -534,8 +537,10 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: ['Categoría A', 'Categoría B'],
-    competitorCount: 8,
+    categories: [
+      { category: 'Categoría A', competitorsCount: 5 },
+      { category: 'Categoría B', competitorsCount: 7 }
+    ],
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -547,9 +552,8 @@ const SPECS: TournamentSpec[] = [
     discipline: Discipline.PADEL,
     subDiscipline: null,
     type: TournamentType.LEAGUE,
-    scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 4,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: [{ category: null, competitorsCount: 4 }],
     maxCompetitors: 8,
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.STAND_BY
@@ -561,8 +565,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 6 }],
     settings: { pointsPerPresent: 1, pointsPerSetWon: 2, pointsPerMatchWon: 3 },
     status: TournamentStatus.ONGOING,
     phase: 'partial'
@@ -576,8 +579,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.AMERICANO,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 13 }],
     settings: { ...DEFAULT_AMERICANO_SETTINGS },
     status: TournamentStatus.FINISHED
   },
@@ -588,8 +590,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.AMERICANO_WITH_SWAP,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 8,
+    categories: [{ category: null, competitorsCount: 11 }],
     settings: { ...DEFAULT_AMERICANO_SETTINGS },
     status: TournamentStatus.ONGOING,
     phase: 'just_started'
@@ -601,8 +602,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.AMERICANO_WITH_SWAP,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 8 }],
     settings: { pointsPerGameWon: 1, pointsPerMatchWon: 2 },
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -615,8 +615,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.AMERICANO,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 6 }],
     maxCompetitors: 10,
     settings: { pointsPerGameWon: 1, pointsPerMatchWon: 3 },
     status: TournamentStatus.STAND_BY
@@ -630,8 +629,10 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 8,
+    categories: [
+      { category: 'A', competitorsCount: 9 },
+      { category: 'B', competitorsCount: 14 }
+    ],
     settings: {},
     status: TournamentStatus.FINISHED
   },
@@ -642,8 +643,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: null,
-    competitorCount: 8,
+    categories: [{ category: null, competitorsCount: 32 }],
     settings: {},
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -656,8 +656,10 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: ['Damas', 'Caballeros'],
-    competitorCount: 8,
+    categories: [
+      { category: 'Damas', competitorsCount: 7 },
+      { category: 'Caballeros', competitorsCount: 8 }
+    ],
     maxCompetitors: 16,
     settings: {},
     status: TournamentStatus.STAND_BY
@@ -669,8 +671,10 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: ['Categoría A', 'Categoría B'],
-    competitorCount: 8,
+    categories: [
+      { category: 'Categoría A', competitorsCount: 7 },
+      { category: 'Categoría B', competitorsCount: 11 }
+    ],
     settings: {},
     status: TournamentStatus.FINISHED
   },
@@ -683,8 +687,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 6 }],
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.FINISHED
   },
@@ -695,8 +698,10 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: ['Primera', 'Segunda'],
-    competitorCount: 8,
+    categories: [
+      { category: 'Primera', competitorsCount: 9 },
+      { category: 'Segunda', competitorsCount: 5 }
+    ],
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -709,8 +714,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 5,
+    categories: [{ category: null, competitorsCount: 9 }],
     maxCompetitors: 8,
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.STAND_BY
@@ -722,8 +726,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 8,
+    categories: [{ category: null, competitorsCount: 13 }],
     settings: {},
     status: TournamentStatus.FINISHED
   },
@@ -734,8 +737,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 6 }],
     settings: {},
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -748,8 +750,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 8,
+    categories: [{ category: null, competitorsCount: 14 }],
     maxCompetitors: 16,
     settings: {},
     status: TournamentStatus.STAND_BY
@@ -763,8 +764,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.DOUBLES,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 9 }],
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.FINISHED
   },
@@ -775,8 +775,11 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.DOUBLES,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: ['Mixto A', 'Mixto B', 'Mixto C'],
-    competitorCount: 6,
+    categories: [
+      { category: 'Mixto A', competitorsCount: 5 },
+      { category: 'Mixto B', competitorsCount: 8 },
+      { category: 'Mixto C', competitorsCount: 6 }
+    ],
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.ONGOING,
     phase: 'just_started'
@@ -788,8 +791,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.DOUBLES,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 8,
+    categories: [{ category: null, competitorsCount: 8 }],
     settings: {},
     status: TournamentStatus.ONGOING,
     phase: 'just_started'
@@ -801,8 +803,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.DOUBLES,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 8,
+    categories: [{ category: null, competitorsCount: 8 }],
     maxCompetitors: 16,
     settings: {},
     status: TournamentStatus.STAND_BY
@@ -814,8 +815,10 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.DOUBLES,
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: ['Nivel 1', 'Nivel 2'],
-    competitorCount: 8,
+    categories: [
+      { category: 'Nivel 1', competitorsCount: 4 },
+      { category: 'Nivel 2', competitorsCount: 4 }
+    ],
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.FINISHED
   },
@@ -830,8 +833,13 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 32,
+    categories: [
+      { category: '1ra', competitorsCount: 14 },
+      { category: '2da', competitorsCount: 10 },
+      { category: '3ra', competitorsCount: 16 },
+      { category: '4ta', competitorsCount: 12 },
+      { category: '5ta', competitorsCount: 10 }
+    ],
     settings: {},
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -846,8 +854,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: null,
-    competitorCount: 16,
+    categories: [{ category: null, competitorsCount: 16 }],
     settings: {},
     status: TournamentStatus.FINISHED
   },
@@ -860,8 +867,10 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: ['Categoría A', 'Categoría B'],
-    competitorCount: 32,
+    categories: [
+      { category: 'Categoría A', competitorsCount: 12 },
+      { category: 'Categoría B', competitorsCount: 18 }
+    ],
     maxCompetitors: 32,
     settings: {},
     status: TournamentStatus.STAND_BY
@@ -875,8 +884,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 32,
+    categories: [{ category: null, competitorsCount: 32 }],
     settings: {},
     status: TournamentStatus.ONGOING,
     phase: 'just_started'
@@ -890,8 +898,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: null,
-    competitorCount: 40,
+    categories: [{ category: null, competitorsCount: 40 }],
     maxCompetitors: 64,
     settings: {},
     status: TournamentStatus.STAND_BY
@@ -905,8 +912,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.AMERICANO_WITH_SWAP,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 16,
+    categories: [{ category: null, competitorsCount: 16 }],
     settings: { ...DEFAULT_AMERICANO_SETTINGS },
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -921,8 +927,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.DOUBLES,
     type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 16,
+    categories: [{ category: null, competitorsCount: 16 }],
     settings: {},
     status: TournamentStatus.FINISHED
   },
@@ -937,22 +942,21 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.PLAYOFF_WITH_CONSOLATION,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: null,
-    competitorCount: 8,
+    categories: [{ category: null, competitorsCount: 8 }],
     settings: {},
     status: TournamentStatus.FINISHED
   },
 
   // Padel playoff 6 parejas (con byes) y consuelo — en curso
   {
-    name: 'Copa Repechaje de Pádel',
-    description: 'Llave de 6 parejas con byes y cuadro de consuelo. Los que pasan con bye esperan a su primer partido.',
-    discipline: Discipline.PADEL,
+    name: 'Copa Repechaje de Tenis',
+    description:
+      'Llave de 20 competidores con byes y cuadro de consuelo. Los que pasan con bye esperan a su primer partido.',
+    discipline: Discipline.TENNIS,
     subDiscipline: null,
     type: TournamentType.PLAYOFF_WITH_CONSOLATION,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 6,
+    categories: [{ category: null, competitorsCount: 20 }],
     settings: {},
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -967,11 +971,16 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.PLAYOFF_WITH_CONSOLATION,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: null,
-    competitorCount: 15,
-    maxCompetitors: 15,
+    categories: [
+      { category: '2da Caballeros', competitorsCount: 31 },
+      { category: '3ra Caballeros', competitorsCount: 26 },
+      { category: '4ta Caballeros', competitorsCount: 22 },
+      { category: '5ta Caballeros', competitorsCount: 30 }
+    ],
+    maxCompetitors: 32,
     settings: {},
-    status: TournamentStatus.STAND_BY
+    status: TournamentStatus.ONGOING,
+    phase: 'mid'
   },
 
   // ---- Grupos + Eliminatoria ----
@@ -984,8 +993,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: null,
     type: TournamentType.GROUPS_PLAYOFF,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
-    categories: null,
-    competitorCount: 16,
+    categories: [{ category: null, competitorsCount: 16 }],
     settings: { competitorsPerGroup: 4, qualifiersPerGroup: 2 },
     status: TournamentStatus.FINISHED
   },
@@ -994,12 +1002,11 @@ const SPECS: TournamentSpec[] = [
   {
     name: 'Copa Mundialito de Pádel',
     description: '12 parejas en grupos de 4; pasan 2 por grupo a la fase eliminatoria. En fase de grupos.',
-    discipline: Discipline.PADEL,
+    discipline: Discipline.TENNIS,
     subDiscipline: null,
     type: TournamentType.GROUPS_PLAYOFF,
     scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: null,
-    competitorCount: 12,
+    categories: [{ category: null, competitorsCount: 29 }],
     settings: { competitorsPerGroup: 4, qualifiersPerGroup: 2 },
     status: TournamentStatus.ONGOING,
     phase: 'mid',
@@ -1014,8 +1021,7 @@ const SPECS: TournamentSpec[] = [
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.GROUPS_PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
-    categories: null,
-    competitorCount: 20,
+    categories: [{ category: null, competitorsCount: 20 }],
     maxCompetitors: 24,
     settings: { competitorsPerGroup: 5, qualifiersPerGroup: 2 },
     status: TournamentStatus.STAND_BY
@@ -1033,10 +1039,21 @@ async function buildTournament(
   pool: User[]
 ): Promise<void> {
   const subDiscipline = spec.discipline === Discipline.TENNIS ? spec.subDiscipline : null
-  // Resolve (and create on demand) the categories of this tournament.
-  const categoryIds = spec.categories
-    ? await resolveCategoryIds(organizationId, spec.discipline, subDiscipline, spec.categories)
-    : null
+  const categoryNames = spec.categories.map((c) => c.category).filter((name): name is string => name !== null)
+
+  if (categoryNames.length > 0 && categoryNames.length !== spec.categories.length) {
+    throw new Error(`${spec.name}: categories must be either a single { category: null } entry or all named.`)
+  }
+
+  if (categoryNames.length === 0 && spec.categories.length !== 1) {
+    throw new Error(`${spec.name}: when category is null, categories must have exactly one entry.`)
+  }
+
+  // Resolve (and create on demand) the named categories of this tournament.
+  const categoryIds =
+    categoryNames.length > 0
+      ? await resolveCategoryIds(organizationId, spec.discipline, subDiscipline, categoryNames)
+      : null
   const tournament = new Tournament()
 
   tournament.organizationId = organizationId
@@ -1058,14 +1075,17 @@ async function buildTournament(
   tournament.updatedAt = new Date()
   await tournament.save()
 
+  // Per-category competitor counts, in the same order as `spec.categories` / `categoryIds`.
+  const competitorCounts = spec.categories.map((c) => c.competitorsCount)
+  const totalCompetitors = competitorCounts.reduce((sum, count) => sum + count, 0)
   // Materialise the category instances (one per category, or a single null one).
   const tournamentCategories = await createTournamentCategories(
     tournament.id,
     categoryIds,
-    spec.maxCompetitors ?? spec.competitorCount
+    spec.maxCompetitors ?? totalCompetitors
   )
 
-  await registerCompetitors(tournament, pool, spec.competitorCount, tournamentCategories)
+  await registerCompetitors(tournament, pool, tournamentCategories, competitorCounts)
 
   if (spec.status === TournamentStatus.STAND_BY) {
     return
