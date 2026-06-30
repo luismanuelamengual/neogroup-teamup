@@ -26,7 +26,8 @@
     background-color: white;
 
     @media (max-width: 600px) {
-      display: block;
+      display: inline-flex;
+      width: 100%;
     }
   }
 }

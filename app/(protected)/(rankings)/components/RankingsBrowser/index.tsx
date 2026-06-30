@@ -5,7 +5,6 @@ import MenuItem from '@mui/material/MenuItem'
 import Pagination from '@mui/material/Pagination'
 import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
-import classNames from 'classnames'
 import { useEffect, useState } from 'react'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
@@ -19,6 +18,11 @@ import { useLoadingData } from '@/app/hooks/useLoadingData'
 
 const PAGE_SIZE = 20
 const ALL_CATEGORIES = 'all'
+const MEDALS: Record<number, string> = {
+  1: '🥇',
+  2: '🥈',
+  3: '🥉'
+}
 
 export default function RankingsBrowser() {
   const { getCategories } = useCategories()
@@ -141,20 +145,24 @@ export default function RankingsBrowser() {
         <MessagePanel>Todavía no hay puntos de ranking para estos filtros</MessagePanel>
       ) : (
         <>
-          <div
-            className={classNames('list', {
-              'list-colored': page == 1
-            })}
-          >
+          <div className="list">
             {entries.map((entry, index) => {
               const position = (page - 1) * PAGE_SIZE + index + 1
+              const medal = page === 1 ? MEDALS[position] : undefined
 
               return (
                 <div key={entry.userId} className="ranking-row">
                   <span className="position">{position}</span>
                   <div className="player">
                     <Avatar email={entry.email} name={entry.displayName} size="md" className="avatar" />
-                    <span className="name">{entry.displayName}</span>
+                    <div className="name-area">
+                      {medal && (
+                        <span className="medal" title={`Posición ${position}`}>
+                          {medal}
+                        </span>
+                      )}
+                      <span className="name">{entry.displayName}</span>
+                    </div>
                   </div>
                   <span className="points">{entry.points} pts</span>
                 </div>

@@ -10,9 +10,9 @@
     flex-wrap: wrap;
 
     .filter {
-      min-width: 180px;
+      min-width: 220px;
       flex: 1;
-      max-width: 260px;
+      max-width: 300px;
 
       .MuiInputBase-root {
         background-color: white;
@@ -47,78 +47,47 @@
         align-items: center;
         flex: 1;
   
-        .name {
+        .name-area {
           flex: 1;
           width: 0;
-          font-weight: 600;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-      }
+          gap: 5px;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+
+          .medal {
+            flex-shrink: 0;
+            font-size: 32px;
+            line-height: 1;
+            margin-bottom: 4px;
+            margin-left: -7px;
+            margin-right: -5px;
+          }
+
+          .name {
+            flex: 1;
+            width: 0;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
   
+          
+        }
+
+      }
+
       .points {
         flex-shrink: 0;
         font-weight: 700;
         white-space: nowrap;
         color: black;
       }
-  
+
       &.skeleton {
         .grow {
           flex: 1;
-        }
-      }
-    }
-
-    &.list-colored {
-      .ranking-row {
-        &:nth-child(1) {
-          .points {
-            padding: 10px;
-            border-radius: 10px;
-            background: linear-gradient(
-              135deg,
-              #bf953f 0%,
-              #fcf6ba 25%,
-              #b38728 50%,
-              #fbf5b7 75%,
-              #aa771c 100%
-            );
-            filter: drop-shadow(2px 2px 1px rgba(0, 0, 0, 0.3));
-          }
-        }
-    
-        &:nth-child(2) {
-          .points {
-            padding: 10px;
-            border-radius: 10px;
-            background: linear-gradient(
-              135deg,
-              #9c9e9f 0%,
-              #f2f5f6 25%,
-              #787979 50%,
-              #ffffff 75%,
-              #4a4b4c 100%
-            );
-            filter: drop-shadow(2px 2px 1px rgba(0, 0, 0, 0.3));
-          }
-        }
-    
-        &:nth-child(3) {
-          .points {
-            padding: 10px;
-            border-radius: 10px;
-            background: linear-gradient(
-              135deg,
-              #b87333 0%,
-              #f0c2a2 25%,
-              #96511f 50%,
-              #f7d6c1 75%,
-              #68300b 100%
-            );
-            filter: drop-shadow(2px 2px 1px rgba(0, 0, 0, 0.3));
-          }
         }
       }
     }
@@ -146,6 +115,7 @@
       .position {
         width: 22px;
         font-size: 14px;
+        margin: 0 -10px;
       } 
     }
   }
