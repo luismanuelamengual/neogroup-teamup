@@ -5,6 +5,10 @@ export enum TournamentStatus {
   FINISHED = 3
 }
 
+export const TournamentStatuses = Object.values(TournamentStatus).filter(
+  (value) => typeof value === 'number'
+) as TournamentStatus[]
+
 export const TournamentStatusNames: Record<TournamentStatus, string> = {
   [TournamentStatus.STAND_BY]: 'Inscripción abierta',
   [TournamentStatus.ONGOING]: 'En juego',

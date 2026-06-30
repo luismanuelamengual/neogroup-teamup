@@ -5,7 +5,6 @@ import MenuItem from '@mui/material/MenuItem'
 import Pagination from '@mui/material/Pagination'
 import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
 import classNames from 'classnames'
 import { useEffect, useState } from 'react'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
@@ -15,6 +14,7 @@ import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import Avatar from '@/app/components/Avatar'
+import MessagePanel from '@/app/components/MessagePanel'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
 const PAGE_SIZE = 20
@@ -138,9 +138,7 @@ export default function RankingsBrowser() {
           ))}
         </div>
       ) : entries.length === 0 ? (
-        <Typography color="text.secondary" className="empty">
-          Todavía no hay puntos de ranking para estos filtros
-        </Typography>
+        <MessagePanel>Todavía no hay puntos de ranking para estos filtros</MessagePanel>
       ) : (
         <>
           <div

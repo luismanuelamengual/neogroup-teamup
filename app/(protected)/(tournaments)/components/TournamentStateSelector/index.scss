@@ -1,0 +1,33 @@
+.tournament-state-selector {
+  
+  .toggler {
+    display: none;
+    background-color: white;
+    border: 1px solid #d8dfdd;
+    border-radius: 999px;
+    overflow: hidden;
+    flex-shrink: 0;
+    
+    .MuiToggleButton-root {
+      border: none;
+      text-transform: none;
+      font-weight: 600;
+      padding: 6px 16px;
+      overflow: hidden;
+    }
+
+    @media (min-width: 601px) {
+      display: block;
+    }
+  }
+
+  .selector {
+    display: none;
+    background-color: white;
+
+    @media (max-width: 600px) {
+      display: block;
+    }
+  }
+}
+

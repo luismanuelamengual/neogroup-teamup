@@ -7,15 +7,14 @@ import Button from '@mui/material/Button'
 import InputAdornment from '@mui/material/InputAdornment'
 import Pagination from '@mui/material/Pagination'
 import TextField from '@mui/material/TextField'
-import ToggleButton from '@mui/material/ToggleButton'
-import MuiToggleButtonGroup from '@mui/material/ToggleButtonGroup'
-import Typography from '@mui/material/Typography'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
+import TournamentStateSelector from '@/app/(protected)/(tournaments)/components/TournamentStateSelector'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import MessagePanel from '@/app/components/MessagePanel'
 import { useDebouncedValue } from '@/app/hooks/useDebouncedValue'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
@@ -132,21 +131,7 @@ export default function TournamentsBrowser({
                 }
               }}
             />
-            {!states && (
-              <MuiToggleButtonGroup
-                size="small"
-                color="primary"
-                exclusive
-                value={status}
-                onChange={(_, value: StatusFilter | null) => value && setStatus(value)}
-                className="status-filter"
-              >
-                <ToggleButton value="all">Todos</ToggleButton>
-                <ToggleButton value={TournamentStatus.STAND_BY}>Inscripción abierta</ToggleButton>
-                <ToggleButton value={TournamentStatus.ONGOING}>En juego</ToggleButton>
-                <ToggleButton value={TournamentStatus.FINISHED}>Finalizado</ToggleButton>
-              </MuiToggleButtonGroup>
-            )}
+            {!states && <TournamentStateSelector value={status} onChange={setStatus} className="state-filter" />}
           </div>
           {showCreationButton && (
             <div className="actions">
@@ -165,9 +150,7 @@ export default function TournamentsBrowser({
           ))}
         </div>
       ) : tournaments.length === 0 ? (
-        <Typography color="text.secondary" className="empty">
-          No se encontraron torneos
-        </Typography>
+        <MessagePanel>No se encontraron torneos !!!</MessagePanel>
       ) : (
         <>
           <div className="list">
