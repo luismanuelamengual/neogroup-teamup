@@ -6,7 +6,10 @@
  * resolution used by scripts/migrate-database.ts) and builds a full demo/test data set:
  *
  *   - One organizer account (id = 1, email "demo-organizer@gmail.com", password "123qwe").
- *   - 32 player accounts (email "demo{id}@gmail.com", password "123qwe") with realistic names.
+ *   - 140 player accounts (email "demo{id}@gmail.com", password "123qwe") with realistic names.
+ *     (Every tournament draws its own shuffled subset from this same pool, so each tournament's
+ *     total players needed — competitorsCount summed across categories, doubled for pair
+ *     disciplines like padel or tennis doubles — must not exceed this pool size.)
  *   - A broad catalogue of tournaments exercising every feature of the app:
  *       · every discipline / sub-discipline (padel, tennis singles, tennis doubles)
  *       · every type (league, americano, playoff, groups + playoff)
@@ -1176,7 +1179,7 @@ async function run(): Promise<void> {
   }
 
   const organizationId = demoOrg.id
-  const { organizer, players } = await createUsers(64, organizationId)
+  const { organizer, players } = await createUsers(140, organizationId)
 
   console.log(`\nCreating ${SPECS.length} tournaments...`)
 
