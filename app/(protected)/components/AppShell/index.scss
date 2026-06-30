@@ -88,7 +88,7 @@
 
   .content-wrapper {
     flex: 1;
-    padding: 24px 16px;
+    padding: 16px;
     overflow: auto;
 
     .content {
@@ -105,7 +105,16 @@
 
 @media (max-width: 768px) {
   .app-shell {
+    position: relative;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+
     .appbar {
+      position: sticky;
+      top: 0;
+      z-index: 1100;
+
       .nav {
         display: none;
       }
@@ -119,9 +128,15 @@
       }
     }
 
+    .content-wrapper {
+      overflow: visible;
+    }
+
     .bottom-nav {
       display: flex !important;
       border-top: 1px solid var(--color-divider);
+      position: sticky;
+      bottom: 0;
     }
   }
 }

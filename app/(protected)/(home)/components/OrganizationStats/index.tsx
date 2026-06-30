@@ -3,7 +3,6 @@
 import ApartmentIcon from '@mui/icons-material/Apartment'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import GroupsIcon from '@mui/icons-material/Groups'
-import LeaderboardIcon from '@mui/icons-material/Leaderboard'
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
 import PendingActionsIcon from '@mui/icons-material/PendingActions'
@@ -35,7 +34,7 @@ export default function OrganizationStats() {
   if (loading || !stats) {
     return (
       <Stats>
-        {Array.from({ length: 11 }).map((_, i) => (
+        {Array.from({ length: 10 }).map((_, i) => (
           <StatCardSkeleton key={i} />
         ))}
       </Stats>
@@ -63,12 +62,6 @@ export default function OrganizationStats() {
       <StatCard icon={<SportsScoreIcon />} accent="neutral" value={stats.matchesTotal} label="Partidos totales" />
       <StatCard icon={<SportsTennisIcon />} accent="success" value={stats.matchesPlayed} label="Partidos jugados" />
       <StatCard icon={<PendingActionsIcon />} accent="amber" value={stats.matchesPending} label="Partidos pendientes" />
-      <StatCard
-        icon={<LeaderboardIcon />}
-        accent="primary"
-        value={stats.rankingPointsAwarded}
-        label="Puntos de ranking"
-      />
       <StatCard icon={<MilitaryTechIcon />} accent="success" value={stats.rankedPlayers} label="Jugadores rankeados" />
     </Stats>
   )
