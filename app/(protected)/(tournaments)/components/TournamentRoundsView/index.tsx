@@ -12,6 +12,7 @@ import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import MessagePanel from '@/app/components/MessagePanel'
 
 interface TournamentRoundsViewProps {
   tournament: TournamentDto
@@ -80,18 +81,25 @@ export default function TournamentRoundsView({
             onEditMatch={onEditMatch}
           />
         </div>
-        {hasConsolation && (
+        {tournament.type == TournamentType.PLAYOFF_WITH_CONSOLATION && (
           <>
             <Divider />
             <div className="rounds-section">
               <SectionTitle>Cuadro consuelo</SectionTitle>
-              <BracketView
-                tournament={tournament}
-                category={category}
-                roundType={RoundType.KNOCKOUT_CONSOLATION}
-                organizerMode={organizerMode}
-                onEditMatch={onEditMatch}
-              />
+              {!hasConsolation && (
+                <MessagePanel>
+                  Cuadro consuelo se configurará una vez que haya terminado la 1era ronda del cuadro principal
+                </MessagePanel>
+              )}
+              {hasConsolation && (
+                <BracketView
+                  tournament={tournament}
+                  category={category}
+                  roundType={RoundType.KNOCKOUT_CONSOLATION}
+                  organizerMode={organizerMode}
+                  onEditMatch={onEditMatch}
+                />
+              )}
             </div>
           </>
         )}
