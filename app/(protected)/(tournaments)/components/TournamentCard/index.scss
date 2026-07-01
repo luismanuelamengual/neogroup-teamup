@@ -49,6 +49,10 @@ $card-hover-color: rgb(239, 249, 251);
       background-color: rgba(99, 102, 241, 0.1);
       color: #4338ca;
     }
+
+    &.paid {
+      gap: 1px;
+    }
   }
 
   .categories {

@@ -2,9 +2,9 @@
 export function formatMoney(amount: number, currency = 'ARS'): string {
   try {
     return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: amount % 1 === 0 ? 0 : 2
+      style: 'decimal',
+      minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+      compactDisplay: 'short'
     }).format(amount)
   } catch {
     return `${currency} ${amount}`

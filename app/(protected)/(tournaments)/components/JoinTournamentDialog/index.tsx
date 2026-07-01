@@ -1,6 +1,7 @@
 'use client'
 
 import './index.scss'
+import PaidIcon from '@mui/icons-material/Paid'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
@@ -126,9 +127,13 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
             </div>
           </div>
           {isPaid && (
-            <Alert severity="info" icon={false} className="entry-fee">
-              Costo de inscripción: <strong>{formatMoney(tournament.entryFee!, tournament.currency)}</strong>. El pago
-              se realiza de forma segura con Mercado Pago.
+            <Alert severity="info" icon={false}>
+              Costo de inscripción:{' '}
+              <div className="entry-fee">
+                <PaidIcon fontSize="inherit" />{' '}
+                <strong>{formatMoney(tournament.entryFee!, tournament.currency)}</strong>
+              </div>
+              . El pago se realiza de forma segura con Mercado Pago.
             </Alert>
           )}
           {error && <Alert severity="error">{error}</Alert>}

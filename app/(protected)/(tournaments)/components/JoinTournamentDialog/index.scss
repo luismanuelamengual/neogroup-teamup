@@ -26,6 +26,15 @@
       display: flex;
       gap: 8px;
     }
+
+    .entry-fee {
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 2px;
+      position: relative;
+      top: 2px;
+    }
   
     .partner {
       display: flex;
