@@ -4,16 +4,12 @@
   gap: 16px;
 
   .filters {
-    display: flex;
+    display: grid;
     align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
 
     .filter {
-      min-width: 220px;
-      flex: 1;
-      max-width: 300px;
-
       .MuiInputBase-root {
         background-color: white;
       }
@@ -99,12 +95,6 @@
   }
 
   @media (max-width: 600px) {
-    .filters {
-      .filter {
-        max-width: unset;
-      }
-    }
-
     .ranking-row {
       gap: 6px;
 

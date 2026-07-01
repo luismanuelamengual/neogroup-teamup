@@ -17,7 +17,6 @@ import MessagePanel from '@/app/components/MessagePanel'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
 const PAGE_SIZE = 20
-const ALL_CATEGORIES = 'all'
 const MEDALS: Record<number, string> = {
   1: '🥇',
   2: '🥈',
@@ -30,7 +29,8 @@ export default function RankingsBrowser() {
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [categoryOptions, setCategoryOptions] = useState<CategoryDto[]>([])
-  const [categoryId, setCategoryId] = useState<number | typeof ALL_CATEGORIES>(ALL_CATEGORIES)
+  const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [loadingCategories, setLoadingCategories] = useState(true)
   const [entries, setEntries] = useState<RankingEntryDto[]>([])
   const [page, setPage] = useState(1)
   const [pageCount, setPageCount] = useState(1)
@@ -40,18 +40,22 @@ export default function RankingsBrowser() {
   useEffect(() => {
     let cancelled = false
 
-    setCategoryId(ALL_CATEGORIES)
+    setCategoryId(null)
+    setLoadingCategories(true)
     setPage(1)
 
     getCategories(discipline, sub)
       .then((options) => {
         if (!cancelled) {
           setCategoryOptions(options)
+          setCategoryId(options.length > 0 ? options[0].id : null)
+          setLoadingCategories(false)
         }
       })
       .catch(() => {
         if (!cancelled) {
           setCategoryOptions([])
+          setLoadingCategories(false)
         }
       })
 
@@ -66,10 +70,17 @@ export default function RankingsBrowser() {
   }, [categoryId])
 
   const { loading } = useLoadingData(async () => {
+    if (categoryId === null) {
+      setEntries([])
+      setPageCount(1)
+
+      return
+    }
+
     const { data, lastPage } = await getRankings({
       discipline,
       subDiscipline: sub,
-      categoryId: categoryId === ALL_CATEGORIES ? null : categoryId,
+      categoryId,
       page,
       pageSize: PAGE_SIZE
     })
@@ -115,13 +126,13 @@ export default function RankingsBrowser() {
           select
           size="small"
           label="Categoría"
-          value={categoryId}
-          onChange={(event) =>
-            setCategoryId(event.target.value === ALL_CATEGORIES ? ALL_CATEGORIES : Number(event.target.value))
-          }
+          value={categoryId ?? ''}
+          onChange={(event) => setCategoryId(event.target.value === '' ? null : Number(event.target.value))}
           className="filter"
         >
-          <MenuItem value={ALL_CATEGORIES}>Todas las categorías</MenuItem>
+          <MenuItem value="" disabled>
+            Seleccioná una categoría
+          </MenuItem>
           {categoryOptions.map((category) => (
             <MenuItem key={category.id} value={category.id}>
               {category.name}
@@ -130,7 +141,7 @@ export default function RankingsBrowser() {
         </TextField>
       </div>
 
-      {loading ? (
+      {loadingCategories || (categoryId !== null && loading) ? (
         <div className="list">
           {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="ranking-row skeleton">
@@ -141,6 +152,8 @@ export default function RankingsBrowser() {
             </div>
           ))}
         </div>
+      ) : categoryId === null ? (
+        <MessagePanel>Elegí una categoría para ver el ranking</MessagePanel>
       ) : entries.length === 0 ? (
         <MessagePanel>Todavía no hay puntos de ranking para estos filtros</MessagePanel>
       ) : (
