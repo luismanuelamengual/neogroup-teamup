@@ -58,7 +58,7 @@ export default function OrganizationStats() {
       />
       <StatCard icon={<GroupsIcon />} accent="success" value={stats.competitorsTotal} label="Inscriptos totales" />
       <StatCard icon={<QueryStatsIcon />} accent="neutral" value={stats.avgCompetitors} label="Promedio x torneo" />
-      <StatCard icon={<PeopleAltIcon />} accent="info" value={stats.distinctPlayers} label="Jugadores únicos" />
+      <StatCard icon={<PeopleAltIcon />} accent="info" value={stats.distinctPlayers} label="Jugadores totales" />
       <StatCard icon={<SportsScoreIcon />} accent="neutral" value={stats.matchesTotal} label="Partidos totales" />
       <StatCard icon={<SportsTennisIcon />} accent="success" value={stats.matchesPlayed} label="Partidos jugados" />
       <StatCard icon={<PendingActionsIcon />} accent="amber" value={stats.matchesPending} label="Partidos pendientes" />

@@ -7,6 +7,7 @@ import PaidIcon from '@mui/icons-material/Paid'
 import PlaceIcon from '@mui/icons-material/Place'
 import Paper from '@mui/material/Paper'
 import MuiSkeleton from '@mui/material/Skeleton'
+import classNames from 'classnames'
 import { useRouter } from 'next/navigation'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -61,7 +62,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
           {tournament.startTime ? ` · ${tournament.startTime}` : ''}
         </span>
       </div>
-      <div className="categories">
+      <div className={classNames('categories', { multi: hasCategories && categories.length > 3 })}>
         {!hasCategories && (
           <div className="category-chip">
             <label>Categoría única</label>
