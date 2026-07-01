@@ -52,9 +52,13 @@ export async function getTournaments({
     )
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
     .when(statuses?.length, (query) => query.whereIn('status', statuses!))
-    .when(withCompetitors, (query) => query.with('competitors', 'competitors.user', 'competitors.partnerUser'))
-    .when(withRounds, (query) => query.with('rounds'))
-    .when(withMatches, (query) => query.with('matches'))
+    .when(withCompetitors, (query) =>
+      query
+        .with({ competitors: (query) => query.orderBy('seedNumber').orderBy('id') })
+        .with('competitors.user', 'competitors.partnerUser')
+    )
+    .when(withRounds, (query) => query.with({ rounds: (query) => query.orderBy('number') }))
+    .when(withMatches, (query) => query.with({ matches: (query) => query.orderBy('roundId').orderBy('position') }))
     .orderBy('status')
     .orderByDesc('id')
     .paginate(pageSize, page)
@@ -66,20 +70,6 @@ export async function getTournament(options: TournamentOptions = {}): Promise<To
   const {
     data: [tournament = null]
   } = await getTournaments({ ...options, pageSize: 1 })
-
-  if (tournament) {
-    if (tournament.competitors) {
-      tournament.competitors = [...tournament.competitors].sort((a, b) => a.id - b.id)
-    }
-
-    if (tournament.rounds) {
-      tournament.rounds = [...tournament.rounds].sort((a, b) => a.number - b.number)
-    }
-
-    if (tournament.matches) {
-      tournament.matches = [...tournament.matches].sort((a, b) => a.roundId - b.roundId || a.position - b.position)
-    }
-  }
 
   return tournament
 }
