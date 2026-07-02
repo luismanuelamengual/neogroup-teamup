@@ -1,8 +1,17 @@
-import { DB } from '@neogroup/neorm'
+import { DB, Schema } from '@neogroup/neorm'
 
 /**
  * Base schema for the TeamUp application.
- * DDL is engine-aware so the same migration runs on PostgreSQL and SQLite.
+ *
+ * The DDL is fully engine-agnostic: it is described once through neorm's
+ * `Schema` builder and compiled to the right dialect for the active data source
+ * (PostgreSQL in production, SQLite in tests). neorm handles every difference
+ * that this migration used to branch on by hand:
+ *
+ *   - `increments('id')` → SERIAL PRIMARY KEY / INTEGER PRIMARY KEY AUTOINCREMENT
+ *   - `boolean(...)`      → BOOLEAN / INTEGER (0-1)
+ *   - `timestamp().useCurrent()` → DEFAULT NOW()/CURRENT_TIMESTAMP
+ *   - `decimal(...)`      → NUMERIC(p,s)
  *
  * Enum-like columns (status, discipline, subDiscipline, type, scoreFormat,
  * winner, rounds.type) are stored as INTEGER. Their values map to the numeric
@@ -10,283 +19,274 @@ import { DB } from '@neogroup/neorm'
  * SubDiscipline, TournamentType, ScoreFormat, MatchStatus, MatchSide,
  * RoundStatus, RoundType).
  *
- * Array columns (matches.homeCompetitorIds / awayCompetitorIds) use the native
- * PostgreSQL INT[] type. On SQLite — which
- * has no array type — they are stored as TEXT holding a JSON array (the models
- * cast them with `json` only on SQLite). The same applies to JSONB:
- * tournaments.settings is JSONB on PostgreSQL and TEXT on SQLite.
+ * Array columns (organizations.allowedRegistrationRoles,
+ * matches.homeCompetitorIds / awayCompetitorIds) use `integerArray()`: native
+ * INT[] on PostgreSQL, a JSON-encoded TEXT column on SQLite (the models cast
+ * them with `array`/`json` only on SQLite). The same applies to `jsonb()`
+ * (tournaments.settings / rankingSettings): JSONB on PostgreSQL, TEXT on SQLite.
  */
-const IS_SQLITE = (process.env.DB_DRIVER ?? 'postgres') === 'sqlite'
-const ID = IS_SQLITE ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'SERIAL PRIMARY KEY'
-const TIMESTAMP = IS_SQLITE ? 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP' : 'TIMESTAMP NOT NULL DEFAULT NOW()'
-/** Array of integers: native INT[] on PostgreSQL, JSON-encoded TEXT on SQLite. */
-const INT_ARRAY = IS_SQLITE ? 'TEXT' : 'INT[]'
-/** Structured JSON payload: JSONB on PostgreSQL, TEXT on SQLite. */
-const JSON_TYPE = IS_SQLITE ? 'TEXT' : 'JSONB'
-/** Boolean column: native BOOLEAN on PostgreSQL, INTEGER (0/1) on SQLite. */
-const BOOLEAN_FALSE = IS_SQLITE ? 'INTEGER NOT NULL DEFAULT 0' : 'BOOLEAN NOT NULL DEFAULT FALSE'
-/** Nullable boolean column: native BOOLEAN on PostgreSQL, INTEGER (0/1) on SQLite. */
-const BOOLEAN_NULL = IS_SQLITE ? 'INTEGER' : 'BOOLEAN'
-/** Array of integers for allowed roles: native INT[] on PostgreSQL, JSON-encoded TEXT on SQLite. */
-const ROLES_ARRAY = IS_SQLITE ? "TEXT NOT NULL DEFAULT '[]'" : "INT[] NOT NULL DEFAULT '{}'"
-/** Nullable timestamp (no default): plain TIMESTAMP on both engines. */
-const TIMESTAMP_NULL = 'TIMESTAMP'
-/**
- * Money amount: NUMERIC(12,2) on PostgreSQL, REAL on SQLite. Stored in the
- * organization currency major unit (e.g. ARS pesos, not cents). Models cast it
- * with `number`.
- */
-const MONEY = IS_SQLITE ? 'REAL' : 'NUMERIC(12,2)'
-/** Percentage value (e.g. 4 = 4%): NUMERIC(5,2) on PostgreSQL, REAL on SQLite. */
-const PERCENTAGE = IS_SQLITE ? 'REAL' : 'NUMERIC(5,2)'
-
 export default {
   name: '001-create-base-tables',
 
   async up(): Promise<void> {
-    await DB.withConnection(async (conn) => {
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS organizations (
-          id ${ID},
-          name VARCHAR(150) NOT NULL,
-          domainName VARCHAR(100) NOT NULL UNIQUE,
-          allowedRegistrationRoles ${ROLES_ARRAY},
-          timezone VARCHAR(64) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
-          serviceFeePercentage ${PERCENTAGE} NOT NULL DEFAULT 4,
-          createdAt ${TIMESTAMP}
-        )
-      `)
+    await DB.transaction(async () => {
+      await Schema.createIfNotExists('organizations', (table) => {
+        table.increments('id')
+        table.string('name', 150)
+        table.string('domainName', 100).unique()
+        // Roles allowed to self-register (ORGANIZER=1, PLAYER=2). Empty by default.
+        table.integerArray('allowedRegistrationRoles').default([])
+        table.string('timezone', 64).default('America/Argentina/Buenos_Aires')
+        table.decimal('serviceFeePercentage', 5, 2).default(4)
+        table.timestamp('createdAt').useCurrent()
+      })
 
       // Seed the three initial organizations.
       // demo: no self-registration allowed (empty roles array).
       // club-aleman: players and organizers can self-register.
       // punto-deporte: players only (organizers must be created manually).
       // Role values: ORGANIZER=1, PLAYER=2
-      const ROLES_EMPTY = IS_SQLITE ? "'[]'" : 'ARRAY[]::INT[]'
-      const ROLES_PLAYER = IS_SQLITE ? "'[2]'" : 'ARRAY[2]'
-      const ROLES_PLAYER_ORGANIZER = IS_SQLITE ? "'[1,2]'" : 'ARRAY[1,2]'
+      await DB.table('organizations').insert([
+        { name: 'Demo', domainName: 'demo', allowedRegistrationRoles: [] },
+        { name: 'Club Alemán', domainName: 'club-aleman', allowedRegistrationRoles: [1, 2] },
+        { name: 'Punto Deporte', domainName: 'punto-deporte', allowedRegistrationRoles: [2] }
+      ])
 
-      await conn.execute(
-        `INSERT INTO organizations (name, domainName, allowedRegistrationRoles) VALUES ('Demo', 'demo', ${ROLES_EMPTY})`
-      )
-      await conn.execute(
-        `INSERT INTO organizations (name, domainName, allowedRegistrationRoles) VALUES ('Club Alemán', 'club-aleman', ${ROLES_PLAYER_ORGANIZER})`
-      )
-      await conn.execute(
-        `INSERT INTO organizations (name, domainName, allowedRegistrationRoles) VALUES ('Punto Deporte', 'punto-deporte', ${ROLES_PLAYER})`
-      )
+      await Schema.createIfNotExists('users', (table) => {
+        table.increments('id')
+        table.integer('organizationId')
+        table.string('email', 255)
+        table.string('passwordHash', 255).nullable()
+        table.string('firstName', 100).nullable()
+        table.string('lastName', 100).nullable()
+        table.string('nickname', 100).nullable()
+        table.string('phoneNumber', 50).nullable()
+        table.integer('roleId').nullable()
+        table.boolean('emailVerified').default(false)
+        table.timestamp('createdAt').useCurrent()
 
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS users (
-          id ${ID},
-          organizationId INTEGER NOT NULL REFERENCES organizations (id),
-          email VARCHAR(255) NOT NULL,
-          passwordHash VARCHAR(255),
-          firstName VARCHAR(100),
-          lastName VARCHAR(100),
-          nickname VARCHAR(100),
-          phoneNumber VARCHAR(50),
-          roleId INTEGER,
-          emailVerified ${BOOLEAN_FALSE},
-          createdAt ${TIMESTAMP},
-          UNIQUE (organizationId, email)
-        )
-      `)
+        table.unique(['organizationId', 'email'])
+        table.index('organizationId', 'idx_users_organization')
+        table.foreign('organizationId').references('id').on('organizations')
+      })
 
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS email_verification_tokens (
-          id ${ID},
-          userId INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-          token VARCHAR(255) NOT NULL UNIQUE,
-          expiresAt ${TIMESTAMP},
-          createdAt ${TIMESTAMP}
-        )
-      `)
+      await Schema.createIfNotExists('email_verification_tokens', (table) => {
+        table.increments('id')
+        table.integer('userId')
+        table.string('token', 255).unique()
+        table.timestamp('expiresAt').useCurrent()
+        table.timestamp('createdAt').useCurrent()
 
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS password_reset_tokens (
-          id ${ID},
-          userId INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-          token VARCHAR(255) NOT NULL UNIQUE,
-          expiresAt ${TIMESTAMP},
-          createdAt ${TIMESTAMP}
-        )
-      `)
+        table.foreign('userId').references('id').on('users').onDelete('cascade')
+      })
+
+      await Schema.createIfNotExists('password_reset_tokens', (table) => {
+        table.increments('id')
+        table.integer('userId')
+        table.string('token', 255).unique()
+        table.timestamp('expiresAt').useCurrent()
+        table.timestamp('createdAt').useCurrent()
+
+        table.index('userId', 'idx_password_reset_tokens_user')
+        table.foreign('userId').references('id').on('users').onDelete('cascade')
+      })
 
       // Catalogue of categories, scoped to an organization and a
       // discipline/subDiscipline. Tournaments materialise these into concrete
       // tournament_categories instances (see below); competitors, rounds and
       // matches point to a single tournament_categories row.
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS categories (
-          id ${ID},
-          organizationId INTEGER NOT NULL REFERENCES organizations (id),
-          name VARCHAR(150) NOT NULL,
-          discipline INTEGER NOT NULL,
-          subDiscipline INTEGER
-        )
-      `)
+      await Schema.createIfNotExists('categories', (table) => {
+        table.increments('id')
+        table.integer('organizationId')
+        table.string('name', 150)
+        table.integer('discipline')
+        table.integer('subDiscipline').nullable()
 
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS tournaments (
-          id ${ID},
-          organizationId INTEGER NOT NULL REFERENCES organizations (id),
-          ownerId INTEGER NOT NULL REFERENCES users (id),
-          name VARCHAR(150) NOT NULL,
-          description TEXT,
-          status INTEGER NOT NULL DEFAULT 1,
-          discipline INTEGER NOT NULL,
-          subDiscipline INTEGER,
-          type INTEGER NOT NULL,
-          scoreFormat INTEGER NOT NULL,
-          startDate VARCHAR(10) NOT NULL,
-          startTime VARCHAR(5),
-          location VARCHAR(255),
-          settings ${JSON_TYPE},
-          rankingSettings ${JSON_TYPE},
-          paid ${BOOLEAN_FALSE},
-          entryFee ${MONEY},
-          currency VARCHAR(3) NOT NULL DEFAULT 'ARS',
-          createdAt ${TIMESTAMP},
-          updatedAt ${TIMESTAMP}
-        )
-      `)
+        table.index(['organizationId', 'discipline'], 'idx_categories_lookup')
+        table.foreign('organizationId').references('id').on('organizations')
+      })
+
+      await Schema.createIfNotExists('tournaments', (table) => {
+        table.increments('id')
+        table.integer('organizationId')
+        table.integer('ownerId')
+        table.string('name', 150)
+        table.text('description').nullable()
+        table.integer('status').default(1)
+        table.integer('discipline')
+        table.integer('subDiscipline').nullable()
+        table.integer('type')
+        table.integer('scoreFormat')
+        table.string('startDate', 10)
+        table.string('startTime', 5).nullable()
+        table.string('location', 255).nullable()
+        table.jsonb('settings').nullable()
+        table.jsonb('rankingSettings').nullable()
+        table.boolean('paid').default(false)
+        table.decimal('entryFee', 12, 2).nullable()
+        table.string('currency', 3).default('ARS')
+        table.timestamp('createdAt').useCurrent()
+        table.timestamp('updatedAt').useCurrent()
+
+        table.index('organizationId', 'idx_tournaments_organization')
+        table.index('ownerId', 'idx_tournaments_owner')
+        table.index('status', 'idx_tournaments_status')
+        table.foreign('organizationId').references('id').on('organizations')
+        table.foreign('ownerId').references('id').on('users')
+      })
 
       // Mercado Pago account a tournament organizer (an organizer-role user)
       // connects via OAuth so the platform can create split payments on their
       // behalf. Kept in a dedicated table — never eager-loaded with users — so
-      // the access/refresh tokens are never serialized into a UserDto. The
-      // marketplace owner (TeamUp) collects its service fee through
-      // marketplace_fee on each preference; the rest is settled to this account.
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS mercadopago_accounts (
-          id ${ID},
-          userId INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
-          mpUserId VARCHAR(64) NOT NULL,
-          accessToken TEXT NOT NULL,
-          refreshToken TEXT,
-          publicKey TEXT,
-          liveMode ${BOOLEAN_NULL},
-          scope TEXT,
-          expiresAt ${TIMESTAMP_NULL},
-          createdAt ${TIMESTAMP},
-          updatedAt ${TIMESTAMP}
-        )
-      `)
+      // the access/refresh tokens are never serialized into a UserDto.
+      await Schema.createIfNotExists('mercadopago_accounts', (table) => {
+        table.increments('id')
+        table.integer('userId').unique()
+        table.string('mpUserId', 64)
+        table.text('accessToken')
+        table.text('refreshToken').nullable()
+        table.text('publicKey').nullable()
+        table.boolean('liveMode').nullable()
+        table.text('scope').nullable()
+        table.timestamp('expiresAt').nullable()
+        table.timestamp('createdAt').useCurrent()
+        table.timestamp('updatedAt').useCurrent()
+
+        table.index('userId', 'idx_mercadopago_accounts_user')
+        table.foreign('userId').references('id').on('users').onDelete('cascade')
+      })
 
       // Concrete category instances of a tournament. A tournament always has at
       // least one: when the organizer defines categories there is one row per
       // category (categoryId set); when it has none there is a single row with
       // categoryId = NULL (the "single category"). maxCompetitors is the entry
       // limit of that instance.
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS tournament_categories (
-          id ${ID},
-          tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
-          categoryId INTEGER REFERENCES categories (id),
-          maxCompetitors INTEGER NOT NULL
-        )
-      `)
+      await Schema.createIfNotExists('tournament_categories', (table) => {
+        table.increments('id')
+        table.integer('tournamentId')
+        table.integer('categoryId').nullable()
+        table.integer('maxCompetitors')
 
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS competitors (
-          id ${ID},
-          tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
-          userId INTEGER REFERENCES users (id),
-          partnerUserId INTEGER REFERENCES users (id),
-          seedNumber INTEGER,
-          createdAt ${TIMESTAMP}
-        )
-      `)
+        table.index('tournamentId', 'idx_tournament_categories_tournament')
+        table.foreign('tournamentId').references('id').on('tournaments').onDelete('cascade')
+        table.foreign('categoryId').references('id').on('categories')
+      })
 
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS rounds (
-          id ${ID},
-          tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
-          number INTEGER NOT NULL,
-          status INTEGER NOT NULL DEFAULT 1,
-          type INTEGER NOT NULL,
-          groupNumber INTEGER,
-          active ${BOOLEAN_FALSE},
-          createdAt ${TIMESTAMP}
-        )
-      `)
+      await Schema.createIfNotExists('competitors', (table) => {
+        table.increments('id')
+        table.integer('tournamentCategoryId')
+        table.integer('userId').nullable()
+        table.integer('partnerUserId').nullable()
+        table.integer('seedNumber').nullable()
+        table.timestamp('createdAt').useCurrent()
 
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS matches (
-          id ${ID},
-          tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
-          roundId INTEGER NOT NULL REFERENCES rounds (id) ON DELETE CASCADE,
-          position INTEGER NOT NULL DEFAULT 0,
-          homeCompetitorIds ${INT_ARRAY} NOT NULL,
-          awayCompetitorIds ${INT_ARRAY},
-          score TEXT,
-          status INTEGER NOT NULL DEFAULT 1,
-          winner INTEGER,
-          createdAt ${TIMESTAMP},
-          updatedAt ${TIMESTAMP}
-        )
-      `)
+        table.index('userId', 'idx_competitors_user')
+        table.index('tournamentCategoryId', 'idx_competitors_category')
+        table.foreign('tournamentCategoryId').references('id').on('tournament_categories').onDelete('cascade')
+        table.foreign('userId').references('id').on('users')
+        table.foreign('partnerUserId').references('id').on('users')
+      })
+
+      await Schema.createIfNotExists('rounds', (table) => {
+        table.increments('id')
+        table.integer('tournamentCategoryId')
+        table.integer('number')
+        table.integer('status').default(1)
+        table.integer('type')
+        table.integer('groupNumber').nullable()
+        table.boolean('active').default(false)
+        table.timestamp('createdAt').useCurrent()
+
+        table.index('tournamentCategoryId', 'idx_rounds_category')
+        table.index(['tournamentCategoryId', 'type'], 'idx_rounds_type')
+        table.index(['tournamentCategoryId', 'active'], 'idx_rounds_active')
+        table.foreign('tournamentCategoryId').references('id').on('tournament_categories').onDelete('cascade')
+      })
+
+      await Schema.createIfNotExists('matches', (table) => {
+        table.increments('id')
+        table.integer('tournamentCategoryId')
+        table.integer('roundId')
+        table.integer('position').default(0)
+        table.integerArray('homeCompetitorIds')
+        table.integerArray('awayCompetitorIds').nullable()
+        table.text('score').nullable()
+        table.integer('status').default(1)
+        table.integer('winner').nullable()
+        table.timestamp('createdAt').useCurrent()
+        table.timestamp('updatedAt').useCurrent()
+
+        table.index('tournamentCategoryId', 'idx_matches_category')
+        table.index('roundId', 'idx_matches_round')
+        table.foreign('tournamentCategoryId').references('id').on('tournament_categories').onDelete('cascade')
+        table.foreign('roundId').references('id').on('rounds').onDelete('cascade')
+      })
 
       // Ranking points awarded to players when a tournament finishes. Each row
       // is a single award (organization + player) worth `points`, valid until
       // `expirationDate` (one year after it is granted). categoryId is NULL for
-      // tournaments without categories (no-category mode); when set it references
-      // the catalogue category. The rankings browser sums the still-valid rows
-      // per player and category.
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS rankings (
-          id ${ID},
-          organizationId INTEGER NOT NULL REFERENCES organizations (id),
-          categoryId INTEGER REFERENCES categories (id),
-          userId INTEGER NOT NULL REFERENCES users (id),
-          points INTEGER NOT NULL DEFAULT 0,
-          expirationDate ${TIMESTAMP},
-          createdAt ${TIMESTAMP}
-        )
-      `)
+      // tournaments without categories; when set it references the catalogue
+      // category. The rankings browser sums the still-valid rows per player and
+      // category.
+      await Schema.createIfNotExists('rankings', (table) => {
+        table.increments('id')
+        table.integer('organizationId')
+        table.integer('categoryId').nullable()
+        table.integer('userId')
+        table.integer('points').default(0)
+        table.timestamp('expirationDate').useCurrent()
+        table.timestamp('createdAt').useCurrent()
+
+        table.index(['organizationId', 'categoryId'], 'idx_rankings_org_category')
+        table.index('userId', 'idx_rankings_user')
+        table.foreign('organizationId').references('id').on('organizations')
+        table.foreign('categoryId').references('id').on('categories')
+        table.foreign('userId').references('id').on('users')
+      })
 
       // Cached, pre-computed organization-wide stats for the organizer home
       // dashboard. One row per organization, refreshed at most once every 24h
       // (or sooner if a match has been edited). See services/dashboard.ts.
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS organization_statistics (
-          id ${ID},
-          organizationId INTEGER NOT NULL UNIQUE REFERENCES organizations (id) ON DELETE CASCADE,
-          tournamentsTotal INTEGER NOT NULL DEFAULT 0,
-          tournamentsActive INTEGER NOT NULL DEFAULT 0,
-          tournamentsFinished INTEGER NOT NULL DEFAULT 0,
-          competitorsTotal INTEGER NOT NULL DEFAULT 0,
-          avgCompetitors REAL NOT NULL DEFAULT 0,
-          distinctPlayers INTEGER NOT NULL DEFAULT 0,
-          matchesTotal INTEGER NOT NULL DEFAULT 0,
-          matchesPlayed INTEGER NOT NULL DEFAULT 0,
-          matchesPending INTEGER NOT NULL DEFAULT 0,
-          rankingPointsAwarded INTEGER NOT NULL DEFAULT 0,
-          rankedPlayers INTEGER NOT NULL DEFAULT 0,
-          updatedAt ${TIMESTAMP}
-        )
-      `)
+      await Schema.createIfNotExists('organization_statistics', (table) => {
+        table.increments('id')
+        table.integer('organizationId').unique()
+        table.integer('tournamentsTotal').default(0)
+        table.integer('tournamentsActive').default(0)
+        table.integer('tournamentsFinished').default(0)
+        table.integer('competitorsTotal').default(0)
+        table.float('avgCompetitors').default(0)
+        table.integer('distinctPlayers').default(0)
+        table.integer('matchesTotal').default(0)
+        table.integer('matchesPlayed').default(0)
+        table.integer('matchesPending').default(0)
+        table.integer('rankingPointsAwarded').default(0)
+        table.integer('rankedPlayers').default(0)
+        table.timestamp('updatedAt').useCurrent()
+
+        table.index('organizationId', 'idx_organization_statistics_org')
+        table.foreign('organizationId').references('id').on('organizations').onDelete('cascade')
+      })
 
       // Cached, pre-computed per-player stats for the player home dashboard.
       // One row per player (user), refreshed at most once every 24h (or sooner
       // if one of the player's matches has been edited). See services/dashboard.ts.
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS player_statistics (
-          id ${ID},
-          playerId INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
-          tournamentsPlayed INTEGER NOT NULL DEFAULT 0,
-          activeTournaments INTEGER NOT NULL DEFAULT 0,
-          matchesPlayed INTEGER NOT NULL DEFAULT 0,
-          matchesWon INTEGER NOT NULL DEFAULT 0,
-          winRate INTEGER NOT NULL DEFAULT 0,
-          titles INTEGER NOT NULL DEFAULT 0,
-          podiums INTEGER NOT NULL DEFAULT 0,
-          rankingPoints INTEGER NOT NULL DEFAULT 0,
-          bestRankingPosition INTEGER NOT NULL DEFAULT 0,
-          updatedAt ${TIMESTAMP}
-        )
-      `)
+      await Schema.createIfNotExists('player_statistics', (table) => {
+        table.increments('id')
+        table.integer('playerId').unique()
+        table.integer('tournamentsPlayed').default(0)
+        table.integer('activeTournaments').default(0)
+        table.integer('matchesPlayed').default(0)
+        table.integer('matchesWon').default(0)
+        table.integer('winRate').default(0)
+        table.integer('titles').default(0)
+        table.integer('podiums').default(0)
+        table.integer('rankingPoints').default(0)
+        table.integer('bestRankingPosition').default(0)
+        table.timestamp('updatedAt').useCurrent()
+
+        table.index('playerId', 'idx_player_statistics_player')
+        table.foreign('playerId').references('id').on('users').onDelete('cascade')
+      })
 
       // Registration payment for a paid tournament. A row is created (status
       // PENDING) when a player initiates the checkout for a paid tournament; it
@@ -297,63 +297,38 @@ export default {
       // becomes APPROVED and the competitor is created, linked via competitorId.
       // Status values map to the PaymentStatus enum (PENDING=1, APPROVED=2,
       // REJECTED=3, CANCELLED=4, REFUNDED=5).
-      await conn.execute(`
-        CREATE TABLE IF NOT EXISTS tournament_payments (
-          id ${ID},
-          organizationId INTEGER NOT NULL REFERENCES organizations (id),
-          tournamentId INTEGER NOT NULL REFERENCES tournaments (id) ON DELETE CASCADE,
-          tournamentCategoryId INTEGER NOT NULL REFERENCES tournament_categories (id) ON DELETE CASCADE,
-          userId INTEGER NOT NULL REFERENCES users (id),
-          partnerUserId INTEGER REFERENCES users (id),
-          status INTEGER NOT NULL DEFAULT 1,
-          amount ${MONEY} NOT NULL,
-          currency VARCHAR(3) NOT NULL DEFAULT 'ARS',
-          serviceFeePercentage ${PERCENTAGE} NOT NULL,
-          serviceFeeAmount ${MONEY} NOT NULL,
-          organizerAmount ${MONEY} NOT NULL,
-          provider VARCHAR(32) NOT NULL DEFAULT 'mercadopago',
-          preferenceId VARCHAR(255),
-          mpPaymentId VARCHAR(64),
-          initPoint TEXT,
-          competitorId INTEGER REFERENCES competitors (id) ON DELETE SET NULL,
-          createdAt ${TIMESTAMP},
-          updatedAt ${TIMESTAMP}
-        )
-      `)
+      await Schema.createIfNotExists('tournament_payments', (table) => {
+        table.increments('id')
+        table.integer('organizationId')
+        table.integer('tournamentId')
+        table.integer('tournamentCategoryId')
+        table.integer('userId')
+        table.integer('partnerUserId').nullable()
+        table.integer('status').default(1)
+        table.decimal('amount', 12, 2)
+        table.string('currency', 3).default('ARS')
+        table.decimal('serviceFeePercentage', 5, 2)
+        table.decimal('serviceFeeAmount', 12, 2)
+        table.decimal('organizerAmount', 12, 2)
+        table.string('provider', 32).default('mercadopago')
+        table.string('preferenceId', 255).nullable()
+        table.string('mpPaymentId', 64).nullable()
+        table.text('initPoint').nullable()
+        table.integer('competitorId').nullable()
+        table.timestamp('createdAt').useCurrent()
+        table.timestamp('updatedAt').useCurrent()
 
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens (userId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_organization ON users (organizationId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_categories_lookup ON categories (organizationId, discipline)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_organization ON tournaments (organizationId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_owner ON tournaments (ownerId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments (status)')
-      await conn.execute(
-        'CREATE INDEX IF NOT EXISTS idx_tournament_categories_tournament ON tournament_categories (tournamentId)'
-      )
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_competitors_user ON competitors (userId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_competitors_category ON competitors (tournamentCategoryId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_category ON rounds (tournamentCategoryId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_type ON rounds (tournamentCategoryId, type)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rounds_active ON rounds (tournamentCategoryId, active)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_category ON matches (tournamentCategoryId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_matches_round ON matches (roundId)')
-      await conn.execute(
-        'CREATE INDEX IF NOT EXISTS idx_rankings_org_category ON rankings (organizationId, categoryId)'
-      )
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_rankings_user ON rankings (userId)')
-      await conn.execute(
-        'CREATE INDEX IF NOT EXISTS idx_organization_statistics_org ON organization_statistics (organizationId)'
-      )
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_player_statistics_player ON player_statistics (playerId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_mercadopago_accounts_user ON mercadopago_accounts (userId)')
-      await conn.execute(
-        'CREATE INDEX IF NOT EXISTS idx_tournament_payments_tournament ON tournament_payments (tournamentId)'
-      )
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournament_payments_user ON tournament_payments (userId)')
-      await conn.execute('CREATE INDEX IF NOT EXISTS idx_tournament_payments_status ON tournament_payments (status)')
-      await conn.execute(
-        'CREATE INDEX IF NOT EXISTS idx_tournament_payments_preference ON tournament_payments (preferenceId)'
-      )
+        table.index('tournamentId', 'idx_tournament_payments_tournament')
+        table.index('userId', 'idx_tournament_payments_user')
+        table.index('status', 'idx_tournament_payments_status')
+        table.index('preferenceId', 'idx_tournament_payments_preference')
+        table.foreign('organizationId').references('id').on('organizations')
+        table.foreign('tournamentId').references('id').on('tournaments').onDelete('cascade')
+        table.foreign('tournamentCategoryId').references('id').on('tournament_categories').onDelete('cascade')
+        table.foreign('userId').references('id').on('users')
+        table.foreign('partnerUserId').references('id').on('users')
+        table.foreign('competitorId').references('id').on('competitors').onDelete('set null')
+      })
     })
   }
 }
