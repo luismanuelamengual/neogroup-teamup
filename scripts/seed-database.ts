@@ -658,7 +658,7 @@ const SPECS: TournamentSpec[] = [
     discipline: Discipline.PADEL,
     subDiscipline: null,
     type: TournamentType.PLAYOFF,
-    scoreFormat: ScoreFormat.BASIC_COUNT,
+    scoreFormat: ScoreFormat.THREE_SETS,
     categories: [
       { category: 'Damas', competitorsCount: 7 },
       { category: 'Caballeros', competitorsCount: 8 }
@@ -716,7 +716,7 @@ const SPECS: TournamentSpec[] = [
     discipline: Discipline.TENNIS,
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.LEAGUE,
-    scoreFormat: ScoreFormat.BASIC_COUNT,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
     categories: [{ category: null, competitorsCount: 9 }],
     maxCompetitors: 8,
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
@@ -752,7 +752,7 @@ const SPECS: TournamentSpec[] = [
     discipline: Discipline.TENNIS,
     subDiscipline: SubDiscipline.SINGLES,
     type: TournamentType.PLAYOFF,
-    scoreFormat: ScoreFormat.BASIC_COUNT,
+    scoreFormat: ScoreFormat.THREE_SETS,
     categories: [{ category: null, competitorsCount: 14 }],
     maxCompetitors: 16,
     settings: {},
@@ -805,7 +805,7 @@ const SPECS: TournamentSpec[] = [
     discipline: Discipline.TENNIS,
     subDiscipline: SubDiscipline.DOUBLES,
     type: TournamentType.PLAYOFF,
-    scoreFormat: ScoreFormat.BASIC_COUNT,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
     categories: [{ category: null, competitorsCount: 8 }],
     maxCompetitors: 16,
     settings: {},
@@ -817,7 +817,7 @@ const SPECS: TournamentSpec[] = [
     discipline: Discipline.TENNIS,
     subDiscipline: SubDiscipline.DOUBLES,
     type: TournamentType.LEAGUE,
-    scoreFormat: ScoreFormat.BASIC_COUNT,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
     categories: [
       { category: 'Nivel 1', competitorsCount: 4 },
       { category: 'Nivel 2', competitorsCount: 4 }
