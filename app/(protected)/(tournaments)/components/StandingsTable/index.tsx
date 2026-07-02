@@ -9,10 +9,21 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import { useMemo, useState } from 'react'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
+import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
+import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
+import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
+
+function formatPoints(value: number, label: string): string | null {
+  if (!value) {
+    return null
+  }
+
+  return `${value} pto${value === 1 ? '' : 's'} x ${label}`
+}
 
 interface StandingsTableProps {
   tournament: TournamentDto
@@ -31,6 +42,36 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
     tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.GROUPS_PLAYOFF
   const showAmericanoColumns =
     tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP
+  const pointsLegend = useMemo(() => {
+    const settings = tournament.settings
+
+    if (showLeagueColumns) {
+      const isGroups = tournament.type === TournamentType.GROUPS_PLAYOFF
+      const defaults = isGroups ? DEFAULT_GROUPS_PLAYOFF_SETTINGS : DEFAULT_LEAGUE_SETTINGS
+      const leagueSettings = { ...defaults, ...(settings ?? {}) }
+
+      return [
+        formatPoints(leagueSettings.pointsPerMatchWon, 'partido ganado'),
+        formatPoints(leagueSettings.pointsPerSetWon, 'set ganado'),
+        formatPoints(leagueSettings.pointsPerPresent, 'presentarse')
+      ]
+        .filter(Boolean)
+        .join(' + ')
+    }
+
+    if (showAmericanoColumns) {
+      const americanoSettings = { ...DEFAULT_AMERICANO_SETTINGS, ...(settings ?? {}) }
+
+      return [
+        formatPoints(americanoSettings.pointsPerGameWon, 'game ganado'),
+        formatPoints(americanoSettings.pointsPerMatchWon, 'partido ganado')
+      ]
+        .filter(Boolean)
+        .join(' + ')
+    }
+
+    return ''
+  }, [tournament, showLeagueColumns, showAmericanoColumns])
 
   const handleCompetitorClick = (competitorId: number) => {
     const competitor = competitorsById[competitorId]
@@ -41,8 +82,8 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
   }
 
   return (
-    <>
-      <TableContainer className="standings-table">
+    <div className="standings-table">
+      <TableContainer className="table">
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -95,11 +136,12 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
           </TableBody>
         </Table>
       </TableContainer>
+      {!!pointsLegend && <div className="legend">Puntos: {pointsLegend}</div>}
       <CompetitorInfoModal
         open={modalCompetitors.length > 0}
         competitors={modalCompetitors}
         onClose={() => setModalCompetitors([])}
       />
-    </>
+    </div>
   )
 }

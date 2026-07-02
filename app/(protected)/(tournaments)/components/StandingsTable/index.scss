@@ -7,69 +7,79 @@ $leaderCellBackgroundColor: rgba(245, 158, 11, 0.1);
 $leaderFixedCellBackgroundColor: rgb(249, 241, 228);
 
 .standings-table {
-  border: 1px solid $borderColor;
-  border-radius: 10px;
-
-  table {
-    border-collapse: separate;
-  }
-
-  .position-cell {
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    width: 40px;
-    font-weight: 700 !important;
-    color: var(--color-text-secondary);
-  }
-
-  .competitor-name-cell {
-    position: sticky;
-    left: 40px;
-    z-index: 2;
-  }
-
-  .points-cell {
-    position: sticky;
-    right: 0;
-    z-index: 2;
-    font-weight: 700 !important;
-  }
-
-  .competitor-cell {
-    cursor: pointer;
-
-    &:hover {
-      text-decoration: underline;
-      color: var(--color-primary);
+  .table {
+    border: 1px solid $borderColor;
+    border-radius: 10px;
+  
+    table {
+      border-collapse: separate;
     }
-  }
-
-  th {
-    background-color: $headerBackgroundColor;
-    font-weight: 700;
-
-    &.position-cell, &.competitor-name-cell, &.points-cell {
-      background-color: $headerFixedBackgroundColor;
+  
+    .position-cell {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      width: 40px;
+      font-weight: 700 !important;
+      color: var(--color-text-secondary);
     }
-  }
-
-  td {
-    background-color: $cellBackgroundColor;
-
-    &.position-cell, &.competitor-name-cell, &.points-cell {
-      background-color: $cellFixedBackgroundColor;
+  
+    .competitor-name-cell {
+      position: sticky;
+      left: 40px;
+      z-index: 2;
     }
-  }
-
-  .highlighted {
-    td {
-      font-weight: 600;
-      background-color: $leaderCellBackgroundColor;
-
-      &.position-cell, &.competitor-name-cell, &.points-cell {
-        background-color: $leaderFixedCellBackgroundColor;
+  
+    .points-cell {
+      position: sticky;
+      right: 0;
+      z-index: 2;
+      font-weight: 700 !important;
+    }
+  
+    .competitor-cell {
+      cursor: pointer;
+  
+      &:hover {
+        text-decoration: underline;
+        color: var(--color-primary);
       }
     }
+  
+    th {
+      background-color: $headerBackgroundColor;
+      font-weight: 700;
+  
+      &.position-cell, &.competitor-name-cell, &.points-cell {
+        background-color: $headerFixedBackgroundColor;
+      }
+    }
+  
+    td {
+      background-color: $cellBackgroundColor;
+  
+      &.position-cell, &.competitor-name-cell, &.points-cell {
+        background-color: $cellFixedBackgroundColor;
+      }
+    }
+  
+    .highlighted {
+      td {
+        font-weight: 600;
+        background-color: $leaderCellBackgroundColor;
+  
+        &.position-cell, &.competitor-name-cell, &.points-cell {
+          background-color: $leaderFixedCellBackgroundColor;
+        }
+      }
+    }
+  }
+
+  .legend {
+    margin-top: 2px;
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    font-style: italic;
+    text-align: right;
   }
 }
