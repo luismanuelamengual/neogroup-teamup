@@ -1,4 +1,6 @@
+import { existsSync } from 'fs'
 import { unstable_cache } from 'next/cache'
+import { join } from 'path'
 import { Organization } from '@/app/models/Organization'
 
 type GetOrganizationOptions =
@@ -51,4 +53,20 @@ export async function getOrganization({ id, domainName, host }: GetOrganizationO
   }
 
   return null
+}
+
+/**
+ * Resolves the logo path for an organization, checking on the server whether a
+ * custom `public/{organizationDomain}/{fileName}` file exists.
+ * Falls back to `/{fileName}` (the default logo) otherwise.
+ *
+ * Doing this check server-side avoids the client requesting a missing image
+ * and briefly rendering a broken-image icon before falling back.
+ */
+export function resolveOrganizationImage(organizationDomain: string | null | undefined, fileName: string): string {
+  if (organizationDomain && existsSync(join(process.cwd(), 'public', organizationDomain, fileName))) {
+    return `/${organizationDomain}/${fileName}`
+  }
+
+  return `/${fileName}`
 }

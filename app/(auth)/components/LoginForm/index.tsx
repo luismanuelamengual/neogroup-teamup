@@ -18,9 +18,16 @@ interface LoginFormProps {
   verified?: boolean
   passwordReset?: boolean
   allowRegistrations?: boolean
+  logoSrc?: string
 }
 
-export default function LoginForm({ callbackUrl, verified, passwordReset, allowRegistrations = true }: LoginFormProps) {
+export default function LoginForm({
+  callbackUrl,
+  verified,
+  passwordReset,
+  allowRegistrations = true,
+  logoSrc = '/logo.png'
+}: LoginFormProps) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -56,7 +63,7 @@ export default function LoginForm({ callbackUrl, verified, passwordReset, allowR
 
   return (
     <div className="login-form">
-      <Image src="/logo.png" alt="TeamUp" width={220} height={35} className="logo" priority />
+      <Image src={logoSrc} alt="TeamUp" width={220} height={35} className="logo" priority />
       <Typography variant="h5" component="h1" className="title">
         Iniciar sesión
       </Typography>

@@ -7,7 +7,7 @@ import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/(protected)/components/AppShell'
 import Loading from '@/app/components/Loading'
 import { Role } from '@/app/models/Role'
-import { getOrganization } from '@/app/services/organizations'
+import { getOrganization, resolveOrganizationImage } from '@/app/services/organizations'
 
 /**
  * Shared layout for every authenticated page: requires a session with an
@@ -57,7 +57,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
   return (
     <>
       <UserStoreHydrator user={user} />
-      <AppShell user={user}>
+      <AppShell user={user} logoSrc={resolveOrganizationImage(orgDomain, 'logo-bar.png')}>
         <Suspense fallback={<Loading />}>{children}</Suspense>
       </AppShell>
     </>

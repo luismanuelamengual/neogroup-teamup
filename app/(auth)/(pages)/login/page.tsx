@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import LoginForm from '@/app/(auth)/components/LoginForm'
-import { getOrganization } from '@/app/services/organizations'
+import { getOrganization, resolveOrganizationImage } from '@/app/services/organizations'
 
 export default async function LoginPage({
   searchParams
@@ -31,6 +31,7 @@ export default async function LoginPage({
       verified={verified === '1'}
       passwordReset={passwordReset === '1'}
       allowRegistrations={!!organization.allowedRegistrationRoles && organization.allowedRegistrationRoles.length > 0}
+      logoSrc={resolveOrganizationImage(orgDomain, 'logo.png')}
     />
   )
 }

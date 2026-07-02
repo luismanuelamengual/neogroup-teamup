@@ -77,7 +77,7 @@ export default function RoleSelector({ callbackUrl, allowedRoles }: RoleSelector
           </button>
         )}
       </div>
-      <Button variant="contained" fullWidth disabled={!selected || loading} onClick={handleContinue}>
+      <Button variant="contained" fullWidth disabled={!selected || loading} onClick={handleContinue} loading={loading}>
         Continuar
       </Button>
     </div>

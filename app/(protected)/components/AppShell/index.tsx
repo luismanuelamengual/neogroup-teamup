@@ -32,7 +32,15 @@ interface NavItem {
   icon: ReactNode
 }
 
-export default function AppShell({ children, user: initialUser }: { children: ReactNode; user: SessionUser }) {
+export default function AppShell({
+  children,
+  user: initialUser,
+  logoSrc = '/logo-bar.png'
+}: {
+  children: ReactNode
+  user: SessionUser
+  logoSrc?: string
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const storeUser = useUserStore((state) => state.user)
@@ -101,7 +109,7 @@ export default function AppShell({ children, user: initialUser }: { children: Re
       <AppBar className="appbar">
         <Toolbar className="toolbar">
           <Link href="/" className="brand">
-            <Image src="/logo-white.png" alt="TeamUp" width={158} height={26} priority />
+            <Image src={logoSrc} alt="TeamUp" width={158} height={26} priority />
           </Link>
           <nav className="nav">
             {navItems.map((item) => (
