@@ -43,6 +43,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@serwist/turbopack": "^9.5.11",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -55,7 +56,9 @@
     "eslint-plugin-absolute-imports-only": "^1.0.1",
     "eslint-plugin-prettier": "^5.0.1",
     "eslint-plugin-simple-import-sort": "^10.0.0",
+    "esbuild": "^0.25.0",
     "prettier": "^3.0.0",
+    "serwist": "^9.5.11",
     "tsx": "^4.19.0",
     "typescript": "^5.9.2",
     "vitest": "^4.1.9"
