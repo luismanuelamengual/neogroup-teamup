@@ -718,7 +718,7 @@ const SPECS: TournamentSpec[] = [
     type: TournamentType.LEAGUE,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
     categories: [{ category: null, competitorsCount: 9 }],
-    maxCompetitors: 8,
+    maxCompetitors: 16,
     settings: { ...DEFAULT_LEAGUE_SETTINGS },
     status: TournamentStatus.STAND_BY
   },
