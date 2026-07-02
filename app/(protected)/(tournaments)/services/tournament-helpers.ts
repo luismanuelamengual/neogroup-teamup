@@ -36,6 +36,76 @@ interface RoundLane {
   groupNumber: number | null
 }
 
+/**
+ * Per-run, per-category snapshot cache used while advancing a tournament.
+ *
+ * `advanceTournament` scans every lane of every category, and each read helper
+ * used to re-query `rounds`/`matches`/`competitors` for the same category over
+ * and over (dozens of identical SELECTs for a single result). This cache loads
+ * each category's rounds (with their matches eager-loaded) and competitors ONCE
+ * and serves them from memory. Competitors never change during advancement, so
+ * they are cached for the whole run; rounds are invalidated whenever a write
+ * changes a category's structure, so the next read reloads fresh state.
+ *
+ * It is created fresh for each advance run and threaded explicitly (never a
+ * module global), so concurrent requests never share state. Helpers that receive
+ * no cache (e.g. the round-creation path) keep querying the DB exactly as before.
+ */
+class AdvanceCache {
+  private roundsByCategory = new Map<number, Round[]>()
+  private competitorsByCategory = new Map<number, Competitor[]>()
+
+  /** All rounds of a category, each with its `matches` relation populated. */
+  async rounds(tournamentCategoryId: number): Promise<Round[]> {
+    let rounds = this.roundsByCategory.get(tournamentCategoryId)
+
+    if (!rounds) {
+      rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).with('matches').get()
+      this.roundsByCategory.set(tournamentCategoryId, rounds)
+    }
+
+    return rounds
+  }
+
+  /** Competitors of a category, ordered by id (cached for the whole run). */
+  async competitors(tournamentCategoryId: number): Promise<Competitor[]> {
+    let competitors = this.competitorsByCategory.get(tournamentCategoryId)
+
+    if (!competitors) {
+      competitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
+      this.competitorsByCategory.set(tournamentCategoryId, competitors)
+    }
+
+    return competitors
+  }
+
+  /** Drops the cached rounds of a category after a structural write. */
+  invalidateRounds(tournamentCategoryId: number): void {
+    this.roundsByCategory.delete(tournamentCategoryId)
+  }
+}
+
+/** Rounds of a category, from the cache when present, else straight from the DB. */
+async function loadCategoryRounds(tournamentCategoryId: number, cache?: AdvanceCache): Promise<Round[]> {
+  return cache ? cache.rounds(tournamentCategoryId) : Round.where('tournamentCategoryId', tournamentCategoryId).get()
+}
+
+/** Matches of a round, from the cached relation when present, else from the DB. */
+async function loadRoundMatches(round: Round, cache?: AdvanceCache): Promise<Match[]> {
+  return cache ? (round.matches ?? []) : Match.where('roundId', round.id).get()
+}
+
+/** Matches of several rounds, from the cached relations when present, else from the DB. */
+async function loadRoundsMatches(rounds: Round[], cache?: AdvanceCache): Promise<Match[]> {
+  if (cache) {
+    return rounds.flatMap((round) => round.matches ?? [])
+  }
+
+  const roundIds = rounds.map((round) => round.id)
+
+  return roundIds.length > 0 ? Match.whereIn('roundId', roundIds).get() : []
+}
+
 /** Round-robin rounds (circle method) needed for `size` competitors. */
 function roundRobinRoundsFor(size: number): number {
   if (size < 2) {
@@ -108,8 +178,14 @@ export async function getTournamentCompetitors(tournament: Tournament): Promise<
  * then the rest in registration order, so byes go to the top seeds and the same
  * order is reproducible by every materialisation/seeding helper.
  */
-async function getSortedCompetitorIds(tournament: Tournament, tournamentCategoryId: number): Promise<number[]> {
-  const competitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
+async function getSortedCompetitorIds(
+  tournament: Tournament,
+  tournamentCategoryId: number,
+  cache?: AdvanceCache
+): Promise<number[]> {
+  const competitors = cache
+    ? await cache.competitors(tournamentCategoryId)
+    : await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
   const sorted = supportsPreclassification(tournament.type)
     ? [...competitors].sort((a, b) => {
         const sa = a.seedNumber ?? Infinity
@@ -132,11 +208,14 @@ async function getSortedCompetitorIds(tournament: Tournament, tournamentCategory
 async function computeCategoryGroups(
   tournamentCategoryId: number,
   competitorIds: number[],
-  settings: Tournament['settings']
+  settings: Tournament['settings'],
+  cache?: AdvanceCache
 ): Promise<number[][]> {
   const safeSettings = settings ?? {}
   const groupSize = safeSettings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
-  const allCategoryCompetitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
+  const allCategoryCompetitors = cache
+    ? await cache.competitors(tournamentCategoryId)
+    : await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
   const seededCount = allCategoryCompetitors.filter((competitor) => competitor.seedNumber != null).length
   const seededIds = competitorIds.slice(0, seededCount)
   const unseededIds = competitorIds.slice(seededCount)
@@ -151,8 +230,8 @@ function isLane(round: Round, lane: RoundLane): boolean {
 }
 
 /** Distinct lanes (type + group index) that currently exist in a category instance. */
-async function getCategoryLanes(tournamentCategoryId: number): Promise<RoundLane[]> {
-  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).get()
+async function getCategoryLanes(tournamentCategoryId: number, cache?: AdvanceCache): Promise<RoundLane[]> {
+  const rounds = await loadCategoryRounds(tournamentCategoryId, cache)
   const lanes = new Map<string, RoundLane>()
 
   for (const round of rounds) {
@@ -165,8 +244,8 @@ async function getCategoryLanes(tournamentCategoryId: number): Promise<RoundLane
 }
 
 /** Whether a (category instance, lane) structure has any round at all. */
-async function laneExists(tournamentCategoryId: number, lane: RoundLane): Promise<boolean> {
-  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).get()
+async function laneExists(tournamentCategoryId: number, lane: RoundLane, cache?: AdvanceCache): Promise<boolean> {
+  const rounds = await loadCategoryRounds(tournamentCategoryId, cache)
 
   return rounds.some((round) => isLane(round, lane))
 }
@@ -209,8 +288,8 @@ async function deleteLane(tournamentCategoryId: number, lane: RoundLane): Promis
 }
 
 /** All rounds of a single (category instance, lane) structure, ordered by number. */
-async function getBracketRounds(tournamentCategoryId: number, lane: RoundLane): Promise<Round[]> {
-  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).get()
+async function getBracketRounds(tournamentCategoryId: number, lane: RoundLane, cache?: AdvanceCache): Promise<Round[]> {
+  const rounds = await loadCategoryRounds(tournamentCategoryId, cache)
 
   return rounds.filter((round) => isLane(round, lane)).sort((a, b) => a.number - b.number)
 }
@@ -450,6 +529,8 @@ async function syncKnockoutNextRound(currentRound: Round): Promise<void> {
       continue
     }
 
+    const isNew = !match
+
     if (!match) {
       match = new Match()
       match.tournamentCategoryId = nextRound.tournamentCategoryId
@@ -461,11 +542,25 @@ async function syncKnockoutNextRound(currentRound: Round): Promise<void> {
       match.createdAt = new Date()
     }
 
-    match.homeCompetitorIds = homeIds ?? []
-    match.awayCompetitorIds = awayIds ?? []
+    const nextHome = homeIds ?? []
+    const nextAway = awayIds ?? []
+
+    // Skip the write when an existing pending match already holds these exact
+    // sides: re-saving would only bump updatedAt and cost a needless round trip.
+    if (!isNew && sameIds(match.homeCompetitorIds, nextHome) && sameIds(match.awayCompetitorIds ?? [], nextAway)) {
+      continue
+    }
+
+    match.homeCompetitorIds = nextHome
+    match.awayCompetitorIds = nextAway
     match.updatedAt = new Date()
     await match.save()
   }
+}
+
+/** True when two competitor-id lists hold the same ids in the same order. */
+function sameIds(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index])
 }
 
 /** Competitor ids of the winning side of a resolved match (null when unresolved). */
@@ -491,13 +586,17 @@ function matchWinnerIds(match: Match): number[] | null {
  * match (i.e. the bye players have not played round 2 yet), so the consolation
  * bracket is only built once every entrant is known.
  */
-async function computeConsolationSeeds(tournamentCategoryId: number): Promise<{ ready: boolean; losers: number[] }> {
-  const competitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
+async function computeConsolationSeeds(
+  tournamentCategoryId: number,
+  cache?: AdvanceCache
+): Promise<{ ready: boolean; losers: number[] }> {
+  const competitors = cache
+    ? await cache.competitors(tournamentCategoryId)
+    : await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
   const mainLane: RoundLane = { type: RoundType.KNOCKOUT, groupNumber: null }
-  const mainRounds = await getBracketRounds(tournamentCategoryId, mainLane)
+  const mainRounds = await getBracketRounds(tournamentCategoryId, mainLane, cache)
   const roundNumberById = new Map(mainRounds.map((round) => [round.id, round.number]))
-  const roundIds = mainRounds.map((round) => round.id)
-  const matches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
+  const matches = await loadRoundsMatches(mainRounds, cache)
   // Real matches (an actual opponent) ordered by round then bracket position.
   const realMatches = matches
     .filter((match) => match.awayCompetitorIds && match.awayCompetitorIds.length > 0)
@@ -658,7 +757,8 @@ function rankGroup(competitorIds: number[], matches: Match[], settings?: Tournam
 async function computeGroupsKnockoutSeeds(
   tournamentCategoryId: number,
   competitorIds: number[],
-  settings: Tournament['settings']
+  settings: Tournament['settings'],
+  cache?: AdvanceCache
 ): Promise<number[]> {
   const safeSettings = settings ?? {}
   const qualifiersPerGroup = Math.max(
@@ -667,8 +767,8 @@ async function computeGroupsKnockoutSeeds(
   )
   // Reconstruct the very same groups that were played (snake-seeded when there
   // are seeds) so the ranking is computed over the right competitors.
-  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
-  const allRounds = await getCategoryRounds(tournamentCategoryId)
+  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache)
+  const allRounds = await getCategoryRounds(tournamentCategoryId, cache)
   const qualifiers: number[][] = []
 
   for (let index = 0; index < groups.length; index++) {
@@ -678,10 +778,10 @@ async function computeGroupsKnockoutSeeds(
       continue
     }
 
-    const roundIds = allRounds
-      .filter((round) => round.type === RoundType.LEAGUE && (round.groupNumber ?? null) === index)
-      .map((round) => round.id)
-    const matches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
+    const groupRounds = allRounds.filter(
+      (round) => round.type === RoundType.LEAGUE && (round.groupNumber ?? null) === index
+    )
+    const matches = await loadRoundsMatches(groupRounds, cache)
     const ranked = rankGroup(group, matches, settings)
 
     qualifiers.push(ranked.slice(0, Math.min(qualifiersPerGroup, group.length)))
@@ -901,8 +1001,8 @@ function generateAmericanoSwapStandingsPairings(
 }
 
 /** All rounds of a category instance (any lane). */
-async function getCategoryRounds(tournamentCategoryId: number): Promise<Round[]> {
-  return Round.where('tournamentCategoryId', tournamentCategoryId).get()
+async function getCategoryRounds(tournamentCategoryId: number, cache?: AdvanceCache): Promise<Round[]> {
+  return loadCategoryRounds(tournamentCategoryId, cache)
 }
 
 /**
@@ -1174,10 +1274,11 @@ async function buildLaneNextRound(
   tournamentCategoryId: number,
   lane: RoundLane,
   nextNumber: number,
-  competitorIds: number[]
+  competitorIds: number[],
+  cache?: AdvanceCache
 ): Promise<Round | null> {
   const settings = tournament.settings ?? {}
-  const laneRounds = await getBracketRounds(tournamentCategoryId, lane)
+  const laneRounds = await getBracketRounds(tournamentCategoryId, lane, cache)
   const existing = laneRounds.find((round) => round.number === nextNumber)
 
   if (existing) {
@@ -1191,7 +1292,7 @@ async function buildLaneNextRound(
 
   // Group lane of a groups+playoff tournament (round robin inside the group).
   if (lane.groupNumber != null) {
-    const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+    const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache)
     const group = groups[lane.groupNumber] ?? []
 
     if (group.length < 2 || nextNumber > roundRobinRoundsFor(group.length)) {
@@ -1211,8 +1312,7 @@ async function buildLaneNextRound(
   let pairings: Pairing[]
 
   if (tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP) {
-    const roundIds = laneRounds.map((round) => round.id)
-    const allMatches = roundIds.length > 0 ? await Match.whereIn('roundId', roundIds).get() : []
+    const allMatches = await loadRoundsMatches(laneRounds, cache)
 
     if (tournament.type === TournamentType.AMERICANO_WITH_SWAP) {
       pairings = generateAmericanoSwapStandingsPairings(
@@ -1246,9 +1346,10 @@ async function advanceLane(
   tournament: Tournament,
   tournamentCategoryId: number,
   lane: RoundLane,
-  competitorIds: number[]
+  competitorIds: number[],
+  cache?: AdvanceCache
 ): Promise<boolean> {
-  const laneRounds = await getBracketRounds(tournamentCategoryId, lane)
+  const laneRounds = await getBracketRounds(tournamentCategoryId, lane, cache)
   const activeRounds = laneRounds.filter((round) => round.active)
 
   if (activeRounds.length === 0) {
@@ -1263,7 +1364,7 @@ async function advanceLane(
     return false
   }
 
-  const matches = await Match.where('roundId', frontier.id).get()
+  const matches = await loadRoundMatches(frontier, cache)
 
   if (matches.some((match) => match.status === MatchStatus.PENDING)) {
     return false
@@ -1275,12 +1376,23 @@ async function advanceLane(
   frontier.active = matches.some((match) => match.awayCompetitorIds != null)
   await frontier.save()
 
-  const next = await buildLaneNextRound(tournament, tournamentCategoryId, lane, frontier.number + 1, competitorIds)
+  const next = await buildLaneNextRound(
+    tournament,
+    tournamentCategoryId,
+    lane,
+    frontier.number + 1,
+    competitorIds,
+    cache
+  )
 
   if (next) {
     next.active = true
     await next.save()
   }
+
+  // Structure changed (frontier closed, next round possibly created) → drop the
+  // category snapshot so later reads in this run see fresh state.
+  cache?.invalidateRounds(tournamentCategoryId)
 
   return true
 }
@@ -1294,7 +1406,8 @@ async function advanceLane(
 async function maybeStartGroupsKnockout(
   tournament: Tournament,
   tournamentCategoryId: number,
-  competitorIds: number[]
+  competitorIds: number[],
+  cache?: AdvanceCache
 ): Promise<boolean> {
   if (tournament.type !== TournamentType.GROUPS_PLAYOFF) {
     return false
@@ -1302,12 +1415,12 @@ async function maybeStartGroupsKnockout(
 
   const knockoutLane: RoundLane = { type: RoundType.KNOCKOUT, groupNumber: null }
 
-  if (await laneExists(tournamentCategoryId, knockoutLane)) {
+  if (await laneExists(tournamentCategoryId, knockoutLane, cache)) {
     return false
   }
 
   const settings = tournament.settings ?? {}
-  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache)
 
   // With a single group there is nothing to cross-seed: a knockout would only
   // replay the group it came from. The group standings decide the result
@@ -1316,7 +1429,7 @@ async function maybeStartGroupsKnockout(
     return false
   }
 
-  const rounds = await Round.where('tournamentCategoryId', tournamentCategoryId).with('matches').get()
+  const rounds = await loadCategoryRounds(tournamentCategoryId, cache)
 
   for (let index = 0; index < groups.length; index++) {
     const group = groups[index]
@@ -1339,7 +1452,7 @@ async function maybeStartGroupsKnockout(
     }
   }
 
-  const seeded = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings)
+  const seeded = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings, cache)
   const startNumber = getGroupPhaseRounds(settings, competitorIds.length) + 1
   const created = await createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, startNumber)
 
@@ -1347,11 +1460,15 @@ async function maybeStartGroupsKnockout(
     return false
   }
 
-  const knockoutRounds = await getBracketRounds(tournamentCategoryId, knockoutLane)
+  // A whole bracket was just persisted → drop the snapshot so we read it back.
+  cache?.invalidateRounds(tournamentCategoryId)
+
+  const knockoutRounds = await getBracketRounds(tournamentCategoryId, knockoutLane, cache)
 
   if (knockoutRounds.length > 0) {
     knockoutRounds[0].active = true
     await knockoutRounds[0].save()
+    cache?.invalidateRounds(tournamentCategoryId)
   }
 
   return true
@@ -1363,18 +1480,22 @@ async function maybeStartGroupsKnockout(
  * the first-round losers. Runs on its own schedule, independent of how far the
  * main bracket has progressed. Returns true when the bracket was created.
  */
-async function maybeStartConsolation(tournament: Tournament, tournamentCategoryId: number): Promise<boolean> {
+async function maybeStartConsolation(
+  tournament: Tournament,
+  tournamentCategoryId: number,
+  cache?: AdvanceCache
+): Promise<boolean> {
   if (tournament.type !== TournamentType.PLAYOFF_WITH_CONSOLATION) {
     return false
   }
 
   const consolationLane: RoundLane = { type: RoundType.KNOCKOUT_CONSOLATION, groupNumber: null }
 
-  if (await laneExists(tournamentCategoryId, consolationLane)) {
+  if (await laneExists(tournamentCategoryId, consolationLane, cache)) {
     return false
   }
 
-  const { ready, losers } = await computeConsolationSeeds(tournamentCategoryId)
+  const { ready, losers } = await computeConsolationSeeds(tournamentCategoryId, cache)
 
   if (!ready || losers.length < 2) {
     return false
@@ -1387,11 +1508,15 @@ async function maybeStartConsolation(tournament: Tournament, tournamentCategoryI
     return false
   }
 
-  const consolationRounds = await getBracketRounds(tournamentCategoryId, consolationLane)
+  // A whole bracket was just persisted → drop the snapshot so we read it back.
+  cache?.invalidateRounds(tournamentCategoryId)
+
+  const consolationRounds = await getBracketRounds(tournamentCategoryId, consolationLane, cache)
 
   if (consolationRounds.length > 0) {
     consolationRounds[0].active = true
     await consolationRounds[0].save()
+    cache?.invalidateRounds(tournamentCategoryId)
   }
 
   return true
@@ -1406,37 +1531,46 @@ async function maybeStartConsolation(tournament: Tournament, tournamentCategoryI
  * category are done. Loops until nothing else can move, cascading bye-only rounds
  * and freshly-unlocked joins.
  */
-async function advanceTournament(tournament: Tournament): Promise<void> {
+async function advanceTournament(tournament: Tournament, scopeCategoryId?: number): Promise<void> {
   if (tournament.status !== TournamentStatus.ONGOING) {
     return
   }
 
   const categories = await getTournamentCategories(tournament)
+  // Categories are fully independent: a result entered in one can never advance
+  // another, so after a single result only the edited round's category needs to
+  // be driven. `scopeCategoryId` limits the scan to it (the tournament-start path
+  // omits it to advance every category).
+  const scopedCategories =
+    scopeCategoryId != null ? categories.filter((category) => category.id === scopeCategoryId) : categories
+  // Snapshot cache for this run: loads each category's rounds (with matches) and
+  // competitors once and serves the repeated lane scans from memory.
+  const cache = new AdvanceCache()
   let progressed = true
 
   while (progressed) {
     progressed = false
 
-    for (const category of categories) {
-      const competitorIds = await getSortedCompetitorIds(tournament, category.id)
+    for (const category of scopedCategories) {
+      const competitorIds = await getSortedCompetitorIds(tournament, category.id, cache)
 
       if (competitorIds.length < 2) {
         continue
       }
 
       // 1. Advance every existing lane independently.
-      for (const lane of await getCategoryLanes(category.id)) {
-        if (await advanceLane(tournament, category.id, lane, competitorIds)) {
+      for (const lane of await getCategoryLanes(category.id, cache)) {
+        if (await advanceLane(tournament, category.id, lane, competitorIds, cache)) {
           progressed = true
         }
       }
 
       // 2. Cross-lane joins (groups → knockout, and the consolation bracket).
-      if (await maybeStartGroupsKnockout(tournament, category.id, competitorIds)) {
+      if (await maybeStartGroupsKnockout(tournament, category.id, competitorIds, cache)) {
         progressed = true
       }
 
-      if (await maybeStartConsolation(tournament, category.id)) {
+      if (await maybeStartConsolation(tournament, category.id, cache)) {
         progressed = true
       }
     }
@@ -1559,7 +1693,8 @@ export async function progressTournamentAfterResult(tournament: Tournament, roun
     await regenerateDownstreamRounds(tournament, round)
   }
 
-  await advanceTournament(tournament)
+  // Only the edited round's category can advance from a single result.
+  await advanceTournament(tournament, round.tournamentCategoryId)
 
   // Entering a result ends the grace window of earlier closed rounds of the SAME
   // lane. In a groups+playoff, a knockout result additionally locks every

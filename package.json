@@ -26,7 +26,7 @@
     "@mui/icons-material": "^9.1.0",
     "@mui/material": "^9.1.0",
     "@mui/x-date-pickers": "^9.6.0",
-    "@neogroup/neorm": "0.0.37",
+    "@neogroup/neorm": "0.0.38",
     "bcryptjs": "^3.0.2",
     "classnames": "^2.5.1",
     "dayjs": "^1.11.21",
