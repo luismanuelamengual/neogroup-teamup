@@ -8,7 +8,7 @@
  * functions the API routes call, so the tests exercise the actual tournament
  * logic end to end.
  */
-import { DB } from '@neogroup/neorm'
+import { DB, SqliteDataSource } from '@neogroup/neorm'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -44,13 +44,42 @@ const TABLES = [
   'organization_statistics',
   'categories',
   'mercadopago_accounts',
+  // These two hold a FK to users — must be dropped before it, or Postgres
+  // refuses to drop users with "other objects depend on it".
+  'password_reset_tokens',
+  'email_verification_tokens',
   'users',
   'organizations',
   'migrations'
 ]
 
+/**
+ * Hard safety fuse: this function drops core tables (users, organizations,
+ * tournaments, …) unconditionally. A misconfigured environment — e.g. a CI/
+ * build machine that inherits the real DB_URL as a build-time env var — must
+ * never be able to reach a non-throwaway database through this path, no matter
+ * what the test setup files did or didn't do. This is deliberately redundant
+ * with the forced sqlite:// override in tests/setup/vitest.setup.ts and
+ * tests/setup/register.cjs: those can be bypassed by a future refactor, this
+ * cannot without touching resetDatabase() itself.
+ */
+function assertDisposableSqliteDatabase(): void {
+  const source = DB.getActiveSource()
+
+  if (!(source instanceof SqliteDataSource)) {
+    throw new Error(
+      'resetDatabase() refused to run: the active neorm DataSource is not SqliteDataSource. ' +
+        'This test suite drops core tables (users, organizations, tournaments, …) between every ' +
+        'test and must only ever run against a throwaway in-memory SQLite database. Check ' +
+        'DB_DRIVER/DB_URL — a real Postgres connection string must never reach this code path.'
+    )
+  }
+}
+
 /** Drops and recreates the whole schema. Call before every test for isolation. */
 export async function resetDatabase(): Promise<void> {
+  assertDisposableSqliteDatabase()
+
   for (const table of TABLES) {
     await DB.execute(`DROP TABLE IF EXISTS ${table}`)
   }

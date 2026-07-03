@@ -15,10 +15,21 @@ const ts = require('typescript')
 
 const ROOT = path.resolve(__dirname, '..', '..')
 
-// Default the test DB to in-memory SQLite (neorm configures lazily on first use,
-// so setting it here — before any DB call — is enough).
-process.env.DB_DRIVER = process.env.DB_DRIVER || 'sqlite'
-process.env.DB_URL = process.env.DB_URL || 'sqlite://:memory:'
+// FORCE the test DB onto in-memory SQLite — overwrite, not `||=`. This runner is
+// also invoked from CI/build environments that may already have a real DB_URL
+// set (e.g. a Vercel build inherits the project's production DB_URL), and the
+// tests below are destructive (resetDatabase() drops core tables between every
+// test), so leaking a real connection string in here must never be possible.
+process.env.DB_DRIVER = 'sqlite'
+process.env.DB_URL = 'sqlite://:memory:'
+
+// Belt and suspenders: register the SQLite source directly instead of relying
+// on neorm's lazy env-var configuration, so this wins no matter what else in
+// the process may have already configured a source from the environment.
+const { DB, SqliteDataSource } = require('@neogroup/neorm')
+
+globalThis.__neorm = { sources: new Map(), activeSourceName: undefined }
+DB.register(new SqliteDataSource())
 
 // ── 1. Resolve the `@/` path alias ───────────────────────────────────────────
 require('tsconfig-paths').register({
