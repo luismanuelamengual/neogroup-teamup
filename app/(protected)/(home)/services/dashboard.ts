@@ -388,35 +388,65 @@ function parseTimestamp(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-/** Most recent `updatedAt` of any match in the organization, or null if none. */
-async function getLatestOrganizationMatchDate(organizationId: number): Promise<Date | null> {
-  const row = await DB.table('matches')
-    .alias('m')
-    .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
-    .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
-    .select('MAX(m.updatedAt) AS maxupdated')
-    .where('tournaments.organizationId', organizationId)
-    .first()
+/** Returns the more recent of two possibly-null dates, or null if both are null. */
+function latestDate(a: Date | null, b: Date | null): Date | null {
+  if (a == null) {
+    return b
+  }
 
-  return parseTimestamp(row?.maxupdated)
+  if (b == null) {
+    return a
+  }
+
+  return a.getTime() >= b.getTime() ? a : b
 }
 
-/** Most recent `updatedAt` of any match in a category the player competes in, or null. */
-async function getLatestPlayerMatchDate(userId: number, organizationId: number): Promise<Date | null> {
+/** Most recent `updatedAt` of any match or tournament in the organization, or null if none. */
+async function getLatestOrganizationUpdateDate(organizationId: number): Promise<Date | null> {
+  const [matchRow, tournamentRow] = await Promise.all([
+    DB.table('matches')
+      .alias('m')
+      .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
+      .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
+      .select('MAX(m.updatedAt) AS maxupdated')
+      .where('tournaments.organizationId', organizationId)
+      .first(),
+
+    DB.table('tournaments').select('MAX(updatedAt) AS maxupdated').where('organizationId', organizationId).first()
+  ])
+
+  return latestDate(parseTimestamp(matchRow?.maxupdated), parseTimestamp(tournamentRow?.maxupdated))
+}
+
+/** Most recent `updatedAt` of any match or tournament in a category the player competes in, or null. */
+async function getLatestPlayerUpdateDate(userId: number, organizationId: number): Promise<Date | null> {
   // EXISTS subquery: is the player a competitor in the match's category?
   const playerInMatchCategorySubquery = DB.selectQuery('competitors')
     .whereColumn('competitors.tournamentCategoryId', 'm.tournamentCategoryId')
     .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
-  const row = await DB.table('matches')
-    .alias('m')
-    .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
-    .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
-    .select('MAX(m.updatedAt) AS maxupdated')
-    .where('tournaments.organizationId', organizationId)
-    .where({ exists: playerInMatchCategorySubquery })
-    .first()
+  // EXISTS subquery: is the player a competitor in the tournament's category?
+  const playerInTournamentCategorySubquery = DB.selectQuery('competitors')
+    .innerJoin('tournament_categories', 'tournament_categories.id', 'competitors.tournamentCategoryId')
+    .whereColumn('tournament_categories.tournamentId', 'tournaments.id')
+    .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
+  const [matchRow, tournamentRow] = await Promise.all([
+    DB.table('matches')
+      .alias('m')
+      .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
+      .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
+      .select('MAX(m.updatedAt) AS maxupdated')
+      .where('tournaments.organizationId', organizationId)
+      .where({ exists: playerInMatchCategorySubquery })
+      .first(),
 
-  return parseTimestamp(row?.maxupdated)
+    DB.table('tournaments')
+      .select('MAX(updatedAt) AS maxupdated')
+      .where('organizationId', organizationId)
+      .where({ exists: playerInTournamentCategorySubquery })
+      .first()
+  ])
+
+  return latestDate(parseTimestamp(matchRow?.maxupdated), parseTimestamp(tournamentRow?.maxupdated))
 }
 
 /** Maps a cached organization_statistics row to its serializable DTO. */
@@ -485,10 +515,10 @@ export async function getOrganizationStats(): Promise<OrganizationStatisticsDto>
       return organizationStatisticsToDto(cached)
     }
 
-    // Cache is older than the TTL: only recompute if a match was edited after it.
-    const lastMatchDate = await getLatestOrganizationMatchDate(organizationId)
+    // Cache is older than the TTL: only recompute if a match/tournament was edited after it.
+    const lastUpdateDate = await getLatestOrganizationUpdateDate(organizationId)
 
-    if (lastMatchDate == null || lastMatchDate.getTime() <= cached.updatedAt.getTime()) {
+    if (lastUpdateDate == null || lastUpdateDate.getTime() <= cached.updatedAt.getTime()) {
       return organizationStatisticsToDto(cached)
     }
   }
@@ -517,10 +547,10 @@ export async function getPlayerStats(userId: number): Promise<PlayerStatisticsDt
     }
 
     // Cache is older than the TTL: only recompute if one of the player's matches
-    // was edited after it.
-    const lastMatchDate = await getLatestPlayerMatchDate(userId, organizationId)
+    // or tournaments was edited after it.
+    const lastUpdateDate = await getLatestPlayerUpdateDate(userId, organizationId)
 
-    if (lastMatchDate == null || lastMatchDate.getTime() <= cached.updatedAt.getTime()) {
+    if (lastUpdateDate == null || lastUpdateDate.getTime() <= cached.updatedAt.getTime()) {
       return playerStatisticsToDto(cached)
     }
   }

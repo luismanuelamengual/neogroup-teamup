@@ -498,60 +498,6 @@ export default function TournamentForm() {
       <Accordion disableGutters elevation={0} className="section">
         <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
-            Inscripciones
-          </Typography>
-        </AccordionSummary>
-        <AccordionDetails className="section-content">
-          <Alert severity="info">
-            Elegí si la inscripción al torneo es gratuita o tiene un costo. En los torneos de pago, los jugadores abonan
-            el monto con Mercado Pago al inscribirse y la inscripción se confirma cuando se acredita el pago.
-          </Alert>
-          <RadioGroup value={paid ? 'paid' : 'free'} onChange={(event) => setPaid(event.target.value === 'paid')}>
-            <FormControlLabel value="free" control={<Radio />} label="Gratuito" />
-            <FormControlLabel value="paid" control={<Radio />} label="De pago" />
-          </RadioGroup>
-          {paid && (
-            <>
-              <TextField
-                label="Monto de inscripción"
-                type="number"
-                value={entryFee ?? ''}
-                onChange={(event) => {
-                  const val = event.target.value
-
-                  setEntryFee(val === '' ? null : Math.max(0, Number(val)))
-                }}
-                required
-                fullWidth
-                slotProps={{
-                  htmlInput: { min: 0, step: '0.01' },
-                  input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }
-                }}
-                helperText="Monto en pesos argentinos (ARS) que paga cada jugador al inscribirse."
-              />
-              <Alert severity="info">
-                <strong>¿Cómo se cobra este monto?</strong> El jugador paga el monto de inscripción completo con Mercado
-                Pago. De ese monto se descuentan dos comisiones antes de que el resto se acredite en tu cuenta:
-                <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
-                  <li>
-                    <strong>TeamUp:</strong> retiene una tasa de servicio de 4% por el uso de la plataforma.
-                  </li>
-                  <li>
-                    <strong>Mercado Pago:</strong> cobra además su propia comisión por procesar el pago, según las
-                    tarifas vigentes de Mercado Pago para tu cuenta.
-                  </li>
-                </ul>
-                El resto del monto, una vez descontadas ambas comisiones, se acredita directamente en tu cuenta de
-                Mercado Pago vinculada.
-              </Alert>
-            </>
-          )}
-        </AccordionDetails>
-      </Accordion>
-
-      <Accordion disableGutters elevation={0} className="section">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
-          <Typography variant="subtitle1" className="title">
             Categorías
           </Typography>
         </AccordionSummary>
@@ -631,6 +577,60 @@ export default function TournamentForm() {
                   </div>
                 </>
               )}
+            </>
+          )}
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion disableGutters elevation={0} className="section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
+          <Typography variant="subtitle1" className="title">
+            Inscripciones
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
+          <Alert severity="info">
+            Elegí si la inscripción al torneo es gratuita o tiene un costo. En los torneos de pago, los jugadores abonan
+            el monto con Mercado Pago al inscribirse y la inscripción se confirma cuando se acredita el pago.
+          </Alert>
+          <RadioGroup value={paid ? 'paid' : 'free'} onChange={(event) => setPaid(event.target.value === 'paid')}>
+            <FormControlLabel value="free" control={<Radio />} label="Gratuito" />
+            <FormControlLabel value="paid" control={<Radio />} label="De pago" />
+          </RadioGroup>
+          {paid && (
+            <>
+              <TextField
+                label="Monto de inscripción"
+                type="number"
+                value={entryFee ?? ''}
+                onChange={(event) => {
+                  const val = event.target.value
+
+                  setEntryFee(val === '' ? null : Math.max(0, Number(val)))
+                }}
+                required
+                fullWidth
+                slotProps={{
+                  htmlInput: { min: 0, step: '0.01' },
+                  input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }
+                }}
+                helperText="Monto en pesos argentinos (ARS) que paga cada jugador al inscribirse."
+              />
+              <Alert severity="info">
+                <strong>¿Cómo se cobra este monto?</strong> El jugador paga el monto de inscripción completo con Mercado
+                Pago. De ese monto se descuentan dos comisiones antes de que el resto se acredite en tu cuenta:
+                <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
+                  <li>
+                    <strong>TeamUp:</strong> retiene una tasa de servicio de 4% por el uso de la plataforma.
+                  </li>
+                  <li>
+                    <strong>Mercado Pago:</strong> cobra además su propia comisión por procesar el pago, según las
+                    tarifas vigentes de Mercado Pago para tu cuenta.
+                  </li>
+                </ul>
+                El resto del monto, una vez descontadas ambas comisiones, se acredita directamente en tu cuenta de
+                Mercado Pago vinculada.
+              </Alert>
             </>
           )}
         </AccordionDetails>
