@@ -34,7 +34,12 @@
  * engine (rounds and match results are generated the same way the app does), so
  * the resulting data is always coherent.
  *
- * Run `yarn run db:reset` first to start from a clean schema.
+ * Idempotent: every run starts by wiping every record that belongs to the
+ * "demo" organization (tournaments and everything under them, users and
+ * everything under them, catalogue categories, rankings, cached statistics),
+ * then rebuilds it from scratch. No other organization's data is touched, and
+ * the `organizations` row itself is kept, so the script can be called any
+ * number of times without first running `yarn run db:reset`.
  *
  * Usage: yarn run db:seed
  */
@@ -1165,6 +1170,71 @@ async function seedDemoRankings(organizationId: number, players: User[]): Promis
 }
 
 // ---------------------------------------------------------------------------
+// Demo organization reset (idempotency)
+// ---------------------------------------------------------------------------
+
+/**
+ * Wipes every record that belongs to the "demo" organization so the script
+ * can be run any number of times. Only rows scoped to `organizationId` — or
+ * transitively hanging off them (tournament categories, competitors, rounds,
+ * matches, payments, users, their tokens/statistics) — are removed. The
+ * `organizations` row itself and every other organization's data are left
+ * untouched.
+ */
+async function clearDemoOrganizationData(organizationId: number): Promise<void> {
+  await DB.transaction(async () => {
+    const tournamentIds = (
+      await DB.table('tournaments').select('id').where('organizationId', organizationId).get()
+    ).map((row) => row.id as number)
+    const tournamentCategoryIds =
+      tournamentIds.length > 0
+        ? (await DB.table('tournament_categories').select('id').whereIn('tournamentId', tournamentIds).get()).map(
+            (row) => row.id as number
+          )
+        : []
+    const userIds = (await DB.table('users').select('id').where('organizationId', organizationId).get()).map(
+      (row) => row.id as number
+    )
+
+    // Children of the tournament_categories instances.
+    if (tournamentCategoryIds.length > 0) {
+      await DB.table('matches').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
+      await DB.table('rounds').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
+      await DB.table('competitors').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
+    }
+
+    // Payments, category instances, then the tournaments themselves.
+    await DB.table('tournament_payments').where('organizationId', organizationId).delete()
+
+    if (tournamentCategoryIds.length > 0) {
+      await DB.table('tournament_categories').whereIn('id', tournamentCategoryIds).delete()
+    }
+
+    await DB.table('tournaments').where('organizationId', organizationId).delete()
+
+    // Other organization-scoped standalone data.
+    await DB.table('rankings').where('organizationId', organizationId).delete()
+    await DB.table('organization_statistics').where('organizationId', organizationId).delete()
+
+    // Users and everything that hangs off a user.
+    if (userIds.length > 0) {
+      await DB.table('mercadopago_accounts').whereIn('userId', userIds).delete()
+      await DB.table('player_statistics').whereIn('playerId', userIds).delete()
+      await DB.table('email_verification_tokens').whereIn('userId', userIds).delete()
+      await DB.table('password_reset_tokens').whereIn('userId', userIds).delete()
+    }
+
+    await DB.table('users').where('organizationId', organizationId).delete()
+
+    // Catalogue categories (safe now that every tournament_categories row
+    // that referenced them is gone).
+    await DB.table('categories').where('organizationId', organizationId).delete()
+
+    console.log(`Cleared previous demo data: ${tournamentIds.length} tournaments, ${userIds.length} users.`)
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -1179,6 +1249,9 @@ async function run(): Promise<void> {
   }
 
   const organizationId = demoOrg.id
+
+  await clearDemoOrganizationData(organizationId)
+
   const { organizer, players } = await createUsers(140, organizationId)
 
   console.log(`\nCreating ${SPECS.length} tournaments...`)
