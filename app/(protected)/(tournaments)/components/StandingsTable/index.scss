@@ -80,6 +80,9 @@ $leaderFixedCellBackgroundColor: rgb(249, 241, 228);
     font-size: 10px;
     color: var(--color-text-secondary);
     font-style: italic;
-    text-align: right;
+    
+    @media (min-width: 600px) {
+      text-align: right;
+    }
   }
 }
