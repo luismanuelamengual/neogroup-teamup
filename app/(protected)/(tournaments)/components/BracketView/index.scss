@@ -8,6 +8,13 @@ $node-height: 76px;
   overflow-y: hidden;
   padding-bottom: 8px;
   -webkit-overflow-scrolling: touch;
+  cursor: grab;
+  user-select: none;
+
+  &.is-dragging {
+    cursor: grabbing;
+    scroll-behavior: auto;
+  }
 
   .bracket-canvas {
     position: relative;

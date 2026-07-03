@@ -66,7 +66,7 @@ export default function TournamentForm() {
   const [categoryInput, setCategoryInput] = useState('')
   const [maxCompetitors, setMaxCompetitors] = useState(16)
   const [paid, setPaid] = useState(false)
-  const [entryFee, setEntryFee] = useState(0)
+  const [entryFee, setEntryFee] = useState<number | null>(null)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
   const [playoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
@@ -176,7 +176,7 @@ export default function TournamentForm() {
         categoryNames: categories.map((value) => value.trim()).filter((value) => value !== ''),
         maxCompetitors,
         paid,
-        entryFee: paid ? entryFee : null,
+        entryFee: paid ? (entryFee ?? 0) : null,
         currency: 'ARS',
         rankingSettings,
         settings:
@@ -511,19 +511,40 @@ export default function TournamentForm() {
             <FormControlLabel value="paid" control={<Radio />} label="De pago" />
           </RadioGroup>
           {paid && (
-            <TextField
-              label="Monto de inscripción"
-              type="number"
-              value={entryFee}
-              onChange={(event) => setEntryFee(Math.max(0, Number(event.target.value)))}
-              required
-              fullWidth
-              slotProps={{
-                htmlInput: { min: 0, step: '0.01' },
-                input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }
-              }}
-              helperText="Monto en pesos argentinos (ARS) que paga cada jugador al inscribirse."
-            />
+            <>
+              <TextField
+                label="Monto de inscripción"
+                type="number"
+                value={entryFee ?? ''}
+                onChange={(event) => {
+                  const val = event.target.value
+
+                  setEntryFee(val === '' ? null : Math.max(0, Number(val)))
+                }}
+                required
+                fullWidth
+                slotProps={{
+                  htmlInput: { min: 0, step: '0.01' },
+                  input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }
+                }}
+                helperText="Monto en pesos argentinos (ARS) que paga cada jugador al inscribirse."
+              />
+              <Alert severity="info">
+                <strong>¿Cómo se cobra este monto?</strong> El jugador paga el monto de inscripción completo con Mercado
+                Pago. De ese monto se descuentan dos comisiones antes de que el resto se acredite en tu cuenta:
+                <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
+                  <li>
+                    <strong>TeamUp:</strong> retiene una tasa de servicio de 4% por el uso de la plataforma.
+                  </li>
+                  <li>
+                    <strong>Mercado Pago:</strong> cobra además su propia comisión por procesar el pago, según las
+                    tarifas vigentes de Mercado Pago para tu cuenta.
+                  </li>
+                </ul>
+                El resto del monto, una vez descontadas ambas comisiones, se acredita directamente en tu cuenta de
+                Mercado Pago vinculada.
+              </Alert>
+            </>
           )}
         </AccordionDetails>
       </Accordion>

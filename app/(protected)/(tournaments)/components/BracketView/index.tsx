@@ -1,7 +1,7 @@
 'use client'
 
 import './index.scss'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { MouseEvent as ReactMouseEvent, useCallback, useMemo, useRef, useState } from 'react'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
@@ -94,6 +94,9 @@ export default function BracketView({
   const rafRef = useRef<number | null>(null)
   /** Index of the first round still (at least partially) visible from the left. */
   const [baseRound, setBaseRound] = useState(0)
+  /** Drag-to-scroll state (mouse-based horizontal panning on empty space). */
+  const dragStateRef = useRef<{ startX: number; startScrollLeft: number; moved: boolean } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const rounds = useMemo(() => {
     const all = tournament.rounds ?? []
     const filtered = all.filter(
@@ -292,13 +295,52 @@ export default function BracketView({
       setBaseRound((prev) => (prev === nextBase ? prev : nextBase))
     })
   }, [rounds.length])
+  /** Start a click-and-drag horizontal pan. Ignored if the press starts on an interactive node. */
+  const handleMouseDown = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    const el = scrollRef.current
+
+    if (!el || event.button !== 0 || (event.target as HTMLElement).closest('.bracket-node')) {
+      return
+    }
+
+    dragStateRef.current = { startX: event.clientX, startScrollLeft: el.scrollLeft, moved: false }
+    setIsDragging(true)
+  }, [])
+  const handleMouseMove = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    const drag = dragStateRef.current
+    const el = scrollRef.current
+
+    if (!drag || !el) {
+      return
+    }
+
+    const delta = event.clientX - drag.startX
+
+    if (!drag.moved && Math.abs(delta) > 3) {
+      drag.moved = true
+    }
+
+    el.scrollLeft = drag.startScrollLeft - delta
+  }, [])
+  const endDrag = useCallback(() => {
+    dragStateRef.current = null
+    setIsDragging(false)
+  }, [])
 
   if (rounds.length === 0) {
     return null
   }
 
   return (
-    <div className="bracket-view" ref={scrollRef} onScroll={handleScroll}>
+    <div
+      className={`bracket-view${isDragging ? ' is-dragging' : ''}`}
+      ref={scrollRef}
+      onScroll={handleScroll}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={endDrag}
+      onMouseLeave={endDrag}
+    >
       <div className="bracket-canvas" style={{ width: layout.canvasWidth, height: TITLE_BAND + layout.canvasHeight }}>
         <div className="titles">
           {layout.titles.map((title) => (
