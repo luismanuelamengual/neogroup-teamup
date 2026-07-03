@@ -3,25 +3,19 @@
 import './index.scss'
 import MenuItem from '@mui/material/MenuItem'
 import Pagination from '@mui/material/Pagination'
-import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
 import { useEffect, useState } from 'react'
+import RankingCard, { RankingCardSkeleton } from '@/app/(protected)/(rankings)/components/RankingCard'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
 import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
-import Avatar from '@/app/components/Avatar'
 import MessagePanel from '@/app/components/MessagePanel'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
-const PAGE_SIZE = 20
-const MEDALS: Record<number, string> = {
-  1: '🥇',
-  2: '🥈',
-  3: '🥉'
-}
+const PAGE_SIZE = 10
 
 export default function RankingsBrowser() {
   const { getCategories } = useCategories()
@@ -143,13 +137,8 @@ export default function RankingsBrowser() {
 
       {loadingCategories || (categoryId !== null && loading) ? (
         <div className="list">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="ranking-row skeleton">
-              <Skeleton variant="text" width={28} />
-              <Skeleton variant="circular" width={45} height={45} />
-              <Skeleton variant="text" className="grow" />
-              <Skeleton variant="text" width={48} />
-            </div>
+          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+            <RankingCardSkeleton key={i} />
           ))}
         </div>
       ) : categoryId === null ? (
@@ -159,28 +148,9 @@ export default function RankingsBrowser() {
       ) : (
         <>
           <div className="list">
-            {entries.map((entry, index) => {
-              const position = (page - 1) * PAGE_SIZE + index + 1
-              const medal = page === 1 ? MEDALS[position] : undefined
-
-              return (
-                <div key={entry.userId} className="ranking-row">
-                  <span className="position">{position}</span>
-                  <div className="player">
-                    <Avatar email={entry.email} name={entry.displayName} size="md" className="avatar" />
-                    <div className="name-area">
-                      {medal && (
-                        <span className="medal" title={`Posición ${position}`}>
-                          {medal}
-                        </span>
-                      )}
-                      <span className="name">{entry.displayName}</span>
-                    </div>
-                  </div>
-                  <span className="points">{entry.points} pts</span>
-                </div>
-              )
-            })}
+            {entries.map((entry, index) => (
+              <RankingCard key={entry.userId} entry={entry} position={(page - 1) * PAGE_SIZE + index + 1} />
+            ))}
           </div>
           {pageCount > 1 && (
             <Pagination

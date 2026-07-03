@@ -19,94 +19,11 @@
   .list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    
-    .ranking-row {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background-color: white;
-      border-radius: 12px;
-      padding: 10px 16px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  
-      .position {
-        width: 28px;
-        text-align: center;
-        font-weight: 700;
-        color: var(--mui-palette-text-secondary, #666);
-      }
-  
-      .player {
-        display: flex;
-        gap: 14px;
-        align-items: center;
-        flex: 1;
-  
-        .name-area {
-          flex: 1;
-          width: 0;
-          gap: 5px;
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-
-          .medal {
-            flex-shrink: 0;
-            font-size: 32px;
-            line-height: 1;
-            margin-bottom: 4px;
-            margin-left: -7px;
-            margin-right: -5px;
-          }
-
-          .name {
-            flex: 1;
-            width: 0;
-            font-weight: 600;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-  
-          
-        }
-
-      }
-
-      .points {
-        flex-shrink: 0;
-        font-weight: 700;
-        white-space: nowrap;
-        color: black;
-      }
-
-      &.skeleton {
-        .grow {
-          flex: 1;
-        }
-      }
-    }
+    gap: 12px;
   }
 
   .paginator {
     display: flex;
     justify-content: center;
-  }
-
-  @media (max-width: 600px) {
-    .ranking-row {
-      gap: 6px;
-
-      .player {
-        gap: 12px;
-      }
-
-      .position {
-        width: 22px;
-        font-size: 14px;
-        margin: 0 -10px;
-      } 
-    }
   }
 }
