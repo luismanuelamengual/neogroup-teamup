@@ -4,9 +4,9 @@ import { useCallback } from 'react'
 import { useRequests } from '@/app/hooks/useRequests'
 import { UserDto } from '@/app/models/UserDto'
 
-export function useUsers() {
+export function usePlayers() {
   const executeRequest = useRequests()
-  const getUsers = useCallback(
+  const getPlayers = useCallback(
     async (query: string): Promise<UserDto[]> => {
       const normalized = query.trim()
 
@@ -14,10 +14,10 @@ export function useUsers() {
         return []
       }
 
-      return executeRequest<UserDto[]>('/getUsers', { query: normalized })
+      return executeRequest<UserDto[]>('/getPlayers', { query: normalized })
     },
     [executeRequest]
   )
 
-  return { getUsers }
+  return { getPlayers }
 }

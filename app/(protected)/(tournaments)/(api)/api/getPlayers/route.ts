@@ -1,7 +1,8 @@
+import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
 import { withAuth } from '@/app/utils/api-server'
 
-/** POST /api/getUsers — searches users by name, nickname or email (partner selection). */
+/** POST /api/getPlayers — searches players (roleId = PLAYER) by name, nickname or email (partner selection). */
 export const POST = withAuth(async (request, context, userId) => {
   const { query } = (await request.json()) as { query?: string }
   const normalized = (query ?? '').trim()
@@ -11,13 +12,14 @@ export const POST = withAuth(async (request, context, userId) => {
   }
 
   const pattern = `%${normalized}%`
-  const users = await User.where((group) => {
-    group
-      .whereLike('firstName', pattern)
-      .orWhereLike('lastName', pattern)
-      .orWhereLike('nickname', pattern)
-      .orWhereLike('email', pattern)
-  })
+  const users = await User.where('roleId', Role.PLAYER)
+    .where((group) => {
+      group
+        .whereLike('firstName', pattern)
+        .orWhereLike('lastName', pattern)
+        .orWhereLike('nickname', pattern)
+        .orWhereLike('email', pattern)
+    })
     .where('id', '<>', userId)
     .orderBy('firstName')
     .orderBy('lastName')

@@ -30,13 +30,17 @@ export class User extends BaseEntity {
   @Column()
   phoneNumber!: string | null
 
-  /** Role of the user: 1 = organizer, 2 = player. Assigned once, cannot be switched. */
+  /** Role of the user: 1 = administrator, 2 = organizer, 3 = player. Assigned once, cannot be switched. */
   @Column()
   roleId!: Role | null
 
   /** True when the user verified their email address. Always true for Google-authenticated users. */
   @Column({ cast: 'boolean' })
   emailVerified!: boolean
+
+  /** False disables the account's login. Toggled by an Administrator to ban/unban a user. */
+  @Column({ cast: 'boolean' })
+  active!: boolean
 
   @Column({ cast: 'date' })
   createdAt!: Date

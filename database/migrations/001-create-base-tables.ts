@@ -63,6 +63,7 @@ export default {
         table.string('phoneNumber', 50).nullable()
         table.integer('roleId').nullable()
         table.boolean('emailVerified').default(false)
+        table.boolean('active').default(true)
         table.timestamp('createdAt').useCurrent()
 
         table.unique(['organizationId', 'email'])

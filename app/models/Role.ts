@@ -3,3 +3,8 @@ export enum Role {
   ORGANIZER = 1,
   PLAYER = 2
 }
+
+export const RoleNames: Record<Role, string> = {
+  [Role.ORGANIZER]: 'Organizador',
+  [Role.PLAYER]: 'Jugador'
+}

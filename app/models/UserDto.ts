@@ -12,4 +12,5 @@ export interface UserDto {
   createdAt: string
   displayName: string
   avatarUrl: string
+  active: boolean
 }

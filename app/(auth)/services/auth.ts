@@ -55,6 +55,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null
         }
 
+        if (!user.active) {
+          return null
+        }
+
         return { id: String(user.id), email: user.email }
       }
     })
@@ -92,7 +96,13 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             // Assign the role directly when only one is allowed; otherwise leave null for select-role.
             dbUser.roleId = allowedRoles.length === 1 ? allowedRoles[0] : null
             dbUser.emailVerified = true
+            dbUser.active = true
             await dbUser.save()
+          }
+
+          // Banned accounts cannot sign in, even via Google.
+          if (!dbUser.active) {
+            return null
           }
 
           token.userId = Number(dbUser.id)

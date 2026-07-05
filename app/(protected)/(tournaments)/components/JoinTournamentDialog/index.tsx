@@ -12,6 +12,7 @@ import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useEffect, useState } from 'react'
+import { usePlayers } from '@/app/(protected)/(tournaments)/hooks/usePlayers'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -19,7 +20,6 @@ import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/Tour
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import Avatar from '@/app/components/Avatar'
-import { useUsers } from '@/app/hooks/useUsers'
 import { UserDto } from '@/app/models/UserDto'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 
@@ -32,7 +32,7 @@ interface JoinTournamentModalProps {
 
 export default function JoinTournamentDialog({ open, tournament, onClose, onSuccess }: JoinTournamentModalProps) {
   const { joinTournament } = useTournaments()
-  const { getUsers } = useUsers()
+  const { getPlayers } = usePlayers()
   const [partnerQuery, setPartnerQuery] = useState('')
   const [partnerOptions, setPartnerOptions] = useState<UserDto[]>([])
   const [partnerUser, setPartnerUser] = useState<UserDto | null>(null)
@@ -65,14 +65,14 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
     setSearching(true)
 
     const timeout = setTimeout(async () => {
-      const users = await getUsers(partnerQuery)
+      const users = await getPlayers(partnerQuery)
 
       setPartnerOptions(users)
       setSearching(false)
     }, 350)
 
     return () => clearTimeout(timeout)
-  }, [getUsers, partnerQuery])
+  }, [getPlayers, partnerQuery])
 
   // Only real categories are selectable; the single category (categoryId = null)
   // is resolved automatically by the server.

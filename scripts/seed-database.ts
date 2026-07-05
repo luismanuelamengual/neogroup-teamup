@@ -246,6 +246,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
   organizer.phoneNumber = randomPhone()
   organizer.roleId = Role.ORGANIZER
   organizer.emailVerified = true
+  organizer.active = true
   await organizer.save()
 
   if (organizer.id !== 1) {
@@ -265,6 +266,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
     player.passwordHash = passwordHash
     player.roleId = Role.PLAYER
     player.emailVerified = true
+    player.active = true
     player.email = `demo${i + 1}@gmail.com`
     await player.save()
 
