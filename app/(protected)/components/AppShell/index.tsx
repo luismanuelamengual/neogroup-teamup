@@ -158,12 +158,15 @@ export default function AppShell({
               Mi cuenta
             </MenuItem>
             {canInstall && (
-              <MenuItem onClick={handleInstall}>
-                <ListItemIcon>
-                  <GetAppIcon fontSize="small" />
-                </ListItemIcon>
-                Instalar aplicación
-              </MenuItem>
+              <>
+                <Divider />
+                <MenuItem onClick={handleInstall}>
+                  <ListItemIcon>
+                    <GetAppIcon fontSize="small" />
+                  </ListItemIcon>
+                  Instalar aplicación
+                </MenuItem>
+              </>
             )}
             <Divider />
             <MenuItem onClick={handleLogout}>

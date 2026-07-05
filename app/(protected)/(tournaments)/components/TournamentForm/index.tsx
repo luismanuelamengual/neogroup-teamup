@@ -624,8 +624,8 @@ export default function TournamentForm() {
                     <strong>TeamUp:</strong> retiene una tasa de servicio de 4% por el uso de la plataforma.
                   </li>
                   <li>
-                    <strong>Mercado Pago:</strong> cobra además su propia comisión por procesar el pago, según las
-                    tarifas vigentes de Mercado Pago para tu cuenta.
+                    <strong>Mercado Pago:</strong> cobra además su propia comisión por procesar el pago (aprox 4%),
+                    según las tarifas vigentes de Mercado Pago para tu cuenta.
                   </li>
                 </ul>
                 El resto del monto, una vez descontadas ambas comisiones, se acredita directamente en tu cuenta de
