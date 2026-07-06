@@ -1,5 +1,6 @@
 'use client'
 
+import 'dayjs/locale/es'
 import './index.scss'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
@@ -97,7 +98,7 @@ export default function EditTournamentDialog({
           fullWidth
         />
         <TextField label="Lugar" value={location} onChange={(event) => setLocation(event.target.value)} fullWidth />
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
           <DatePicker
             label="Fecha de inicio"
             value={startDate}

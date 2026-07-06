@@ -324,41 +324,54 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         </Paper>
       )}
 
-      {categoryGroups.map(({ key, groupCompetitors, groupRounds }) => (
-        <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
-          <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
-            <div className="category-header">
-              <Typography variant="h6" className="category-title">
-                {categoryNameById.get(key) ?? 'Categoría única'}
-              </Typography>
-              {tournament.status == TournamentStatus.STAND_BY && (
-                <Chip
-                  size="small"
-                  label={`${groupCompetitors.length} / ${maxByCategory.get(key)}`}
-                  color="primary"
-                  variant="outlined"
-                />
-              )}
-            </div>
-          </AccordionSummary>
-          <Divider />
-          <AccordionDetails className="category-details">
-            <div className="category-section">
-              <Typography variant="subtitle1" className="section-title">
-                Competidores inscriptos
-              </Typography>
-              <CompetitorsList tournament={tournament} category={key} />
-            </div>
+      {categoryGroups.map(({ key, groupCompetitors, groupRounds }) => {
+        // Collapsed by default, except while inscriptions are open or when the
+        // player is registered and playing in this specific category.
+        const isPlayingCategory = userEntry?.tournamentCategoryId === key
+        const categoryDefaultExpanded = tournament.status === TournamentStatus.STAND_BY || isPlayingCategory
 
-            {groupRounds.length > 0 && (
-              <>
-                <Divider />
-                <TournamentRoundsView tournament={tournament} category={key} onEditMatch={setScoreMatch} />
-              </>
-            )}
-          </AccordionDetails>
-        </Accordion>
-      ))}
+        return (
+          <Accordion
+            key={key}
+            defaultExpanded={categoryDefaultExpanded}
+            disableGutters
+            elevation={2}
+            className="category-accordion"
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
+              <div className="category-header">
+                <Typography variant="h6" className="category-title">
+                  {categoryNameById.get(key) ?? 'Categoría única'}
+                </Typography>
+                {tournament.status == TournamentStatus.STAND_BY && (
+                  <Chip
+                    size="small"
+                    label={`${groupCompetitors.length} / ${maxByCategory.get(key)}`}
+                    color="primary"
+                    variant="outlined"
+                  />
+                )}
+              </div>
+            </AccordionSummary>
+            <Divider />
+            <AccordionDetails className="category-details">
+              <div className="category-section">
+                <Typography variant="subtitle1" className="section-title">
+                  Competidores inscriptos
+                </Typography>
+                <CompetitorsList tournament={tournament} category={key} />
+              </div>
+
+              {groupRounds.length > 0 && (
+                <>
+                  <Divider />
+                  <TournamentRoundsView tournament={tournament} category={key} onEditMatch={setScoreMatch} />
+                </>
+              )}
+            </AccordionDetails>
+          </Accordion>
+        )
+      })}
 
       <ScoreDialog
         open={!!scoreMatch}

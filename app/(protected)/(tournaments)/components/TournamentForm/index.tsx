@@ -1,5 +1,6 @@
 'use client'
 
+import 'dayjs/locale/es'
 import './index.scss'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -254,7 +255,7 @@ export default function TournamentForm() {
             fullWidth
           />
           <TextField label="Lugar" value={location} onChange={(event) => setLocation(event.target.value)} fullWidth />
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
             <div className="row">
               <DatePicker
                 label="Fecha de inicio"
