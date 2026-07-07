@@ -6,6 +6,7 @@ import { ApiException } from '@/app/models/ApiException'
 import { User } from '@/app/models/User'
 import { getOrganization } from '@/app/services/organizations'
 import { withApi } from '@/app/utils/api-server'
+import { resolveAppUrl } from '@/app/utils/domains'
 import { sendEmail } from '@/app/utils/email'
 import { isValidRole } from '@/app/utils/users'
 
@@ -81,9 +82,8 @@ export const POST = withApi(async (request, context, organizationId) => {
   verificationToken.expiresAt = expiresAt
   await verificationToken.save()
 
-  const host = request.headers.get('host') ?? ''
-  const protocol = host.includes('localhost') ? 'http' : 'https'
-  const verificationUrl = `${protocol}://${host}/api/verifyEmail?token=${token}`
+  const appUrl = resolveAppUrl(request.headers.get('host') ?? '')
+  const verificationUrl = `${appUrl}/api/verifyEmail?token=${token}`
 
   await sendEmail({
     to: email,

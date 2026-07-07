@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveOrganizationImage } from '@/app/services/organizations'
 import { getPwaConfig } from '@/app/services/pwa'
-import { resolveOrganizationDomain } from '@/app/utils/organizations'
+import { resolveOrganizationDomain } from '@/app/utils/domains'
 
 /**
  * Dynamic Web App Manifest.

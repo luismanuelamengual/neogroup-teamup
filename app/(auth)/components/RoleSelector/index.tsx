@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useAccount } from '@/app/(protected)/(account)/hooks/useAccount'
 import { Role } from '@/app/models/Role'
+import { resolveCallbackPath } from '@/app/utils/domains'
 
 interface RoleSelectorProps {
   callbackUrl: string | null
@@ -40,7 +41,7 @@ export default function RoleSelector({ callbackUrl, allowedRoles }: RoleSelector
       return
     }
 
-    router.push(callbackUrl && callbackUrl.startsWith('/') ? callbackUrl : '/')
+    router.push(resolveCallbackPath(callbackUrl) ?? '/')
     router.refresh()
   }
 

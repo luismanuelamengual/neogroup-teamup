@@ -55,6 +55,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const router = useRouter()
   const searchParams = useSearchParams()
   const paymentHandled = useRef(false)
+  const joinLinkHandled = useRef(false)
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [joinOpen, setJoinOpen] = useState(false)
@@ -177,6 +178,26 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     showWarningMessage,
     showErrorMessage
   ])
+
+  // Handle arrival from an invite link (/tournaments/[id]/join redirects here
+  // with ?join=1): auto-open the join dialog once the tournament has loaded,
+  // then strip the param so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (joinLinkHandled.current || loading || !tournament) {
+      return
+    }
+
+    if (searchParams.get('join') !== '1') {
+      return
+    }
+
+    joinLinkHandled.current = true
+    router.replace(`/tournaments/${tournamentId}`)
+
+    if (!userEntry && tournament.status === TournamentStatus.STAND_BY) {
+      setJoinOpen(true)
+    }
+  }, [searchParams, router, tournamentId, loading, tournament, userEntry])
 
   if (loading) {
     return (

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import NextAuth from 'next-auth'
 import { authConfig } from '@/app/(auth)/services/auth.config'
-import { resolveOrganizationDomain } from '@/app/utils/organizations'
+import { resolveOrganizationDomain } from '@/app/utils/domains'
 
 const { auth } = NextAuth(authConfig)
 

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/app/(auth)/services/auth'
 import LandingPage from './(public)/components/LandingPage'
 import { getOrganization } from './services/organizations'
+import { resolveCallbackPath } from './utils/domains'
 
 /**
  * Entry point: routes the user to the right home depending on the session,
@@ -44,12 +45,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     redirect('/login')
   }
 
+  // callbackUrl may be absolute (Auth.js's default when the middleware itself
+  // redirected here, e.g. from an invite link) — normalize it to a safe,
+  // same-origin relative path before using it anywhere.
+  const safeCallbackPath = resolveCallbackPath(callbackUrl)
+
   if (!session.user.roleId) {
-    redirect(`/select-role${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`)
+    redirect(`/select-role${safeCallbackPath ? `?callbackUrl=${encodeURIComponent(safeCallbackPath)}` : ''}`)
   }
 
-  if (callbackUrl && callbackUrl.startsWith('/')) {
-    redirect(callbackUrl)
+  if (safeCallbackPath) {
+    redirect(safeCallbackPath)
   }
 
   redirect('/home')

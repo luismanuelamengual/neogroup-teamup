@@ -67,7 +67,21 @@ export const authConfig = {
         return true
       }
 
-      return isLoggedIn
+      if (isLoggedIn) {
+        return true
+      }
+
+      // next-auth only builds the "/login?callbackUrl=..." redirect automatically
+      // when `auth()` is used WITHOUT a custom request handler. Since proxy.ts wraps
+      // it with one (to inject the x-org-domain header), that default path is never
+      // reached — returning `false` here would be silently ignored and the request
+      // would just fall through to proxy.ts's callback. So we build the redirect
+      // ourselves, the same way the isPublicPath branch above already does.
+      const signInUrl = new URL('/login', nextUrl)
+
+      signInUrl.searchParams.set('callbackUrl', nextUrl.href)
+
+      return Response.redirect(signInUrl)
     }
   }
 } satisfies NextAuthConfig

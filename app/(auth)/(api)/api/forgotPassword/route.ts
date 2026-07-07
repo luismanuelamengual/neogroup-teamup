@@ -3,6 +3,7 @@ import { PasswordResetToken } from '@/app/(auth)/models/PasswordResetToken'
 import { ApiException } from '@/app/models/ApiException'
 import { User } from '@/app/models/User'
 import { withApi } from '@/app/utils/api-server'
+import { resolveAppUrl } from '@/app/utils/domains'
 import { sendEmail } from '@/app/utils/email'
 
 const TOKEN_EXPIRY_HOURS = 1
@@ -39,9 +40,8 @@ export const POST = withApi(async (request, _context, organizationId) => {
   resetToken.expiresAt = expiresAt
   await resetToken.save()
 
-  const host = request.headers.get('host') ?? ''
-  const protocol = host.includes('localhost') ? 'http' : 'https'
-  const resetUrl = `${protocol}://${host}/reset-password?token=${token}`
+  const appUrl = resolveAppUrl(request.headers.get('host') ?? '')
+  const resetUrl = `${appUrl}/reset-password?token=${token}`
   const firstName = user.firstName ?? 'usuario'
 
   await sendEmail({
