@@ -54,9 +54,18 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
     }
   }, [open])
 
-  // Debounced platform user search.
+  // Platform user search. An empty query loads a default list of players so the
+  // popup isn't empty as soon as it opens; typed queries are debounced. Keyed on
+  // `open` too, since reopening the dialog resets partnerQuery to '' without
+  // necessarily changing it (no-op state update), which wouldn't otherwise re-run this.
   useEffect(() => {
-    if (partnerQuery.trim().length < 2) {
+    if (!open) {
+      return
+    }
+
+    const normalized = partnerQuery.trim()
+
+    if (normalized.length === 1) {
       setPartnerOptions([])
 
       return
@@ -64,15 +73,18 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
 
     setSearching(true)
 
-    const timeout = setTimeout(async () => {
-      const users = await getPlayers(partnerQuery)
+    const timeout = setTimeout(
+      async () => {
+        const users = await getPlayers(normalized)
 
-      setPartnerOptions(users)
-      setSearching(false)
-    }, 350)
+        setPartnerOptions(users)
+        setSearching(false)
+      },
+      normalized.length === 0 ? 0 : 350
+    )
 
     return () => clearTimeout(timeout)
-  }, [getPlayers, partnerQuery])
+  }, [open, getPlayers, partnerQuery])
 
   // Only real categories are selectable; the single category (categoryId = null)
   // is resolved automatically by the server.
@@ -173,6 +185,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
                 getOptionLabel={(option) => option.displayName}
                 isOptionEqualToValue={(option, value) => option.id === value.id}
                 filterOptions={(options) => options}
+                noOptionsText={searching ? 'Buscando...' : 'No se encontraron jugadores'}
                 renderOption={(props, option) => (
                   <li {...props} key={option.id}>
                     <div className="join-tournament-dialog-user-option">

@@ -10,7 +10,9 @@ export function usePlayers() {
     async (query: string): Promise<UserDto[]> => {
       const normalized = query.trim()
 
-      if (normalized.length < 2) {
+      // A single character is too broad to search on, but an empty query is valid:
+      // it asks the server for a default list of players.
+      if (normalized.length === 1) {
         return []
       }
 

@@ -8,7 +8,7 @@ import InputAdornment from '@mui/material/InputAdornment'
 import Pagination from '@mui/material/Pagination'
 import TextField from '@mui/material/TextField'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -21,6 +21,7 @@ import TournamentStateSelector from './TournamentStateSelector'
 type StatusFilter = TournamentStatus | 'all'
 
 export interface TournamentsBrowserProps {
+  emptyState?: ReactNode
   /** Whether to show the name/status filter bar. Defaults to true. */
   showFilters?: boolean
   showCreationButton?: boolean
@@ -31,6 +32,7 @@ export interface TournamentsBrowserProps {
 }
 
 export default function TournamentsBrowser({
+  emptyState = undefined,
   showFilters = true,
   showCreationButton = false,
   states,
@@ -150,7 +152,7 @@ export default function TournamentsBrowser({
           ))}
         </div>
       ) : tournaments.length === 0 ? (
-        <MessagePanel>No se encontraron torneos !!!</MessagePanel>
+        <MessagePanel>{emptyState ?? <>No se encontraron torneos</>}</MessagePanel>
       ) : (
         <>
           <div className="list">

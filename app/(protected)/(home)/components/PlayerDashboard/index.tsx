@@ -2,6 +2,8 @@
 
 import './index.scss'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
+import SearchIcon from '@mui/icons-material/Search'
+import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import PlayerStats from '@/app/(protected)/(home)/components/PlayerStats'
@@ -37,6 +39,16 @@ export default function PlayerDashboard() {
           showFilters={false}
           states={[TournamentStatus.STAND_BY, TournamentStatus.ONGOING]}
           ownedByPlayer
+          emptyState={
+            <>
+              No tienes torneos activos
+              <br />
+              <br />
+              <Button href="/tournaments" variant="contained" startIcon={<SearchIcon />}>
+                Buscar torneos
+              </Button>
+            </>
+          }
         />
       </section>
     </div>
