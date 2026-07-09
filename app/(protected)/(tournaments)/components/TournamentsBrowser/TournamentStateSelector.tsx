@@ -1,6 +1,6 @@
 'use client'
 
-import './index.scss'
+import './TournamentStateSelector.scss'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import ToggleButton from '@mui/material/ToggleButton'
