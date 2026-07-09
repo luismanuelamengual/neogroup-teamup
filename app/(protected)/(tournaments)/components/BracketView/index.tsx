@@ -59,7 +59,7 @@ interface TitleLayout {
 }
 
 /** Stage label for a round, counting Final/Semifinal/4tos/8vos from the end. */
-function roundLabel(roundIndex: number, totalRounds: number, matchCount: number): string {
+export function roundLabel(roundIndex: number, totalRounds: number, matchCount: number): string {
   const fromEnd = totalRounds - 1 - roundIndex
 
   if (fromEnd === 0 && matchCount <= 1) {

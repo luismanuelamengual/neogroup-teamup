@@ -1,0 +1,369 @@
+.tournament-planner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .planner-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .back-link {
+      display: inline-flex;
+      color: inherit;
+    }
+    
+    .planner-title {
+      flex: 1;
+      font-weight: 700;
+    }
+
+    .planner-export-button {
+      flex-shrink: 0;
+    }
+  }
+
+  .planner-main {
+    display: grid;
+    grid-template-rows: min-content 1fr;
+    grid-template-columns: 1fr min-content;
+    grid-template-areas:
+      "top-section top-section"
+      "main-section side-section";
+    gap: 16px;
+    
+    .planner-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px;
+      
+      .section-title {
+        font-weight: 700;
+      }
+
+      &.config-section {
+        grid-area: top-section;
+
+        .config-fields {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 16px;
+
+          .field {
+            width: 200px;
+          }
+        }
+      }
+
+      &.pool-section {
+        grid-area: side-section;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        align-self: flex-start;
+        width: 260px;
+        overflow: hidden;
+        max-height: calc(100vh - 103px);
+        padding: 20px;
+
+        .pool-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          flex: 1;
+          overflow: auto;
+          scrollbar-gutter: stable;
+          scrollbar-width: thin; 
+          scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+
+          > * {
+            flex-shrink: 0;
+          }
+        }
+
+        .pool-empty {
+          font-style: italic;
+        }
+      }
+
+      &.grid-section {
+        grid-area: main-section;
+        align-self: baseline;
+
+        .grid-hint {
+          margin-top: -4px;
+        }
+
+        .planner-days {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+
+          .planner-day {
+            .day-title {
+              font-weight: 700;
+              text-transform: capitalize;
+              margin-bottom: 6px;
+            }
+
+            .planner-grid {
+              display: grid;
+              align-items: start;
+              border: 1px solid var(--mui-palette-divider, #e0e0e0);
+              border-radius: 8px;
+              overflow: hidden;
+
+              .court-header {
+                padding: 8px;
+                text-align: center;
+                font-weight: 600;
+                font-size: 13px;
+                background: var(--mui-palette-action-hover, #f5f5f5);
+                border-bottom: 1px solid var(--mui-palette-divider, #e0e0e0);
+                border-left: 1px solid var(--mui-palette-divider, #e0e0e0);
+
+                .court-header-input {
+                  width: 100%;
+                  border: none;
+                  background: transparent;
+                  text-align: center;
+                  font-weight: 600;
+                  font-size: 13px;
+                  font-family: inherit;
+                  color: inherit;
+                  padding: 2px 4px;
+                  border-radius: 4px;
+
+                  &:hover {
+                    background: var(--mui-palette-action-selected, rgba(0, 0, 0, 0.06));
+                  }
+
+                  &:focus {
+                    outline: none;
+                    background: #fff;
+                    box-shadow: 0 0 0 2px var(--mui-palette-primary-main, #1976d2);
+                  }
+                }
+              }
+
+              .grid-corner {
+                background: var(--mui-palette-action-hover, #f5f5f5);
+                border-bottom: 1px solid var(--mui-palette-divider, #e0e0e0);
+              }
+
+              .time-gutter {
+                position: relative;
+
+                .time-label {
+                  display: flex;
+                  align-items: flex-start;
+                  justify-content: flex-end;
+                  padding: 2px 6px 0 0;
+                  font-size: 11px;
+                  color: var(--mui-palette-text-secondary, #666);
+                  box-sizing: border-box;
+                }
+              }
+
+              .court-column {
+                position: relative;
+                border-left: 1px solid var(--mui-palette-divider, #d7d7d7);
+                background: #f0f0f0;
+
+                .grid-cell {
+                  box-sizing: border-box;
+                  border-bottom: 1px dashed var(--mui-palette-divider, #d7d7d7);
+                  // Visual only: drop handling lives on the court column so the slot can be
+                  // computed from the drag ghost's position rather than the cell under the mouse.
+                  pointer-events: none;
+                }
+
+                .placed-slot {
+                  position: absolute;
+                  left: 2px;
+                  right: 2px;
+                  z-index: 2;
+
+                  // While being dragged the match is hidden from its original slot (kept in the
+                  // DOM so the browser drag isn't cancelled) and lets drops pass through.
+                  &.dragging {
+                    visibility: hidden;
+                    pointer-events: none;
+                  }
+                }
+
+                // Ghost preview of where the dragged match would land if dropped here.
+                .placed-shadow {
+                  position: absolute;
+                  left: 2px;
+                  right: 2px;
+                  z-index: 1;
+                  pointer-events: none;
+                  border-radius: 8px;
+                  border: 2px dashed var(--mui-palette-primary-main, #31a457);
+                  background: rgba(83, 150, 94, 0.12);
+
+                  &.invalid {
+                    border-color: var(--mui-palette-error-main, #d32f2f);
+                    background: rgba(211, 47, 47, 0.12);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .planner-match {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+    background-color: var(--color-surface, #fff);
+    border: 1px solid var(--color-divider, #e5e7eb);
+    border-radius: var(--radius-md, 10px);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
+    cursor: grab;
+    user-select: none;
+    overflow: hidden;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    &.pool {
+      width: 100%;
+
+      // While being dragged out of the pool, the source card is hidden (but kept
+      // mounted so the browser still fires dragend and can restore it on cancel).
+      &.dragging {
+        display: none;
+      }
+    }
+
+    &.grid {
+      width: 100%;
+    }
+
+    // Persistent element used only as the drag image for pool → grid drags. It
+    // stays mounted so it is already painted when setDragImage snapshots it, but
+    // is pushed off-screen so the user never sees it.
+    &.drag-ghost {
+      position: fixed;
+      top: 0;
+      left: -9999px;
+      pointer-events: none;
+    }
+
+    .planner-match-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .planner-match-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      overflow: hidden;
+
+      .category {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--color-text-secondary, #6b7280);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    .planner-match-metadata {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+
+      .round-badge {
+        flex-shrink: 0;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--color-primary-dark, #115e59);
+        background-color: rgba(15, 118, 110, 0.08);
+        border-radius: var(--radius-sm, 6px);
+        padding: 1px 6px;
+        white-space: nowrap;
+      }
+    }
+
+    .planner-match-body {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+      line-height: 1.2;
+      flex: 1;
+      justify-content: center;
+    }
+
+    .side {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .side-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+
+      &.home {
+        background-color: var(--color-home, #0ea5e9);
+      }
+
+      &.away {
+        background-color: var(--color-away, #f43f5e);
+      }
+    }
+
+    .side-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text, #1f2937);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .planner-match-remove {
+      color: var(--color-text-secondary, #6b7280);
+      padding: 2px;
+      flex-shrink: 0;
+      margin: -2px -4px 0 0;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .planner-main {
+      flex-direction: column;
+    }
+
+    .planner-sidebar {
+      flex-basis: auto;
+      width: 100%;
+    }
+
+    .pool-section {
+      position: static;
+      max-height: none;
+    }
+  }
+}

@@ -3,6 +3,7 @@
 import './index.scss'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import EditIcon from '@mui/icons-material/Edit'
+import EventNoteIcon from '@mui/icons-material/EventNote'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import PaidIcon from '@mui/icons-material/Paid'
 import PlaceIcon from '@mui/icons-material/Place'
@@ -25,6 +26,7 @@ import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMercadoPago } from '@/app/(protected)/(account)/hooks/useMercadoPago'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
@@ -243,6 +245,17 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
             {tournament.status === TournamentStatus.STAND_BY && (
               <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
                 Compartir
+              </Button>
+            )}
+            {tournament.status === TournamentStatus.ONGOING && (
+              <Button
+                variant="outlined"
+                className="planner-button"
+                startIcon={<EventNoteIcon />}
+                component={Link}
+                href={`/tournaments/${tournament.id}/planner`}
+              >
+                Planificador
               </Button>
             )}
           </div>
