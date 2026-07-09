@@ -11,6 +11,7 @@ export interface UserDto {
   roleId: Role | null
   createdAt: string
   displayName: string
+  shortName: string
   avatarUrl: string
   active: boolean
 }

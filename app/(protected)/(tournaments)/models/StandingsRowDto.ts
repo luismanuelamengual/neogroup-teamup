@@ -2,6 +2,7 @@
 export interface StandingsRowDto {
   competitorId: number
   displayName: string
+  shortName: string
   played: number
   won: number
   setsWon?: number

@@ -85,6 +85,7 @@ export function computeStandings(
     rows.set(competitor.id, {
       competitorId: competitor.id,
       displayName: competitor.displayName,
+      shortName: competitor.shortName,
       played: 0,
       won: 0,
       setsWon: 0,

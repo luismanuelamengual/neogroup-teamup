@@ -519,9 +519,7 @@ export default function TournamentPlannerView({ tournamentId }: TournamentPlanne
         return `#${id}`
       }
 
-      return competitor.seedNumber != null
-        ? `[${competitor.seedNumber}] ${competitor.displayName}`
-        : competitor.displayName
+      return competitor.seedNumber != null ? `[${competitor.seedNumber}] ${competitor.shortName}` : competitor.shortName
     },
     [competitorsById]
   )

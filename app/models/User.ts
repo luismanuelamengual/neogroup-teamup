@@ -2,7 +2,7 @@ import { BaseEntity, Column, Entity, Serializable } from '@neogroup/neorm'
 import { OrganizationScope } from '@/app/models/OrganizationScope'
 import { Role } from '@/app/models/Role'
 import { getGravatarUrl } from '@/app/utils/gravatar'
-import { getUserDisplayName } from '@/app/utils/users'
+import { getUserDisplayName, getUserShortName } from '@/app/utils/users'
 
 @Entity({ table: 'users' })
 export class User extends BaseEntity {
@@ -48,6 +48,11 @@ export class User extends BaseEntity {
   @Serializable()
   get displayName(): string {
     return getUserDisplayName(this)
+  }
+
+  @Serializable()
+  get shortName(): string {
+    return getUserShortName(this)
   }
 
   @Serializable()

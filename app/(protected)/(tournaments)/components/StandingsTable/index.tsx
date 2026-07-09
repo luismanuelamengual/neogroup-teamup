@@ -112,8 +112,8 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
                   onClick={() => handleCompetitorClick(row.competitorId)}
                 >
                   {competitorsById[row.competitorId]?.seedNumber != null
-                    ? `[${competitorsById[row.competitorId].seedNumber}] ${row.displayName}`
-                    : row.displayName}
+                    ? `[${competitorsById[row.competitorId].seedNumber}] ${row.shortName}`
+                    : row.shortName}
                 </TableCell>
                 <TableCell align="center">{row.played}</TableCell>
                 <TableCell align="center">{row.won}</TableCell>

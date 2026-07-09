@@ -2,7 +2,7 @@ import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity, Serializable }
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { User } from '@/app/models/User'
-import { getUserDisplayName } from '@/app/utils/users'
+import { getUserDisplayName, getUserShortName } from '@/app/utils/users'
 
 @Entity({ table: 'competitors' })
 export class Competitor extends BaseEntity {
@@ -46,5 +46,17 @@ export class Competitor extends BaseEntity {
     }
 
     return userName ?? ''
+  }
+
+  @Serializable()
+  get shortName(): string {
+    const userShortName = this.user ? getUserShortName(this.user) : null
+    const partnerShortName = this.partnerUser ? getUserShortName(this.partnerUser) : null
+
+    if (userShortName && partnerShortName) {
+      return `${userShortName} / ${partnerShortName}`
+    }
+
+    return userShortName ?? ''
   }
 }

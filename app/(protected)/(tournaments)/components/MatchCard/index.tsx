@@ -54,7 +54,7 @@ export default function MatchCard({
 
     const seed = competitor.seedNumber
 
-    return seed != null ? `[${seed}] ${competitor.displayName}` : competitor.displayName
+    return seed != null ? `[${seed}] ${competitor.shortName}` : competitor.shortName
   }
 
   const sideName = (ids: number[] | null): string => {

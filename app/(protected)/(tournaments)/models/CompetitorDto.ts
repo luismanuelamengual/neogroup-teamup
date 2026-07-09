@@ -13,6 +13,7 @@ export interface CompetitorDto {
   userId: number | null
   partnerUserId: number | null
   displayName: string
+  shortName: string
   seedNumber: number | null
   createdAt: string
   /** Embedded user info (populated when user relation is loaded). */
