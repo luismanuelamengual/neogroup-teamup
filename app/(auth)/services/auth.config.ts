@@ -1,6 +1,6 @@
 import type { NextAuthConfig } from 'next-auth'
 
-const PUBLIC_PATHS = ['/login', '/register', '/verify-email', '/public', '/api/verifyEmail']
+const PUBLIC_PATHS = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/public']
 // Session timeout in seconds. Defaults to 30 days if not set.
 const SESSION_MAX_AGE = process.env.AUTH_SESSION_MAX_AGE
   ? parseInt(process.env.AUTH_SESSION_MAX_AGE, 10)
