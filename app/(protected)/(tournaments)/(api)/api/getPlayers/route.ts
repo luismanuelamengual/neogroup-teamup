@@ -19,12 +19,17 @@ export const POST = withAuth(async (request, context, userId) => {
   if (normalized.length >= 2) {
     const pattern = `%${normalized}%`
 
+    // NOTE: use explicit `ILIKE` (case-insensitive) instead of whereLike/orWhereLike here.
+    // Inside this grouping callback, neorm hands us a `ConditionGroup`, whose
+    // whereLike/orWhereLike default to plain `LIKE` (case-sensitive on Postgres),
+    // unlike the top-level query builder where whereLike defaults to `ILIKE`.
+    // That mismatch made searches like "eze" fail to match "Ezequiel" in production.
     playersQuery.where((group) => {
       group
-        .whereLike('firstName', pattern)
-        .orWhereLike('lastName', pattern)
-        .orWhereLike('nickname', pattern)
-        .orWhereLike('email', pattern)
+        .where('firstName', 'ILIKE', pattern)
+        .orWhere('lastName', 'ILIKE', pattern)
+        .orWhere('nickname', 'ILIKE', pattern)
+        .orWhere('email', 'ILIKE', pattern)
     })
   }
 
