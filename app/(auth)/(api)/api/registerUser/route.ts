@@ -56,7 +56,7 @@ export const POST = withApi(async (request, context, organizationId) => {
     .first()
 
   if (existing) {
-    throw new ApiException('emailAlreadyRegistered')
+    throw new ApiException('El email ya ha sido registrado')
   }
 
   const user = new User()

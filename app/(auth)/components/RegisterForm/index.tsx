@@ -14,18 +14,6 @@ import { FormEvent, useState } from 'react'
 import { useAuth } from '@/app/(auth)/hooks/useAuth'
 import { Role } from '@/app/models/Role'
 
-const ERROR_MESSAGES: Record<string, string> = {
-  invalidCredentials: 'Email o contraseña incorrectos',
-  invalidEmail: 'El email no es válido',
-  passwordTooShort: 'La contraseña debe tener al menos 6 caracteres',
-  passwordMismatch: 'Las contraseñas no coinciden',
-  missingFields: 'Completá todos los campos obligatorios',
-  emailAlreadyRegistered: 'Ya existe una cuenta con ese email',
-  invalidRole: 'El rol seleccionado no es válido',
-  invalidToken: 'El enlace no es válido o ya fue utilizado.',
-  expiredToken: 'El enlace expiró. Solicitá uno nuevo.'
-}
-
 interface RegisterFormProps {
   callbackUrl: string | null
   allowedRegistrationRoles: number[]
@@ -52,9 +40,7 @@ export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: 
       await registerUser({ email, password, firstName, lastName, phoneNumber, roleId })
     } catch (requestError) {
       setLoading(false)
-      const key = (requestError as Error).message
-
-      setError(ERROR_MESSAGES[key] ?? 'Algo salió mal. Intentá de nuevo.')
+      setError('Algo salió mal. Intentá de nuevo.')
 
       return
     }
