@@ -30,3 +30,10 @@ yarn-error.log*
 
 # local database
 /database/*.db
+/database/backups/*
+
+# playwright (e2e)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

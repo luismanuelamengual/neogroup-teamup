@@ -205,3 +205,10 @@ The money is split using Mercado Pago **Split payments (marketplace)**:
 - Mercado Pago notifies `/api/mercadopago/webhook?ref=<paymentId>`. The handler fetches the real payment, and on `approved` it registers the competitor (re-validating capacity/duplicates inside a transaction) and marks the payment `APPROVED`. If the place can no longer be honoured it refunds the payment (`REFUNDED`). The webhook is idempotent.
 
 Environment variables: `MP_CLIENT_ID`, `MP_CLIENT_SECRET`, the canonical `MP_REDIRECT_URI` (required in multi-subdomain production), and the optional `MP_ACCESS_TOKEN` / `MP_WEBHOOK_SECRET` (see `.env.example`). The signed OAuth state uses `AUTH_SECRET`. For local development the webhook needs a public URL reachable by Mercado Pago (e.g. an ngrok tunnel) and `NEXT_PUBLIC_APP_URL` set to it.
+
+## Testing
+
+Two independent test suites:
+
+- `yarn test` (Vitest) — integration tests for the tournament engine (models/services) against an in-memory SQLite database, no HTTP layer. See `tests/README.md`.
+- `yarn test:e2e` (Playwright) — real browser end-to-end tests of the app's main flows (auth, the organizer + player tournament lifecycle, account/Mercado Pago) against a real running Next.js server and a dedicated, disposable SQLite database. See `tests/e2e/README.md`.

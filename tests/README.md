@@ -5,6 +5,13 @@ services and engine (`startTournament`, `setMatchResult` logic,
 `progressTournamentAfterResult`, standings, champion, seeding) against a
 throwaway **in-memory SQLite** database — no HTTP layer, no external Postgres.
 
+For real browser end-to-end tests of the app's main flows (register/login, the
+organizer + player tournament lifecycle, account/Mercado Pago) — driving an
+actual Next.js server and a real browser instead — see **`tests/e2e/README.md`**
+(`yarn test:e2e`). That suite is Playwright-based and lives in `tests/e2e/`,
+kept separate from everything below since it exercises the HTTP + UI layers
+that this directory deliberately bypasses.
+
 ## Layout
 
 ```
@@ -13,6 +20,7 @@ tests/
   edge/     edge / border / unconventional-result cases
   unit/     pure score-validation and bracket/seeding math
   bugs/     regression tests for the 4 defects that were found & fixed
+  e2e/      Playwright browser e2e tests (see tests/e2e/README.md)
   setup/
     harness.ts          builders + setResult + flow helpers (the test API)
     vitest.setup.ts     env + SQLite binding coercion (used by Vitest)

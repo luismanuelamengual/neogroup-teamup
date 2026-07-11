@@ -17,7 +17,10 @@
     "test:flows": "vitest run tests/flows",
     "test:edge": "vitest run tests/edge tests/unit",
     "test:regression": "vitest run tests/bugs",
-    "test:node": "node -r ./tests/setup/register.cjs tests/run.ts"
+    "test:node": "node -r ./tests/setup/register.cjs tests/run.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -27,7 +30,7 @@
     "@mui/icons-material": "^9.1.0",
     "@mui/material": "^9.1.0",
     "@mui/x-date-pickers": "^9.6.0",
-    "@neogroup/neorm": "0.0.42",
+    "@neogroup/neorm": "0.0.43",
     "bcryptjs": "^3.0.2",
     "classnames": "^2.5.1",
     "dayjs": "^1.11.21",
@@ -44,6 +47,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@serwist/turbopack": "^9.5.11",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
