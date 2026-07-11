@@ -97,6 +97,8 @@ export async function createUser(organizationId = 1): Promise<number> {
   Object.assign(user, {
     organizationId,
     email: `user${userSeq}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.dev`,
+    active: true,
+    emailVerified: true,
     createdAt: new Date()
   })
   await user.save()

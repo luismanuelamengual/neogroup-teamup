@@ -62,5 +62,11 @@ export class User extends BaseEntity {
 
   protected static booted(): void {
     User.addGlobalScope(new OrganizationScope())
+    User.addGlobalScope('activeScope', (query) => {
+      query.where('active', true)
+    })
+    User.addGlobalScope('emailVerifiedScope', (query) => {
+      query.where('emailVerified', true)
+    })
   }
 }
