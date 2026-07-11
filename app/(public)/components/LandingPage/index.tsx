@@ -12,7 +12,7 @@ export default function LandingPage() {
   return (
     <div className="landing-page">
       <header className="landing-header">
-        <Image src="/logo-white.png" alt="TeamUp" width={200} height={32} priority className="landing-logo" />
+        <Image src="/logo-bar.png" alt="TeamUp" width={200} height={32} priority className="landing-logo" />
       </header>
 
       <main className="landing-main">
