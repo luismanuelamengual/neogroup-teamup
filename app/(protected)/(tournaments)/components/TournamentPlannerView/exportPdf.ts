@@ -32,8 +32,10 @@ const hex = (value: string): Rgb => {
   return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255]
 }
 
+/** Header band colour — logos are composited over this so white "bar" logos blend in. */
+const BRAND_HEADER_HEX = '#0f766e'
 const COLORS = {
-  teal: hex('#0f766e'),
+  teal: hex(BRAND_HEADER_HEX),
   tealDark: hex('#115e59'),
   tealDeep: hex('#0b4f4a'),
   amber: hex('#f59e0b'),
@@ -44,8 +46,7 @@ const COLORS = {
   rowAlt: hex('#f0faf8'),
   cellBg: hex('#ffffff'),
   emptyBg: hex('#f8fafc'),
-  border: hex('#cbd5e1'),
-  chip: [1, 1, 1] as Rgb
+  border: hex('#cbd5e1')
 }
 /* --------------------------------------------------------------------------
  * Helvetica width metrics (units per 1000em) — enough for centring & wrapping
@@ -394,14 +395,16 @@ class Painter {
 export interface PlannerPdfLogo {
   width: number
   height: number
-  /** Row-major RGB bytes (no alpha), already composited over white. */
+  /** Row-major RGB bytes (no alpha), already composited over the header colour. */
   rgb: Uint8Array
 }
 
 /**
- * Rasterises a logo URL to RGB bytes over a white background, in the browser.
- * The URL should already be resolved per organization (e.g. via
- * `resolveOrganizationImage(orgDomain, 'logo.png')`). Returns null if the logo
+ * Rasterises a logo URL to RGB bytes over the teal header colour, in the browser.
+ * Compositing over the header colour (rather than white) lets a white "bar" logo
+ * on a transparent background sit seamlessly on the PDF's teal band. The URL
+ * should already be resolved per organization (e.g. via
+ * `resolveOrganizationImage(orgDomain, 'logo-bar.png')`). Returns null if the logo
  * can't be loaded, so the PDF simply falls back to a text badge.
  */
 async function loadBrowserLogo(logoSrc: string): Promise<PlannerPdfLogo | null> {
@@ -433,7 +436,7 @@ async function loadBrowserLogo(logoSrc: string): Promise<PlannerPdfLogo | null> 
       return null
     }
 
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = BRAND_HEADER_HEX
     ctx.fillRect(0, 0, width, height)
     ctx.drawImage(image, 0, 0, width, height)
 
@@ -554,29 +557,22 @@ class PlannerDocument {
 
     p.rect(MARGIN, MARGIN, CONTENT_WIDTH, BRAND_HEADER_HEIGHT, { fill: COLORS.teal, radius: 10 })
 
-    // White chip holding the logo (or a text fallback).
-    const chipTop = MARGIN + 10
-    const chipHeight = BRAND_HEADER_HEIGHT - 20
-    let chipWidth = 150
+    // The white "bar" logo sits directly on the teal band (no chip). It was
+    // composited over the same teal, so its transparent areas blend seamlessly.
+    const logoLeft = MARGIN + 20
+    let logoBlockWidth = 150
 
     if (this.ctx.logo) {
-      const drawHeight = chipHeight - 12
+      const drawHeight = 30
       const drawWidth = (this.ctx.logo.width / this.ctx.logo.height) * drawHeight
 
-      chipWidth = drawWidth + 16
-      p.rect(MARGIN + 12, chipTop, chipWidth, chipHeight, { fill: COLORS.chip, radius: 6 })
-      p.image(MARGIN + 12 + 8, chipTop + 6, drawWidth, drawHeight)
+      logoBlockWidth = drawWidth
+      p.image(logoLeft, MARGIN + (BRAND_HEADER_HEIGHT - drawHeight) / 2, drawWidth, drawHeight)
     } else {
-      p.rect(MARGIN + 12, chipTop, chipWidth, chipHeight, { fill: COLORS.chip, radius: 6 })
-      p.text(MARGIN + 12 + chipWidth / 2, chipTop + chipHeight / 2 - 7, 'TEAMUP', {
-        size: 14,
-        bold: true,
-        color: COLORS.teal,
-        align: 'center'
-      })
+      p.text(logoLeft, MARGIN + BRAND_HEADER_HEIGHT / 2 - 11, 'TEAMUP', { size: 22, bold: true, color: COLORS.white })
     }
 
-    const textX = MARGIN + 12 + chipWidth + 16
+    const textX = logoLeft + logoBlockWidth + 20
     const textWidth = CONTENT_WIDTH - (textX - MARGIN) - 16
 
     p.text(textX, MARGIN + 15, this.ctx.tournamentName, {

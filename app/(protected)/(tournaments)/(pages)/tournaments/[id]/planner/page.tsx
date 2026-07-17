@@ -17,9 +17,10 @@ export default async function TournamentPlannerPage({ params }: { params: Promis
   }
 
   // Resolve the organization's logo on the server (falls back to the default
-  // TeamUp logo) so the exported PDF is branded per club.
+  // TeamUp logo) so the exported PDF is branded per club. Uses the white "bar"
+  // logo variant, which sits directly on the PDF's teal header.
   const orgDomain = (await headers()).get('x-org-domain')
-  const logoSrc = resolveOrganizationImage(orgDomain, 'logo.png')
+  const logoSrc = resolveOrganizationImage(orgDomain, 'logo-bar.png')
 
   return <TournamentPlannerView tournamentId={Number(id)} logoSrc={logoSrc} />
 }
