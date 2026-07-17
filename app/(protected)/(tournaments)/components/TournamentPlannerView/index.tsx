@@ -2,15 +2,23 @@
 
 import 'dayjs/locale/es'
 import './index.scss'
+import AddIcon from '@mui/icons-material/Add'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CloseIcon from '@mui/icons-material/Close'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
+import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -25,7 +33,7 @@ import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/Competitor
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { isKnockoutType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { isKnockoutType, RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { downloadPlannerPdf, PlannerPdfDay, PlannerPdfSlot } from './exportPdf'
@@ -207,6 +215,78 @@ function patchStoredPlacements(
 }
 
 /**
+ * A free-text "placeholder" match the organizer adds by hand to plan bouts that
+ * aren't formed yet (e.g. "Ganador Martínez/Amengual" vs "Ganador Pérez/González").
+ * It is scheduled through the same placement machinery as real matches, keyed by a
+ * negative id so it never collides with a real (positive) database match id.
+ */
+interface CustomMatch {
+  id: number
+  home: string
+  away: string
+  /** Optional category label shown on the card header. */
+  category?: string
+  /** Optional round label shown as a badge. */
+  round?: string
+  /** Whether the organizer flagged this match as part of the consolation bracket. */
+  consolation?: boolean
+}
+
+const CUSTOM_MATCHES_STORAGE_PREFIX = 'tournamentPlanner:customMatches:'
+const customMatchesStorageKey = (tournamentId: number) => `${CUSTOM_MATCHES_STORAGE_PREFIX}${tournamentId}`
+
+function isCustomMatchList(value: unknown): value is CustomMatch[] {
+  return (
+    Array.isArray(value) &&
+    value.every((entry) => {
+      const custom = entry as { id?: unknown; home?: unknown; away?: unknown } | null
+
+      return Number.isFinite(Number(custom?.id)) && typeof custom?.home === 'string' && typeof custom?.away === 'string'
+    })
+  )
+}
+
+/** Reads the persisted custom matches for a tournament, if any. */
+function loadStoredCustomMatches(tournamentId: number): CustomMatch[] {
+  return readStoredEnvelope(customMatchesStorageKey(tournamentId), isCustomMatchList) ?? []
+}
+
+/** Persists (or clears, when empty) a tournament's custom matches. */
+function persistCustomMatches(tournamentId: number, matches: CustomMatch[]): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (matches.length === 0) {
+    try {
+      window.localStorage.removeItem(customMatchesStorageKey(tournamentId))
+    } catch {
+      // Ignore write errors (e.g. storage disabled/full).
+    }
+
+    return
+  }
+
+  writeStoredEnvelope(customMatchesStorageKey(tournamentId), matches)
+}
+
+/**
+ * A normalized view of a schedulable match — real (from the tournament) or custom
+ * (organizer-typed) — so the pool, grid, drag ghost and PDF export can treat both
+ * the same way.
+ */
+interface PlannerEntry {
+  id: number
+  category: string
+  round: string | null
+  home: string
+  away: string
+  custom: boolean
+  /** True when the match belongs to the consolation knockout bracket. */
+  consolation: boolean
+}
+
+/**
  * Cleans up every tournament's stored placements, so old plannings don't linger in
  * localStorage forever. Two independent rules:
  *  - a match scheduled for a day before today is dropped — its plan is over, whether
@@ -255,6 +335,36 @@ function pruneStalePlannerStorage(): void {
         window.localStorage.removeItem(key)
       } else if (Object.keys(kept).length !== entries.length) {
         writeStoredEnvelope(key, kept)
+      }
+    } catch {
+      window.localStorage.removeItem(key)
+    }
+  }
+
+  // Custom matches carry no dates, so they're only dropped when the tournament's
+  // planning is abandoned (untouched past the retention window) or malformed.
+  const customKeys: string[] = []
+
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const key = window.localStorage.key(i)
+
+    if (key?.startsWith(CUSTOM_MATCHES_STORAGE_PREFIX)) {
+      customKeys.push(key)
+    }
+  }
+
+  for (const key of customKeys) {
+    const raw = window.localStorage.getItem(key)
+
+    if (!raw) {
+      continue
+    }
+
+    try {
+      const parsed = JSON.parse(raw)
+
+      if (!isIsoDate(parsed?.savedAt) || parsed.savedAt < cutoffIso || !isCustomMatchList(parsed.data)) {
+        window.localStorage.removeItem(key)
       }
     } catch {
       window.localStorage.removeItem(key)
@@ -322,6 +432,11 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
   const placementsRef = useRef(placements)
 
   placementsRef.current = placements
+  // Organizer-typed free-text matches, persisted per tournament in localStorage.
+  const [customMatches, setCustomMatches] = useState<CustomMatch[]>(() => loadStoredCustomMatches(tournamentId))
+  // Creation dialog for a custom match.
+  const [customDialogOpen, setCustomDialogOpen] = useState(false)
+  const [customForm, setCustomForm] = useState({ home: '', away: '', category: '', round: '', consolation: false })
   // Cell currently hovered while dragging — drives the drop-preview shadow.
   const [dragTarget, setDragTarget] = useState<Placement | null>(null)
   // Match currently being dragged — hidden from its original spot while moving.
@@ -421,6 +536,17 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     () => new Set((tournament?.rounds ?? []).filter((round) => round.active).map((round) => round.id)),
     [tournament]
   )
+  // Rounds that belong to the consolation knockout bracket, so their matches can be
+  // flagged as "Consuelo" in the grid and the PDF.
+  const consolationRoundIds = useMemo(
+    () =>
+      new Set(
+        (tournament?.rounds ?? [])
+          .filter((round) => round.type === RoundType.KNOCKOUT_CONSOLATION)
+          .map((round) => round.id)
+      ),
+    [tournament]
+  )
   // Only matches that are ready to be scheduled: belong to an active round, not
   // yet played (still pending and without a loaded result) and with both sides
   // already known (excludes byes and not-yet-defined bracket matches).
@@ -509,10 +635,6 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     }
   }, [days, courts, tournamentId])
 
-  const unplannedMatches = useMemo(
-    () => pendingMatches.filter((match) => placements[match.id] == null),
-    [pendingMatches, placements]
-  )
   const competitorLabel = useCallback(
     (id: number): string => {
       const competitor = competitorsById[id]
@@ -535,13 +657,94 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     },
     [competitorLabel]
   )
+  // Normalize a real tournament match into the shared planner view model.
+  const entryFromMatch = useCallback(
+    (match: MatchDto): PlannerEntry => ({
+      id: match.id,
+      category: categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única',
+      round: roundLabelByRoundId.get(match.roundId) ?? null,
+      home: sideName(match.homeCompetitorIds),
+      away: sideName(match.awayCompetitorIds),
+      custom: false,
+      consolation: consolationRoundIds.has(match.roundId)
+    }),
+    [categoryNameById, roundLabelByRoundId, sideName, consolationRoundIds]
+  )
+  // Real matches plus organizer-typed custom matches, all as PlannerEntry.
+  const allEntries = useMemo<PlannerEntry[]>(
+    () => [
+      ...pendingMatches.map(entryFromMatch),
+      ...customMatches.map((custom) => ({
+        id: custom.id,
+        category: custom.category?.trim() || 'Partido personalizado',
+        round: custom.round?.trim() || null,
+        home: custom.home,
+        away: custom.away,
+        custom: true,
+        consolation: custom.consolation === true
+      }))
+    ],
+    [pendingMatches, entryFromMatch, customMatches]
+  )
+  const unplannedEntries = useMemo(
+    () => allEntries.filter((entry) => placements[entry.id] == null),
+    [allEntries, placements]
+  )
+
+  // Adds a custom match to the pool (ready to drag onto the grid) and persists it.
+  const addCustomMatch = (fields: {
+    home: string
+    away: string
+    category: string
+    round: string
+    consolation: boolean
+  }) => {
+    const home = fields.home.trim()
+    const away = fields.away.trim()
+
+    if (home === '' || away === '') {
+      return
+    }
+
+    setCustomMatches((prev) => {
+      // Negative, strictly-decreasing ids never collide with real match ids.
+      const nextId = Math.min(0, ...prev.map((custom) => custom.id)) - 1
+      const next = [
+        ...prev,
+        {
+          id: nextId,
+          home,
+          away,
+          category: fields.category.trim() || undefined,
+          round: fields.round.trim() || undefined,
+          consolation: fields.consolation || undefined
+        }
+      ]
+
+      persistCustomMatches(tournamentId, next)
+
+      return next
+    })
+  }
+
+  // Deletes a custom match entirely (and any placement it had).
+  const deleteCustomMatch = (id: number) => {
+    setCustomMatches((prev) => {
+      const next = prev.filter((custom) => custom.id !== id)
+
+      persistCustomMatches(tournamentId, next)
+
+      return next
+    })
+    removePlacement(id)
+  }
 
   // --- Drag & drop --------------------------------------------------------
   // Populate the persistent, already-painted ghost element so it mimics a placed
   // (grid) match card — sized to a real court column width and the configured
   // duration — and return it for use as the drag image. Reusing a node that was
   // already rendered avoids the first-frame flash of the browser's default image.
-  const prepareGridGhost = (match: MatchDto): { element: HTMLElement; width: number; height: number } | null => {
+  const prepareGridGhost = (entry: PlannerEntry): { element: HTMLElement; width: number; height: number } | null => {
     const ghost = ghostRef.current
 
     if (!ghost) {
@@ -556,8 +759,6 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     ghost.style.height = `${height}px`
     ghost.replaceChildren()
 
-    const categoryName = categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única'
-    const roundName = roundLabelByRoundId.get(match.roundId)
     const header = document.createElement('div')
 
     header.className = 'planner-match-header'
@@ -569,22 +770,32 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     const categorySpan = document.createElement('span')
 
     categorySpan.className = 'category'
-    categorySpan.textContent = categoryName
+    categorySpan.textContent = entry.category
     title.appendChild(categorySpan)
 
     header.appendChild(title)
     ghost.appendChild(header)
 
-    if (roundName) {
+    if (entry.round || entry.consolation) {
       const metadata = document.createElement('div')
 
       metadata.className = 'planner-match-metadata'
 
-      const roundSpan = document.createElement('span')
+      if (entry.round) {
+        const roundSpan = document.createElement('span')
 
-      roundSpan.className = 'round-badge'
-      roundSpan.textContent = roundName
-      metadata.appendChild(roundSpan)
+        roundSpan.className = 'round-badge'
+        roundSpan.textContent = entry.round
+        metadata.appendChild(roundSpan)
+      }
+
+      if (entry.consolation) {
+        const consolationSpan = document.createElement('span')
+
+        consolationSpan.className = 'consolation-badge'
+        consolationSpan.textContent = 'Consuelo'
+        metadata.appendChild(consolationSpan)
+      }
 
       ghost.appendChild(metadata)
     }
@@ -593,9 +804,9 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
 
     body.className = 'planner-match-body'
 
-    for (const [homeSide, ids] of [
-      [true, match.homeCompetitorIds],
-      [false, match.awayCompetitorIds]
+    for (const [homeSide, name] of [
+      [true, entry.home],
+      [false, entry.away]
     ] as const) {
       const side = document.createElement('div')
 
@@ -606,11 +817,11 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       dot.className = `side-dot ${homeSide ? MatchSideNames[MatchSide.HOME] : MatchSideNames[MatchSide.AWAY]}`
       side.appendChild(dot)
 
-      const name = document.createElement('span')
+      const nameSpan = document.createElement('span')
 
-      name.className = 'side-name'
-      name.textContent = sideName(ids)
-      side.appendChild(name)
+      nameSpan.className = 'side-name'
+      nameSpan.textContent = name
+      side.appendChild(nameSpan)
 
       body.appendChild(side)
     }
@@ -620,7 +831,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     return { element: ghost, width, height }
   }
 
-  const handleDragStart = (match: MatchDto, variant: 'pool' | 'grid') => (event: DragEvent) => {
+  const handleDragStart = (entry: PlannerEntry, variant: 'pool' | 'grid') => (event: DragEvent) => {
     // Resolve the drop slot from the top of the drag ghost rather than the mouse
     // pointer, so grabbing a card anywhere and dropping in place keeps its slot.
     let grabOffsetY = event.clientY - event.currentTarget.getBoundingClientRect().top
@@ -630,7 +841,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     // identical in both cases (a freshly-created element wouldn't be painted yet
     // and the browser would flash its default image for the first frame).
     if (variant === 'pool') {
-      const ghost = prepareGridGhost(match)
+      const ghost = prepareGridGhost(entry)
 
       if (ghost) {
         // Grab the ghost from its center, so wherever the pool card is grabbed
@@ -643,14 +854,14 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       }
     }
 
-    dragRef.current = { matchId: match.id, grabOffsetY }
+    dragRef.current = { matchId: entry.id, grabOffsetY }
     event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', String(match.id))
+    event.dataTransfer.setData('text/plain', String(entry.id))
 
     // Hide the match from its origin while it's being moved, without unmounting it
     // so the browser still fires `dragend` for cleanup. Hiding must wait a tick:
     // doing it synchronously cancels the in-progress browser drag.
-    setTimeout(() => setDraggingId(match.id), 0)
+    setTimeout(() => setDraggingId(entry.id), 0)
   }
 
   const handleDragEnd = () => {
@@ -757,10 +968,10 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
 
   // Placements grouped by day + court for quick lookup when rendering.
   const placedByCell = useMemo(() => {
-    const map = new Map<string, { match: MatchDto; startMin: number }[]>()
+    const map = new Map<string, { entry: PlannerEntry; startMin: number }[]>()
 
-    for (const match of pendingMatches) {
-      const placement = placements[match.id]
+    for (const entry of allEntries) {
+      const placement = placements[entry.id]
 
       if (!placement) {
         continue
@@ -769,12 +980,12 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       const key = `${placement.dateIso}#${placement.court}`
       const list = map.get(key) ?? []
 
-      list.push({ match, startMin: placement.startMin })
+      list.push({ entry, startMin: placement.startMin })
       map.set(key, list)
     }
 
     return map
-  }, [pendingMatches, placements])
+  }, [allEntries, placements])
 
   if (loading) {
     return (
@@ -838,7 +1049,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
         const startMins = Array.from(
           new Set(
             courtColumns.flatMap((court) =>
-              (placedByCell.get(`${dateIso}#${court}`) ?? []).map((entry) => entry.startMin)
+              (placedByCell.get(`${dateIso}#${court}`) ?? []).map((item) => item.startMin)
             )
           )
         ).sort((a, b) => a - b)
@@ -846,12 +1057,13 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
           time: minToLabel(startMin),
           cells: courtColumns.map((court) =>
             (placedByCell.get(`${dateIso}#${court}`) ?? [])
-              .filter((entry) => entry.startMin === startMin)
-              .map(({ match }) => ({
-                category: categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única',
-                round: roundLabelByRoundId.get(match.roundId) ?? '—',
-                home: sideName(match.homeCompetitorIds),
-                away: sideName(match.awayCompetitorIds)
+              .filter((item) => item.startMin === startMin)
+              .map(({ entry }) => ({
+                category: entry.category,
+                round: entry.round ?? '—',
+                home: entry.home,
+                away: entry.away,
+                consolation: entry.consolation
               }))
           )
         }))
@@ -863,47 +1075,57 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     void downloadPlannerPdf(tournament.name, courtLabels, plannerDays, logoSrc)
   }
 
-  const renderMatchChip = (match: MatchDto, variant: 'pool' | 'grid') => {
-    const categoryName = categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única'
-    const roundName = roundLabelByRoundId.get(match.roundId)
-
+  const renderMatchChip = (entry: PlannerEntry, variant: 'pool' | 'grid') => {
     return (
       <div
-        key={match.id}
-        className={`planner-match ${variant} ${match.id === draggingId ? 'dragging' : ''}`}
+        key={entry.id}
+        className={`planner-match ${variant} ${entry.custom ? 'custom' : ''} ${entry.id === draggingId ? 'dragging' : ''}`}
         draggable
-        onDragStart={handleDragStart(match, variant)}
+        onDragStart={handleDragStart(entry, variant)}
         onDragEnd={handleDragEnd}
         style={variant === 'grid' ? { height: (duration / SLOT_MIN) * ROW_HEIGHT - 4 } : undefined}
       >
         <div className="planner-match-header">
           <div className="planner-match-title">
-            <span className="category">{categoryName}</span>
+            <span className="category">{entry.category}</span>
+            {entry.custom && <span className="custom-badge">Personalizado</span>}
           </div>
-          {variant === 'grid' && (
+          {variant === 'grid' ? (
             <IconButton
               size="small"
               className="planner-match-remove"
-              onClick={() => removePlacement(match.id)}
+              onClick={() => removePlacement(entry.id)}
               aria-label="Quitar de la planificación"
             >
               <CloseIcon fontSize="inherit" />
             </IconButton>
+          ) : (
+            entry.custom && (
+              <IconButton
+                size="small"
+                className="planner-match-remove"
+                onClick={() => deleteCustomMatch(entry.id)}
+                aria-label="Eliminar partido personalizado"
+              >
+                <DeleteOutlineIcon fontSize="inherit" />
+              </IconButton>
+            )
           )}
         </div>
-        {roundName && (
+        {(entry.round || entry.consolation) && (
           <div className="planner-match-metadata">
-            <span className="round-badge">{roundName}</span>
+            {entry.round && <span className="round-badge">{entry.round}</span>}
+            {entry.consolation && <span className="consolation-badge">C</span>}
           </div>
         )}
         <div className="planner-match-body">
           <div className="side">
             <span className={`side-dot ${MatchSideNames[MatchSide.HOME]}`} />
-            <span className="side-name">{sideName(match.homeCompetitorIds)}</span>
+            <span className="side-name">{entry.home}</span>
           </div>
           <div className="side">
             <span className={`side-dot ${MatchSideNames[MatchSide.AWAY]}`} />
-            <span className="side-name">{sideName(match.awayCompetitorIds)}</span>
+            <span className="side-name">{entry.away}</span>
           </div>
         </div>
       </div>
@@ -1005,17 +1227,33 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
 
           {/* --- Pending matches section ----------------------------------- */}
           <Paper className="planner-section pool-section">
-            <Typography variant="subtitle1" className="section-title">
-              Partidos pendientes ({unplannedMatches.length})
-            </Typography>
-            {pendingMatches.length === 0 ? (
-              <Alert severity="info">No hay partidos pendientes para planificar.</Alert>
-            ) : unplannedMatches.length === 0 ? (
+            <div className="pool-header">
+              <Typography variant="subtitle1" className="section-title">
+                Partidos pendientes ({unplannedEntries.length})
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                className="pool-add-button"
+                startIcon={<AddIcon fontSize="small" />}
+                onClick={() => {
+                  setCustomForm({ home: '', away: '', category: '', round: '', consolation: false })
+                  setCustomDialogOpen(true)
+                }}
+              >
+                Personalizado
+              </Button>
+            </div>
+            {allEntries.length === 0 ? (
+              <Alert severity="info">
+                No hay partidos para planificar. Creá uno personalizado o activá rondas del torneo.
+              </Alert>
+            ) : unplannedEntries.length === 0 ? (
               <Typography variant="body2" color="text.secondary" className="pool-empty">
                 Todos los partidos están planificados. Arrastrá un partido acá para quitarlo de la planificación.
               </Typography>
             ) : (
-              <div className="pool-list">{unplannedMatches.map((match) => renderMatchChip(match, 'pool'))}</div>
+              <div className="pool-list">{unplannedEntries.map((entry) => renderMatchChip(entry, 'pool'))}</div>
             )}
           </Paper>
 
@@ -1084,13 +1322,13 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
                                 }}
                               />
                             )}
-                            {placed.map(({ match, startMin }) => (
+                            {placed.map(({ entry, startMin }) => (
                               <div
-                                key={match.id}
-                                className={`placed-slot ${match.id === draggingId ? 'dragging' : ''}`}
+                                key={entry.id}
+                                className={`placed-slot ${entry.id === draggingId ? 'dragging' : ''}`}
                                 style={{ top: ((startMin - DAY_START_MIN) / SLOT_MIN) * ROW_HEIGHT }}
                               >
-                                {renderMatchChip(match, 'grid')}
+                                {renderMatchChip(entry, 'grid')}
                               </div>
                             ))}
                           </div>
@@ -1104,6 +1342,79 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
           </Paper>
         </div>
       </div>
+
+      <Dialog open={customDialogOpen} onClose={() => setCustomDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Nuevo partido personalizado</DialogTitle>
+        <DialogContent className="custom-match-dialog">
+          <Typography variant="body2" color="text.secondary" className="custom-match-hint">
+            Cargá un partido con texto libre para planificar cruces que todavía no están definidos.
+          </Typography>
+          <div className="custom-match-row">
+            <TextField
+              className="custom-match-field"
+              size="small"
+              label="Categoría (opcional)"
+              placeholder="Primera Damas"
+              value={customForm.category}
+              onChange={(event) => setCustomForm((prev) => ({ ...prev, category: event.target.value }))}
+              fullWidth
+            />
+            <TextField
+              className="custom-match-field"
+              size="small"
+              label="Ronda (opcional)"
+              placeholder="Final"
+              value={customForm.round}
+              onChange={(event) => setCustomForm((prev) => ({ ...prev, round: event.target.value }))}
+              fullWidth
+            />
+          </div>
+          <TextField
+            className="custom-match-field"
+            size="small"
+            label="Competidor 1"
+            placeholder="Ganador Ramirez / Suarez"
+            value={customForm.home}
+            onChange={(event) => setCustomForm((prev) => ({ ...prev, home: event.target.value }))}
+            autoFocus
+            fullWidth
+          />
+          <TextField
+            className="custom-match-field"
+            size="small"
+            label="Competidor 2"
+            placeholder="Ganador Pérez / González"
+            value={customForm.away}
+            onChange={(event) => setCustomForm((prev) => ({ ...prev, away: event.target.value }))}
+            fullWidth
+          />
+          {consolationRoundIds.size > 0 && (
+            <FormControlLabel
+              className="custom-match-switch"
+              control={
+                <Switch
+                  checked={customForm.consolation}
+                  onChange={(event) => setCustomForm((prev) => ({ ...prev, consolation: event.target.checked }))}
+                />
+              }
+              label="Partido del cuadro consuelo"
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCustomDialogOpen(false)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            disabled={customForm.home.trim() === '' || customForm.away.trim() === ''}
+            onClick={() => {
+              addCustomMatch(customForm)
+              setCustomDialogOpen(false)
+            }}
+          >
+            Agregar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </LocalizationProvider>
   )
 }

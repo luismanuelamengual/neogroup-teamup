@@ -461,6 +461,8 @@ export interface PlannerPdfMatch {
   round: string
   home: string
   away: string
+  /** True when the match belongs to the consolation knockout bracket. */
+  consolation?: boolean
 }
 
 export interface PlannerPdfSlot {
@@ -484,12 +486,16 @@ const PLAYER_SIZE = 8.5
 const VS_SIZE = 7
 const HEADER_LINE = 9.5
 const PLAYER_LINE = 10.5
+/** Height reserved in the strip for the "CONSUELO" chip. */
+const CONSOLATION_CHIP_LINE = 12
+const CONSOLATION_CHIP_SIZE = 6.5
 
 interface CellLayout {
   categoryLines: string[]
   roundLines: string[]
   homeLines: string[]
   awayLines: string[]
+  consolation: boolean
   stripHeight: number
   height: number
 }
@@ -500,10 +506,16 @@ function layoutCell(match: PlannerPdfMatch, innerWidth: number): CellLayout {
     match.round && match.round !== '—' ? wrapText(match.round, HEADER_ROUND_SIZE, false, innerWidth, 1) : []
   const homeLines = wrapText(match.home, PLAYER_SIZE, true, innerWidth, 2)
   const awayLines = wrapText(match.away, PLAYER_SIZE, true, innerWidth, 2)
-  const stripHeight = 7 + categoryLines.length * HEADER_LINE + roundLines.length * HEADER_LINE + 5
+  const consolation = match.consolation === true
+  const stripHeight =
+    7 +
+    categoryLines.length * HEADER_LINE +
+    roundLines.length * HEADER_LINE +
+    (consolation ? CONSOLATION_CHIP_LINE : 0) +
+    5
   const bodyHeight = 8 + homeLines.length * PLAYER_LINE + (VS_SIZE + 4) + awayLines.length * PLAYER_LINE + 8
 
-  return { categoryLines, roundLines, homeLines, awayLines, stripHeight, height: stripHeight + bodyHeight }
+  return { categoryLines, roundLines, homeLines, awayLines, consolation, stripHeight, height: stripHeight + bodyHeight }
 }
 
 /* --------------------------------------------------------------------------
@@ -598,7 +610,11 @@ class PlannerDocument {
     const p = this.painter
     const top = this.cursorTop
 
-    p.rect(MARGIN, top, TIME_COL_WIDTH, COLUMN_HEADER_HEIGHT, { fill: COLORS.tealDeep })
+    p.rect(MARGIN, top, TIME_COL_WIDTH, COLUMN_HEADER_HEIGHT, {
+      fill: COLORS.tealDeep,
+      stroke: COLORS.tealDeep,
+      lineWidth: 0.5
+    })
     p.text(MARGIN + TIME_COL_WIDTH / 2, top + COLUMN_HEADER_HEIGHT / 2 - 5, 'HORA', {
       size: 8.5,
       bold: true,
@@ -683,6 +699,23 @@ class PlannerDocument {
         p.text(centerX, lineTop, line, { size: HEADER_ROUND_SIZE, color: COLORS.amberSoft, align: 'center' })
         lineTop += HEADER_LINE
       })
+
+      if (layout.consolation) {
+        // Solid amber "CONSUELO" chip, centred within the strip.
+        const label = 'CONSUELO'
+        const chipTextWidth = measureText(label, CONSOLATION_CHIP_SIZE, true)
+        const chipWidth = chipTextWidth + 10
+        const chipHeight = 10
+
+        p.rect(centerX - chipWidth / 2, lineTop, chipWidth, chipHeight, { fill: COLORS.amber, radius: 2 })
+        p.text(centerX, lineTop + 2, label, {
+          size: CONSOLATION_CHIP_SIZE,
+          bold: true,
+          color: COLORS.white,
+          align: 'center'
+        })
+        lineTop += CONSOLATION_CHIP_LINE
+      }
 
       // Player block.
       let bodyTop = top + layout.stripHeight + 8
