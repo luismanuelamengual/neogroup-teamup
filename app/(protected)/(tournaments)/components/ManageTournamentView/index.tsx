@@ -8,6 +8,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import PaidIcon from '@mui/icons-material/Paid'
 import PlaceIcon from '@mui/icons-material/Place'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import SettingsIcon from '@mui/icons-material/Settings'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
@@ -242,6 +243,16 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         )}
         <div className="footer">
           <div className="info-area">
+            {tournament.status === TournamentStatus.STAND_BY && (
+              <Button
+                variant="outlined"
+                startIcon={<SettingsIcon />}
+                component={Link}
+                href={`/tournaments/${tournament.id}/admin`}
+              >
+                Administrar
+              </Button>
+            )}
             {tournament.status === TournamentStatus.STAND_BY && (
               <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
                 Compartir

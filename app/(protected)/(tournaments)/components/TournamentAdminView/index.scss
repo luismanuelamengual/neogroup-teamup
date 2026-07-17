@@ -1,0 +1,121 @@
+.tournament-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .admin-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .admin-header-titles {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-title {
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .section-title {
+    font-weight: 700 !important;
+  }
+
+  .category-rows,
+  .competitor-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .category-row,
+  .competitor-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .category-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .category-name,
+  .competitor-name {
+    font-weight: 600;
+  }
+
+  .competitor-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .competitor-category-chip {
+    .MuiChip-deleteIcon {
+      margin-left: -4px;
+    }
+  }
+
+  .add-category {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .add-category-name {
+    flex: 1 1 240px;
+    min-width: 200px;
+  }
+
+  .add-category-max {
+    width: 100px;
+  }
+
+  .register-actions {
+    display: flex;
+  }
+}
+
+.register-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px !important;
+}
+
+.admin-user-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .name {
+    font-weight: 600;
+  }
+
+  .email {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+  }
+}
+
+@media (max-width: 600px) {
+  .tournament-admin {
+    .section {
+      padding: 14px;
+    }
+  }
+}
