@@ -28,7 +28,7 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { isKnockoutType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useNotifications } from '@/app/hooks/useNotifications'
-import { downloadPlannerPdf } from './exportPdf'
+import { downloadPlannerPdf, PlannerPdfDay, PlannerPdfSlot } from './exportPdf'
 
 /** First selectable start time: 8:00 (in minutes from midnight). */
 const DAY_START_MIN = 8 * 60
@@ -289,9 +289,11 @@ const SLOTS: number[] = (() => {
 
 interface TournamentPlannerViewProps {
   tournamentId: number
+  /** Organization-resolved logo URL for the exported PDF header (see resolveOrganizationImage). */
+  logoSrc?: string
 }
 
-export default function TournamentPlannerView({ tournamentId }: TournamentPlannerViewProps) {
+export default function TournamentPlannerView({ tournamentId, logoSrc }: TournamentPlannerViewProps) {
   const { getTournament } = useTournaments()
   const { showWarningMessage } = useNotifications()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
@@ -827,30 +829,38 @@ export default function TournamentPlannerView({ tournamentId }: TournamentPlanne
       return
     }
 
-    const plannerDays = days
+    const courtLabels = courtColumns.map((court) => courtLabel(court))
+    // Build a court×time grid per day: rows are the distinct start times used that
+    // day, columns are the courts, and each cell holds the match placed there.
+    const plannerDays: PlannerPdfDay[] = days
       .map((day) => {
         const dateIso = day.format('YYYY-MM-DD')
-        const rows = courtColumns
-          .flatMap((court) => (placedByCell.get(`${dateIso}#${court}`) ?? []).map((entry) => ({ court, ...entry })))
-          .sort((a, b) => a.startMin - b.startMin || a.court - b.court)
-          .map(({ court, startMin, match }) => {
-            const categoryName = categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única'
-            const roundName = roundLabelByRoundId.get(match.roundId) ?? '—'
+        const startMins = Array.from(
+          new Set(
+            courtColumns.flatMap((court) =>
+              (placedByCell.get(`${dateIso}#${court}`) ?? []).map((entry) => entry.startMin)
+            )
+          )
+        ).sort((a, b) => a - b)
+        const slots: PlannerPdfSlot[] = startMins.map((startMin) => ({
+          time: minToLabel(startMin),
+          cells: courtColumns.map((court) =>
+            (placedByCell.get(`${dateIso}#${court}`) ?? [])
+              .filter((entry) => entry.startMin === startMin)
+              .map(({ match }) => ({
+                category: categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única',
+                round: roundLabelByRoundId.get(match.roundId) ?? '—',
+                home: sideName(match.homeCompetitorIds),
+                away: sideName(match.awayCompetitorIds)
+              }))
+          )
+        }))
 
-            return [
-              minToLabel(startMin),
-              courtLabel(court),
-              categoryName,
-              roundName,
-              `${sideName(match.homeCompetitorIds)} vs ${sideName(match.awayCompetitorIds)}`
-            ]
-          })
-
-        return { heading: day.locale('es').format('dddd D [de] MMMM'), rows }
+        return { heading: day.locale('es').format('dddd D [de] MMMM'), slots }
       })
-      .filter((day) => day.rows.length > 0)
+      .filter((day) => day.slots.length > 0)
 
-    downloadPlannerPdf(tournament.name, plannerDays)
+    void downloadPlannerPdf(tournament.name, courtLabels, plannerDays, logoSrc)
   }
 
   const renderMatchChip = (match: MatchDto, variant: 'pool' | 'grid') => {
