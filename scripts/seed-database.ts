@@ -1247,13 +1247,17 @@ async function run(): Promise<void> {
   console.log('Seeding demo database...\n')
 
   // Resolve the "demo" organization (inserted by the migration).
-  const demoOrg = await Organization.where('domainName', 'demo').first()
+  let stagingOrg = await Organization.where('domainName', 'staging').first()
 
-  if (!demoOrg) {
-    throw new Error('Organization "demo" not found. Run "yarn run db:reset" to re-apply migrations.')
+  if (!stagingOrg) {
+    stagingOrg = new Organization()
+    stagingOrg.name = 'Staging'
+    stagingOrg.domainName = 'staging'
+    stagingOrg.allowedRegistrationRoles = []
+    stagingOrg.save()
   }
 
-  const organizationId = demoOrg.id
+  const organizationId = stagingOrg.id
 
   await clearDemoOrganizationData(organizationId)
 
