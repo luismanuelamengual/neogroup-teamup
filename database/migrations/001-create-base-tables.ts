@@ -41,17 +41,6 @@ export default {
         table.timestamp('createdAt').useCurrent()
       })
 
-      // Seed the three initial organizations.
-      // demo: no self-registration allowed (empty roles array).
-      // club-aleman: players and organizers can self-register.
-      // punto-deporte: players only (organizers must be created manually).
-      // Role values: ORGANIZER=1, PLAYER=2
-      await DB.table('organizations').insert([
-        { name: 'Demo', domainName: 'demo', allowedRegistrationRoles: [] },
-        { name: 'Club Alemán', domainName: 'club-aleman', allowedRegistrationRoles: [1, 2] },
-        { name: 'Punto Deporte', domainName: 'punto-deporte', allowedRegistrationRoles: [2] }
-      ])
-
       await Schema.createIfNotExists('users', (table) => {
         table.increments('id')
         table.integer('organizationId')
