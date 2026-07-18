@@ -39,6 +39,12 @@ export function getPreclassificationCount(count: number): number {
  * Only competitors with at least one ranking point are seeded (up to the cap
  * returned by `getPreclassificationCount`); the rest receive null.
  * The competitor with the most points becomes seed #1, etc.
+ *
+ * Seeding is computed independently per `tournamentCategoryId`: each category
+ * gets its own seed #1, #2, ... based only on the competitors registered in
+ * that category, so a tournament with multiple categories never mixes seeds
+ * across them (a competitor's seed must never depend on how strong the other
+ * category is).
  */
 export async function autoAssignPreclassification(competitors: Competitor[], organizationId: number): Promise<void> {
   if (!competitors.length) {
@@ -55,33 +61,50 @@ export async function autoAssignPreclassification(competitors: Competitor[], org
     pointsByUser.set(row.userId, (pointsByUser.get(row.userId) ?? 0) + row.points)
   }
 
-  const scored = competitors.map((c) => {
-    const userPoints = pointsByUser.get(c.userId ?? -1) ?? 0
-    const partnerPoints = c.partnerUserId != null ? (pointsByUser.get(c.partnerUserId) ?? 0) : 0
+  // Group by category first: seeds must be computed independently within each
+  // tournament category, not across the whole tournament.
+  const competitorsByCategory = new Map<number, Competitor[]>()
 
-    return { competitor: c, points: userPoints + partnerPoints }
-  })
+  for (const c of competitors) {
+    const group = competitorsByCategory.get(c.tournamentCategoryId)
 
-  // Sort descending by points; ties resolved by competitor id (stable).
-  scored.sort((a, b) => b.points - a.points || a.competitor.id - b.competitor.id)
+    if (group) {
+      group.push(c)
+    } else {
+      competitorsByCategory.set(c.tournamentCategoryId, [c])
+    }
+  }
 
-  const maxSeeds = getPreclassificationCount(competitors.length)
-  let nextSeed = 1
   const updates: Record<string, unknown>[] = []
 
-  for (const { competitor, points } of scored) {
-    // Only seed competitors that have ranking points, up to the allowed cap.
-    competitor.seedNumber = points > 0 && nextSeed <= maxSeeds ? nextSeed++ : null
-    // Full row (not just id + seedNumber) so the INSERT branch of the upsert is
-    // valid against NOT NULL columns; on conflict only seedNumber is updated.
-    updates.push({
-      id: competitor.id,
-      tournamentCategoryId: competitor.tournamentCategoryId,
-      userId: competitor.userId,
-      partnerUserId: competitor.partnerUserId,
-      seedNumber: competitor.seedNumber,
-      createdAt: competitor.createdAt
+  for (const categoryCompetitors of competitorsByCategory.values()) {
+    const scored = categoryCompetitors.map((c) => {
+      const userPoints = pointsByUser.get(c.userId ?? -1) ?? 0
+      const partnerPoints = c.partnerUserId != null ? (pointsByUser.get(c.partnerUserId) ?? 0) : 0
+
+      return { competitor: c, points: userPoints + partnerPoints }
     })
+
+    // Sort descending by points; ties resolved by competitor id (stable).
+    scored.sort((a, b) => b.points - a.points || a.competitor.id - b.competitor.id)
+
+    const maxSeeds = getPreclassificationCount(categoryCompetitors.length)
+    let nextSeed = 1
+
+    for (const { competitor, points } of scored) {
+      // Only seed competitors that have ranking points, up to the allowed cap.
+      competitor.seedNumber = points > 0 && nextSeed <= maxSeeds ? nextSeed++ : null
+      // Full row (not just id + seedNumber) so the INSERT branch of the upsert is
+      // valid against NOT NULL columns; on conflict only seedNumber is updated.
+      updates.push({
+        id: competitor.id,
+        tournamentCategoryId: competitor.tournamentCategoryId,
+        userId: competitor.userId,
+        partnerUserId: competitor.partnerUserId,
+        seedNumber: competitor.seedNumber,
+        createdAt: competitor.createdAt
+      })
+    }
   }
 
   // Persist every seed assignment in a single batch upsert keyed on the primary

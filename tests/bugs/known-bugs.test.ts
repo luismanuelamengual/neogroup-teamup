@@ -6,6 +6,7 @@
  * tests/FINDINGS.md for the full write-up of each one.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
+import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
@@ -182,5 +183,56 @@ describe('REGRESSION #4 — single-group groups+playoff must not replay the same
     // Loading the last match no longer finishes the tournament; the cron does.
     await finalizeIfComplete(built.tournament.id)
     expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
+  })
+})
+
+describe('REGRESSION #5 — preclassification seeds must not mix across categories', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+  })
+
+  it('assigns an independent seed #1..#N per category instead of a single global ranking', async () => {
+    const built = await buildTournament({
+      type: TournamentType.PLAYOFF,
+      scoreFormat: ScoreFormat.BASIC_COUNT,
+      categories: [4, 4]
+    })
+    const [categoryAIds, categoryBIds] = [built.competitorIds.slice(0, 4), built.competitorIds.slice(4, 8)]
+
+    // Give every competitor ranking points so all of them are seed-eligible, but
+    // reverse the point order relative to creation order within each category so
+    // sorting by points actually reshuffles them (this would catch an
+    // implementation that "accidentally" keeps categories separate via id order).
+    for (const ids of [categoryAIds, categoryBIds]) {
+      for (const [index, competitorId] of ids.entries()) {
+        const competitor = await Competitor.withoutGlobalScopes().where('id', competitorId).first()
+
+        if (!competitor) {
+          throw new Error('competitor not found')
+        }
+
+        const ranking = new Ranking()
+
+        Object.assign(ranking, {
+          organizationId: built.tournament.organizationId,
+          categoryId: null,
+          userId: competitor.userId,
+          points: (ids.length - index) * 10,
+          expirationDate: new Date('2099-01-01'),
+          createdAt: new Date()
+        })
+        await ranking.save()
+      }
+    }
+
+    await start(built)
+
+    for (const categoryIds of [categoryAIds, categoryBIds]) {
+      const competitors = await Competitor.withoutGlobalScopes().whereIn('id', categoryIds).get()
+      const seeds = competitors.map((c) => c.seedNumber).sort((a, b) => (a ?? 99) - (b ?? 99))
+
+      // 4 competitors -> getPreclassificationCount(4) = 2 seeds, per category.
+      expect(seeds).toEqual([1, 2, null, null])
+    }
   })
 })
