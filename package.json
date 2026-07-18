@@ -12,6 +12,7 @@
     "db:migrate": "tsx scripts/migrate-database.ts",
     "db:reset": "tsx scripts/reset-database.ts",
     "db:seed": "tsx scripts/seed-database.ts",
+    "db:delete-org": "tsx scripts/delete-organization.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:flows": "vitest run tests/flows",
