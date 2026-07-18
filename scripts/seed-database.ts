@@ -1246,7 +1246,7 @@ async function run(): Promise<void> {
 
   console.log('Seeding demo database...\n')
 
-  // Resolve the "demo" organization (inserted by the migration).
+  // Resolve (or create on demand) the "staging" organization this script seeds into.
   let stagingOrg = await Organization.where('domainName', 'staging').first()
 
   if (!stagingOrg) {
@@ -1254,7 +1254,7 @@ async function run(): Promise<void> {
     stagingOrg.name = 'Staging'
     stagingOrg.domainName = 'staging'
     stagingOrg.allowedRegistrationRoles = []
-    stagingOrg.save()
+    await stagingOrg.save()
   }
 
   const organizationId = stagingOrg.id
