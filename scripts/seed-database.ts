@@ -86,6 +86,7 @@ import {
   supportsPreclassification
 } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getScoreWinner, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { assertNotProduction } from './utils/production-guard'
 
 // ---------------------------------------------------------------------------
 // Random helpers
@@ -1241,6 +1242,8 @@ async function clearDemoOrganizationData(organizationId: number): Promise<void> 
 // ---------------------------------------------------------------------------
 
 async function run(): Promise<void> {
+  await assertNotProduction('db:seed')
+
   console.log('Seeding demo database...\n')
 
   // Resolve the "demo" organization (inserted by the migration).
