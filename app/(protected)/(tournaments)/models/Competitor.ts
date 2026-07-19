@@ -1,4 +1,4 @@
-import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity, Serializable } from '@neogroup/neorm'
+import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity, HasManyInArray, Serializable } from '@neogroup/neorm'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { User } from '@/app/models/User'
@@ -12,11 +12,12 @@ export class Competitor extends BaseEntity {
   @Column({ cast: 'number' })
   tournamentCategoryId!: number
 
-  @Column()
-  userId!: number | null
-
-  @Column()
-  partnerUserId!: number | null
+  /**
+   * Users that make up this competitor, in roster order: 1 for singles, 2 for
+   * pairs, N for team disciplines. The first id is the main player.
+   */
+  @Column({ cast: 'array' })
+  playerIds!: number[]
 
   @Column({ cast: 'number' })
   seedNumber!: number | null
@@ -30,33 +31,23 @@ export class Competitor extends BaseEntity {
   @BelongsToThrough(() => Tournament, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   tournament?: Tournament
 
-  @BelongsTo(() => User, 'userId')
-  user?: User
-
-  @BelongsTo(() => User, 'partnerUserId')
-  partnerUser?: User
+  /** The player users, resolved from `playerIds` (preserving roster order). */
+  @HasManyInArray(() => User, 'playerIds')
+  players?: User[]
 
   @Serializable()
   get displayName(): string {
-    const userName = this.user ? getUserDisplayName(this.user) : null
-    const partnerName = this.partnerUser ? getUserDisplayName(this.partnerUser) : null
-
-    if (userName && partnerName) {
-      return `${userName} / ${partnerName}`
-    }
-
-    return userName ?? ''
+    return (this.players ?? [])
+      .map((player) => getUserDisplayName(player))
+      .filter(Boolean)
+      .join(' / ')
   }
 
   @Serializable()
   get shortName(): string {
-    const userShortName = this.user ? getUserShortName(this.user) : null
-    const partnerShortName = this.partnerUser ? getUserShortName(this.partnerUser) : null
-
-    if (userShortName && partnerShortName) {
-      return `${userShortName} / ${partnerShortName}`
-    }
-
-    return userShortName ?? ''
+    return (this.players ?? [])
+      .map((player) => getUserShortName(player))
+      .filter(Boolean)
+      .join(' / ')
   }
 }

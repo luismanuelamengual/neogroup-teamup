@@ -54,7 +54,7 @@ export async function awardRankingPoints(tournamentId: number): Promise<void> {
         continue
       }
 
-      const userIds = [competitor.userId, competitor.partnerUserId].filter((id): id is number => id != null)
+      const userIds = competitor.playerIds
 
       for (const userId of userIds) {
         awards.push({

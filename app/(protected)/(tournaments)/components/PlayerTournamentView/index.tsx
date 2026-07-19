@@ -67,7 +67,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const rounds = useMemo(() => tournament?.rounds ?? [], [tournament])
   const matches = useMemo(() => tournament?.matches ?? [], [tournament])
   const userEntry = useMemo(
-    () => competitors.find((c) => c.userId === userId || c.partnerUserId === userId) ?? null,
+    () => competitors.find((c) => userId != null && c.playerIds.includes(userId)) ?? null,
     [competitors, userId]
   )
   const openCurrentRoundIds = useMemo(

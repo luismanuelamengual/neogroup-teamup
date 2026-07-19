@@ -5,8 +5,8 @@ export interface TournamentPaymentDto {
   id: number
   tournamentId: number
   tournamentCategoryId: number
-  userId: number
-  partnerUserId: number | null
+  /** Roster of players this payment registers (payer is playerIds[0]). */
+  playerIds: number[]
   status: PaymentStatus
   amount: number
   currency: string

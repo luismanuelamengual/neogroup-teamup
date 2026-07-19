@@ -32,6 +32,7 @@ import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/
 import { Organization } from '@/app/models/Organization'
 import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'
+import migration002 from '@/database/migrations/002-competitors-player-ids'
 
 const TABLES = [
   'tournament_payments',
@@ -93,6 +94,9 @@ export async function resetDatabase(): Promise<void> {
   }
 
   await migration.up()
+  // Apply the incremental migrations too, so the harness schema matches
+  // production (competitors/tournament_payments use playerIds, not userId).
+  await migration002.up()
 
   const organization = new Organization()
 
@@ -217,8 +221,7 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
 
       Object.assign(competitor, {
         tournamentCategoryId: category.id,
-        userId,
-        partnerUserId: null,
+        playerIds: [userId],
         seedNumber: seed,
         createdAt: new Date()
       })

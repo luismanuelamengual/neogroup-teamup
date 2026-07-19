@@ -79,10 +79,10 @@ export async function autoAssignPreclassification(competitors: Competitor[], org
 
   for (const categoryCompetitors of competitorsByCategory.values()) {
     const scored = categoryCompetitors.map((c) => {
-      const userPoints = pointsByUser.get(c.userId ?? -1) ?? 0
-      const partnerPoints = c.partnerUserId != null ? (pointsByUser.get(c.partnerUserId) ?? 0) : 0
+      // Sum the ranking points of every player that makes up the competitor.
+      const points = c.playerIds.reduce((sum, id) => sum + (pointsByUser.get(id) ?? 0), 0)
 
-      return { competitor: c, points: userPoints + partnerPoints }
+      return { competitor: c, points }
     })
 
     // Sort descending by points; ties resolved by competitor id (stable).
@@ -99,8 +99,7 @@ export async function autoAssignPreclassification(competitors: Competitor[], org
       updates.push({
         id: competitor.id,
         tournamentCategoryId: competitor.tournamentCategoryId,
-        userId: competitor.userId,
-        partnerUserId: competitor.partnerUserId,
+        playerIds: competitor.playerIds,
         seedNumber: competitor.seedNumber,
         createdAt: competitor.createdAt
       })

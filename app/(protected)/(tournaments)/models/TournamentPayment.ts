@@ -3,7 +3,6 @@ import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { PaymentStatus } from '@/app/(protected)/(tournaments)/models/PaymentStatus'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
-import { User } from '@/app/models/User'
 
 /**
  * Registration payment for a paid tournament. Created (status PENDING) when a
@@ -28,11 +27,9 @@ export class TournamentPayment extends BaseEntity {
   @Column({ cast: 'number' })
   tournamentCategoryId!: number
 
-  @Column({ cast: 'number' })
-  userId!: number
-
-  @Column()
-  partnerUserId!: number | null
+  /** Roster of players this payment registers (payer is playerIds[0]). */
+  @Column({ cast: 'array' })
+  playerIds!: number[]
 
   @Column({ cast: 'number' })
   status!: PaymentStatus
@@ -86,9 +83,6 @@ export class TournamentPayment extends BaseEntity {
 
   @BelongsTo(() => TournamentCategory, 'tournamentCategoryId')
   tournamentCategory?: TournamentCategory
-
-  @BelongsTo(() => User, 'userId')
-  user?: User
 
   @BelongsTo(() => Competitor, 'competitorId')
   competitor?: Competitor

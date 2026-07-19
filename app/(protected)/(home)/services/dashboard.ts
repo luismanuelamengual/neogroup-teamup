@@ -31,6 +31,31 @@ function toIntArray(value: unknown): number[] {
 /** Maximum age of a cached statistics row before it is considered stale (24h). */
 const STATS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Normalizes a raw `playerIds` value selected via the query builder (which skips
+ * entity casts) into a number[]. PostgreSQL returns a native JS array, SQLite a
+ * JSON-encoded string.
+ */
+function parseRawPlayerIds(value: unknown): number[] {
+  if (value == null) {
+    return []
+  }
+
+  const array = Array.isArray(value)
+    ? value
+    : (() => {
+        try {
+          const parsed = JSON.parse(String(value))
+
+          return Array.isArray(parsed) ? parsed : []
+        } catch {
+          return []
+        }
+      })()
+
+  return array.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+}
+
 /** Aggregates player stats from every tournament they take part in. */
 async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> {
   const session = await getSession()
@@ -38,11 +63,11 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
   // EXISTS subquery: is there a competitor for this player in the outer query's category?
   const playerInCategorySubquery = DB.selectQuery('competitors')
     .whereColumn('competitors.tournamentCategoryId', 'tournament_categories.id')
-    .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
+    .whereArrayContains('competitors.playerIds', userId)
   // EXISTS subquery variant scoped to the 'm' alias used in the matches query
   const playerInMatchCategorySubquery = DB.selectQuery('competitors')
     .whereColumn('competitors.tournamentCategoryId', 'm.tournamentCategoryId')
-    .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
+    .whereArrayContains('competitors.playerIds', userId)
   // IN subquery: distinct tournament_categories in FINISHED tournaments where player competed
   const finishedPlayerCategoryIds = DB.selectQuery('tournament_categories')
     .distinct()
@@ -51,7 +76,7 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
     .innerJoin('competitors', 'competitors.tournamentCategoryId', 'tournament_categories.id')
     .where('tournaments.organizationId', organizationId)
     .where('tournaments.status', TournamentStatus.FINISHED)
-    .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
+    .whereArrayContains('competitors.playerIds', userId)
   const [
     tournamentRow,
     competitorRows,
@@ -80,7 +105,7 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
       .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
       .select('c.id AS cid', 'c.tournamentCategoryId AS catid')
       .where('tournaments.organizationId', organizationId)
-      .where((g) => g.where('c.userId', userId).orWhere('c.partnerUserId', userId))
+      .whereArrayContains('c.playerIds', userId)
       .get(),
 
     // Q3: played matches in categories where player competes (for matchesPlayed / matchesWon)
@@ -115,7 +140,7 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
       )
       .where('t.organizationId', organizationId)
       .where('t.status', TournamentStatus.FINISHED)
-      .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
+      .whereArrayContains('competitors.playerIds', userId)
       .get(),
 
     // Q4b: rounds belonging to those finished categories
@@ -307,7 +332,7 @@ async function computeOrganizationStats(organizationId: number): Promise<Organiz
       .alias('c')
       .innerJoin('tournament_categories', 'tournament_categories.id', 'c.tournamentCategoryId')
       .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
-      .select('c.userId AS userid', 'c.partnerUserId AS partneruserid')
+      .select('c.playerIds AS playerids')
       .where('tournaments.organizationId', organizationId)
       .get(),
 
@@ -328,16 +353,14 @@ async function computeOrganizationStats(organizationId: number): Promise<Organiz
       .where('expirationDate', '>', new Date())
       .first()
   ])
-  // Derive competitorsTotal and distinctPlayers from the competitor rows
+  // Derive competitorsTotal and distinctPlayers from the competitor rows.
+  // `playerids` comes back raw (no entity cast): a JS array on PostgreSQL,
+  // a JSON-encoded string on SQLite — normalize both to a number[].
   const players = new Set<number>()
 
   for (const row of competitorRows) {
-    if (row.userid != null) {
-      players.add(Number(row.userid))
-    }
-
-    if (row.partneruserid != null) {
-      players.add(Number(row.partneruserid))
+    for (const id of parseRawPlayerIds(row.playerids)) {
+      players.add(id)
     }
   }
 
@@ -423,12 +446,12 @@ async function getLatestPlayerUpdateDate(userId: number, organizationId: number)
   // EXISTS subquery: is the player a competitor in the match's category?
   const playerInMatchCategorySubquery = DB.selectQuery('competitors')
     .whereColumn('competitors.tournamentCategoryId', 'm.tournamentCategoryId')
-    .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
+    .whereArrayContains('competitors.playerIds', userId)
   // EXISTS subquery: is the player a competitor in the tournament's category?
   const playerInTournamentCategorySubquery = DB.selectQuery('competitors')
     .innerJoin('tournament_categories', 'tournament_categories.id', 'competitors.tournamentCategoryId')
     .whereColumn('tournament_categories.tournamentId', 'tournaments.id')
-    .where((g) => g.where('competitors.userId', userId).orWhere('competitors.partnerUserId', userId))
+    .whereArrayContains('competitors.playerIds', userId)
   const [matchRow, tournamentRow] = await Promise.all([
     DB.table('matches')
       .alias('m')

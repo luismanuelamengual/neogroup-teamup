@@ -134,8 +134,7 @@ describe('payments — paid registration flow', () => {
     const payment = await createRegistrationPayment({
       tournament: built.tournament,
       organization,
-      userId: player,
-      partnerUserId: null,
+      playerIds: [player],
       targetCategory: category,
       origin: 'https://club.teamup.ar'
     })
@@ -161,8 +160,7 @@ describe('payments — paid registration flow', () => {
       createRegistrationPayment({
         tournament: built.tournament,
         organization,
-        userId: player,
-        partnerUserId: null,
+        playerIds: [player],
         targetCategory: category,
         origin: 'https://club.teamup.ar'
       })
@@ -181,8 +179,7 @@ describe('payments — paid registration flow', () => {
     const payment = await createRegistrationPayment({
       tournament: built.tournament,
       organization,
-      userId: player,
-      partnerUserId: null,
+      playerIds: [player],
       targetCategory: category,
       origin: 'https://club.teamup.ar'
     })
@@ -198,7 +195,7 @@ describe('payments — paid registration flow', () => {
     const competitors = await Competitor.where('tournamentCategoryId', category.id).get()
 
     expect(competitors).toHaveLength(1)
-    expect(competitors[0].userId).toBe(player)
+    expect(competitors[0].playerIds[0]).toBe(player)
   })
 
   it('is idempotent: a second webhook delivery does not duplicate the competitor', async () => {
@@ -213,8 +210,7 @@ describe('payments — paid registration flow', () => {
     const payment = await createRegistrationPayment({
       tournament: built.tournament,
       organization,
-      userId: player,
-      partnerUserId: null,
+      playerIds: [player],
       targetCategory: category,
       origin: 'https://club.teamup.ar'
     })
@@ -238,8 +234,7 @@ describe('payments — paid registration flow', () => {
     const payment = await createRegistrationPayment({
       tournament: built.tournament,
       organization,
-      userId: player,
-      partnerUserId: null,
+      playerIds: [player],
       targetCategory: category,
       origin: 'https://club.teamup.ar'
     })
