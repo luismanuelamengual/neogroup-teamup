@@ -86,6 +86,7 @@ import {
   supportsPreclassification
 } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getScoreWinner, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { assertNotProduction } from './utils/production-guard'
 
 // ---------------------------------------------------------------------------
 // Random helpers
@@ -1241,16 +1242,22 @@ async function clearDemoOrganizationData(organizationId: number): Promise<void> 
 // ---------------------------------------------------------------------------
 
 async function run(): Promise<void> {
+  await assertNotProduction('db:seed')
+
   console.log('Seeding demo database...\n')
 
-  // Resolve the "demo" organization (inserted by the migration).
-  const demoOrg = await Organization.where('domainName', 'demo').first()
+  // Resolve (or create on demand) the "staging" organization this script seeds into.
+  let stagingOrg = await Organization.where('domainName', 'staging').first()
 
-  if (!demoOrg) {
-    throw new Error('Organization "demo" not found. Run "yarn run db:reset" to re-apply migrations.')
+  if (!stagingOrg) {
+    stagingOrg = new Organization()
+    stagingOrg.name = 'Staging'
+    stagingOrg.domainName = 'staging'
+    stagingOrg.allowedRegistrationRoles = []
+    await stagingOrg.save()
   }
 
-  const organizationId = demoOrg.id
+  const organizationId = stagingOrg.id
 
   await clearDemoOrganizationData(organizationId)
 

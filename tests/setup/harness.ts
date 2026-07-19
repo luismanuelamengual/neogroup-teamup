@@ -29,6 +29,7 @@ import {
 } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { Organization } from '@/app/models/Organization'
 import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'
 
@@ -76,7 +77,14 @@ function assertDisposableSqliteDatabase(): void {
   }
 }
 
-/** Drops and recreates the whole schema. Call before every test for isolation. */
+/**
+ * Drops and recreates the whole schema, then seeds the single organization
+ * (id = 1) that every test relies on by default (buildTournament/createUser
+ * default to organizationId = 1). The base migration only creates the schema
+ * — it no longer seeds any organization data — so tests own their own
+ * fixture here, same as `yarn db:seed` owns its "staging" organization for a
+ * real database. Call before every test for isolation.
+ */
 export async function resetDatabase(): Promise<void> {
   assertDisposableSqliteDatabase()
 
@@ -85,6 +93,16 @@ export async function resetDatabase(): Promise<void> {
   }
 
   await migration.up()
+
+  const organization = new Organization()
+
+  Object.assign(organization, {
+    name: 'Test Org',
+    domainName: 'test',
+    allowedRegistrationRoles: [],
+    createdAt: new Date()
+  })
+  await organization.save()
 }
 
 let userSeq = 0

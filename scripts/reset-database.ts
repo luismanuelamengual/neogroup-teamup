@@ -19,6 +19,7 @@ config({ path: '.env' })
 import { DB } from '@neogroup/neorm'
 import { execSync } from 'child_process'
 import * as readline from 'readline'
+import { assertNotProduction } from './utils/production-guard'
 
 function confirm(question: string): Promise<boolean> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -74,6 +75,8 @@ async function dropAllTables(): Promise<void> {
 }
 
 async function run(): Promise<void> {
+  await assertNotProduction('db:reset')
+
   const ok = await confirm('⚠️  This will drop ALL tables and re-run migrations. Continue? (y/N) ')
 
   if (!ok) {
