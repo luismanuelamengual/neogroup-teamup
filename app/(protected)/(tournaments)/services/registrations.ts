@@ -9,7 +9,8 @@ import { User } from '@/app/models/User'
 
 export interface ResolvedRegistration {
   targetCategory: TournamentCategory
-  partnerUserId: number | null
+  /** Validated player roster for the competitor (index 0 is the main player). */
+  playerIds: number[]
 }
 
 /**
@@ -62,17 +63,15 @@ export async function resolveRegistration(
     throw new ApiException('No se aceptan más inscripciónes (cupo máximo)')
   }
 
-  const alreadyRegistered = competitors.some(
-    (competitor) => competitor.userId === userId || competitor.partnerUserId === userId
-  )
+  const alreadyRegistered = competitors.some((competitor) => competitor.playerIds.includes(userId))
 
   if (alreadyRegistered) {
     throw new ApiException('Usuario ya inscripto en el torneo')
   }
 
   if (input.partnerUserId) {
-    const partnerAlreadyRegistered = competitors.some(
-      (competitor) => competitor.userId === input.partnerUserId || competitor.partnerUserId === input.partnerUserId
+    const partnerAlreadyRegistered = competitors.some((competitor) =>
+      competitor.playerIds.includes(Number(input.partnerUserId))
     )
 
     if (partnerAlreadyRegistered) {
@@ -86,8 +85,8 @@ export async function resolveRegistration(
     throw new ApiException('Usuario no encontrado')
   }
 
+  const playerIds: number[] = [user.id]
   const needsPartner = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
-  let partnerUserId: number | null = null
 
   if (needsPartner) {
     if (!input.partnerUserId) {
@@ -100,23 +99,18 @@ export async function resolveRegistration(
       throw new ApiException('Usuario compañero no encontrado')
     }
 
-    partnerUserId = partner.id
+    playerIds.push(partner.id)
   }
 
-  return { targetCategory, partnerUserId }
+  return { targetCategory, playerIds }
 }
 
 /** Creates and persists a competitor for a resolved registration. */
-export async function createCompetitor(
-  tournamentCategoryId: number,
-  userId: number,
-  partnerUserId: number | null
-): Promise<Competitor> {
+export async function createCompetitor(tournamentCategoryId: number, playerIds: number[]): Promise<Competitor> {
   const competitor = new Competitor()
 
   competitor.tournamentCategoryId = tournamentCategoryId
-  competitor.userId = userId
-  competitor.partnerUserId = partnerUserId
+  competitor.playerIds = playerIds
   competitor.createdAt = new Date()
   await competitor.save()
 

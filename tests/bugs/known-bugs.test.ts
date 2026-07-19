@@ -216,7 +216,7 @@ describe('REGRESSION #5 — preclassification seeds must not mix across categori
         Object.assign(ranking, {
           organizationId: built.tournament.organizationId,
           categoryId: null,
-          userId: competitor.userId,
+          userId: competitor.playerIds[0],
           points: (ids.length - index) * 10,
           expirationDate: new Date('2099-01-01'),
           createdAt: new Date()

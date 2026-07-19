@@ -374,13 +374,11 @@ async function registerCompetitors(
         const player = players[cursor++]
         const partner = players[cursor++]
 
-        competitor.userId = player.id
-        competitor.partnerUserId = partner.id
+        competitor.playerIds = [player.id, partner.id]
       } else {
         const player = players[cursor++]
 
-        competitor.userId = player.id
-        competitor.partnerUserId = null
+        competitor.playerIds = [player.id]
       }
 
       competitor.tournamentCategoryId = categoryId

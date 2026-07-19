@@ -15,7 +15,7 @@ export interface PaymentStatusResult {
 export const POST = withAuth(async (request, context, userId): Promise<PaymentStatusResult> => {
   const { tournamentId } = (await request.json()) as { tournamentId: number }
   const payment = await TournamentPayment.where('tournamentId', Number(tournamentId))
-    .where('userId', userId)
+    .whereArrayContains('playerIds', userId)
     .orderByDesc('id')
     .first()
 

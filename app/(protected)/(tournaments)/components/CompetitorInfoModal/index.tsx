@@ -58,39 +58,37 @@ export default function CompetitorInfoModal({ open, competitors, onClose }: Comp
         </IconButton>
       </DialogTitle>
       <DialogContent className="competitor-info-modal-content">
-        {competitors.map((competitor, index) => (
-          <div key={competitor.id}>
-            {index > 0 && <Divider className="competitor-divider" />}
-            {competitor.user ? (
-              <PersonCard
-                firstName={competitor.user.firstName}
-                lastName={competitor.user.lastName}
-                phoneNumber={competitor.user.phoneNumber}
-                email={competitor.user.email}
-              />
-            ) : (
-              <div className="competitor-info-modal-person">
-                <Avatar email="" name={competitor.displayName} size="lg" />
-                <div className="competitor-info-modal-person-details">
-                  <Typography variant="subtitle1" className="name">
-                    {competitor.displayName}
-                  </Typography>
+        {competitors.map((competitor, index) => {
+          const players = competitor.players ?? []
+
+          return (
+            <div key={competitor.id}>
+              {index > 0 && <Divider className="competitor-divider" />}
+              {players.length > 0 ? (
+                players.map((player, playerIndex) => (
+                  <div key={playerIndex}>
+                    {playerIndex > 0 && <Divider className="competitor-divider" />}
+                    <PersonCard
+                      firstName={player.firstName}
+                      lastName={player.lastName}
+                      phoneNumber={player.phoneNumber}
+                      email={player.email}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="competitor-info-modal-person">
+                  <Avatar email="" name={competitor.displayName} size="lg" />
+                  <div className="competitor-info-modal-person-details">
+                    <Typography variant="subtitle1" className="name">
+                      {competitor.displayName}
+                    </Typography>
+                  </div>
                 </div>
-              </div>
-            )}
-            {competitor.partnerUser && (
-              <>
-                <Divider className="competitor-divider" />
-                <PersonCard
-                  firstName={competitor.partnerUser.firstName}
-                  lastName={competitor.partnerUser.lastName}
-                  phoneNumber={competitor.partnerUser.phoneNumber}
-                  email={competitor.partnerUser.email}
-                />
-              </>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          )
+        })}
       </DialogContent>
     </Dialog>
   )

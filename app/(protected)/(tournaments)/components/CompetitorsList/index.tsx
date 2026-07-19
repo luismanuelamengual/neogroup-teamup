@@ -50,7 +50,7 @@ export default function CompetitorsList({ tournament, category }: CompetitorsLis
             variant="outlined"
             onClick={() => setSelectedCompetitors([competitor])}
             className={classNames('clickable', {
-              highlighted: userId === competitor.userId || userId === competitor.partnerUserId
+              highlighted: userId != null && competitor.playerIds.includes(userId)
             })}
           />
         ))}

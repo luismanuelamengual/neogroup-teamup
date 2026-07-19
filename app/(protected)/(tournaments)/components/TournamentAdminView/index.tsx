@@ -155,13 +155,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     const ids: number[] = []
 
     for (const competitor of competitors) {
-      if (competitor.userId != null) {
-        ids.push(competitor.userId)
-      }
-
-      if (competitor.partnerUserId != null) {
-        ids.push(competitor.partnerUserId)
-      }
+      ids.push(...competitor.playerIds)
     }
 
     return ids
@@ -281,8 +275,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
       registerCompetitor(
         tournament.id,
         Number(effectiveRegisterCategoryId),
-        player.id,
-        needsPartner ? (partner?.id ?? null) : null
+        needsPartner && partner ? [player.id, partner.id] : [player.id]
       )
     )
 

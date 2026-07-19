@@ -10,14 +10,12 @@ export interface CompetitorUserInfo {
 export interface CompetitorDto {
   id: number
   tournamentCategoryId: number
-  userId: number | null
-  partnerUserId: number | null
+  /** Player user ids in roster order (index 0 is the main player). */
+  playerIds: number[]
   displayName: string
   shortName: string
   seedNumber: number | null
   createdAt: string
-  /** Embedded user info (populated when user relation is loaded). */
-  user?: CompetitorUserInfo | null
-  /** Embedded partner user info (populated when partnerUser relation is loaded). */
-  partnerUser?: CompetitorUserInfo | null
+  /** Embedded player user info in roster order (populated when `players` is loaded). */
+  players?: CompetitorUserInfo[]
 }

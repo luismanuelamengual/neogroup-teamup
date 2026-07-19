@@ -126,8 +126,7 @@ export async function removeTournamentCategory(tournament: Tournament, tournamen
 export async function registerCompetitor(
   tournament: Tournament,
   tournamentCategoryId: number,
-  userId: number,
-  partnerUserId: number | null
+  playerIds: number[]
 ): Promise<Competitor> {
   if (tournament.paid && tournament.entryFee && tournament.entryFee > 0) {
     throw new ApiException('Los torneos pagos se inscriben mediante el flujo de pago')
@@ -140,7 +139,12 @@ export async function registerCompetitor(
     throw new ApiException('Categoría inválida')
   }
 
-  const user = await User.find(Number(userId))
+  // Main player at index 0, optional partner at index 1 (for pair disciplines).
+  const [rawUserId, rawPartnerId] = playerIds
+  const userId = Number(rawUserId)
+  const partnerUserId = rawPartnerId != null ? Number(rawPartnerId) : null
+
+  const user = await User.find(userId)
 
   if (!user) {
     throw new ApiException('Usuario no encontrado')
@@ -148,7 +152,7 @@ export async function registerCompetitor(
 
   const competitors = tournament.competitors ?? []
 
-  if (competitors.some((c) => c.userId === user.id || c.partnerUserId === user.id)) {
+  if (competitors.some((c) => c.playerIds.includes(user.id))) {
     throw new ApiException('Usuario ya inscripto en el torneo')
   }
 
@@ -159,31 +163,31 @@ export async function registerCompetitor(
   }
 
   const needsPartner = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
-  let resolvedPartnerId: number | null = null
+  const resolvedPlayerIds: number[] = [user.id]
 
   if (needsPartner) {
     if (!partnerUserId) {
       throw new ApiException('El usuario compañero es requerido')
     }
 
-    if (Number(partnerUserId) === user.id) {
+    if (partnerUserId === user.id) {
       throw new ApiException('El compañero debe ser un jugador distinto')
     }
 
-    const partner = await User.find(Number(partnerUserId))
+    const partner = await User.find(partnerUserId)
 
     if (!partner) {
       throw new ApiException('Usuario compañero no encontrado')
     }
 
-    if (competitors.some((c) => c.userId === partner.id || c.partnerUserId === partner.id)) {
+    if (competitors.some((c) => c.playerIds.includes(partner.id))) {
       throw new ApiException('Usuario compañero ya inscripto en el torneo')
     }
 
-    resolvedPartnerId = partner.id
+    resolvedPlayerIds.push(partner.id)
   }
 
-  return createCompetitor(targetCategory.id, user.id, resolvedPartnerId)
+  return createCompetitor(targetCategory.id, resolvedPlayerIds)
 }
 
 /** Moves a competitor to another category instance of the same tournament. */

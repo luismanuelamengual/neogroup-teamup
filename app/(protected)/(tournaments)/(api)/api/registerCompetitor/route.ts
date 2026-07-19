@@ -6,18 +6,16 @@ import { withAuth } from '@/app/utils/api-server'
  * behalf of the organizer (owner, stand_by, free tournaments only).
  */
 export const POST = withAuth(async (request, context, userId) => {
-  const { tournamentId, tournamentCategoryId, playerUserId, partnerUserId } = (await request.json()) as {
+  const { tournamentId, tournamentCategoryId, playerIds } = (await request.json()) as {
     tournamentId: number
     tournamentCategoryId: number
-    playerUserId: number
-    partnerUserId?: number | null
+    playerIds: number[]
   }
   const tournament = await loadManageableTournament(Number(tournamentId), userId)
 
   await registerCompetitor(
     tournament,
     Number(tournamentCategoryId),
-    Number(playerUserId),
-    partnerUserId != null ? Number(partnerUserId) : null
+    (playerIds ?? []).map((id) => Number(id))
   )
 })

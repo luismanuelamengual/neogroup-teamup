@@ -23,7 +23,7 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     'tournamentCategoryId',
     categories.map((category) => category.id)
   )
-    .where((q) => q.where('userId', userId).orWhere('partnerUserId', userId))
+    .whereArrayContains('playerIds', userId)
     .first()
 
   if (!entry) {

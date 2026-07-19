@@ -23,8 +23,8 @@ export function computeSplit(
 export interface CreateRegistrationPaymentInput {
   tournament: Tournament
   organization: Organization
-  userId: number
-  partnerUserId: number | null
+  /** Player roster to register once the payment is approved (payer is playerIds[0]). */
+  playerIds: number[]
   targetCategory: TournamentCategory
   /** Origin used to build the back/notification URLs (e.g. https://club.teamup.ar). */
   origin: string
@@ -37,7 +37,7 @@ export interface CreateRegistrationPaymentInput {
  * its checkout URL (`initPoint`), where the player must be redirected.
  */
 export async function createRegistrationPayment(input: CreateRegistrationPaymentInput): Promise<TournamentPayment> {
-  const { tournament, organization, userId, partnerUserId, targetCategory, origin } = input
+  const { tournament, organization, playerIds, targetCategory, origin } = input
   const amount = tournament.entryFee ?? 0
 
   if (!tournament.paid || amount <= 0) {
@@ -59,8 +59,7 @@ export async function createRegistrationPayment(input: CreateRegistrationPayment
   payment.organizationId = tournament.organizationId
   payment.tournamentId = tournament.id
   payment.tournamentCategoryId = targetCategory.id
-  payment.userId = userId
-  payment.partnerUserId = partnerUserId
+  payment.playerIds = playerIds
   payment.status = PaymentStatus.PENDING
   payment.amount = amount
   payment.currency = currency
@@ -184,13 +183,16 @@ export async function confirmPaymentFromWebhook(paymentRowId: number, mpPaymentI
   }
 
   try {
-    const resolved = await resolveRegistration(fullTournament, payment.userId, {
+    // Re-validate the current tournament state (payer is playerIds[0]; the
+    // optional partner, when the discipline registers as pairs, is playerIds[1]).
+    const [payerId, partnerId = null] = payment.playerIds
+    const resolved = await resolveRegistration(fullTournament, payerId, {
       tournamentCategoryId: payment.tournamentCategoryId,
-      partnerUserId: payment.partnerUserId
+      partnerUserId: partnerId
     })
 
     await DB.transaction(async () => {
-      const competitor = await createCompetitor(resolved.targetCategory.id, payment.userId, resolved.partnerUserId)
+      const competitor = await createCompetitor(resolved.targetCategory.id, resolved.playerIds)
 
       payment.competitorId = competitor.id
       payment.status = PaymentStatus.APPROVED

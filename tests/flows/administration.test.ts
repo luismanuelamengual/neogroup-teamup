@@ -96,7 +96,7 @@ describe('tournament administration', () => {
       const player = await createUser(built.tournament.organizationId)
       const tournament = await manageable(built.tournament.id, built.ownerId)
 
-      await registerCompetitor(tournament, built.categoryIds[0], player, null)
+      await registerCompetitor(tournament, built.categoryIds[0], [player])
 
       expect(await countInCategory(built.categoryIds[0])).toBe(1)
     })
@@ -111,10 +111,10 @@ describe('tournament administration', () => {
       const player = await createUser(built.tournament.organizationId)
       let tournament = await manageable(built.tournament.id, built.ownerId)
 
-      await registerCompetitor(tournament, built.categoryIds[0], player, null)
+      await registerCompetitor(tournament, built.categoryIds[0], [player])
 
       tournament = await manageable(built.tournament.id, built.ownerId)
-      await expect(registerCompetitor(tournament, built.categoryIds[0], player, null)).rejects.toThrow('ya inscripto')
+      await expect(registerCompetitor(tournament, built.categoryIds[0], [player])).rejects.toThrow('ya inscripto')
     })
 
     it('requires a partner for doubles disciplines', async () => {
@@ -123,12 +123,12 @@ describe('tournament administration', () => {
       const partner = await createUser(built.tournament.organizationId)
       let tournament = await manageable(built.tournament.id, built.ownerId)
 
-      await expect(registerCompetitor(tournament, built.categoryIds[0], player, null)).rejects.toThrow(
+      await expect(registerCompetitor(tournament, built.categoryIds[0], [player])).rejects.toThrow(
         'compañero es requerido'
       )
 
       tournament = await manageable(built.tournament.id, built.ownerId)
-      await registerCompetitor(tournament, built.categoryIds[0], player, partner)
+      await registerCompetitor(tournament, built.categoryIds[0], [player, partner])
 
       expect(await countInCategory(built.categoryIds[0])).toBe(1)
     })
@@ -149,7 +149,7 @@ describe('tournament administration', () => {
       let tournament = await manageable(built.tournament.id, built.ownerId)
       const player = await createUser(built.tournament.organizationId)
 
-      await expect(registerCompetitor(tournament, built.categoryIds[0], player, null)).rejects.toThrow('flujo de pago')
+      await expect(registerCompetitor(tournament, built.categoryIds[0], [player])).rejects.toThrow('flujo de pago')
 
       // Back to free, but with a capacity of exactly 1.
       built.tournament.paid = false
@@ -161,12 +161,12 @@ describe('tournament administration', () => {
       await category!.save()
 
       tournament = await manageable(built.tournament.id, built.ownerId)
-      await registerCompetitor(tournament, built.categoryIds[0], player, null)
+      await registerCompetitor(tournament, built.categoryIds[0], [player])
 
       const another = await createUser(built.tournament.organizationId)
 
       tournament = await manageable(built.tournament.id, built.ownerId)
-      await expect(registerCompetitor(tournament, built.categoryIds[0], another, null)).rejects.toThrow('cupo máximo')
+      await expect(registerCompetitor(tournament, built.categoryIds[0], [another])).rejects.toThrow('cupo máximo')
     })
   })
 

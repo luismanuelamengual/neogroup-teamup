@@ -40,9 +40,7 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
   if (!isOwner) {
     const competitorIds = [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]
     const participants = await Competitor.whereIn('id', competitorIds).get()
-    const isParticipant = participants.some(
-      (competitor) => competitor.userId === userId || competitor.partnerUserId === userId
-    )
+    const isParticipant = participants.some((competitor) => competitor.playerIds.includes(userId))
 
     if (!isParticipant) {
       throw new ApiException('unauthorized')

@@ -141,7 +141,7 @@ export default function BracketView({
       return { editableMatchIds: currentOpenMatches.map((m) => m.id), highlightedMatchIds: [] }
     }
 
-    const userEntry = (tournament.competitors ?? []).find((c) => c.userId === userId || c.partnerUserId === userId)
+    const userEntry = (tournament.competitors ?? []).find((c) => userId != null && c.playerIds.includes(userId))
 
     if (!userEntry) {
       return { editableMatchIds: [], highlightedMatchIds: [] }

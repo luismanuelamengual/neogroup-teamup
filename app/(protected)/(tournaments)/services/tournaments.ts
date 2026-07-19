@@ -46,16 +46,14 @@ export async function getTournaments({
     .with('categories', 'categories.category')
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) =>
-      query.whereHas('competitors', (q) =>
-        q.where((q) => q.where('userId', playerId).orWhere('partnerUserId', playerId))
-      )
+      query.whereHas('competitors', (q) => q.whereArrayContains('playerIds', playerId))
     )
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
     .when(statuses?.length, (query) => query.whereIn('status', statuses!))
     .when(withCompetitors, (query) =>
       query
         .with({ competitors: (query) => query.orderBy('seedNumber').orderBy('id') })
-        .with('competitors.user', 'competitors.partnerUser')
+        .with('competitors.players')
     )
     .when(withRounds, (query) => query.with({ rounds: (query) => query.orderBy('number') }))
     .when(withMatches, (query) => query.with({ matches: (query) => query.orderBy('roundId').orderBy('position') }))
