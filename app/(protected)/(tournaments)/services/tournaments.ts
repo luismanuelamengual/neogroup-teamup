@@ -26,6 +26,7 @@ export interface TournamentOptions {
   withCompetitors?: boolean
   withRounds?: boolean
   withMatches?: boolean
+  withImage?: boolean
   page?: number
   pageSize?: number
 }
@@ -39,24 +40,22 @@ export async function getTournaments({
   withCompetitors = false,
   withRounds = false,
   withMatches = false,
+  withImage = false,
   page = 1,
   pageSize = 10
 }: TournamentOptions = {}): Promise<PaginatedResponse<Tournament[]>> {
   const result = await Tournament.when(id, (query) => query.where('id', id))
     .with('categories', 'categories.category')
     .when(ownerId, (query) => query.where('ownerId', ownerId))
-    .when(playerId, (query) =>
-      query.whereHas('competitors', (q) => q.whereArrayContains('playerIds', playerId))
-    )
+    .when(playerId, (query) => query.whereHas('competitors', (q) => q.whereArrayContains('playerIds', playerId)))
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
     .when(statuses?.length, (query) => query.whereIn('status', statuses!))
     .when(withCompetitors, (query) =>
-      query
-        .with({ competitors: (query) => query.orderBy('seedNumber').orderBy('id') })
-        .with('competitors.players')
+      query.with({ competitors: (query) => query.orderBy('seedNumber').orderBy('id') }).with('competitors.players')
     )
     .when(withRounds, (query) => query.with({ rounds: (query) => query.orderBy('number') }))
     .when(withMatches, (query) => query.with({ matches: (query) => query.orderBy('roundId').orderBy('position') }))
+    .when(withImage, (query) => query.with('image'))
     .orderBy('status')
     .orderByDesc('id')
     .paginate(pageSize, page)

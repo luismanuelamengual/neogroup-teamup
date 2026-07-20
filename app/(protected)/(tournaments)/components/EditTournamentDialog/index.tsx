@@ -15,6 +15,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import dayjs, { Dayjs } from 'dayjs'
 import { useEffect, useState } from 'react'
+import TournamentImageField from '@/app/(protected)/(tournaments)/components/TournamentImageField'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 
@@ -36,6 +37,7 @@ export default function EditTournamentDialog({
   const { deleteTournament, updateTournament } = useTournaments()
   const [name, setName] = useState(tournament.name)
   const [description, setDescription] = useState(tournament.description ?? '')
+  const [image, setImage] = useState<string | null>(tournament.image?.image ?? null)
   const [location, setLocation] = useState(tournament.location ?? '')
   const [startDate, setStartDate] = useState<Dayjs | null>(tournament.startDate ? dayjs(tournament.startDate) : null)
   const [startTime, setStartTime] = useState<Dayjs | null>(
@@ -49,6 +51,7 @@ export default function EditTournamentDialog({
     if (open) {
       setName(tournament.name)
       setDescription(tournament.description ?? '')
+      setImage(tournament.image?.image ?? null)
       setLocation(tournament.location ?? '')
       setStartDate(tournament.startDate ? dayjs(tournament.startDate) : null)
       setStartTime(tournament.startTime ? dayjs(`2000-01-01T${tournament.startTime}`) : null)
@@ -62,6 +65,7 @@ export default function EditTournamentDialog({
       await updateTournament(tournament.id, {
         name,
         description,
+        image,
         location,
         startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
         startTime: startTime ? startTime.format('HH:mm') : null
@@ -88,6 +92,7 @@ export default function EditTournamentDialog({
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" className="edit-tournament-dialog">
       <DialogTitle>Editar torneo</DialogTitle>
       <DialogContent className="main-content">
+        <TournamentImageField value={image} onChange={setImage} />
         <TextField label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
         <TextField
           label="Descripción"

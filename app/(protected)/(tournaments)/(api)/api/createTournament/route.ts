@@ -1,21 +1,26 @@
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
+import { CreateTournamentInput } from '@/app/(protected)/(tournaments)/models/CreateTournamentInput'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
-import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { createTournamentCategories, resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
-import { normalizeCategories, normalizeStartTime } from '@/app/(protected)/(tournaments)/utils/tournament'
+import { setTournamentImage } from '@/app/(protected)/(tournaments)/services/tournament-images'
+import {
+  normalizeCategories,
+  normalizeImage,
+  normalizeStartTime
+} from '@/app/(protected)/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/createTournament — creates a new tournament in stand_by status. */
 export const POST = withAuth(async (request, context, userId, organizationId) => {
-  const input = (await request.json()) as Partial<TournamentDto> & { categoryNames?: string[]; maxCompetitors?: number }
+  const input = (await request.json()) as CreateTournamentInput
   const name = input.name?.trim() ?? ''
 
   if (!name || !input.discipline || !input.type || !input.scoreFormat) {
@@ -45,6 +50,12 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
 
   if (startTime === false) {
     throw new ApiException('invalidTime')
+  }
+
+  const image = normalizeImage(input.image)
+
+  if (image === false) {
+    throw new ApiException('invalidImage')
   }
 
   const categoryNames = normalizeCategories(input.categoryNames)
@@ -104,6 +115,7 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
   // "single category" instance (categoryId = null) when there are none. The
   // per-tournament maxCompetitors becomes the entry limit of each instance.
   await createTournamentCategories(tournament.id, categoryIds, input.maxCompetitors!)
+  await setTournamentImage(tournament.id, image)
 
   return { id: tournament.id }
 })

@@ -11,7 +11,8 @@ export const POST = withAuth(async (request) => {
     id: Number(id),
     withCompetitors: true,
     withRounds: true,
-    withMatches: true
+    withMatches: true,
+    withImage: true
   })
 
   if (!tournament) {

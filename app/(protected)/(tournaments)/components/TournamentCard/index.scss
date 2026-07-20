@@ -1,9 +1,6 @@
 $card-hover-color: rgb(239, 249, 251);
 
 .tournament-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
   padding: 16px 18px;
   border: 2px solid white;
   cursor: pointer;
@@ -11,6 +8,31 @@ $card-hover-color: rgb(239, 249, 251);
   &:hover {
     background-color: $card-hover-color;
     border-color: $card-hover-color;
+  }
+
+  .card-body {
+    display: flex;
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .poster {
+    align-self: stretch;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 140px;
+    max-height: 260px;
+    object-fit: contain;
+    display: block;
+    border-radius: var(--radius-md, 8px);
+  }
+
+  .card-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .header {
@@ -61,6 +83,7 @@ $card-hover-color: rgb(239, 249, 251);
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+    margin-top: auto;
 
     &.multi {
       display: grid;
@@ -128,5 +151,26 @@ $card-hover-color: rgb(239, 249, 251);
     gap: 4px;
     color: var(--color-text-secondary);
     font-size: 13px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tournament-card {
+    padding: 12px 14px;
+
+    .card-body {
+      gap: 20px;
+      flex-direction: column-reverse;
+    }
+
+    .poster {
+      align-self: center;
+    }
+  }
+
+  .tournament-card-skeleton {
+    .poster {
+      display: none;
+    }
   }
 }

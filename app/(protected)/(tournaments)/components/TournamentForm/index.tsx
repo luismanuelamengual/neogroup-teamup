@@ -36,6 +36,7 @@ import {
   RankingScheme,
   RankingSettings
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
+import TournamentImageField from '@/app/(protected)/(tournaments)/components/TournamentImageField'
 import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
@@ -54,6 +55,7 @@ export default function TournamentForm() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [image, setImage] = useState<string | null>(null)
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
@@ -167,6 +169,7 @@ export default function TournamentForm() {
       const created = await createTournament({
         name,
         description,
+        image,
         discipline,
         subDiscipline: discipline === Discipline.TENNIS ? subDiscipline : null,
         type,
@@ -245,6 +248,7 @@ export default function TournamentForm() {
           </Typography>
         </AccordionSummary>
         <AccordionDetails className="section-content">
+          <TournamentImageField value={image} onChange={setImage} />
           <TextField label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
           <TextField
             label="Descripción"

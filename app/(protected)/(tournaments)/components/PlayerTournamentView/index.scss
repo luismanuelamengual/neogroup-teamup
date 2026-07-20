@@ -4,10 +4,30 @@
   gap: 16px;
 
   .header {
+    padding: 20px;
+  }
+
+  .header-body {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  .poster {
+    align-self: flex-start;
+    flex: 0 0 160px;
+    width: 160px;
+    height: auto;
+    display: block;
+    border-radius: var(--radius-md, 8px);
+  }
+
+  .header-content {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding: 20px;
   }
 
   .title-row {
@@ -136,6 +156,23 @@
     .header,
     .section {
       padding: 14px;
+    }
+
+    .header-body {
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .poster {
+      align-self: center;
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: 160px;
+    }
+
+    .header-content {
+      width: 100%;
     }
 
     .my-match-row {

@@ -44,6 +44,7 @@ import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDi
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { dataUrlToFile } from '@/app/(protected)/(tournaments)/utils/image'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { useUserStore } from '@/app/stores/users'
 
@@ -104,18 +105,52 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
     return (
       <div className="manage-tournament">
         <Paper className="header">
-          <div className="title-row">
-            <Skeleton variant="text" width="50%" height={36} />
-            <Skeleton variant="rounded" width={80} height={26} className="skeleton-chip" />
-          </div>
-          <Skeleton variant="text" width="70%" height={20} />
-          <div className="meta">
-            <Skeleton variant="rounded" width={90} height={24} className="skeleton-meta-item" />
-            <Skeleton variant="rounded" width={70} height={24} className="skeleton-meta-item" />
-            <Skeleton variant="rounded" width={80} height={24} className="skeleton-meta-item" />
-            <Skeleton variant="text" width={120} height={20} />
+          <div className="header-body">
+            <Skeleton
+              variant="rounded"
+              className="poster"
+              width={160}
+              height={200}
+              sx={{ borderRadius: 'var(--radius-md, 8px)', flexShrink: 0 }}
+            />
+            <div className="header-content">
+              <div className="title-row">
+                <Skeleton variant="text" width="50%" height={36} />
+                <Skeleton variant="rounded" width={80} height={26} className="skeleton-chip" />
+              </div>
+              <Skeleton variant="text" width="70%" height={20} />
+              <div className="meta">
+                <Skeleton variant="rounded" width={90} height={24} className="skeleton-meta-item" />
+                <Skeleton variant="rounded" width={70} height={24} className="skeleton-meta-item" />
+                <Skeleton variant="rounded" width={80} height={24} className="skeleton-meta-item" />
+                <Skeleton variant="text" width={120} height={20} />
+              </div>
+              <div className="footer">
+                <Skeleton variant="rounded" width={140} height={36} />
+                <Skeleton variant="rounded" width={140} height={36} />
+              </div>
+            </div>
           </div>
         </Paper>
+
+        {[0, 1].map((key) => (
+          <Paper key={key} className="category-accordion">
+            <div className="category-accordion-summary" style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="category-header">
+                <Skeleton variant="text" width={160} height={28} />
+                <Skeleton variant="rounded" width={70} height={24} className="skeleton-chip" />
+              </div>
+            </div>
+            <Divider />
+            <div className="category-details">
+              <div className="category-section">
+                <Skeleton variant="text" width={180} height={24} />
+                <Skeleton variant="rounded" height={48} />
+                <Skeleton variant="rounded" height={48} />
+              </div>
+            </div>
+          </Paper>
+        ))}
       </div>
     )
   }
@@ -168,9 +203,29 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
     runAction(() => finishTournament(tournament.id))
   }
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const url = `${appUrl}/tournaments/${tournament.id}/join`
     const message = `¡Te invito a inscribirte en el torneo "${tournament.name}"! Entrá desde acá: ${url}`
+
+    // wa.me only supports pre-filled text, it can't attach a picture. When the
+    // tournament has a poster and the browser supports the Web Share API with
+    // files (mobile browsers), share text + image through the native share
+    // sheet so the user can pick WhatsApp and send both together. Otherwise
+    // fall back to the plain text link.
+    if (tournament.image && typeof navigator !== 'undefined' && navigator.share) {
+      const file = dataUrlToFile(tournament.image.image, `torneo-${tournament.id}.jpg`)
+
+      if (file && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ text: message, files: [file] })
+
+          return
+        } catch (shareError) {
+          // User cancelled the share sheet, or the browser rejected it — fall
+          // through to the wa.me link below instead of leaving them stuck.
+        }
+      }
+    }
 
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
   }
@@ -190,103 +245,111 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   return (
     <div className="manage-tournament">
       <Paper className="header">
-        <div className="title-row">
-          <div className="name-with-edit">
-            <Typography variant="h5" component="h1" className="name">
-              {tournament.name}
-            </Typography>
-            <Tooltip title="Editar">
-              <IconButton size="small" onClick={() => setEditOpen(true)}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </div>
-          <div className="title-actions">
-            <StatusChip status={tournament.status} />
-          </div>
-        </div>
-        {tournament.description && (
-          <Typography variant="body2" color="text.secondary">
-            {tournament.description}
-          </Typography>
-        )}
-        <div className="meta">
-          <Chip size="small" label={DisciplineNames[tournament.discipline]} />
-          {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
-          <Chip size="small" label={TournamentTypeNames[tournament.type]} />
-          <Chip size="small" label={ScoreFormatNames[tournament.scoreFormat]} />
-          <Chip
-            size="small"
-            color={tournament.paid && tournament.entryFee ? 'success' : 'default'}
-            icon={tournament.paid && tournament.entryFee ? <PaidIcon /> : undefined}
-            label={
-              tournament.paid && tournament.entryFee
-                ? formatMoney(tournament.entryFee, tournament.currency)
-                : 'Gratuito'
-            }
-          />
-          {tournament.location && (
-            <span className="meta-item">
-              <PlaceIcon fontSize="inherit" /> {tournament.location}
-            </span>
+        <div className="header-body">
+          {tournament.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={tournament.image.image} alt={tournament.name} className="poster" />
           )}
-          <span className="meta-item">
-            <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
-            {tournament.startTime ? ` · ${tournament.startTime}` : ''}
-          </span>
-        </div>
-        {isOwner && tournament.paid && mpConnected === false && (
-          <Alert severity="warning" className="mp-warning">
-            Este torneo tiene inscripción de pago, pero todavía no vinculaste tu cuenta de Mercado Pago. Los jugadores
-            no podrán inscribirse hasta que la conectes desde <strong>Mi cuenta</strong>.
-          </Alert>
-        )}
-        <div className="footer">
-          <div className="info-area">
-            {tournament.status === TournamentStatus.STAND_BY && (
-              <Button
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                component={Link}
-                href={`/tournaments/${tournament.id}/admin`}
-              >
-                Administrar
-              </Button>
+          <div className="header-content">
+            <div className="title-row">
+              <div className="name-with-edit">
+                <Typography variant="h5" component="h1" className="name">
+                  {tournament.name}
+                </Typography>
+                <Tooltip title="Editar">
+                  <IconButton size="small" onClick={() => setEditOpen(true)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </div>
+              <div className="title-actions">
+                <StatusChip status={tournament.status} />
+              </div>
+            </div>
+            {tournament.description && (
+              <Typography variant="body2" color="text.secondary">
+                {tournament.description}
+              </Typography>
             )}
-            {tournament.status === TournamentStatus.STAND_BY && (
-              <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
-                Compartir
-              </Button>
+            <div className="meta">
+              <Chip size="small" label={DisciplineNames[tournament.discipline]} />
+              {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
+              <Chip size="small" label={TournamentTypeNames[tournament.type]} />
+              <Chip size="small" label={ScoreFormatNames[tournament.scoreFormat]} />
+              <Chip
+                size="small"
+                color={tournament.paid && tournament.entryFee ? 'success' : 'default'}
+                icon={tournament.paid && tournament.entryFee ? <PaidIcon /> : undefined}
+                label={
+                  tournament.paid && tournament.entryFee
+                    ? formatMoney(tournament.entryFee, tournament.currency)
+                    : 'Gratuito'
+                }
+              />
+              {tournament.location && (
+                <span className="meta-item">
+                  <PlaceIcon fontSize="inherit" /> {tournament.location}
+                </span>
+              )}
+              <span className="meta-item">
+                <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
+                {tournament.startTime ? ` · ${tournament.startTime}` : ''}
+              </span>
+            </div>
+            {isOwner && tournament.paid && mpConnected === false && (
+              <Alert severity="warning" className="mp-warning">
+                Este torneo tiene inscripción de pago, pero todavía no vinculaste tu cuenta de Mercado Pago. Los
+                jugadores no podrán inscribirse hasta que la conectes desde <strong>Mi cuenta</strong>.
+              </Alert>
             )}
-            {tournament.status === TournamentStatus.ONGOING && (
-              <Button
-                variant="outlined"
-                className="planner-button"
-                startIcon={<EventNoteIcon />}
-                component={Link}
-                href={`/tournaments/${tournament.id}/planner`}
-              >
-                Planificador
-              </Button>
-            )}
-          </div>
-          <div className="actions-area">
-            {tournament.status === TournamentStatus.STAND_BY && (
-              <Button
-                variant="contained"
-                startIcon={<PlayArrowIcon />}
-                onClick={handleStart}
-                disabled={working || competitors.length < 2}
-                loading={working}
-              >
-                Iniciar torneo
-              </Button>
-            )}
-            {tournament.status === TournamentStatus.ONGOING && (
-              <Button variant="outlined" color="error" onClick={handleFinish} disabled={working} loading={working}>
-                Finalizar torneo
-              </Button>
-            )}
+            <div className="footer">
+              <div className="info-area">
+                {tournament.status === TournamentStatus.STAND_BY && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<SettingsIcon />}
+                    component={Link}
+                    href={`/tournaments/${tournament.id}/admin`}
+                  >
+                    Administrar
+                  </Button>
+                )}
+                {tournament.status === TournamentStatus.STAND_BY && (
+                  <Button variant="outlined" color="success" startIcon={<WhatsAppIcon />} onClick={handleShare}>
+                    Compartir
+                  </Button>
+                )}
+                {tournament.status === TournamentStatus.ONGOING && (
+                  <Button
+                    variant="outlined"
+                    className="planner-button"
+                    startIcon={<EventNoteIcon />}
+                    component={Link}
+                    href={`/tournaments/${tournament.id}/planner`}
+                  >
+                    Planificador
+                  </Button>
+                )}
+              </div>
+              <div className="actions-area">
+                {tournament.status === TournamentStatus.STAND_BY && (
+                  <Button
+                    variant="contained"
+                    startIcon={<PlayArrowIcon />}
+                    onClick={handleStart}
+                    disabled={working || competitors.length < 2}
+                    loading={working}
+                  >
+                    Iniciar torneo
+                  </Button>
+                )}
+                {tournament.status === TournamentStatus.ONGOING && (
+                  <Button variant="outlined" color="error" onClick={handleFinish} disabled={working} loading={working}>
+                    Finalizar torneo
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </Paper>

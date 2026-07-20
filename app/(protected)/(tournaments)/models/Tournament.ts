@@ -1,4 +1,4 @@
-import { BaseEntity, BelongsTo, Column, Entity, HasMany, HasManyThrough } from '@neogroup/neorm'
+import { BaseEntity, BelongsTo, Column, Entity, HasMany, HasManyThrough, HasOne } from '@neogroup/neorm'
 import { RankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -7,6 +7,7 @@ import { Round } from '@/app/(protected)/(tournaments)/models/Round'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
+import { TournamentImage } from '@/app/(protected)/(tournaments)/models/TournamentImage'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -83,6 +84,9 @@ export class Tournament extends BaseEntity {
 
   @HasMany(() => TournamentCategory, 'tournamentId')
   categories?: TournamentCategory[]
+
+  @HasOne(() => TournamentImage, 'tournamentId')
+  image?: TournamentImage | null
 
   @HasManyThrough(() => Competitor, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   competitors?: Competitor[]

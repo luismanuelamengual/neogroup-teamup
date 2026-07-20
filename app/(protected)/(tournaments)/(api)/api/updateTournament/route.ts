@@ -1,13 +1,14 @@
-import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { normalizeStartTime } from '@/app/(protected)/(tournaments)/utils/tournament'
+import { UpdateTournamentInput } from '@/app/(protected)/(tournaments)/models/UpdateTournamentInput'
+import { setTournamentImage } from '@/app/(protected)/(tournaments)/services/tournament-images'
+import { normalizeImage, normalizeStartTime } from '@/app/(protected)/(tournaments)/utils/tournament'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 import { Tournament } from '../../../models/Tournament'
 
 /** POST /api/updateTournament — updates the editable attributes (owner only). */
 export const POST = withAuth(async (request) => {
-  const { id, ...input } = (await request.json()) as Partial<TournamentDto> & { id: number }
+  const { id, ...input } = (await request.json()) as UpdateTournamentInput & { id: number }
   const tournament = await Tournament.find(Number(id))
 
   if (!tournament) {
@@ -24,6 +25,12 @@ export const POST = withAuth(async (request) => {
 
   if (startTime === false) {
     throw new ApiException('invalidTime')
+  }
+
+  const image = normalizeImage(input.image)
+
+  if (image === false) {
+    throw new ApiException('invalidImage')
   }
 
   tournament.name = name
@@ -48,4 +55,5 @@ export const POST = withAuth(async (request) => {
 
   tournament.updatedAt = new Date()
   await tournament.save()
+  await setTournamentImage(tournament.id, image)
 })
