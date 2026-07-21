@@ -1,21 +1,41 @@
 import { DB } from '@neogroup/neorm'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
+import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
+import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
+import { CreateTournamentInput } from '@/app/(protected)/(tournaments)/models/CreateTournamentInput'
+import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
+import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
+import { Match } from '@/app/(protected)/(tournaments)/models/Match'
+import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
+import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
+import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
+import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
+import { TournamentImage } from '@/app/(protected)/(tournaments)/models/TournamentImage'
+import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import {
-  createRound,
-  deactivateTournamentRounds,
-  isTournamentComplete
-} from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import {
   autoAssignPreclassification,
   supportsPreclassification
 } from '@/app/(protected)/(tournaments)/utils/preclassification'
+import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import {
+  createRound,
+  createTournamentCategories,
+  deactivateTournamentRounds,
+  isTournamentComplete,
+  isTournamentStartDue,
+  loadOrganizationTimezones,
+  normalizeCategories,
+  normalizeImage,
+  normalizeStartTime,
+  progressTournamentAfterResult
+} from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
-import { Organization } from '@/app/models/Organization'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
-import { Competitor } from '../models/Competitor'
-import { TournamentCategory } from '../models/TournamentCategory'
 
 export interface TournamentOptions {
   id?: number
@@ -69,6 +89,116 @@ export async function getTournament(options: TournamentOptions = {}): Promise<To
   } = await getTournaments({ ...options, pageSize: 1 })
 
   return tournament
+}
+
+/**
+ * Creates a new tournament (in STAND_BY status) owned by `userId` inside
+ * `organizationId`, from the organizer-provided input. Validates the input,
+ * resolves/creates its categories, materialises the category instances and
+ * stores the optional poster image. Returns the new tournament id.
+ */
+export async function createTournament(
+  input: CreateTournamentInput,
+  userId: number,
+  organizationId: number
+): Promise<{ id: number }> {
+  const name = input.name?.trim() ?? ''
+
+  if (!name || !input.discipline || !input.type || !input.scoreFormat) {
+    throw new ApiException('missingFields')
+  }
+
+  if (!input.startDate || !input.maxCompetitors || input.maxCompetitors < 2) {
+    throw new ApiException('missingFields')
+  }
+
+  if (input.paid && (!input.entryFee || input.entryFee <= 0)) {
+    throw new ApiException('El monto de inscripción debe ser mayor a cero')
+  }
+
+  if (input.discipline === Discipline.TENNIS && !input.subDiscipline) {
+    throw new ApiException('missingFields')
+  }
+
+  if (
+    (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) &&
+    input.discipline !== Discipline.PADEL
+  ) {
+    throw new ApiException('americanoOnlyPadel')
+  }
+
+  const startTime = normalizeStartTime(input.startTime)
+
+  if (startTime === false) {
+    throw new ApiException('invalidTime')
+  }
+
+  const image = normalizeImage(input.image)
+
+  if (image === false) {
+    throw new ApiException('invalidImage')
+  }
+
+  const categoryNames = normalizeCategories(input.categoryNames)
+  const subDiscipline = input.discipline === Discipline.TENNIS ? (input.subDiscipline ?? null) : null
+  const categoryIds = categoryNames
+    ? await resolveCategoryIds(organizationId, input.discipline, subDiscipline, categoryNames)
+    : null
+  let settings: TournamentSettings = {}
+
+  if (input.type === TournamentType.LEAGUE) {
+    settings = { ...DEFAULT_LEAGUE_SETTINGS, ...input.settings }
+  } else if (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) {
+    settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
+  } else if (input.type === TournamentType.PLAYOFF || input.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+    settings = { ...DEFAULT_PLAYOFF_SETTINGS }
+  } else if (input.type === TournamentType.GROUPS_PLAYOFF) {
+    const competitorsPerGroup = Math.floor(
+      input.settings?.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+    )
+    const qualifiersPerGroup = Math.floor(
+      input.settings?.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
+    )
+
+    if (competitorsPerGroup < 2 || qualifiersPerGroup < 1 || qualifiersPerGroup >= competitorsPerGroup) {
+      throw new ApiException('invalidGroupsSettings')
+    }
+
+    settings = { competitorsPerGroup, qualifiersPerGroup }
+  }
+
+  const tournament = new Tournament()
+
+  tournament.organizationId = organizationId
+  tournament.ownerId = userId
+  tournament.name = name
+  tournament.description = input.description?.trim() || null
+  tournament.status = TournamentStatus.STAND_BY
+  tournament.discipline = input.discipline
+  tournament.subDiscipline = subDiscipline
+  tournament.type = input.type
+  tournament.scoreFormat = input.scoreFormat
+  tournament.startDate = input.startDate
+  tournament.startTime = startTime
+  tournament.location = input.location?.trim() || null
+  tournament.paid = Boolean(input.paid)
+  tournament.entryFee = input.paid && input.entryFee && input.entryFee > 0 ? input.entryFee : null
+  tournament.currency = input.currency?.trim() || 'ARS'
+  tournament.settings = settings
+  // Ranking points only apply to tournaments that define categories.
+  tournament.rankingSettings =
+    categoryIds && categoryIds.length > 0 && input.rankingSettings?.points ? input.rankingSettings : null
+  tournament.createdAt = new Date()
+  tournament.updatedAt = new Date()
+  await tournament.save()
+
+  // Materialise the category instances: one per resolved category, or a single
+  // "single category" instance (categoryId = null) when there are none. The
+  // per-tournament maxCompetitors becomes the entry limit of each instance.
+  await createTournamentCategories(tournament.id, categoryIds, input.maxCompetitors!)
+  await setTournamentImage(tournament.id, image)
+
+  return { id: tournament.id }
 }
 
 /**
@@ -151,90 +281,47 @@ export async function deleteTournament(tournament: Tournament): Promise<boolean>
   return true
 }
 
+/**
+ * Creates, updates or removes a tournament's poster picture row.
+ *
+ * @param image The already-validated base64 data URL (see `normalizeImage`),
+ *   or null to clear the tournament's picture.
+ */
+export async function setTournamentImage(tournamentId: number, image: string | null): Promise<void> {
+  const existing = await TournamentImage.where('tournamentId', tournamentId).first()
+
+  if (!image) {
+    if (existing) {
+      await existing.delete()
+    }
+
+    return
+  }
+
+  const now = new Date()
+
+  if (existing) {
+    existing.image = image
+    existing.updatedAt = now
+    await existing.save()
+
+    return
+  }
+
+  const record = new TournamentImage()
+
+  record.tournamentId = tournamentId
+  record.image = image
+  record.createdAt = now
+  record.updatedAt = now
+  await record.save()
+}
+
 export interface ProcessTournamentsResult {
   started: number[]
   startErrors: { id: number; error: string }[]
   finished: number[]
   finishedErrors: { id: number; error: string }[]
-}
-
-/**
- * Offset (timeZone − UTC) in milliseconds at the given instant. Uses the Intl
- * API, so any IANA zone name works and DST is taken into account. Throws when the
- * zone name is invalid.
- */
-function timeZoneOffsetMs(instant: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  }).formatToParts(instant)
-  const get = (type: string): number => Number(parts.find((part) => part.type === type)?.value)
-  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
-
-  return asUtc - instant.getTime()
-}
-
-/**
- * Converts a wall-clock date/time ("YYYY-MM-DD" + "HH:mm") expressed in
- * `timeZone` into the absolute UTC instant it represents. Falls back to
- * interpreting the wall time as UTC when the zone name is invalid/unknown.
- */
-function zonedWallTimeToInstant(dateStr: string, timeStr: string, timeZone: string): Date {
-  const naiveUtc = new Date(`${dateStr}T${timeStr}:00Z`)
-
-  if (Number.isNaN(naiveUtc.getTime())) {
-    return naiveUtc
-  }
-
-  try {
-    // Two passes so an offset that changes right around the instant (DST edges)
-    // still resolves to the correct UTC moment.
-    let offset = timeZoneOffsetMs(naiveUtc, timeZone)
-
-    offset = timeZoneOffsetMs(new Date(naiveUtc.getTime() - offset), timeZone)
-
-    return new Date(naiveUtc.getTime() - offset)
-  } catch {
-    return naiveUtc
-  }
-}
-
-/**
- * Whether a STAND_BY tournament's scheduled start instant has arrived, evaluated
- * in the organization's `timeZone`.
- *
- * - No startTime set → due at the start of its start day (00:00) in the org's
- *   timezone, so it never starts before the organization's calendar day begins.
- * - startTime ("HH:mm") set → the full local start instant (startDate at startTime
- *   in the org's timezone) must be now or in the past, so a tournament scheduled
- *   for later today is NOT started ahead of its time.
- *
- * `timeZone` is an IANA name (e.g. "America/Argentina/Buenos_Aires"); an
- * unknown/empty value is treated as UTC.
- */
-export function isTournamentStartDue(tournament: Tournament, timeZone = 'UTC', now: Date = new Date()): boolean {
-  const time = tournament.startTime ?? '00:00'
-  const startAt = zonedWallTimeToInstant(tournament.startDate, time, timeZone || 'UTC')
-
-  // Unparseable startDate/startTime → don't block the start (date prefilter decided).
-  if (Number.isNaN(startAt.getTime())) {
-    return true
-  }
-
-  return startAt.getTime() <= now.getTime()
-}
-
-/** Maps each organization id to its configured IANA timezone (UTC when unset). */
-async function loadOrganizationTimezones(): Promise<Map<number, string>> {
-  const organizations = await Organization.get()
-
-  return new Map(organizations.map((organization) => [organization.id, organization.timezone || 'UTC']))
 }
 
 /**
@@ -307,4 +394,66 @@ export async function processTournaments(now: Date = new Date()): Promise<Proces
   }
 
   return result
+}
+
+/**
+ * Saves (or edits) a match result on behalf of `userId` and drives the tournament
+ * forward. Allowed for the tournament owner and for players taking part in the
+ * match, while the match round is open. Throws an ApiException when the match or
+ * round is not in an editable state, the caller is not allowed to submit the
+ * result, or the score is invalid.
+ */
+export async function setMatchResult(matchId: number, score: MatchScore, userId: number): Promise<void> {
+  const match = await Match.where('id', matchId).with('tournamentCategory.tournament', 'round').first()
+
+  if (!match || !match.awayCompetitorIds) {
+    throw new ApiException('notFound')
+  }
+
+  const tournament = match.tournamentCategory?.tournament ?? null
+
+  if (!tournament || tournament.status !== TournamentStatus.ONGOING) {
+    throw new ApiException('invalidStatus')
+  }
+
+  const round = match.round ?? null
+
+  // A round is editable while it is active: the current frontier, plus any
+  // just-completed round still inside its grace window (closed but active).
+  if (!round || !round.active) {
+    throw new ApiException('roundClosed')
+  }
+
+  const isOwner = tournament.ownerId === userId
+
+  if (!isOwner) {
+    const competitorIds = [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]
+    const participants = await Competitor.whereIn('id', competitorIds).get()
+    const isParticipant = participants.some((competitor) => competitor.playerIds.includes(userId))
+
+    if (!isParticipant) {
+      throw new ApiException('unauthorized')
+    }
+  }
+
+  if (!isValidScore(score, tournament.scoreFormat)) {
+    throw new ApiException('invalidScore')
+  }
+
+  if (score.walkover) {
+    match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
+    match.status = MatchStatus.WALKOVER
+    match.winner = score.walkover
+  } else {
+    match.score = serializeScore(score, tournament.scoreFormat)
+    match.status = MatchStatus.PLAYED
+    match.winner = getScoreWinner(score, tournament.scoreFormat)
+  }
+
+  match.updatedAt = new Date()
+  await match.save()
+
+  // Automatically drive the tournament forward: update pairings/standings, close
+  // the round and create the next one (or finish) without any organizer action.
+  await progressTournamentAfterResult(tournament, round)
 }

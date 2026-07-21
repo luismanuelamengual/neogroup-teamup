@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { getPreclassificationCount, snakeSeedGroups } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import {
   assignGroups,
   computeGroupSizes,
@@ -8,8 +9,7 @@ import {
   getTotalRounds,
   seedFromGroups,
   seedPlayoffPairings
-} from '@/app/(protected)/(tournaments)/services/tournament-engine'
-import { getPreclassificationCount, snakeSeedGroups } from '@/app/(protected)/(tournaments)/utils/preclassification'
+} from '@/app/(protected)/(tournaments)/utils/tournaments'
 
 describe('bracket math', () => {
   it('computes the next power-of-two bracket size', () => {

@@ -23,12 +23,9 @@ import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import {
-  isTournamentComplete,
-  progressTournamentAfterResult
-} from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { isTournamentComplete, progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { Organization } from '@/app/models/Organization'
 import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'

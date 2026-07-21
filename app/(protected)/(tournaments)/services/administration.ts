@@ -143,7 +143,6 @@ export async function registerCompetitor(
   const [rawUserId, rawPartnerId] = playerIds
   const userId = Number(rawUserId)
   const partnerUserId = rawPartnerId != null ? Number(rawPartnerId) : null
-
   const user = await User.find(userId)
 
   if (!user) {

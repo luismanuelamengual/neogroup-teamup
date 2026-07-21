@@ -62,7 +62,7 @@ primary key updates in place").
 
 ## BUG #2 — Americano forced avoidable rematches (MEDIUM) ✅ fixed
 
-**Where:** `app/(protected)/(tournaments)/services/tournament-helpers.ts` →
+**Where:** `app/(protected)/(tournaments)/utils/tournaments.ts` →
 americano round generation.
 
 **Was:** from round 2 on, a fixed-partner americano paired competitors greedily by

@@ -74,18 +74,19 @@ import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { createTournamentCategories, resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
-import {
-  createRound,
-  getTournamentCategories,
-  progressTournamentAfterResult
-} from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import {
   getPreclassificationCount,
   supportsPreclassification
 } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getScoreWinner, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import {
+  createRound,
+  createTournamentCategories,
+  getTournamentCategories,
+  progressTournamentAfterResult
+} from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { assertNotProduction } from './utils/production-guard'
 
 // ---------------------------------------------------------------------------
