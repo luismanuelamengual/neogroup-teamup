@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { FormEvent, useState } from 'react'
+import { useAutofillSync } from '@/app/hooks/useAutofillSync'
 
 interface LoginFormProps {
   callbackUrl: string | null
@@ -33,6 +34,8 @@ export default function LoginForm({
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const emailInputRef = useAutofillSync(setEmail)
+  const passwordInputRef = useAutofillSync(setPassword)
   const targetUrl = callbackUrl ? `/?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/'
 
   const handleSubmit = async (event: FormEvent) => {
@@ -96,6 +99,7 @@ export default function LoginForm({
           required
           fullWidth
           autoComplete="email"
+          inputRef={emailInputRef}
         />
         <TextField
           label="Contraseña"
@@ -105,6 +109,7 @@ export default function LoginForm({
           required
           fullWidth
           autoComplete="current-password"
+          inputRef={passwordInputRef}
         />
         <Button type="submit" variant="contained" fullWidth disabled={loading} loading={loading}>
           Ingresar
