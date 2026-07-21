@@ -26,21 +26,6 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-
-    // El autocompletado del navegador escribe el valor directo en el <input>, sin pasar por
-    // React. Mientras el estado se sincroniza (ver useAutofillSync), esto evita que el label
-    // quede visualmente superpuesto al valor autocompletado.
-    .MuiFormControl-root {
-      &:has(input:autofill),
-      &:has(input:-webkit-autofill) {
-        .MuiInputLabel-root:not(.MuiInputLabel-shrink) {
-          transform: translate(14px, -9px) scale(0.75);
-          background-color: var(--color-surface, #fff);
-          padding: 0 4px;
-          max-width: calc(133% - 24px);
-        }
-      }
-    }
   }
 
   .forgot-password {
