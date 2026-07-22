@@ -797,51 +797,318 @@ async function createKnockoutBracket(
 }
 
 /**
- * Computes the entrants of the consolation bracket: every competitor that lost
- * their FIRST real match in the main bracket. A bye (away === null) is not a
- * real match, so competitors who advanced on a bye are only considered once they
- * play (and lose) their actual first match — which happens in round 2.
- *
- * Returns `ready: false` while any competitor still has an unresolved first real
- * match, so the consolation bracket is only built once every entrant is known.
+ * Resolution of a single consolation-bracket feeder slot. Every slot
+ * corresponds one-to-one to a position of the main bracket's round 1 (0-indexed,
+ * `0..mainBracketSize/2 - 1`):
+ *  - `pending`  — the outcome isn't known yet.
+ *  - `filled`   — this bracket slot's occupant has lost their first real match:
+ *                 `competitorId` drops into the consolation bracket.
+ *  - `void`     — the occupant WON their first real match, so this consolation
+ *                 slot is confirmed to never receive an entrant.
  */
-async function computeConsolationSeeds(
-  tournamentCategoryId: number,
-  cache?: AdvanceCache
-): Promise<{ ready: boolean; losers: number[] }> {
-  const competitors = cache
-    ? await cache.competitors(tournamentCategoryId)
-    : await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
-  const mainLane: RoundLane = { type: MatchType.BRACKET, groupNumber: null }
-  const all = await loadCategoryMatches(tournamentCategoryId, cache)
-  // Real matches (an actual opponent) ordered by round then bracket position.
-  const realMatches = laneMatches(all, mainLane)
-    .filter((match) => match.awayCompetitorIds && match.awayCompetitorIds.length > 0)
-    .sort((a, b) => a.roundNumber - b.roundNumber || a.position - b.position)
-  const losers: number[] = []
+type SlotResolution = { state: 'pending' } | { state: 'filled'; competitorId: number } | { state: 'void' }
 
-  for (const competitor of competitors) {
-    const firstRealMatch = realMatches.find(
-      (match) =>
-        match.homeCompetitorIds.includes(competitor.id) || (match.awayCompetitorIds ?? []).includes(competitor.id)
-    )
+/**
+ * Resolves feeder slot `slotPosition` of the consolation bracket from the
+ * current state of the main BRACKET lane. A real round-1 match (both sides
+ * present) always produces a loser once played, so it resolves directly. A
+ * round-1 bye advances its occupant without playing, so their first real match
+ * is round 2 at position `floor(slotPosition / 2)` — home side if `slotPosition`
+ * is even, away side if odd (the same parity `syncKnockoutNextRound` uses to
+ * feed that match). If the occupant wins that match, the slot is `void`; if
+ * they lose it, `filled` with them.
+ */
+function resolveFirstLossSlot(mainMatches: Match[], slotPosition: number): SlotResolution {
+  const round1 = mainMatches.find((match) => match.roundNumber === 1 && match.position === slotPosition)
 
-    // No real match yet (a bye player whose round 2 is not even drawn) → wait.
-    if (!firstRealMatch || firstRealMatch.status === MatchStatus.PENDING) {
-      return { ready: false, losers: [] }
+  if (!round1) {
+    return { state: 'pending' }
+  }
+
+  // Real round-1 match: always produces a loser once resolved.
+  if (round1.awayCompetitorIds && round1.awayCompetitorIds.length > 0) {
+    if (round1.status === MatchStatus.PENDING) {
+      return { state: 'pending' }
     }
 
-    const lostAsHome =
-      firstRealMatch.winner === MatchSide.AWAY && firstRealMatch.homeCompetitorIds.includes(competitor.id)
-    const lostAsAway =
-      firstRealMatch.winner === MatchSide.HOME && (firstRealMatch.awayCompetitorIds ?? []).includes(competitor.id)
+    const loserIds = round1.winner === MatchSide.HOME ? round1.awayCompetitorIds : round1.homeCompetitorIds
 
-    if (lostAsHome || lostAsAway) {
-      losers.push(competitor.id)
+    return { state: 'filled', competitorId: loserIds[0] }
+  }
+
+  // Bye: the occupant's real first match is round 2, at the position/side that
+  // mirrors syncKnockoutNextRound's 2p (home) / 2p+1 (away) feeder convention.
+  const occupantId = round1.homeCompetitorIds[0]
+  const parentPosition = Math.floor(slotPosition / 2)
+  const round2 = mainMatches.find((match) => match.roundNumber === 2 && match.position === parentPosition)
+
+  if (!round2 || round2.status === MatchStatus.PENDING || !round2.awayCompetitorIds?.length) {
+    return { state: 'pending' }
+  }
+
+  const isHomeSide = slotPosition % 2 === 0
+  const occupantWon =
+    (isHomeSide && round2.winner === MatchSide.HOME) || (!isHomeSide && round2.winner === MatchSide.AWAY)
+
+  return occupantWon ? { state: 'void' } : { state: 'filled', competitorId: occupantId }
+}
+
+/**
+ * Builds the consolation bracket's full skeleton right away — every round,
+ * every match, as empty "to be defined" placeholders — instead of waiting for
+ * every main-bracket loser to be known. Consolation round-1 match `p` is fed by
+ * main round-1 positions `2p` (home) and `2p+1` (away): the two competitors
+ * who, in the main bracket, would have had their winners meet in round 2, so
+ * their round-1 losers meet each other here instead. Slots resolve
+ * progressively via `advanceConsolationBracket` as the corresponding
+ * main-bracket matches play out. Returns 1 when a skeleton was created, 0 when
+ * there is no room for one (fewer than 2 potential entrants).
+ */
+async function createConsolationSkeleton(tournamentCategoryId: number, mainBracketSize: number): Promise<number> {
+  const consolationSize = mainBracketSize / 2
+
+  if (consolationSize < 2) {
+    return 0
+  }
+
+  const lane: RoundLane = { type: MatchType.CONSOLATION_BRACKET, groupNumber: null }
+  const totalRounds = getKnockoutRounds(consolationSize)
+  // Keeps pace with the main bracket: it starts one round later and both lanes
+  // finish on the same round number (see getTotalRounds).
+  const startRound = 2
+
+  for (let roundIndex = 1; roundIndex <= totalRounds; roundIndex++) {
+    const matchCount = consolationSize / Math.pow(2, roundIndex)
+    const placeholders: Pairing[] = []
+
+    for (let position = 0; position < matchCount; position++) {
+      placeholders.push({ home: [], away: [], position })
+    }
+
+    await persistRoundMatches(
+      tournamentCategoryId,
+      startRound + roundIndex - 1,
+      lane,
+      placeholders,
+      totalRounds - roundIndex + 1
+    )
+  }
+
+  return 1
+}
+
+/** Desired shape to write into a not-yet-finalised consolation match, or null when nothing is actionable yet. */
+interface ConsolationSlotUpdate {
+  home: number[]
+  away: number[] | null
+  status: MatchStatus
+  winner: MatchSide | null
+}
+
+/**
+ * Combines the resolutions of a consolation match's two feeder slots into the
+ * shape that match should have. Returns null while there is nothing new to
+ * write (both sides already reflect the current resolutions, or neither side
+ * can be determined yet).
+ */
+function combineConsolationSlot(home: SlotResolution, away: SlotResolution): ConsolationSlotUpdate | null {
+  if (home.state === 'filled' && away.state === 'filled') {
+    return { home: [home.competitorId], away: [away.competitorId], status: MatchStatus.PENDING, winner: null }
+  }
+
+  if (home.state === 'void' && away.state === 'void') {
+    return { home: [], away: null, status: MatchStatus.VOID, winner: null }
+  }
+
+  if (home.state === 'filled' && away.state === 'void') {
+    return { home: [home.competitorId], away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
+  }
+
+  if (home.state === 'void' && away.state === 'filled') {
+    // Mirrors the bye convention: a lone survivor is always stored as "home".
+    return { home: [away.competitorId], away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
+  }
+
+  if (home.state === 'filled' && away.state === 'pending') {
+    return { home: [home.competitorId], away: [], status: MatchStatus.PENDING, winner: null }
+  }
+
+  if (home.state === 'pending' && away.state === 'filled') {
+    return { home: [], away: [away.competitorId], status: MatchStatus.PENDING, winner: null }
+  }
+
+  // (void, pending) / (pending, void) / (pending, pending): nothing actionable yet.
+  return null
+}
+
+/**
+ * Fills the consolation bracket's round-1 slots from the main bracket's
+ * current state (see `resolveFirstLossSlot` / `combineConsolationSlot`), then
+ * propagates the results forward through the rest of the consolation bracket
+ * (see `syncConsolationNextRound`). Returns true when it changed something.
+ */
+async function advanceConsolationBracket(tournamentCategoryId: number, cache?: AdvanceCache): Promise<boolean> {
+  const consolationLane: RoundLane = { type: MatchType.CONSOLATION_BRACKET, groupNumber: null }
+  const all = await loadCategoryMatches(tournamentCategoryId, cache)
+
+  if (!laneExistsIn(all, consolationLane)) {
+    return false
+  }
+
+  const mainMatches = laneMatches(all, { type: MatchType.BRACKET, groupNumber: null })
+  const roundNumbers = laneRoundNumbers(all, consolationLane)
+  const firstRoundNumber = roundNumbers[0]
+  const round1 = roundMatchesOf(all, consolationLane, firstRoundNumber)
+  let changed = false
+
+  for (const match of round1) {
+    // Already finalised (walkover/void) or fully known (both sides real,
+    // now an ordinary playable match) — never touched again from here.
+    const bothKnown = match.homeCompetitorIds.length > 0 && !!match.awayCompetitorIds?.length
+
+    if (match.status !== MatchStatus.PENDING || bothKnown) {
+      continue
+    }
+
+    const homeResolution = resolveFirstLossSlot(mainMatches, match.position * 2)
+    const awayResolution = resolveFirstLossSlot(mainMatches, match.position * 2 + 1)
+    const update = combineConsolationSlot(homeResolution, awayResolution)
+
+    if (!update) {
+      continue
+    }
+
+    if (
+      sameIds(match.homeCompetitorIds, update.home) &&
+      ((match.awayCompetitorIds == null && update.away == null) ||
+        (match.awayCompetitorIds != null && update.away != null && sameIds(match.awayCompetitorIds, update.away)))
+    ) {
+      continue
+    }
+
+    match.homeCompetitorIds = update.home
+    match.awayCompetitorIds = update.away
+    match.status = update.status
+    match.winner = update.winner
+    match.updatedAt = new Date()
+    await match.save()
+    changed = true
+  }
+
+  if (changed) {
+    cache?.invalidate(tournamentCategoryId)
+  }
+
+  for (const roundNumber of roundNumbers.slice(0, -1)) {
+    if (await syncConsolationNextRound(tournamentCategoryId, roundNumber, cache)) {
+      changed = true
     }
   }
 
-  return { ready: true, losers }
+  return changed
+}
+
+/**
+ * Consolation-only counterpart of `syncKnockoutNextRound`. A feeder can be
+ * still pending, a resolved winner, or permanently VOID (see MatchStatus.VOID)
+ * — a state the main bracket never produces, so it needs its own propagation:
+ * a next-round match with one VOID feeder and one resolved feeder becomes a
+ * walkover for the resolved side; with both feeders VOID it becomes VOID
+ * itself, cascading the same way through the rest of the bracket. Returns true
+ * when it changed anything.
+ */
+async function syncConsolationNextRound(
+  tournamentCategoryId: number,
+  roundNumber: number,
+  cache?: AdvanceCache
+): Promise<boolean> {
+  const lane: RoundLane = { type: MatchType.CONSOLATION_BRACKET, groupNumber: null }
+  const all = await loadCategoryMatches(tournamentCategoryId, cache)
+  const current = roundMatchesOf(all, lane, roundNumber)
+
+  if (current.length <= 1) {
+    return false
+  }
+
+  const next = roundMatchesOf(all, lane, roundNumber + 1)
+
+  if (next.length === 0) {
+    return false
+  }
+
+  const currentByPosition = new Map(current.map((match) => [match.position, match]))
+
+  const feederState = (
+    match: Match | undefined
+  ): { state: 'pending' } | { state: 'ids'; ids: number[] } | { state: 'void' } => {
+    if (!match) {
+      return { state: 'pending' }
+    }
+
+    if (match.status === MatchStatus.VOID) {
+      return { state: 'void' }
+    }
+
+    if (match.status === MatchStatus.PENDING) {
+      return { state: 'pending' }
+    }
+
+    const ids = matchWinnerIds(match)
+
+    return ids ? { state: 'ids', ids } : { state: 'pending' }
+  }
+
+  let changed = false
+
+  for (const target of next) {
+    if (target.status !== MatchStatus.PENDING) {
+      continue
+    }
+
+    const home = feederState(currentByPosition.get(target.position * 2))
+    const away = feederState(currentByPosition.get(target.position * 2 + 1))
+    let update: ConsolationSlotUpdate | null = null
+
+    if (home.state === 'ids' && away.state === 'ids') {
+      update = { home: home.ids, away: away.ids, status: MatchStatus.PENDING, winner: null }
+    } else if (home.state === 'void' && away.state === 'void') {
+      update = { home: [], away: null, status: MatchStatus.VOID, winner: null }
+    } else if (home.state === 'ids' && away.state === 'void') {
+      update = { home: home.ids, away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
+    } else if (home.state === 'void' && away.state === 'ids') {
+      update = { home: away.ids, away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
+    } else if (home.state === 'ids' && away.state === 'pending') {
+      update = { home: home.ids, away: [], status: MatchStatus.PENDING, winner: null }
+    } else if (home.state === 'pending' && away.state === 'ids') {
+      update = { home: [], away: away.ids, status: MatchStatus.PENDING, winner: null }
+    }
+
+    if (!update) {
+      continue
+    }
+
+    if (
+      sameIds(target.homeCompetitorIds, update.home) &&
+      ((target.awayCompetitorIds == null && update.away == null) ||
+        (target.awayCompetitorIds != null && update.away != null && sameIds(target.awayCompetitorIds, update.away)))
+    ) {
+      continue
+    }
+
+    target.homeCompetitorIds = update.home
+    target.awayCompetitorIds = update.away
+    target.status = update.status
+    target.winner = update.winner
+    target.updatedAt = new Date()
+    await target.save()
+    changed = true
+  }
+
+  if (changed) {
+    cache?.invalidate(tournamentCategoryId)
+  }
+
+  return changed
 }
 
 /** Ranks the competitors of a round-robin group from its resolved matches. */
@@ -1289,6 +1556,13 @@ async function materializeCategoryRound(
 
       if (roundNumber === 1 && !roundExistsIn(all, mainLane, 1)) {
         created += await createKnockoutBracket(tournamentCategoryId, mainLane, competitorIds, 1)
+
+        // Built alongside the main bracket, right from "Iniciar torneo": every
+        // slot starts as "to be defined" and fills in progressively as the main
+        // bracket produces its first-round losers (see advanceConsolationBracket).
+        if (tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION && created > 0) {
+          await createConsolationSkeleton(tournamentCategoryId, getBracketSize(competitorIds.length))
+        }
       }
 
       return created
@@ -1614,45 +1888,6 @@ async function maybeStartGroupsKnockout(
 }
 
 /**
- * Playoff-with-consolation join: once every competitor has played (and possibly
- * lost) their first real match, builds the consolation bracket from the
- * first-round losers. Returns true when the bracket was created.
- */
-async function maybeStartConsolation(
-  tournament: Tournament,
-  tournamentCategoryId: number,
-  cache?: AdvanceCache
-): Promise<boolean> {
-  if (tournament.type !== TournamentType.PLAYOFF_WITH_CONSOLATION) {
-    return false
-  }
-
-  const consolationLane: RoundLane = { type: MatchType.CONSOLATION_BRACKET, groupNumber: null }
-  const all = await loadCategoryMatches(tournamentCategoryId, cache)
-
-  if (laneExistsIn(all, consolationLane)) {
-    return false
-  }
-
-  const { ready, losers } = await computeConsolationSeeds(tournamentCategoryId, cache)
-
-  if (!ready || losers.length < 2) {
-    return false
-  }
-
-  // The consolation entrants are the round-1 losers, so it starts at number 2.
-  const created = await createKnockoutBracket(tournamentCategoryId, consolationLane, losers, 2)
-
-  if (created === 0) {
-    return false
-  }
-
-  cache?.invalidate(tournamentCategoryId)
-
-  return true
-}
-
-/**
  * Drives the whole tournament forward after a result is saved/edited. Every lane
  * advances on its own schedule. Group phases reconverge into the knockout only
  * once ALL groups of the category are done. Loops until nothing else can move.
@@ -1692,8 +1927,10 @@ async function advanceTournament(tournament: Tournament, scopeCategoryId?: numbe
         progressed = true
       }
 
-      if (await maybeStartConsolation(tournament, category.id, cache)) {
-        progressed = true
+      if (tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+        if (await advanceConsolationBracket(category.id, cache)) {
+          progressed = true
+        }
       }
     }
   }
@@ -1759,13 +1996,19 @@ async function regenerateDownstreamRounds(tournament: Tournament, editedMatch: M
 
     case TournamentType.PLAYOFF_WITH_CONSOLATION: {
       // A main-bracket edit can change who drops to the consolation bracket. Only
-      // reseed it when it exists and has not started yet (never clobber results).
+      // rebuild it when it holds no results yet (never clobber a played match) —
+      // the skeleton is cheap to recreate since nothing has happened in it yet;
+      // advanceConsolationBracket re-resolves whatever slots are already known.
       if (editedMatch.type === MatchType.BRACKET) {
         const consolationLane: RoundLane = { type: MatchType.CONSOLATION_BRACKET, groupNumber: null }
         const all = await loadCategoryMatches(tournamentCategoryId)
 
         if (laneExistsIn(all, consolationLane) && !laneHasResultsIn(all, consolationLane)) {
           await deleteLane(tournamentCategoryId, consolationLane)
+
+          const competitorIds = await getSortedCompetitorIds(tournament, tournamentCategoryId)
+
+          await createConsolationSkeleton(tournamentCategoryId, getBracketSize(competitorIds.length))
         }
       }
 
@@ -1801,7 +2044,11 @@ export async function progressTournamentAfterResult(
 
   const lane: RoundLane = { type: match.type, groupNumber: match.groupNumber ?? null }
 
-  if (isKnockoutType(match.type)) {
+  if (match.type === MatchType.CONSOLATION_BRACKET) {
+    // Void-aware: a feeder can be a genuine winner OR a permanently empty slot
+    // (see MatchStatus.VOID), which plain syncKnockoutNextRound doesn't model.
+    await syncConsolationNextRound(match.tournamentCategoryId, match.roundNumber)
+  } else if (isKnockoutType(match.type)) {
     await syncKnockoutNextRound(match.tournamentCategoryId, lane, match.roundNumber)
   }
 

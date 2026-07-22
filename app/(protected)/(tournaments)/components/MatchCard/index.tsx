@@ -32,7 +32,8 @@ export default function MatchCard({
     (tournament.competitors ?? []).map((c) => [c.id, c])
   )
   const scoreFormat = tournament.scoreFormat
-  const isBye = match.awayCompetitorIds === null
+  const isVoid = match.status === MatchStatus.VOID
+  const isBye = match.awayCompetitorIds === null && !isVoid
   const winner: MatchSide | null = match.winner
 
   const handleSideClick = (ids: number[] | null) => {
@@ -77,18 +78,25 @@ export default function MatchCard({
   return (
     <>
       <div className={`match-card ${highlighted ? 'highlighted' : ''}`}>
-        <div className="sides">
-          {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
-          {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
-        </div>
+        {isVoid ? (
+          <div className="sides">
+            <div className="bye">Sin clasificado</div>
+          </div>
+        ) : (
+          <div className="sides">
+            {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
+            {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
+          </div>
+        )}
         <div className="result">
           {!isBye &&
+            !isVoid &&
             (match.status === MatchStatus.PENDING ? (
               <span className="pending">Pendiente</span>
             ) : (
               <span className="score">{formatScore(parseScore(match.score), scoreFormat)}</span>
             ))}
-          {editable && !isBye && (
+          {editable && !isBye && !isVoid && (
             <IconButton size="small" className="edit" onClick={() => onEdit?.(match)}>
               <EditIcon fontSize="small" />
             </IconButton>
