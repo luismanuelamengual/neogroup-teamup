@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -52,7 +52,7 @@ describe('result edits — grace window', () => {
     await setResult(round1Now[0].id, { home: 5, away: 16 })
 
     const round2After = (await getRounds(categoryId)).find((r) => r.number === 2)!
-    const round2Rounds = (await getRounds(categoryId)).filter((r) => r.number === 2 && r.type === RoundType.AMERICANO)
+    const round2Rounds = (await getRounds(categoryId)).filter((r) => r.number === 2 && r.type === MatchType.LEAGUE)
     const pairingsAfter = (await getMatches(round2After.id))
       .map((m) => `${m.homeCompetitorIds}-${m.awayCompetitorIds}`)
       .join('|')
@@ -109,7 +109,7 @@ describe('result edits — grace window', () => {
     // duplicated knockout rounds even though groups are edited along the way.
     await playToCompletion(built)
 
-    const knockoutRounds = (await getRounds(built.categoryIds[0])).filter((r) => r.type === RoundType.KNOCKOUT)
+    const knockoutRounds = (await getRounds(built.categoryIds[0])).filter((r) => r.type === MatchType.BRACKET)
     const numbers = knockoutRounds.map((r) => r.number)
 
     // No duplicate knockout round numbers.

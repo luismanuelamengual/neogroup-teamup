@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -43,7 +43,7 @@ describe('PLAYOFF — full flows', () => {
       await start(built)
 
       const categoryId = built.categoryIds[0]
-      const rounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.KNOCKOUT)
+      const rounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
 
       expect(rounds.length).toBe(knockoutRounds(n))
 
@@ -76,7 +76,7 @@ describe('PLAYOFF — full flows', () => {
       await start(built)
 
       const categoryId = built.categoryIds[0]
-      const rounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.KNOCKOUT)
+      const rounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
 
       expect(rounds.length).toBe(knockoutRounds(n))
 

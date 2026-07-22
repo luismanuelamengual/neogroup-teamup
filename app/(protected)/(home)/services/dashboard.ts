@@ -77,97 +77,87 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
     .where('tournaments.organizationId', organizationId)
     .where('tournaments.status', TournamentStatus.FINISHED)
     .whereArrayContains('competitors.playerIds', userId)
-  const [
-    tournamentRow,
-    competitorRows,
-    matchRows,
-    podiumTournamentRows,
-    podiumRoundRows,
-    podiumMatchRows,
-    rankingSummary
-  ] = await Promise.all([
-    // Q1: tournament counts — distinct tournaments where the player competes
-    DB.table('tournaments')
-      .alias('t')
-      .innerJoin('tournament_categories', 'tournament_categories.tournamentId', 't.id')
-      .select(
-        'COUNT(DISTINCT t.id) AS total',
-        `COUNT(DISTINCT CASE WHEN t.status != ${TournamentStatus.FINISHED} THEN t.id END) AS active`
-      )
-      .where('t.organizationId', organizationId)
-      .where({ exists: playerInCategorySubquery })
-      .first(),
+  const [tournamentRow, competitorRows, matchRows, podiumTournamentRows, podiumMatchRows, rankingSummary] =
+    await Promise.all([
+      // Q1: tournament counts — distinct tournaments where the player competes
+      DB.table('tournaments')
+        .alias('t')
+        .innerJoin('tournament_categories', 'tournament_categories.tournamentId', 't.id')
+        .select(
+          'COUNT(DISTINCT t.id) AS total',
+          `COUNT(DISTINCT CASE WHEN t.status != ${TournamentStatus.FINISHED} THEN t.id END) AS active`
+        )
+        .where('t.organizationId', organizationId)
+        .where({ exists: playerInCategorySubquery })
+        .first(),
 
-    // Q2: player's competitor id → tournamentCategoryId mapping
-    DB.table('competitors')
-      .alias('c')
-      .innerJoin('tournament_categories', 'tournament_categories.id', 'c.tournamentCategoryId')
-      .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
-      .select('c.id AS cid', 'c.tournamentCategoryId AS catid')
-      .where('tournaments.organizationId', organizationId)
-      .whereArrayContains('c.playerIds', userId)
-      .get(),
+      // Q2: player's competitor id → tournamentCategoryId mapping
+      DB.table('competitors')
+        .alias('c')
+        .innerJoin('tournament_categories', 'tournament_categories.id', 'c.tournamentCategoryId')
+        .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
+        .select('c.id AS cid', 'c.tournamentCategoryId AS catid')
+        .where('tournaments.organizationId', organizationId)
+        .whereArrayContains('c.playerIds', userId)
+        .get(),
 
-    // Q3: played matches in categories where player competes (for matchesPlayed / matchesWon)
-    DB.table('matches')
-      .alias('m')
-      .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
-      .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
-      .select(
-        'm.tournamentCategoryId AS tcid',
-        'm.homeCompetitorIds AS homeids',
-        'm.awayCompetitorIds AS awayids',
-        'm.winner AS winner'
-      )
-      .where('tournaments.organizationId', organizationId)
-      .whereNotNull('m.awayCompetitorIds')
-      .where('m.status', '!=', MatchStatus.PENDING)
-      .where({ exists: playerInMatchCategorySubquery })
-      .get(),
+      // Q3: played matches in categories where player competes (for matchesPlayed / matchesWon)
+      DB.table('matches')
+        .alias('m')
+        .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
+        .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
+        .select(
+          'm.tournamentCategoryId AS tcid',
+          'm.homeCompetitorIds AS homeids',
+          'm.awayCompetitorIds AS awayids',
+          'm.winner AS winner'
+        )
+        .where('tournaments.organizationId', organizationId)
+        .whereNotNull('m.awayCompetitorIds')
+        .where('m.status', '!=', MatchStatus.PENDING)
+        .where({ exists: playerInMatchCategorySubquery })
+        .get(),
 
-    // Q4a: FINISHED tournament metadata + player's competitor id per category
-    DB.table('tournaments')
-      .alias('t')
-      .innerJoin('tournament_categories', 'tournament_categories.tournamentId', 't.id')
-      .innerJoin('competitors', 'competitors.tournamentCategoryId', 'tournament_categories.id')
-      .select(
-        't.id AS tid',
-        't.type AS ttype',
-        't.scoreFormat AS scoreformat',
-        't.settings AS tsettings',
-        'tournament_categories.id AS catid',
-        'competitors.id AS cid'
-      )
-      .where('t.organizationId', organizationId)
-      .where('t.status', TournamentStatus.FINISHED)
-      .whereArrayContains('competitors.playerIds', userId)
-      .get(),
+      // Q4a: FINISHED tournament metadata + player's competitor id per category
+      DB.table('tournaments')
+        .alias('t')
+        .innerJoin('tournament_categories', 'tournament_categories.tournamentId', 't.id')
+        .innerJoin('competitors', 'competitors.tournamentCategoryId', 'tournament_categories.id')
+        .select(
+          't.id AS tid',
+          't.type AS ttype',
+          't.scoreFormat AS scoreformat',
+          't.settings AS tsettings',
+          'tournament_categories.id AS catid',
+          'competitors.id AS cid'
+        )
+        .where('t.organizationId', organizationId)
+        .where('t.status', TournamentStatus.FINISHED)
+        .whereArrayContains('competitors.playerIds', userId)
+        .get(),
 
-    // Q4b: rounds belonging to those finished categories
-    DB.table('rounds')
-      .select('id', 'tournamentCategoryId', 'number', 'type', 'status', 'groupNumber', 'active')
-      .where('tournamentCategoryId', 'IN', finishedPlayerCategoryIds)
-      .get(),
+      // Q4b: matches belonging to those finished categories
+      DB.table('matches')
+        .select(
+          'id',
+          'tournamentCategoryId',
+          'roundNumber',
+          'type',
+          'groupNumber',
+          'position',
+          'bracketInstance',
+          'homeCompetitorIds',
+          'awayCompetitorIds',
+          'score',
+          'status',
+          'winner'
+        )
+        .where('tournamentCategoryId', 'IN', finishedPlayerCategoryIds)
+        .get(),
 
-    // Q4c: matches belonging to those finished categories
-    DB.table('matches')
-      .select(
-        'id',
-        'tournamentCategoryId',
-        'roundId',
-        'position',
-        'homeCompetitorIds',
-        'awayCompetitorIds',
-        'score',
-        'status',
-        'winner'
-      )
-      .where('tournamentCategoryId', 'IN', finishedPlayerCategoryIds)
-      .get(),
-
-    // Q5: ranking summary
-    getPlayerRankingSummary(userId)
-  ])
+      // Q5: ranking summary
+      getPlayerRankingSummary(userId)
+    ])
   const competitorByCategory = new Map<number, number>()
 
   for (const row of competitorRows) {
@@ -204,26 +194,6 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
 
   // Build per-category lookups from the flat query results.
   // Note: column names from DB.table() are returned lowercase by PostgreSQL.
-  const roundsByCategory = new Map<number, object[]>()
-
-  for (const row of podiumRoundRows) {
-    const catId = Number(row.tournamentcategoryid)
-
-    if (!roundsByCategory.has(catId)) {
-      roundsByCategory.set(catId, [])
-    }
-
-    roundsByCategory.get(catId)!.push({
-      id: Number(row.id),
-      tournamentCategoryId: catId,
-      number: Number(row.number),
-      type: Number(row.type),
-      status: Number(row.status),
-      active: Boolean(row.active),
-      groupNumber: row.groupnumber != null ? Number(row.groupnumber) : null
-    })
-  }
-
   const matchesByCategory = new Map<number, object[]>()
 
   for (const row of podiumMatchRows) {
@@ -236,8 +206,11 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
     matchesByCategory.get(catId)!.push({
       id: Number(row.id),
       tournamentCategoryId: catId,
-      roundId: Number(row.roundid),
+      roundNumber: Number(row.roundnumber),
+      type: Number(row.type),
+      groupNumber: row.groupnumber != null ? Number(row.groupnumber) : null,
       position: Number(row.position),
+      bracketInstance: row.bracketinstance != null ? Number(row.bracketinstance) : null,
       homeCompetitorIds: toIntArray(row.homecompetitorids),
       awayCompetitorIds: row.awaycompetitorids != null ? toIntArray(row.awaycompetitorids) : null,
       score: row.score as string | null,
@@ -284,7 +257,6 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
       scoreFormat: Number(row.scoreformat),
       settings: tournamentSettings,
       competitors: competitorsByCategory.get(categoryId) ?? [],
-      rounds: roundsByCategory.get(categoryId) ?? [],
       matches: matchesByCategory.get(categoryId) ?? []
     } as unknown as Tournament
 

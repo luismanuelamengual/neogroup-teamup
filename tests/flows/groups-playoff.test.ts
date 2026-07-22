@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -62,7 +62,7 @@ describe('GROUPS_PLAYOFF — full flows', () => {
       // One LEAGUE lane (group) per expected group, identified by groupNumber.
       const groupNumbers = new Set(
         (await getRounds(categoryId))
-          .filter((r) => r.type === RoundType.LEAGUE && r.groupNumber != null)
+          .filter((r) => r.type === MatchType.LEAGUE && r.groupNumber != null)
           .map((r) => r.groupNumber)
       )
 
@@ -73,12 +73,12 @@ describe('GROUPS_PLAYOFF — full flows', () => {
       expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
 
       // A knockout phase must have been created after the groups.
-      const knockoutRounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.KNOCKOUT)
+      const knockoutRounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
 
       expect(knockoutRounds.length).toBeGreaterThan(0)
 
       // Each group round has no double-booking.
-      for (const round of (await getRounds(categoryId)).filter((r) => r.type === RoundType.LEAGUE)) {
+      for (const round of (await getRounds(categoryId)).filter((r) => r.type === MatchType.LEAGUE)) {
         expect(hasNoDoubleBooking(await getMatches(round.id))).toBe(true)
       }
 
@@ -113,9 +113,7 @@ describe('GROUPS_PLAYOFF — full flows', () => {
       const group0 = []
 
       for (const match of pending) {
-        const round = (await getRounds(categoryId)).find((r) => r.id === match.roundId)
-
-        if (round && round.type === RoundType.LEAGUE && round.groupNumber === 0) {
+        if (match.type === MatchType.LEAGUE && match.groupNumber === 0) {
           group0.push(match)
         }
       }
@@ -129,14 +127,14 @@ describe('GROUPS_PLAYOFF — full flows', () => {
       }
     }
 
-    const knockoutBefore = (await getRounds(categoryId)).filter((r) => r.type === RoundType.KNOCKOUT)
+    const knockoutBefore = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
 
     expect(knockoutBefore.length).toBe(0)
 
     // Finishing the rest triggers the knockout and the tournament completes.
     await playToCompletion(built)
 
-    const knockoutAfter = (await getRounds(categoryId)).filter((r) => r.type === RoundType.KNOCKOUT)
+    const knockoutAfter = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
 
     expect(knockoutAfter.length).toBeGreaterThan(0)
     expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)

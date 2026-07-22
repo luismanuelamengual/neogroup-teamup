@@ -22,7 +22,6 @@ export async function awardRankingPoints(tournamentId: number): Promise<void> {
   const tournament = (await getTournament({
     id: tournamentId,
     withCompetitors: true,
-    withRounds: true,
     withMatches: true
   })) as unknown as Tournament | null
   const settings = tournament?.rankingSettings

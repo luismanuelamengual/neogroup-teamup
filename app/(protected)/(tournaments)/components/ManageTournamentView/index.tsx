@@ -67,7 +67,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   const userId = useUserStore((state) => state.user?.id ?? null)
   const isOwner = tournament != null && userId != null && tournament.ownerId === userId
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
-  const rounds = tournament?.rounds ?? []
+  const matches = useMemo(() => tournament?.matches ?? [], [tournament])
   const categories = useMemo(() => tournament?.categories ?? [], [tournament])
   const categoryKeys = useMemo<number[]>(() => categories.map((category) => category.id), [categories])
   const categoryNameById = useMemo(
@@ -163,9 +163,9 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
   // categories render one accordion each.
   const categoryGroups = categoryKeys.map((key) => {
     const groupCompetitors = competitors.filter((competitor) => competitor.tournamentCategoryId === key)
-    const groupRounds = rounds.filter((round) => round.tournamentCategoryId === key)
+    const hasMatches = matches.some((match) => match.tournamentCategoryId === key)
 
-    return { key, groupCompetitors, groupRounds }
+    return { key, groupCompetitors, hasMatches }
   })
 
   const runAction = async (action: () => Promise<void>) => {
@@ -354,7 +354,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
         </div>
       </Paper>
 
-      {categoryGroups.map(({ key, groupCompetitors, groupRounds }) => (
+      {categoryGroups.map(({ key, groupCompetitors, hasMatches }) => (
         <Accordion key={key} defaultExpanded disableGutters elevation={2} className="category-accordion">
           <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
             <div className="category-header">
@@ -377,7 +377,7 @@ export default function ManageTournamentView({ tournamentId, appUrl }: ManageTou
               </Typography>
               <CompetitorsList tournament={tournament} category={key} />
             </div>
-            {groupRounds.length > 0 && (
+            {hasMatches && (
               <>
                 <Divider />
                 <TournamentRoundsView

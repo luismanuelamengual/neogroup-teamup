@@ -10,7 +10,6 @@ export const POST = withAuth(async (request) => {
   const tournament = await getTournament({
     id: Number(id),
     withCompetitors: true,
-    withRounds: true,
     withMatches: true,
     withImage: true
   })

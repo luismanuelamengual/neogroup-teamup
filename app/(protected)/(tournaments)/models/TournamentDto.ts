@@ -2,7 +2,6 @@ import { RankingSettings } from '@/app/(protected)/(rankings)/models/RankingSett
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
-import { RoundDto } from '@/app/(protected)/(tournaments)/models/RoundDto'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentCategoryDto } from '@/app/(protected)/(tournaments)/models/TournamentCategoryDto'
@@ -35,6 +34,5 @@ export interface TournamentDto {
   createdAt: string
   updatedAt: string
   competitors?: CompetitorDto[]
-  rounds?: RoundDto[]
   matches?: MatchDto[]
 }

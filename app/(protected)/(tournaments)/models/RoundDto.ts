@@ -1,14 +1,6 @@
-import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
-
-/** Serializable representation of a Round — safe to pass server→client. */
-export interface RoundDto {
-  id: number
-  tournamentCategoryId: number
-  number: number
-  status: RoundStatus
-  type: RoundType
-  groupNumber: number | null
-  active: boolean
-  createdAt: string
-}
+/**
+ * @deprecated The `rounds` table has been removed; there is no RoundDto anymore.
+ * Match DTOs now carry roundNumber, type, groupNumber, position and
+ * nextMatchId. Use `MatchDto` instead.
+ */
+export {}

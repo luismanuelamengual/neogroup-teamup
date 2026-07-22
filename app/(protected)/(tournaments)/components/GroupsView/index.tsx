@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import FixtureView from '@/app/(protected)/(tournaments)/components/FixtureView'
 import StandingsTable from '@/app/(protected)/(tournaments)/components/StandingsTable'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 
 interface GroupsViewProps {
@@ -22,18 +22,18 @@ export default function GroupsView({ tournament, category, organizerMode = false
   const groups = useMemo(() => {
     const numbers = new Set<number>()
 
-    for (const round of tournament.rounds ?? []) {
+    for (const match of tournament.matches ?? []) {
       if (
-        (category == null || round.tournamentCategoryId === category) &&
-        round.type === RoundType.LEAGUE &&
-        round.groupNumber != null
+        (category == null || match.tournamentCategoryId === category) &&
+        match.type === MatchType.LEAGUE &&
+        match.groupNumber != null
       ) {
-        numbers.add(round.groupNumber)
+        numbers.add(match.groupNumber)
       }
     }
 
     return [...numbers].sort((a, b) => a - b)
-  }, [tournament.rounds, category])
+  }, [tournament.matches, category])
   const [active, setActive] = useState(0)
 
   // Keep the active tab valid if the number of groups changes.

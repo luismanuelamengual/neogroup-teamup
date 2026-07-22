@@ -65,7 +65,6 @@ import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { Round } from '@/app/(protected)/(tournaments)/models/Round'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SetScore } from '@/app/(protected)/(tournaments)/models/SetScore'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
@@ -76,6 +75,7 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import {
   getPreclassificationCount,
   supportsPreclassification
@@ -390,8 +390,9 @@ async function registerCompetitors(
 // ---------------------------------------------------------------------------
 
 /** Applies a generated result to a single match and drives the tournament forward. */
-async function playMatch(tournament: Tournament, round: Round, match: Match): Promise<void> {
+async function playMatch(tournament: Tournament, match: Match): Promise<void> {
   const score = generateScore(tournament.scoreFormat, true)
+  const wasAlreadyResolved = match.status !== MatchStatus.PENDING
 
   if (score.walkover) {
     match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
@@ -406,7 +407,7 @@ async function playMatch(tournament: Tournament, round: Round, match: Match): Pr
   match.updatedAt = new Date()
   await match.save()
 
-  await progressTournamentAfterResult(tournament, round)
+  await progressTournamentAfterResult(tournament, match, wasAlreadyResolved)
 }
 
 /** Ids of the category instances of a tournament. */
@@ -416,32 +417,58 @@ async function tournamentCategoryIds(tournament: Tournament): Promise<number[]> 
   return categories.map((category) => category.id)
 }
 
-/** Number of the tournament's current active frontier (0 when none is active). */
-async function activeRoundNumber(tournament: Tournament): Promise<number> {
-  const rounds = await Round.whereIn('tournamentCategoryId', await tournamentCategoryIds(tournament))
-    .where('active', true)
-    .get()
+/** Currently editable, still-pending matches (the frontier of each lane). */
+async function editablePendingMatches(tournament: Tournament): Promise<Match[]> {
+  const categoryIds = await tournamentCategoryIds(tournament)
+  const matches = await Match.whereIn('tournamentCategoryId', categoryIds).get()
+  const byCategory = new Map<number, Match[]>()
 
-  return rounds.length > 0 ? Math.max(...rounds.map((round) => round.number)) : 0
+  for (const match of matches) {
+    if (!byCategory.has(match.tournamentCategoryId)) {
+      byCategory.set(match.tournamentCategoryId, [])
+    }
+
+    byCategory.get(match.tournamentCategoryId)!.push(match)
+  }
+
+  return matches.filter(
+    (match) =>
+      match.status === MatchStatus.PENDING &&
+      isMatchEditable(match, byCategory.get(match.tournamentCategoryId) ?? [], tournament.type, tournament.status)
+  )
+}
+
+/** Number of the tournament's current frontier round (0 when none is editable). */
+async function activeRoundNumber(tournament: Tournament): Promise<number> {
+  const pending = await editablePendingMatches(tournament)
+
+  return pending.length > 0 ? Math.max(...pending.map((match) => match.roundNumber)) : 0
 }
 
 /**
- * Plays the matches of the tournament's active frontier rounds. `fraction` < 1
- * leaves the rest pending (used to model a tournament caught mid-round).
+ * Plays the matches of the tournament's frontier rounds. `fraction` < 1 leaves
+ * the rest pending (used to model a tournament caught mid-round).
  */
 async function playCurrentRound(tournament: Tournament, fraction: number): Promise<void> {
-  const rounds = await Round.whereIn('tournamentCategoryId', await tournamentCategoryIds(tournament))
-    .where('active', true)
-    .get()
+  const pending = await editablePendingMatches(tournament)
+  // Group the frontier's pending matches by their lane-round slice.
+  const groups = new Map<string, Match[]>()
 
-  for (const round of rounds) {
-    const pending = (await Match.where('roundId', round.id).where('status', MatchStatus.PENDING).get()).filter(
-      (match) => match.homeCompetitorIds.length > 0 && (match.awayCompetitorIds?.length ?? 0) > 0
-    )
-    const count = fraction >= 1 ? pending.length : Math.ceil(pending.length * fraction)
+  for (const match of pending) {
+    const key = `${match.tournamentCategoryId}:${match.type}:${match.groupNumber ?? -1}:${match.roundNumber}`
+
+    if (!groups.has(key)) {
+      groups.set(key, [])
+    }
+
+    groups.get(key)!.push(match)
+  }
+
+  for (const list of groups.values()) {
+    const count = fraction >= 1 ? list.length : Math.ceil(list.length * fraction)
 
     for (let i = 0; i < count; i++) {
-      await playMatch(tournament, round, pending[i])
+      await playMatch(tournament, list[i])
     }
   }
 }

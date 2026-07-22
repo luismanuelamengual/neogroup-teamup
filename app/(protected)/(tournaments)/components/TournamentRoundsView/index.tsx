@@ -9,7 +9,7 @@ import FixtureView from '@/app/(protected)/(tournaments)/components/FixtureView'
 import GroupsView from '@/app/(protected)/(tournaments)/components/GroupsView'
 import StandingsTable from '@/app/(protected)/(tournaments)/components/StandingsTable'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import MessagePanel from '@/app/components/MessagePanel'
@@ -36,13 +36,13 @@ export default function TournamentRoundsView({
   onEditMatch
 }: TournamentRoundsViewProps) {
   const { hasConsolation, hasKnockout } = useMemo(() => {
-    const rounds = (tournament.rounds ?? []).filter((r) => category == null || r.tournamentCategoryId === category)
+    const matches = (tournament.matches ?? []).filter((m) => category == null || m.tournamentCategoryId === category)
 
     return {
-      hasConsolation: rounds.some((r) => r.type === RoundType.KNOCKOUT_CONSOLATION),
-      hasKnockout: rounds.some((r) => r.type === RoundType.KNOCKOUT)
+      hasConsolation: matches.some((m) => m.type === MatchType.CONSOLATION_BRACKET),
+      hasKnockout: matches.some((m) => m.type === MatchType.BRACKET)
     }
-  }, [tournament.rounds, category])
+  }, [tournament.matches, category])
 
   if (
     tournament.type === TournamentType.LEAGUE ||
@@ -95,7 +95,7 @@ export default function TournamentRoundsView({
                 <BracketView
                   tournament={tournament}
                   category={category}
-                  roundType={RoundType.KNOCKOUT_CONSOLATION}
+                  bracketType={MatchType.CONSOLATION_BRACKET}
                   organizerMode={organizerMode}
                   onEditMatch={onEditMatch}
                 />
@@ -127,7 +127,7 @@ export default function TournamentRoundsView({
             <BracketView
               tournament={tournament}
               category={category}
-              roundType={RoundType.KNOCKOUT}
+              bracketType={MatchType.BRACKET}
               organizerMode={organizerMode}
               onEditMatch={onEditMatch}
             />

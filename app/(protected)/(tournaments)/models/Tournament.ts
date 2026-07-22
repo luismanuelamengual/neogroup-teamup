@@ -3,7 +3,6 @@ import { RankingSettings } from '@/app/(protected)/(rankings)/models/RankingSett
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
-import { Round } from '@/app/(protected)/(tournaments)/models/Round'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
@@ -90,9 +89,6 @@ export class Tournament extends BaseEntity {
 
   @HasManyThrough(() => Competitor, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   competitors?: Competitor[]
-
-  @HasManyThrough(() => Round, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
-  rounds?: Round[]
 
   @HasManyThrough(() => Match, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   matches?: Match[]

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -38,8 +38,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
 
       const categoryId = built.categoryIds[0]
       const rounds = await getRounds(categoryId)
-      const mainRounds = rounds.filter((r) => r.type === RoundType.KNOCKOUT)
-      const consolationRounds = rounds.filter((r) => r.type === RoundType.KNOCKOUT_CONSOLATION)
+      const mainRounds = rounds.filter((r) => r.type === MatchType.BRACKET)
+      const consolationRounds = rounds.filter((r) => r.type === MatchType.CONSOLATION_BRACKET)
 
       // The consolation bracket must have been created (first-round losers play on).
       expect(mainRounds.length).toBeGreaterThan(0)
@@ -67,7 +67,7 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
     await start(built)
 
     const categoryId = built.categoryIds[0]
-    const rounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.KNOCKOUT)
+    const rounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
     const round1 = rounds.find((r) => r.number === 1)!
     const round1Matches = await getMatches(round1.id)
     // Resolve round 1 (home wins) to know who the losers are.
@@ -82,7 +82,7 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
     }
 
     // Now the consolation bracket should be seeded with exactly those losers.
-    const consolationRounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.KNOCKOUT_CONSOLATION)
+    const consolationRounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.CONSOLATION_BRACKET)
 
     expect(consolationRounds.length).toBeGreaterThan(0)
 

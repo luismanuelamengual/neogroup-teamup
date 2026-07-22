@@ -33,8 +33,9 @@ import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/Competitor
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { isKnockoutType, RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { isKnockoutType, MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { downloadPlannerPdf, PlannerPdfDay, PlannerPdfSlot } from './exportPdf'
 
@@ -493,77 +494,85 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
   // category + bracket (main/consolation) and counted from the last one back.
   // Rounds that aren't part of a knockout bracket (league/americano) have no
   // entry, so their matches simply show no round label.
-  const roundLabelByRoundId = useMemo(() => {
-    const rounds = tournament?.rounds ?? []
+  const roundLabelByMatchId = useMemo(() => {
     const matches = tournament?.matches ?? []
-    const matchCountByRoundId = new Map<number, number>()
+    // Group knockout matches by category + bracket (main/consolation).
+    const groups = new Map<string, MatchDto[]>()
 
     for (const match of matches) {
-      matchCountByRoundId.set(match.roundId, (matchCountByRoundId.get(match.roundId) ?? 0) + 1)
-    }
-
-    const groups = new Map<string, typeof rounds>()
-
-    for (const round of rounds) {
-      if (!isKnockoutType(round.type)) {
+      if (!isKnockoutType(match.type)) {
         continue
       }
 
-      const key = `${round.tournamentCategoryId}-${round.type}`
+      const key = `${match.tournamentCategoryId}-${match.type}`
       const list = groups.get(key) ?? []
 
-      list.push(round)
+      list.push(match)
       groups.set(key, list)
     }
 
     const result = new Map<number, string>()
 
     for (const list of groups.values()) {
-      const sorted = [...list].sort((a, b) => a.number - b.number)
-      const total = sorted.length
+      const roundNumbers = [...new Set(list.map((m) => m.roundNumber))].sort((a, b) => a - b)
+      const total = roundNumbers.length
 
-      sorted.forEach((round, index) => {
-        const matchCount = matchCountByRoundId.get(round.id) ?? 0
+      roundNumbers.forEach((roundNumber, index) => {
+        const roundMatches = list.filter((m) => m.roundNumber === roundNumber)
+        const label = roundLabel(index, total, roundMatches.length)
 
-        result.set(round.id, roundLabel(index, total, matchCount))
+        for (const match of roundMatches) {
+          result.set(match.id, label)
+        }
       })
     }
 
     return result
   }, [tournament])
-  // Rounds currently in play — only their matches can be scheduled.
-  const activeRoundIds = useMemo(
-    () => new Set((tournament?.rounds ?? []).filter((round) => round.active).map((round) => round.id)),
-    [tournament]
-  )
-  // Rounds that belong to the consolation knockout bracket, so their matches can be
+  // Matches that belong to the consolation knockout bracket, so they can be
   // flagged as "Consuelo" in the grid and the PDF.
-  const consolationRoundIds = useMemo(
+  const consolationMatchIds = useMemo(
     () =>
       new Set(
-        (tournament?.rounds ?? [])
-          .filter((round) => round.type === RoundType.KNOCKOUT_CONSOLATION)
-          .map((round) => round.id)
+        (tournament?.matches ?? [])
+          .filter((match) => match.type === MatchType.CONSOLATION_BRACKET)
+          .map((match) => match.id)
       ),
     [tournament]
   )
-  // Only matches that are ready to be scheduled: belong to an active round, not
-  // yet played (still pending and without a loaded result) and with both sides
-  // already known (excludes byes and not-yet-defined bracket matches).
-  const pendingMatches = useMemo<MatchDto[]>(
-    () =>
-      (tournament?.matches ?? []).filter(
-        (match) =>
-          activeRoundIds.has(match.roundId) &&
-          match.status === MatchStatus.PENDING &&
-          match.score == null &&
-          match.winner == null &&
-          match.homeCompetitorIds.length > 0 &&
-          match.awayCompetitorIds != null &&
-          match.awayCompetitorIds.length > 0
-      ),
-    [tournament, activeRoundIds]
-  )
+  // Only matches that are ready to be scheduled: currently editable (the frontier
+  // of their lane), not yet played (still pending and without a loaded result)
+  // and with both sides already known (excludes byes and not-yet-defined bracket
+  // matches).
+  const pendingMatches = useMemo<MatchDto[]>(() => {
+    if (!tournament) {
+      return []
+    }
+
+    const matches = tournament.matches ?? []
+    const matchesByCategory = new Map<number, MatchDto[]>()
+
+    for (const match of matches) {
+      if (!matchesByCategory.has(match.tournamentCategoryId)) {
+        matchesByCategory.set(match.tournamentCategoryId, [])
+      }
+
+      matchesByCategory.get(match.tournamentCategoryId)!.push(match)
+    }
+
+    return matches.filter(
+      (match) =>
+        match.status === MatchStatus.PENDING &&
+        match.score == null &&
+        match.winner == null &&
+        isMatchEditable(
+          match,
+          matchesByCategory.get(match.tournamentCategoryId) ?? [],
+          tournament.type,
+          tournament.status
+        )
+    )
+  }, [tournament])
   // The days covered by the configured range.
   const days = useMemo<Dayjs[]>(() => {
     const list: Dayjs[] = []
@@ -662,13 +671,13 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     (match: MatchDto): PlannerEntry => ({
       id: match.id,
       category: categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única',
-      round: roundLabelByRoundId.get(match.roundId) ?? null,
+      round: roundLabelByMatchId.get(match.id) ?? null,
       home: sideName(match.homeCompetitorIds),
       away: sideName(match.awayCompetitorIds),
       custom: false,
-      consolation: consolationRoundIds.has(match.roundId)
+      consolation: consolationMatchIds.has(match.id)
     }),
-    [categoryNameById, roundLabelByRoundId, sideName, consolationRoundIds]
+    [categoryNameById, roundLabelByMatchId, sideName, consolationMatchIds]
   )
   // Real matches plus organizer-typed custom matches, all as PlannerEntry.
   const allEntries = useMemo<PlannerEntry[]>(
@@ -1388,7 +1397,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
             onChange={(event) => setCustomForm((prev) => ({ ...prev, away: event.target.value }))}
             fullWidth
           />
-          {consolationRoundIds.size > 0 && (
+          {consolationMatchIds.size > 0 && (
             <FormControlLabel
               className="custom-match-switch"
               control={

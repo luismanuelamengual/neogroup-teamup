@@ -1,7 +1,7 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
-import { Round } from '@/app/(protected)/(tournaments)/models/Round'
+import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 
 /**
@@ -34,6 +34,6 @@ export class TournamentCategory extends BaseEntity {
   @HasMany(() => Competitor, 'tournamentCategoryId')
   competitors?: Competitor[]
 
-  @HasMany(() => Round, 'tournamentCategoryId')
-  rounds?: Round[]
+  @HasMany(() => Match, 'tournamentCategoryId')
+  matches?: Match[]
 }

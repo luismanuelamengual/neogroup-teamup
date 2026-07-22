@@ -8,9 +8,10 @@ import IconButton from '@mui/material/IconButton'
 import { useMemo, useState } from 'react'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
-import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { useUserStore } from '@/app/stores/users'
 
 interface FixtureViewProps {
@@ -22,6 +23,12 @@ interface FixtureViewProps {
   onEditMatch?: (match: MatchDto) => void
 }
 
+interface RoundGroup {
+  number: number
+  matches: MatchDto[]
+  open: boolean
+}
+
 /** Rounds + matches list used by leagues, americano and group-phase fixtures. */
 export default function FixtureView({
   tournament,
@@ -31,74 +38,70 @@ export default function FixtureView({
   onEditMatch
 }: FixtureViewProps) {
   const userId = useUserStore((state) => state.user?.id ?? null)
-  const rounds = useMemo(() => {
-    const all = tournament.rounds ?? []
-    const filtered = all.filter(
-      (r) =>
-        (category == null || r.tournamentCategoryId === category) &&
-        (r.groupNumber ?? null) === (groupNumber ?? null) &&
-        (r.type === RoundType.LEAGUE || r.type === RoundType.AMERICANO)
-    )
+  // Matches of the round-robin (LEAGUE) lane for the requested category/group.
+  const laneMatches = useMemo(
+    () =>
+      (tournament.matches ?? []).filter(
+        (m) =>
+          (category == null || m.tournamentCategoryId === category) &&
+          (m.groupNumber ?? null) === (groupNumber ?? null) &&
+          m.type === MatchType.LEAGUE
+      ),
+    [tournament.matches, category, groupNumber]
+  )
+  const rounds = useMemo<RoundGroup[]>(() => {
+    const byNumber = new Map<number, MatchDto[]>()
 
-    return [...filtered].sort((a, b) => a.number - b.number)
-  }, [tournament.rounds, category, groupNumber])
-  const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null)
-  // Resolve which round to show: use selectedRoundId if valid, otherwise last round
-  const activeRoundId = useMemo(() => {
+    for (const match of laneMatches) {
+      if (!byNumber.has(match.roundNumber)) {
+        byNumber.set(match.roundNumber, [])
+      }
+
+      byNumber.get(match.roundNumber)!.push(match)
+    }
+
+    return [...byNumber.entries()]
+      .map(([number, matches]) => ({
+        number,
+        matches: [...matches].sort((a, b) => a.position - b.position),
+        open: matches.some((m) => m.status === MatchStatus.PENDING)
+      }))
+      .sort((a, b) => a.number - b.number)
+  }, [laneMatches])
+  const [selectedRoundNumber, setSelectedRoundNumber] = useState<number | null>(null)
+  // Resolve which round to show: use the selection if valid, otherwise the last.
+  const activeRoundNumber = useMemo(() => {
     if (rounds.length === 0) {
       return null
     }
 
-    if (selectedRoundId != null && rounds.some((r) => r.id === selectedRoundId)) {
-      return selectedRoundId
+    if (selectedRoundNumber != null && rounds.some((r) => r.number === selectedRoundNumber)) {
+      return selectedRoundNumber
     }
 
-    return rounds[rounds.length - 1]!.id
-  }, [rounds, selectedRoundId])
-  const activeRoundIndex = useMemo(() => rounds.findIndex((r) => r.id === activeRoundId), [rounds, activeRoundId])
-  const matchesByRound = useMemo(() => {
-    const roundIds = new Set(rounds.map((r) => r.id))
-    const map: Record<number, typeof tournament.matches> = {}
-
-    for (const match of (tournament.matches ?? []).filter((m) => roundIds.has(m.roundId))) {
-      if (!map[match.roundId]) {
-        map[match.roundId] = []
-      }
-
-      map[match.roundId]!.push(match)
-    }
-
-    return map
-  }, [rounds, tournament])
+    return rounds[rounds.length - 1]!.number
+  }, [rounds, selectedRoundNumber])
+  const activeRoundIndex = useMemo(
+    () => rounds.findIndex((r) => r.number === activeRoundNumber),
+    [rounds, activeRoundNumber]
+  )
   const { editableMatchIds, highlightedMatchIds } = useMemo(() => {
-    const currentOpenRoundIds = new Set(
-      (tournament.rounds ?? [])
-        .filter(
-          (r) =>
-            r.active &&
-            (r.groupNumber ?? null) === (groupNumber ?? null) &&
-            (category == null || r.tournamentCategoryId === category)
-        )
-        .map((r) => r.id)
+    const categoryMatches = (tournament.matches ?? []).filter(
+      (m) => category == null || m.tournamentCategoryId === category
     )
-
-    if (currentOpenRoundIds.size === 0) {
-      return { editableMatchIds: [], highlightedMatchIds: [] }
-    }
-
-    const currentOpenMatches = (tournament.matches ?? []).filter((m) => currentOpenRoundIds.has(m.roundId))
+    const editable = laneMatches.filter((m) => isMatchEditable(m, categoryMatches, tournament.type, tournament.status))
 
     if (organizerMode) {
-      return { editableMatchIds: currentOpenMatches.map((m) => m.id), highlightedMatchIds: [] }
+      return { editableMatchIds: editable.map((m) => m.id), highlightedMatchIds: [] as number[] }
     }
 
     const userEntry = (tournament.competitors ?? []).find((c) => userId != null && c.playerIds.includes(userId))
 
     if (!userEntry) {
-      return { editableMatchIds: [], highlightedMatchIds: [] }
+      return { editableMatchIds: [] as number[], highlightedMatchIds: [] as number[] }
     }
 
-    const userMatchIds = currentOpenMatches
+    const userMatchIds = editable
       .filter(
         (m) =>
           m.awayCompetitorIds !== null &&
@@ -107,14 +110,13 @@ export default function FixtureView({
       .map((m) => m.id)
 
     return { editableMatchIds: userMatchIds, highlightedMatchIds: userMatchIds }
-  }, [tournament, category, groupNumber, organizerMode, userId])
+  }, [tournament, laneMatches, category, organizerMode, userId])
 
-  if (rounds.length === 0 || activeRoundId === null) {
+  if (rounds.length === 0 || activeRoundNumber === null) {
     return null
   }
 
   const activeRound = rounds[activeRoundIndex]!
-  const roundMatches = (matchesByRound[activeRound.id] ?? []).slice().sort((a, b) => a.position - b.position)
 
   return (
     <div className="fixture-view">
@@ -122,7 +124,7 @@ export default function FixtureView({
         <IconButton
           size="small"
           disabled={activeRoundIndex === 0}
-          onClick={() => setSelectedRoundId(rounds[activeRoundIndex - 1]!.id)}
+          onClick={() => setSelectedRoundNumber(rounds[activeRoundIndex - 1]!.number)}
         >
           <ChevronLeftIcon />
         </IconButton>
@@ -130,19 +132,17 @@ export default function FixtureView({
         <IconButton
           size="small"
           disabled={activeRoundIndex === rounds.length - 1}
-          onClick={() => setSelectedRoundId(rounds[activeRoundIndex + 1]!.id)}
+          onClick={() => setSelectedRoundNumber(rounds[activeRoundIndex + 1]!.number)}
         >
           <ChevronRightIcon />
         </IconButton>
       </div>
       <section className="round">
         <header className="round-header">
-          {activeRound.status === RoundStatus.OPEN && (
-            <Chip size="small" color="success" variant="outlined" label="En juego" />
-          )}
+          {activeRound.open && <Chip size="small" color="success" variant="outlined" label="En juego" />}
         </header>
         <div className="matches">
-          {roundMatches.map((match) => (
+          {activeRound.matches.map((match) => (
             <MatchCard
               key={match.id}
               match={match}
