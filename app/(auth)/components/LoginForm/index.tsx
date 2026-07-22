@@ -95,7 +95,7 @@ export default function LoginForm({
           onChange={(event) => setEmail(event.target.value)}
           required
           fullWidth
-          autoComplete="email"
+          autoComplete="off"
         />
         <TextField
           label="Contraseña"
@@ -104,7 +104,7 @@ export default function LoginForm({
           onChange={(event) => setPassword(event.target.value)}
           required
           fullWidth
-          autoComplete="current-password"
+          autoComplete="off"
         />
         <Button type="submit" variant="contained" fullWidth disabled={loading} loading={loading}>
           Ingresar

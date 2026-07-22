@@ -1,7 +1,6 @@
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
-import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 
 export interface CategoryQuery {
   discipline: Discipline
@@ -17,34 +16,6 @@ export async function getCategories({ discipline, subDiscipline }: CategoryQuery
   const categories = await Category.where('discipline', discipline).orderBy('name').get()
 
   return categories.filter((category) => (category.subDiscipline ?? null) === sub)
-}
-
-/**
- * Materialises the category instances (tournament_categories) of a tournament.
- * When `categoryIds` is provided it creates one instance per catalogue category;
- * otherwise it creates a single instance with categoryId = null (the "single
- * category"). Every instance shares the same `maxCompetitors` entry limit.
- * Returns the created instances.
- */
-export async function createTournamentCategories(
-  tournamentId: number,
-  categoryIds: number[] | null,
-  maxCompetitors: number
-): Promise<TournamentCategory[]> {
-  const ids: (number | null)[] = categoryIds && categoryIds.length > 0 ? categoryIds : [null]
-  const created: TournamentCategory[] = []
-
-  for (const categoryId of ids) {
-    const tournamentCategory = new TournamentCategory()
-
-    tournamentCategory.tournamentId = tournamentId
-    tournamentCategory.categoryId = categoryId
-    tournamentCategory.maxCompetitors = maxCompetitors
-    await tournamentCategory.save()
-    created.push(tournamentCategory)
-  }
-
-  return created
 }
 
 /** Loads the categories with the given ids (used to resolve a tournament's categoryIds). */

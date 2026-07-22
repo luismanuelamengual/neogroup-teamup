@@ -4,7 +4,7 @@ import './index.scss'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
+import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined'
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
@@ -30,11 +30,12 @@ import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategori
 import { usePlayers } from '@/app/(protected)/(tournaments)/hooks/usePlayers'
 import { useTournamentAdmin } from '@/app/(protected)/(tournaments)/hooks/useTournamentAdmin'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
-import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
+import { CompetitorDto, CompetitorUserInfo } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { TournamentCategoryDto } from '@/app/(protected)/(tournaments)/models/TournamentCategoryDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
 import { useUserStore } from '@/app/stores/users'
@@ -113,13 +114,35 @@ function PlayerPicker({
   )
 }
 
+/** One (singles) or two (pairs) overlapping avatars for a competitor row/card. */
+function CompetitorAvatarGroup({ players, fallbackName }: { players?: CompetitorUserInfo[]; fallbackName: string }) {
+  if (!players || players.length === 0) {
+    return <Avatar email="" name={fallbackName} size="sm" />
+  }
+
+  return (
+    <div className="competitor-avatar-group">
+      {players.slice(0, 2).map((player, index) => (
+        <Avatar
+          key={index}
+          className="competitor-avatar-group-item"
+          size="sm"
+          email={player.email}
+          name={[player.firstName, player.lastName].filter(Boolean).join(' ') || player.email}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function TournamentAdminView({ tournamentId }: TournamentAdminViewProps) {
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const { getTournament } = useTournaments()
   const { getCategories } = useCategories()
-  const { addCategory, removeCategory, registerCompetitor, moveCompetitor, unregisterCompetitor } = useTournamentAdmin()
+  const { addCategory, removeCategory, registerCompetitor, moveCompetitor, unregisterCompetitor, setCompetitorSeed } =
+    useTournamentAdmin()
   const userId = useUserStore((state) => state.user?.id ?? null)
   // Add-category form.
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -142,6 +165,10 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const needsPartner = tournament
     ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
     : false
+  // Seeding only makes sense for bracket-style tournaments (see
+  // supportsPreclassification); the manual seed set here takes priority over
+  // the ranking-based auto-assignment that runs when the tournament starts.
+  const seedingEnabled = tournament ? supportsPreclassification(tournament.type) : false
   const competitorCountByCategory = useMemo(() => {
     const map = new Map<number, number>()
 
@@ -151,6 +178,17 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
 
     return map
   }, [competitors])
+  // Grouped by category (in category order) so the competitors section can
+  // show one compact card grid per category instead of a redundant category
+  // label repeated on every single row.
+  const competitorsByCategory = useMemo(
+    () =>
+      categories.map((category) => ({
+        category,
+        competitors: competitors.filter((competitor) => competitor.tournamentCategoryId === category.id)
+      })),
+    [categories, competitors]
+  )
   const registeredUserIds = useMemo(() => {
     const ids: number[] = []
 
@@ -284,6 +322,21 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     }
   }
 
+  const handleSeedChange = async (competitor: CompetitorDto, rawValue: string) => {
+    const trimmed = rawValue.trim()
+    const nextSeed = trimmed === '' ? null : Number(trimmed)
+
+    if (nextSeed === competitor.seedNumber) {
+      return
+    }
+
+    if (nextSeed != null && (!Number.isInteger(nextSeed) || nextSeed < 1)) {
+      return
+    }
+
+    await runAction(() => setCompetitorSeed(tournament.id, competitor.id, nextSeed))
+  }
+
   const handleMove = async (targetCategoryId: number) => {
     const competitor = moveMenu?.competitor
 
@@ -324,6 +377,52 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   }
 
   const canRegister = !!player && effectiveRegisterCategoryId !== '' && (!needsPartner || !!partner)
+  /** A single competitor "card": avatar(s), name and the seed/move/unregister actions. */
+  const renderCompetitorCard = (competitor: CompetitorDto) => (
+    <div key={competitor.id} className="competitor-card">
+      <CompetitorAvatarGroup players={competitor.players} fallbackName={competitor.displayName} />
+      <Tooltip title={competitor.displayName}>
+        <Typography className="competitor-name">{competitor.displayName}</Typography>
+      </Tooltip>
+      <div className="competitor-card-actions">
+        {seedingEnabled && (
+          <Tooltip title="Seed manual: tiene prioridad sobre el ranking al iniciar el torneo">
+            <TextField
+              key={`seed-${competitor.id}-${competitor.seedNumber ?? ''}`}
+              label="#"
+              size="small"
+              type="number"
+              className="competitor-seed-input"
+              disabled={working}
+              defaultValue={competitor.seedNumber ?? ''}
+              slotProps={{ htmlInput: { min: 1 } }}
+              onBlur={(event) => handleSeedChange(competitor, event.target.value)}
+            />
+          </Tooltip>
+        )}
+        {categories.length > 1 && (
+          <Tooltip title="Cambiar de categoría">
+            <span>
+              <IconButton
+                size="small"
+                disabled={working}
+                onClick={(event) => setMoveMenu({ anchorEl: event.currentTarget, competitor })}
+              >
+                <DriveFileMoveOutlinedIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        <Tooltip title="Desinscribir">
+          <span>
+            <IconButton color="error" size="small" disabled={working} onClick={() => requestUnregister(competitor)}>
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </div>
+    </div>
+  )
 
   return (
     <div className="tournament-admin">
@@ -411,9 +510,18 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
       </Paper>
 
       <Paper className="section">
-        <Typography variant="h6" className="section-title">
-          Competidores
-        </Typography>
+        <div className="section-header-row">
+          <Typography variant="h6" className="section-title">
+            Competidores
+          </Typography>
+          {competitors.length > 0 && (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={`${competitors.length} inscripto${competitors.length === 1 ? '' : 's'}`}
+            />
+          )}
+        </div>
 
         {isPaid ? (
           <Alert severity="info">
@@ -434,43 +542,32 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
           <Typography variant="body2" color="text.secondary">
             Aún no hay competidores inscriptos
           </Typography>
-        ) : (
-          <div className="competitor-rows">
-            {competitors.map((competitor) => (
-              <div key={competitor.id} className="competitor-row">
-                <Typography className="competitor-name">{competitor.displayName}</Typography>
-                <div className="competitor-actions">
-                  {categories.length > 1 && (
-                    <Tooltip title="Cambiar de categoría">
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        clickable
-                        disabled={working}
-                        className="competitor-category-chip"
-                        label={categoryNameById.get(competitor.tournamentCategoryId)}
-                        deleteIcon={<KeyboardArrowDownIcon />}
-                        onClick={(event) => setMoveMenu({ anchorEl: event.currentTarget, competitor })}
-                        onDelete={(event) => setMoveMenu({ anchorEl: event.currentTarget, competitor })}
-                      />
-                    </Tooltip>
-                  )}
-                  <Tooltip title="Desinscribir">
-                    <span>
-                      <IconButton
-                        color="error"
-                        size="small"
-                        disabled={working}
-                        onClick={() => requestUnregister(competitor)}
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
+        ) : categories.length > 1 ? (
+          <div className="competitor-groups">
+            {competitorsByCategory.map(({ category, competitors: categoryCompetitors }) => (
+              <div key={category.id} className="competitor-group">
+                <div className="competitor-group-header">
+                  <Typography variant="subtitle2" className="competitor-group-title">
+                    {categoryNameById.get(category.id)}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`${categoryCompetitors.length} / ${category.maxCompetitors}`}
+                  />
                 </div>
+                {categoryCompetitors.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Sin competidores en esta categoría
+                  </Typography>
+                ) : (
+                  <div className="competitor-cards">{categoryCompetitors.map(renderCompetitorCard)}</div>
+                )}
               </div>
             ))}
           </div>
+        ) : (
+          <div className="competitor-cards">{competitors.map(renderCompetitorCard)}</div>
         )}
       </Paper>
 

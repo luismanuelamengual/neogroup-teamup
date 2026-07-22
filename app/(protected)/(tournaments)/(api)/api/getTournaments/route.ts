@@ -26,6 +26,7 @@ export const POST = withAuth(async (request, _context, userId) => {
   const body = (await request.json()) as GetTournamentsBody
   const options: TournamentOptions = {
     withCompetitors: true,
+    withImage: true,
     name: body.name,
     statuses: body.statuses,
     page: body.page,

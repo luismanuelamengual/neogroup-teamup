@@ -1,7 +1,7 @@
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { getTournamentCategories } from '@/app/(protected)/(tournaments)/services/tournament-helpers'
+import { getTournamentCategories } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 

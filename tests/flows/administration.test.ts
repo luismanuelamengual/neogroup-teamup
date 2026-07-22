@@ -11,6 +11,7 @@ import {
   moveCompetitor,
   registerCompetitor,
   removeTournamentCategory,
+  setCompetitorSeed,
   unregisterCompetitor
 } from '@/app/(protected)/(tournaments)/services/administration'
 import { buildTournament, createUser, resetDatabase } from '@/tests/setup/harness'
@@ -205,6 +206,91 @@ describe('tournament administration', () => {
       await unregisterCompetitor(tournament, built.competitorIds[0])
 
       expect(await countInCategory(built.categoryIds[0])).toBe(2)
+    })
+
+    it('displaces the seed already held in the destination category', async () => {
+      const built = await buildTournament({ type: TournamentType.PLAYOFF, categories: [1, 1] })
+      const [movingId, targetHolderId] = built.competitorIds
+      const [fromCategoryId, toCategoryId] = built.categoryIds
+      let tournament = await manageable(built.tournament.id, built.ownerId)
+
+      await setCompetitorSeed(tournament, movingId, 1)
+      tournament = await manageable(built.tournament.id, built.ownerId)
+      await setCompetitorSeed(tournament, targetHolderId, 1)
+
+      tournament = await manageable(built.tournament.id, built.ownerId)
+      await moveCompetitor(tournament, movingId, toCategoryId)
+
+      const moved = await Competitor.find(movingId)
+      const displaced = await Competitor.find(targetHolderId)
+
+      expect(moved!.tournamentCategoryId).toBe(toCategoryId)
+      expect(moved!.seedNumber).toBe(1)
+      // The competitor that used to hold seed #1 in the destination category is
+      // bumped back to automatic (ranking-based) assignment.
+      expect(displaced!.seedNumber).toBeNull()
+      expect(fromCategoryId).not.toBe(toCategoryId)
+    })
+  })
+
+  describe('setCompetitorSeed', () => {
+    it('sets a manual seed', async () => {
+      const built = await buildTournament({ type: TournamentType.PLAYOFF, competitors: 2 })
+      const tournament = await manageable(built.tournament.id, built.ownerId)
+
+      await setCompetitorSeed(tournament, built.competitorIds[0], 1)
+
+      const competitor = await Competitor.find(built.competitorIds[0])
+
+      expect(competitor!.seedNumber).toBe(1)
+    })
+
+    it('clears a seed', async () => {
+      const built = await buildTournament({ type: TournamentType.PLAYOFF, competitors: 2 })
+      let tournament = await manageable(built.tournament.id, built.ownerId)
+
+      await setCompetitorSeed(tournament, built.competitorIds[0], 1)
+
+      tournament = await manageable(built.tournament.id, built.ownerId)
+      await setCompetitorSeed(tournament, built.competitorIds[0], null)
+
+      const competitor = await Competitor.find(built.competitorIds[0])
+
+      expect(competitor!.seedNumber).toBeNull()
+    })
+
+    it('never leaves two competitors of the same category sharing a seed', async () => {
+      const built = await buildTournament({ type: TournamentType.PLAYOFF, competitors: 2 })
+      const [first, second] = built.competitorIds
+      let tournament = await manageable(built.tournament.id, built.ownerId)
+
+      await setCompetitorSeed(tournament, first, 1)
+
+      tournament = await manageable(built.tournament.id, built.ownerId)
+      await setCompetitorSeed(tournament, second, 1)
+
+      const firstCompetitor = await Competitor.find(first)
+      const secondCompetitor = await Competitor.find(second)
+
+      // The competitor that just got assigned seed #1 keeps it; whoever held it
+      // before is displaced back to null.
+      expect(secondCompetitor!.seedNumber).toBe(1)
+      expect(firstCompetitor!.seedNumber).toBeNull()
+    })
+
+    it('rejects an invalid seed value', async () => {
+      const built = await buildTournament({ type: TournamentType.PLAYOFF, competitors: 2 })
+      const tournament = await manageable(built.tournament.id, built.ownerId)
+
+      await expect(setCompetitorSeed(tournament, built.competitorIds[0], 0)).rejects.toThrow('entero mayor a cero')
+    })
+
+    it('rejects a competitor that does not belong to the tournament', async () => {
+      const built = await buildTournament({ type: TournamentType.PLAYOFF, competitors: 1 })
+      const other = await buildTournament({ type: TournamentType.PLAYOFF, competitors: 1 })
+      const tournament = await manageable(built.tournament.id, built.ownerId)
+
+      await expect(setCompetitorSeed(tournament, other.competitorIds[0], 1)).rejects.toThrow('no encontrado')
     })
   })
 })

@@ -9,24 +9,355 @@ import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
 import { isKnockoutType, RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
+import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import {
-  assignGroups,
-  generateAmericanoSwapRoundRobin,
-  generateRoundPairings,
-  generateRoundRobinRound,
-  getBracketSize,
-  getGroupPhaseRounds,
-  getKnockoutRounds,
-  getTotalRounds,
-  Pairing,
-  seedFromGroups,
-  seedPlayoffPairings
-} from '@/app/(protected)/(tournaments)/services/tournament-engine'
 import { snakeSeedGroups, supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { ApiException } from '@/app/models/ApiException'
+import { Organization } from '@/app/models/Organization'
+
+/**
+ * Pure functions that compute the pairings of every tournament round.
+ * Competitors are referenced by id. A side holds one competitor id, except in
+ * americano tournaments with partner swapping where two individual competitors
+ * team up for the round.
+ */
+
+export interface Pairing {
+  home: number[]
+  away: number[] | null
+  position: number
+}
+
+/** Round-robin rounds needed for `size` competitors (circle method). */
+function roundRobinRoundsFor(size: number): number {
+  if (size < 2) {
+    return 0
+  }
+
+  return size % 2 === 0 ? size - 1 : size
+}
+
+/** Knockout rounds (to the final) needed for `entrants` competitors. */
+export function getKnockoutRounds(entrants: number): number {
+  return entrants < 2 ? 0 : Math.ceil(Math.log2(entrants))
+}
+
+/** Power-of-two bracket size that fits `entrants` (min 2). */
+export function getBracketSize(entrants: number): number {
+  return Math.pow(2, Math.ceil(Math.log2(Math.max(entrants, 2))))
+}
+
+/**
+ * Balanced group sizes for `competitorsCount` competitors targeting
+ * `groupSize` per group. The number of groups is derived from the registered
+ * competitors (ceil division); the remainder is spread across the first groups.
+ */
+export function computeGroupSizes(competitorsCount: number, groupSize: number): number[] {
+  const safeGroupSize = Math.max(2, Math.floor(groupSize) || 2)
+  const groupCount = Math.max(1, Math.ceil(competitorsCount / safeGroupSize))
+  const base = Math.floor(competitorsCount / groupCount)
+  const remainder = competitorsCount % groupCount
+
+  return Array.from({ length: groupCount }, (_, index) => base + (index < remainder ? 1 : 0))
+}
+
+/**
+ * Distributes competitor ids into balanced groups (round-robin assignment, so
+ * groups end up as even as possible). Deterministic: the same ordered input
+ * always yields the same groups.
+ */
+export function assignGroups(competitorIds: number[], groupSize: number): number[][] {
+  const groupCount = computeGroupSizes(competitorIds.length, groupSize).length
+  const groups: number[][] = Array.from({ length: groupCount }, () => [])
+
+  competitorIds.forEach((id, index) => {
+    groups[index % groupCount].push(id)
+  })
+
+  return groups
+}
+
+/**
+ * Cross-seeds the knockout phase of a groups+playoff tournament. `qualifiers`
+ * is ordered per group (index 0 is the group winner). Returns a flat seeded
+ * lineup where every rank tier is grouped together (all winners first, then all
+ * runners-up, ...). Fed to the standard bracket seeding this makes group
+ * winners earn the byes and keeps competitors from the same group apart in the
+ * first round.
+ */
+export function seedFromGroups(qualifiers: number[][]): number[] {
+  const maxRank = qualifiers.reduce((max, group) => Math.max(max, group.length), 0)
+  const seeded: number[] = []
+
+  for (let rank = 0; rank < maxRank; rank++) {
+    for (const group of qualifiers) {
+      if (group[rank] !== undefined) {
+        seeded.push(group[rank])
+      }
+    }
+  }
+
+  return seeded
+}
+
+/** Total number of rounds for a tournament given its competitors count. */
+export function getTotalRounds(type: TournamentType, settings: TournamentSettings, competitorsCount: number): number {
+  if (competitorsCount < 2) {
+    return 0
+  }
+
+  switch (type) {
+    case TournamentType.LEAGUE:
+      return roundRobinRoundsFor(competitorsCount)
+
+    case TournamentType.AMERICANO: {
+      const totalRounds = roundRobinRoundsFor(competitorsCount)
+      const maxRounds = settings.maxRounds
+
+      return maxRounds != null && maxRounds > 0 ? Math.min(totalRounds, maxRounds) : totalRounds
+    }
+
+    case TournamentType.AMERICANO_WITH_SWAP: {
+      // Individuals rotate partners: one round per circle-method rotation.
+      const slots = competitorsCount % 2 === 0 ? competitorsCount : competitorsCount + 1
+      const totalRounds = slots - 1
+      const maxRounds = settings.maxRounds
+
+      return maxRounds != null && maxRounds > 0 ? Math.min(totalRounds, maxRounds) : totalRounds
+    }
+
+    case TournamentType.PLAYOFF:
+    case TournamentType.PLAYOFF_WITH_CONSOLATION:
+      // A consolation bracket runs in parallel with the main one and finishes
+      // on the same round, so it does not add rounds.
+      return getKnockoutRounds(competitorsCount)
+
+    case TournamentType.GROUPS_PLAYOFF: {
+      const groupSize = settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+      const qualifiers = settings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
+      const sizes = computeGroupSizes(competitorsCount, groupSize)
+      const groupRounds = sizes.reduce((max, size) => Math.max(max, roundRobinRoundsFor(size)), 0)
+      const totalQualifiers = sizes.reduce((sum, size) => sum + Math.min(Math.max(1, qualifiers), size), 0)
+
+      return groupRounds + getKnockoutRounds(totalQualifiers)
+    }
+  }
+}
+
+/**
+ * Maximum number of rounds across every category group. When a tournament has
+ * categories each one runs in parallel and they may have different sizes, so
+ * the tournament lasts as long as its largest group.
+ */
+export function getMaxTotalRounds(type: TournamentType, settings: TournamentSettings, groupSizes: number[]): number {
+  return groupSizes.reduce((max, size) => Math.max(max, getTotalRounds(type, settings, size)), 0)
+}
+
+/** Group-phase rounds of a groups+playoff category (round-robin, largest group). */
+export function getGroupPhaseRounds(settings: TournamentSettings, competitorsCount: number): number {
+  const groupSize = settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+
+  return computeGroupSizes(competitorsCount, groupSize).reduce(
+    (max, size) => Math.max(max, roundRobinRoundsFor(size)),
+    0
+  )
+}
+
+/**
+ * Circle-method round robin. Returns the pairs for a 1-based round number.
+ * With an odd number of participants a null "bye" slot is added; pairs that
+ * include the bye are skipped.
+ */
+function roundRobinPairs(ids: number[], roundNumber: number): [number | null, number | null][] {
+  const slots: (number | null)[] = [...ids]
+
+  if (slots.length % 2 !== 0) {
+    slots.push(null)
+  }
+
+  const count = slots.length
+  const fixed = slots[0]
+  const rotating = slots.slice(1)
+  const rotation = (roundNumber - 1) % (count - 1)
+  const rotated = [...rotating.slice(rotation), ...rotating.slice(0, rotation)]
+  const lineup = [fixed, ...rotated]
+  const pairs: [number | null, number | null][] = []
+
+  for (let i = 0; i < count / 2; i++) {
+    pairs.push([lineup[i], lineup[count - 1 - i]])
+  }
+
+  return pairs
+}
+
+/** League and fixed-pairs americano: classic round robin between competitors. */
+export function generateRoundRobinRound(competitorIds: number[], roundNumber: number): Pairing[] {
+  const pairs = roundRobinPairs(competitorIds, roundNumber)
+  const pairings: Pairing[] = []
+  let position = 0
+
+  for (const [home, away] of pairs) {
+    if (home == null || away == null) {
+      continue
+    }
+
+    pairings.push({ home: [home], away: [away], position: position++ })
+  }
+
+  return pairings
+}
+
+/**
+ * Americano with partner swapping: individuals are paired with a different
+ * partner each round (circle method) and the resulting teams are matched
+ * sequentially. With an odd team count the last team rests.
+ */
+export function generateAmericanoSwapRoundRobin(competitorIds: number[], roundNumber: number): Pairing[] {
+  const partnerships = roundRobinPairs(competitorIds, roundNumber).filter(
+    (pair): pair is [number, number] => pair[0] != null && pair[1] != null
+  )
+  const pairings: Pairing[] = []
+  let position = 0
+
+  for (let i = 0; i + 1 < partnerships.length; i += 2) {
+    pairings.push({
+      home: [partnerships[i][0], partnerships[i][1]],
+      away: [partnerships[i + 1][0], partnerships[i + 1][1]],
+      position: position++
+    })
+  }
+
+  return pairings
+}
+
+/**
+ * First-round pairings of a knockout bracket. Competitors are seeded in the
+ * given order over the next power of two, giving byes to the top seeds.
+ * Bye matches (away === null) must be persisted as already played, won by home.
+ */
+export function seedPlayoffPairings(competitorIds: number[]): Pairing[] {
+  const bracketSize = getBracketSize(competitorIds.length)
+  const seeds: (number | null)[] = new Array(bracketSize).fill(null)
+
+  competitorIds.forEach((id, index) => {
+    seeds[index] = id
+  })
+
+  const order = buildBracketOrder(bracketSize)
+  const pairings: Pairing[] = []
+
+  for (let i = 0; i < bracketSize / 2; i++) {
+    const home = seeds[order[i * 2]]
+    const away = seeds[order[i * 2 + 1]]
+
+    if (home == null && away == null) {
+      continue
+    }
+
+    pairings.push({
+      home: [home ?? (away as number)],
+      away: home == null ? null : away == null ? null : [away],
+      position: i
+    })
+  }
+
+  return pairings
+}
+
+/** Winners of `previousRoundMatches`, paired up into the next bracket round. */
+export function advancePlayoffPairings(previousRoundMatches: Match[]): Pairing[] {
+  const sorted = [...previousRoundMatches].sort((a, b) => a.position - b.position)
+  const winners = sorted.map((match) => {
+    if (match.winner === MatchSide.HOME) {
+      return match.homeCompetitorIds[0]
+    }
+
+    if (match.winner === MatchSide.AWAY && match.awayCompetitorIds) {
+      return match.awayCompetitorIds[0]
+    }
+
+    return null
+  })
+  const pairings: Pairing[] = []
+
+  for (let i = 0; i + 1 < winners.length; i += 2) {
+    const home = winners[i]
+    const away = winners[i + 1]
+
+    if (home == null && away == null) {
+      continue
+    }
+
+    pairings.push({
+      home: [home ?? (away as number)],
+      away: home == null || away == null ? null : [away],
+      position: i / 2
+    })
+  }
+
+  return pairings
+}
+
+/**
+ * Playoff bracket. Round 1 seeds competitors in registration order over the
+ * next power of two, giving byes to the top seeds. Later rounds pair the
+ * winners of the two previous matches at adjacent bracket positions.
+ */
+function generatePlayoffRound(competitorIds: number[], roundNumber: number, previousRoundMatches: Match[]): Pairing[] {
+  return roundNumber === 1 ? seedPlayoffPairings(competitorIds) : advancePlayoffPairings(previousRoundMatches)
+}
+
+/**
+ * Standard bracket seeding order (1 vs lowest seed, etc.) so the best seeds
+ * can only meet in late rounds. Returns seed indexes (0-based).
+ */
+function buildBracketOrder(bracketSize: number): number[] {
+  let order = [0]
+
+  while (order.length < bracketSize) {
+    const next: number[] = []
+    const size = order.length * 2
+
+    for (const seed of order) {
+      next.push(seed)
+      next.push(size - 1 - seed)
+    }
+
+    order = next
+  }
+
+  return order
+}
+
+/** Computes the pairings for the given (1-based) round of a tournament. */
+export function generateRoundPairings(
+  type: TournamentType,
+  settings: TournamentSettings,
+  competitorIds: number[],
+  roundNumber: number,
+  previousRoundMatches: Match[]
+): Pairing[] {
+  switch (type) {
+    case TournamentType.LEAGUE:
+      return generateRoundRobinRound(competitorIds, roundNumber)
+
+    case TournamentType.AMERICANO:
+      return generateRoundRobinRound(competitorIds, roundNumber)
+
+    case TournamentType.AMERICANO_WITH_SWAP:
+      return generateAmericanoSwapRoundRobin(competitorIds, roundNumber)
+
+    case TournamentType.PLAYOFF:
+    case TournamentType.PLAYOFF_WITH_CONSOLATION:
+      return generatePlayoffRound(competitorIds, roundNumber, previousRoundMatches)
+
+    case TournamentType.GROUPS_PLAYOFF:
+      // Groups+playoff rounds are generated bracket-by-bracket by the helpers.
+      return []
+  }
+}
 
 /** Helpers shared by the /api/tournaments/[id]/* route handlers. */
 
@@ -106,15 +437,6 @@ async function loadRoundsMatches(rounds: Round[], cache?: AdvanceCache): Promise
   return roundIds.length > 0 ? Match.whereIn('roundId', roundIds).get() : []
 }
 
-/** Round-robin rounds (circle method) needed for `size` competitors. */
-function roundRobinRoundsFor(size: number): number {
-  if (size < 2) {
-    return 0
-  }
-
-  return size % 2 === 0 ? size - 1 : size
-}
-
 /**
  * Returns true when a tournament is considered complete: every round is closed
  * and no match is still pending. Used by processTournaments to detect tournaments
@@ -156,6 +478,34 @@ export async function isTournamentComplete(tournament: Tournament): Promise<bool
  */
 export async function getTournamentCategories(tournament: Tournament): Promise<TournamentCategory[]> {
   return TournamentCategory.where('tournamentId', tournament.id).orderBy('id').get()
+}
+
+/**
+ * Materialises the category instances (tournament_categories) of a tournament.
+ * When `categoryIds` is provided it creates one instance per catalogue category;
+ * otherwise it creates a single instance with categoryId = null (the "single
+ * category"). Every instance shares the same `maxCompetitors` entry limit.
+ * Returns the created instances.
+ */
+export async function createTournamentCategories(
+  tournamentId: number,
+  categoryIds: number[] | null,
+  maxCompetitors: number
+): Promise<TournamentCategory[]> {
+  const ids: (number | null)[] = categoryIds && categoryIds.length > 0 ? categoryIds : [null]
+  const created: TournamentCategory[] = []
+
+  for (const categoryId of ids) {
+    const tournamentCategory = new TournamentCategory()
+
+    tournamentCategory.tournamentId = tournamentId
+    tournamentCategory.categoryId = categoryId
+    tournamentCategory.maxCompetitors = maxCompetitors
+    await tournamentCategory.save()
+    created.push(tournamentCategory)
+  }
+
+  return created
 }
 
 /** Ids of the category instances of a tournament. */
@@ -219,9 +569,9 @@ async function computeCategoryGroups(
   const seededCount = allCategoryCompetitors.filter((competitor) => competitor.seedNumber != null).length
   const seededIds = competitorIds.slice(0, seededCount)
   const unseededIds = competitorIds.slice(seededCount)
-  const groupCount = Math.ceil(competitorIds.length / Math.max(2, Math.floor(groupSize)))
+  const groupSizes = computeGroupSizes(competitorIds.length, groupSize)
 
-  return seededCount > 0 ? snakeSeedGroups(seededIds, unseededIds, groupCount) : assignGroups(competitorIds, groupSize)
+  return seededCount > 0 ? snakeSeedGroups(seededIds, unseededIds, groupSizes) : assignGroups(competitorIds, groupSize)
 }
 
 /** True when a round matches the given lane (type + group index). */
@@ -1704,4 +2054,162 @@ export async function progressTournamentAfterResult(tournament: Tournament, roun
   if (tournament.type === TournamentType.GROUPS_PLAYOFF && round.type === RoundType.KNOCKOUT) {
     await expireGroupPhaseWindows(round.tournamentCategoryId)
   }
+}
+
+/** Tournament input normalization/validation helpers shared by API routes. */
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+const IMAGE_DATA_URL_PATTERN = /^data:image\/(png|jpe?g|webp);base64,/i
+// ~1.1MB decoded — generous for a client-compressed poster picture while
+// keeping tournament rows (and the listing payload, which embeds every
+// tournament's image) reasonably sized.
+const MAX_IMAGE_DATA_URL_LENGTH = 1_500_000
+
+/**
+ * Validates an optional "HH:mm" start time.
+ * Returns the normalized value (or null when empty), or `false` when invalid.
+ */
+export function normalizeStartTime(value: unknown): string | null | false {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  if (typeof value !== 'string') {
+    return false
+  }
+
+  const trimmed = value.trim()
+
+  if (trimmed === '') {
+    return null
+  }
+
+  return TIME_PATTERN.test(trimmed) ? trimmed : false
+}
+
+/**
+ * Validates the optional tournament poster picture, sent by the client as a
+ * base64 data URL (already compressed/resized in the browser). Returns the
+ * normalized value (or null when absent/cleared), or `false` when invalid.
+ */
+export function normalizeImage(value: unknown): string | null | false {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  if (typeof value !== 'string' || !IMAGE_DATA_URL_PATTERN.test(value)) {
+    return false
+  }
+
+  return value.length <= MAX_IMAGE_DATA_URL_LENGTH ? value : false
+}
+
+/**
+ * Normalizes the organizer-provided category names: trims, drops blanks and
+ * removes duplicates (case-insensitive). Returns null when there are none.
+ */
+export function normalizeCategories(value: unknown): string[] | null {
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const seen = new Set<string>()
+  const categories: string[] = []
+
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      continue
+    }
+
+    const trimmed = entry.trim()
+    const key = trimmed.toLowerCase()
+
+    if (trimmed === '' || seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    categories.push(trimmed)
+  }
+
+  return categories.length > 0 ? categories : null
+}
+
+/**
+ * Offset (timeZone − UTC) in milliseconds at the given instant. Uses the Intl
+ * API, so any IANA zone name works and DST is taken into account. Throws when the
+ * zone name is invalid.
+ */
+function timeZoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).formatToParts(instant)
+  const get = (type: string): number => Number(parts.find((part) => part.type === type)?.value)
+  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
+
+  return asUtc - instant.getTime()
+}
+
+/**
+ * Converts a wall-clock date/time ("YYYY-MM-DD" + "HH:mm") expressed in
+ * `timeZone` into the absolute UTC instant it represents. Falls back to
+ * interpreting the wall time as UTC when the zone name is invalid/unknown.
+ */
+function zonedWallTimeToInstant(dateStr: string, timeStr: string, timeZone: string): Date {
+  const naiveUtc = new Date(`${dateStr}T${timeStr}:00Z`)
+
+  if (Number.isNaN(naiveUtc.getTime())) {
+    return naiveUtc
+  }
+
+  try {
+    // Two passes so an offset that changes right around the instant (DST edges)
+    // still resolves to the correct UTC moment.
+    let offset = timeZoneOffsetMs(naiveUtc, timeZone)
+
+    offset = timeZoneOffsetMs(new Date(naiveUtc.getTime() - offset), timeZone)
+
+    return new Date(naiveUtc.getTime() - offset)
+  } catch {
+    return naiveUtc
+  }
+}
+
+/**
+ * Whether a STAND_BY tournament's scheduled start instant has arrived, evaluated
+ * in the organization's `timeZone`.
+ *
+ * - No startTime set → due at the start of its start day (00:00) in the org's
+ *   timezone, so it never starts before the organization's calendar day begins.
+ * - startTime ("HH:mm") set → the full local start instant (startDate at startTime
+ *   in the org's timezone) must be now or in the past, so a tournament scheduled
+ *   for later today is NOT started ahead of its time.
+ *
+ * `timeZone` is an IANA name (e.g. "America/Argentina/Buenos_Aires"); an
+ * unknown/empty value is treated as UTC.
+ */
+export function isTournamentStartDue(tournament: Tournament, timeZone = 'UTC', now: Date = new Date()): boolean {
+  const time = tournament.startTime ?? '00:00'
+  const startAt = zonedWallTimeToInstant(tournament.startDate, time, timeZone || 'UTC')
+
+  // Unparseable startDate/startTime → don't block the start (date prefilter decided).
+  if (Number.isNaN(startAt.getTime())) {
+    return true
+  }
+
+  return startAt.getTime() <= now.getTime()
+}
+
+/** Maps each organization id to its configured IANA timezone (UTC when unset). */
+export async function loadOrganizationTimezones(): Promise<Map<number, string>> {
+  const organizations = await Organization.get()
+
+  return new Map(organizations.map((organization) => [organization.id, organization.timezone || 'UTC']))
 }

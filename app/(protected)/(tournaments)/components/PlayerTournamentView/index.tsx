@@ -203,18 +203,51 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
     return (
       <div className="player-tournament">
         <Paper className="header">
-          <div className="title-row">
-            <Skeleton variant="text" width="50%" height={36} />
-            <Skeleton variant="rounded" width={80} height={26} className="skeleton-chip" />
-          </div>
-          <Skeleton variant="text" width="70%" height={20} />
-          <div className="meta">
-            <Skeleton variant="rounded" width={90} height={24} className="skeleton-meta-item" />
-            <Skeleton variant="rounded" width={70} height={24} className="skeleton-meta-item" />
-            <Skeleton variant="rounded" width={80} height={24} className="skeleton-meta-item" />
-            <Skeleton variant="text" width={120} height={20} />
+          <div className="header-body">
+            <Skeleton
+              variant="rounded"
+              className="poster"
+              width={160}
+              height={200}
+              sx={{ borderRadius: 'var(--radius-md, 8px)', flexShrink: 0 }}
+            />
+            <div className="header-content">
+              <div className="title-row">
+                <Skeleton variant="text" width="50%" height={36} />
+                <Skeleton variant="rounded" width={80} height={26} className="skeleton-chip" />
+              </div>
+              <Skeleton variant="text" width="70%" height={20} />
+              <div className="meta">
+                <Skeleton variant="rounded" width={90} height={24} className="skeleton-meta-item" />
+                <Skeleton variant="rounded" width={70} height={24} className="skeleton-meta-item" />
+                <Skeleton variant="rounded" width={80} height={24} className="skeleton-meta-item" />
+                <Skeleton variant="text" width={120} height={20} />
+              </div>
+              <div className="footer">
+                <Skeleton variant="rounded" width={140} height={36} />
+              </div>
+            </div>
           </div>
         </Paper>
+
+        {[0, 1].map((key) => (
+          <Paper key={key} className="category-accordion">
+            <div className="category-accordion-summary" style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="category-header">
+                <Skeleton variant="text" width={160} height={28} />
+                <Skeleton variant="rounded" width={70} height={24} className="skeleton-chip" />
+              </div>
+            </div>
+            <Divider />
+            <div className="category-details">
+              <div className="category-section">
+                <Skeleton variant="text" width={180} height={24} />
+                <Skeleton variant="rounded" height={48} />
+                <Skeleton variant="rounded" height={48} />
+              </div>
+            </div>
+          </Paper>
+        ))}
       </div>
     )
   }
@@ -273,60 +306,68 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   return (
     <div className="player-tournament">
       <Paper className="header">
-        <div className="title-row">
-          <Typography variant="h5" component="h1" className="name">
-            {tournament.name}
-          </Typography>
-          <StatusChip status={tournament.status} />
-        </div>
-        {tournament.description && (
-          <Typography variant="body2" color="text.secondary">
-            {tournament.description}
-          </Typography>
-        )}
-        <div className="meta">
-          <Chip size="small" label={DisciplineNames[tournament.discipline]} />
-          {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
-          <Chip size="small" label={TournamentTypeNames[tournament.type]} />
-          <Chip size="small" label={ScoreFormatNames[tournament.scoreFormat]} />
-          <Chip
-            size="small"
-            color={tournament.paid && tournament.entryFee ? 'success' : 'default'}
-            icon={tournament.paid && tournament.entryFee ? <PaidIcon /> : undefined}
-            label={
-              tournament.paid && tournament.entryFee
-                ? formatMoney(tournament.entryFee, tournament.currency)
-                : 'Gratuito'
-            }
-          />
-          <span className="meta-item">
-            <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
-            {tournament.startTime ? ` · ${tournament.startTime}` : ''}
-          </span>
-          {tournament.location && (
-            <span className="meta-item">
-              <PlaceIcon fontSize="inherit" /> {tournament.location}
-            </span>
+        <div className="header-body">
+          {tournament.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={tournament.image.image} alt={tournament.name} className="poster" />
           )}
-        </div>
-        {tournament.status === TournamentStatus.STAND_BY && (
-          <div className="footer">
-            <div className="info-area">
-              {userEntry ? <Chip icon={<CheckCircleIcon />} color="success" label="Inscripto" /> : <></>}
+          <div className="header-content">
+            <div className="title-row">
+              <Typography variant="h5" component="h1" className="name">
+                {tournament.name}
+              </Typography>
+              <StatusChip status={tournament.status} />
             </div>
-            <div className="actions-area">
-              {userEntry ? (
-                <Button color="error" variant="outlined" onClick={handleLeave} disabled={working} loading={working}>
-                  Darme de baja
-                </Button>
-              ) : (
-                <Button variant="contained" startIcon={<HowToRegIcon />} onClick={() => setJoinOpen(true)}>
-                  Inscribirme
-                </Button>
+            {tournament.description && (
+              <Typography variant="body2" color="text.secondary">
+                {tournament.description}
+              </Typography>
+            )}
+            <div className="meta">
+              <Chip size="small" label={DisciplineNames[tournament.discipline]} />
+              {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
+              <Chip size="small" label={TournamentTypeNames[tournament.type]} />
+              <Chip size="small" label={ScoreFormatNames[tournament.scoreFormat]} />
+              <Chip
+                size="small"
+                color={tournament.paid && tournament.entryFee ? 'success' : 'default'}
+                icon={tournament.paid && tournament.entryFee ? <PaidIcon /> : undefined}
+                label={
+                  tournament.paid && tournament.entryFee
+                    ? formatMoney(tournament.entryFee, tournament.currency)
+                    : 'Gratuito'
+                }
+              />
+              <span className="meta-item">
+                <CalendarMonthIcon fontSize="inherit" /> {tournament.startDate}
+                {tournament.startTime ? ` · ${tournament.startTime}` : ''}
+              </span>
+              {tournament.location && (
+                <span className="meta-item">
+                  <PlaceIcon fontSize="inherit" /> {tournament.location}
+                </span>
               )}
             </div>
+            {tournament.status === TournamentStatus.STAND_BY && (
+              <div className="footer">
+                <div className="info-area">
+                  {userEntry ? <Chip icon={<CheckCircleIcon />} color="success" label="Inscripto" /> : <></>}
+                </div>
+                <div className="actions-area">
+                  {userEntry ? (
+                    <Button color="error" variant="outlined" onClick={handleLeave} disabled={working} loading={working}>
+                      Darme de baja
+                    </Button>
+                  ) : (
+                    <Button variant="contained" startIcon={<HowToRegIcon />} onClick={() => setJoinOpen(true)}>
+                      Inscribirme
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </Paper>
 
       {myMatches.length > 0 && (

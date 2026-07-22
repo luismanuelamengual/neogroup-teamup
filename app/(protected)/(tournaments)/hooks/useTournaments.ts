@@ -12,6 +12,7 @@ import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { CreateTournamentInput } from '../models/CreateTournamentInput'
 import { JoinTournamentInput } from '../models/JoinTournamentInput'
 import { TournamentFilters } from '../models/TournamentFilters'
+import { UpdateTournamentInput } from '../models/UpdateTournamentInput'
 
 export function useTournaments() {
   const executeRequest = useRequests()
@@ -28,7 +29,7 @@ export function useTournaments() {
     [executeRequest]
   )
   const updateTournament = useCallback(
-    async (tournamentId: number, tournament: Partial<TournamentDto>): Promise<void> => {
+    async (tournamentId: number, tournament: UpdateTournamentInput): Promise<void> => {
       await executeRequest('/updateTournament', { id: tournamentId, ...tournament })
       showSuccessMessage('Torneo actualizado correctamente')
     },

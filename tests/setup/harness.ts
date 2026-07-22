@@ -23,12 +23,9 @@ import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import {
-  isTournamentComplete,
-  progressTournamentAfterResult
-} from '@/app/(protected)/(tournaments)/services/tournament-helpers'
 import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { isTournamentComplete, progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { Organization } from '@/app/models/Organization'
 import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'
@@ -222,6 +219,10 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
       Object.assign(competitor, {
         tournamentCategoryId: category.id,
         playerIds: [userId],
+        // A pre-set seed in the harness models an organizer-assigned manual
+        // seed — the only way a competitor has a non-null seedNumber before a
+        // tournament starts — so autoAssignPreclassification treats it as
+        // locked, exactly like the admin page's setCompetitorSeed would leave it.
         seedNumber: seed,
         createdAt: new Date()
       })
