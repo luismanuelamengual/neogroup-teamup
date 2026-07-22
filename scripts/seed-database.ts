@@ -5,7 +5,7 @@
  * Connects to the database configured through the environment variables (same
  * resolution used by scripts/migrate-database.ts) and builds a full demo/test data set:
  *
- *   - One organizer account (id = 1, email "demo-organizer@gmail.com", password "123qwe").
+ *   - One organizer account (email "demo-organizer@gmail.com", password "123qwe").
  *   - 140 player accounts (email "demo{id}@gmail.com", password "123qwe") with realistic names.
  *     (Every tournament draws its own shuffled subset from this same pool, so each tournament's
  *     total players needed — competitorsCount summed across categories, doubled for pair
@@ -236,7 +236,6 @@ interface SeededUsers {
 
 async function createUsers(playerCount: number, organizationId: number): Promise<SeededUsers> {
   const passwordHash = await bcrypt.hash(PASSWORD, 10)
-  // Organizer first so it gets id = 1 on a freshly migrated database.
   const organizer = new User()
 
   organizer.organizationId = organizationId
@@ -250,10 +249,6 @@ async function createUsers(playerCount: number, organizationId: number): Promise
   organizer.emailVerified = true
   organizer.active = true
   await organizer.save()
-
-  if (organizer.id !== 1) {
-    console.warn(`Warning: organizer id is ${organizer.id}, expected 1. Run "yarn run db:reset" before seeding.`)
-  }
 
   const players: User[] = []
 
@@ -1245,13 +1240,13 @@ async function run(): Promise<void> {
 
   console.log('Seeding demo database...\n')
 
-  // Resolve (or create on demand) the "staging" organization this script seeds into.
-  let stagingOrg = await Organization.where('domainName', 'staging').first()
+  // Resolve (or create on demand) the "demo" organization this script seeds into.
+  let stagingOrg = await Organization.where('domainName', 'demo').first()
 
   if (!stagingOrg) {
     stagingOrg = new Organization()
-    stagingOrg.name = 'Staging'
-    stagingOrg.domainName = 'staging'
+    stagingOrg.name = 'Demo'
+    stagingOrg.domainName = 'demo'
     stagingOrg.allowedRegistrationRoles = []
     await stagingOrg.save()
   }

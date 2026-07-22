@@ -236,3 +236,70 @@ describe('REGRESSION #5 — preclassification seeds must not mix across categori
     }
   })
 })
+
+describe('REGRESSION #6 — manually-set seeds take priority over ranking at tournament start', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+  })
+
+  it('keeps a manually-locked seed and only fills the remaining slots from ranking', async () => {
+    const built = await buildTournament({ type: TournamentType.PLAYOFF, competitors: 4 })
+    const [a, b, c, d] = built.competitorIds
+    // Lock seed #1 on competitor A from the admin page, even though it has no
+    // ranking points at all — the organizer's choice must be respected.
+    const competitorA = await Competitor.withoutGlobalScopes().where('id', a).first()
+
+    competitorA!.seedNumber = 1
+    await competitorA!.save()
+
+    // D is the strongest player by ranking points — without the manual seed it
+    // would become seed #1.
+    const competitorD = await Competitor.withoutGlobalScopes().where('id', d).first()
+    const ranking = new Ranking()
+
+    Object.assign(ranking, {
+      organizationId: built.tournament.organizationId,
+      categoryId: null,
+      userId: competitorD!.playerIds[0],
+      points: 100,
+      expirationDate: new Date('2099-01-01'),
+      createdAt: new Date()
+    })
+    await ranking.save()
+
+    await start(built)
+
+    const competitors = await Competitor.withoutGlobalScopes().whereIn('id', [a, b, c, d]).get()
+    const byId = new Map(competitors.map((competitor) => [competitor.id, competitor]))
+
+    // A keeps its manual seed #1 regardless of having zero ranking points.
+    expect(byId.get(a)!.seedNumber).toBe(1)
+    // D, the top-ranked competitor, gets the only remaining slot: seed #2
+    // (getPreclassificationCount(4) = 2 seeds total, #1 already taken by A).
+    expect(byId.get(d)!.seedNumber).toBe(2)
+    expect(byId.get(b)!.seedNumber).toBeNull()
+    expect(byId.get(c)!.seedNumber).toBeNull()
+  })
+
+  it('resolves duplicate manual seeds within a category, keeping only the lowest competitor id', async () => {
+    const built = await buildTournament({ type: TournamentType.PLAYOFF, competitors: 4 })
+    const [a, b] = built.competitorIds
+
+    for (const id of [a, b]) {
+      const competitor = await Competitor.withoutGlobalScopes().where('id', id).first()
+
+      competitor!.seedNumber = 1
+      await competitor!.save()
+    }
+
+    await start(built)
+
+    const competitors = await Competitor.withoutGlobalScopes().whereIn('id', [a, b]).get()
+    const seeded = competitors.filter((competitor) => competitor.seedNumber === 1)
+
+    // A category may never end up with two seeded competitors sharing the
+    // same number.
+    expect(seeded).toHaveLength(1)
+    expect(seeded[0].id).toBe(Math.min(a, b))
+  })
+})

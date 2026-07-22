@@ -1,6 +1,11 @@
-import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
-import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+
+/**
+ * Pure preclassification / seeding helpers — no database models involved, so
+ * this module is safe to import from both server code and client components
+ * (e.g. the tournament admin page). The DB-backed ranking auto-assignment
+ * lives in services/preclassification.ts instead.
+ */
 
 /**
  * Whether a tournament type supports pre-classification (seeding).
@@ -35,86 +40,6 @@ export function getPreclassificationCount(count: number): number {
 }
 
 /**
- * Auto-assigns preclassification numbers from ranking points.
- * Only competitors with at least one ranking point are seeded (up to the cap
- * returned by `getPreclassificationCount`); the rest receive null.
- * The competitor with the most points becomes seed #1, etc.
- *
- * Seeding is computed independently per `tournamentCategoryId`: each category
- * gets its own seed #1, #2, ... based only on the competitors registered in
- * that category, so a tournament with multiple categories never mixes seeds
- * across them (a competitor's seed must never depend on how strong the other
- * category is).
- */
-export async function autoAssignPreclassification(competitors: Competitor[], organizationId: number): Promise<void> {
-  if (!competitors.length) {
-    return
-  }
-
-  const validRankings = await Ranking.withoutGlobalScopes()
-    .where('organizationId', organizationId)
-    .where('expirationDate', '>', new Date())
-    .get()
-  const pointsByUser = new Map<number, number>()
-
-  for (const row of validRankings) {
-    pointsByUser.set(row.userId, (pointsByUser.get(row.userId) ?? 0) + row.points)
-  }
-
-  // Group by category first: seeds must be computed independently within each
-  // tournament category, not across the whole tournament.
-  const competitorsByCategory = new Map<number, Competitor[]>()
-
-  for (const c of competitors) {
-    const group = competitorsByCategory.get(c.tournamentCategoryId)
-
-    if (group) {
-      group.push(c)
-    } else {
-      competitorsByCategory.set(c.tournamentCategoryId, [c])
-    }
-  }
-
-  const updates: Record<string, unknown>[] = []
-
-  for (const categoryCompetitors of competitorsByCategory.values()) {
-    const scored = categoryCompetitors.map((c) => {
-      // Sum the ranking points of every player that makes up the competitor.
-      const points = c.playerIds.reduce((sum, id) => sum + (pointsByUser.get(id) ?? 0), 0)
-
-      return { competitor: c, points }
-    })
-
-    // Sort descending by points; ties resolved by competitor id (stable).
-    scored.sort((a, b) => b.points - a.points || a.competitor.id - b.competitor.id)
-
-    const maxSeeds = getPreclassificationCount(categoryCompetitors.length)
-    let nextSeed = 1
-
-    for (const { competitor, points } of scored) {
-      // Only seed competitors that have ranking points, up to the allowed cap.
-      competitor.seedNumber = points > 0 && nextSeed <= maxSeeds ? nextSeed++ : null
-      // Full row (not just id + seedNumber) so the INSERT branch of the upsert is
-      // valid against NOT NULL columns; on conflict only seedNumber is updated.
-      updates.push({
-        id: competitor.id,
-        tournamentCategoryId: competitor.tournamentCategoryId,
-        playerIds: competitor.playerIds,
-        seedNumber: competitor.seedNumber,
-        createdAt: competitor.createdAt
-      })
-    }
-  }
-
-  // Persist every seed assignment in a single batch upsert keyed on the primary
-  // key. (Requires neorm ≥ the build that keeps the conflict-target column in the
-  // INSERT, so `ON CONFLICT (id)` matches instead of duplicating every row.)
-  if (updates.length > 0) {
-    await Competitor.upsert(updates, 'id', ['seedNumber'])
-  }
-}
-
-/**
  * Distributes seeded competitors across groups using snake seeding so that
  * top seeds end up in different groups.
  *
@@ -123,9 +48,17 @@ export async function autoAssignPreclassification(competitors: Competitor[], org
  *   round 2 (seeds G+1..2G) → groups G-1, G-2, ..., 0
  *   ...
  *
- * Non-seeded competitors are distributed round-robin over the remaining slots.
+ * Non-seeded competitors are distributed round-robin over the remaining
+ * slots, respecting each group's target capacity (`groupSizes`, typically
+ * from `computeGroupSizes`) so the result always matches the intended
+ * balanced sizes — e.g. [4, 4, 3] rather than however the two independent
+ * modulo passes happen to land. Without this, a group can be shorted a slot
+ * relative to its target while another overflows, in the worst case leaving
+ * a group with a single member; group.length < 2 groups only enter the game
+ * with a bye later, so a "shorted" competitor silently never gets matches.
  */
-export function snakeSeedGroups(seededIds: number[], unseededIds: number[], groupCount: number): number[][] {
+export function snakeSeedGroups(seededIds: number[], unseededIds: number[], groupSizes: number[]): number[][] {
+  const groupCount = groupSizes.length
   const groups: number[][] = Array.from({ length: groupCount }, () => [])
 
   // Place seeds in snake order
@@ -137,9 +70,18 @@ export function snakeSeedGroups(seededIds: number[], unseededIds: number[], grou
     groups[groupIndex].push(id)
   })
 
-  // Distribute the rest round-robin
-  unseededIds.forEach((id, index) => {
-    groups[index % groupCount].push(id)
+  // Distribute the rest round-robin, skipping groups that already reached
+  // their target size (e.g. because they absorbed more than their share of
+  // seeds) so every group ends up exactly at its `groupSizes` capacity.
+  let cursor = 0
+
+  unseededIds.forEach((id) => {
+    while (groups[cursor % groupCount].length >= groupSizes[cursor % groupCount]) {
+      cursor++
+    }
+
+    groups[cursor % groupCount].push(id)
+    cursor++
   })
 
   return groups

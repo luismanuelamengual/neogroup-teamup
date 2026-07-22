@@ -30,15 +30,20 @@
     font-weight: 700 !important;
   }
 
-  .category-rows,
-  .competitor-rows {
+  .section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .category-rows {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
 
-  .category-row,
-  .competitor-row {
+  .category-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -52,21 +57,88 @@
     gap: 10px;
   }
 
-  .category-name,
-  .competitor-name {
+  .category-name {
     font-weight: 600;
   }
 
-  .competitor-actions {
+  // Competitors: grouped by category (when there is more than one) so the
+  // category name isn't repeated on every single card, followed by a
+  // responsive card grid that fills the available width instead of one
+  // full-width row per competitor.
+  .competitor-groups {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 20px;
   }
 
-  .competitor-category-chip {
-    .MuiChip-deleteIcon {
-      margin-left: -4px;
+  .competitor-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .competitor-group-title {
+    font-weight: 700 !important;
+  }
+
+  .competitor-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+
+  .competitor-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--color-divider);
+    border-radius: 10px;
+    background: var(--color-surface);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+
+    &:hover {
+      border-color: var(--color-primary-light);
+      background: rgba(15, 118, 110, 0.04);
     }
+  }
+
+  .competitor-avatar-group {
+    display: flex;
+    flex-shrink: 0;
+
+    .competitor-avatar-group-item {
+      border: 2px solid var(--color-surface);
+      margin-left: -10px;
+
+      &:first-child {
+        margin-left: 0;
+      }
+    }
+  }
+
+  .competitor-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .competitor-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .competitor-seed-input {
+    width: 72px;
   }
 
   .add-category {

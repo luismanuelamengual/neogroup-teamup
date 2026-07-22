@@ -569,9 +569,9 @@ async function computeCategoryGroups(
   const seededCount = allCategoryCompetitors.filter((competitor) => competitor.seedNumber != null).length
   const seededIds = competitorIds.slice(0, seededCount)
   const unseededIds = competitorIds.slice(seededCount)
-  const groupCount = Math.ceil(competitorIds.length / Math.max(2, Math.floor(groupSize)))
+  const groupSizes = computeGroupSizes(competitorIds.length, groupSize)
 
-  return seededCount > 0 ? snakeSeedGroups(seededIds, unseededIds, groupCount) : assignGroups(competitorIds, groupSize)
+  return seededCount > 0 ? snakeSeedGroups(seededIds, unseededIds, groupSizes) : assignGroups(competitorIds, groupSize)
 }
 
 /** True when a round matches the given lane (type + group index). */

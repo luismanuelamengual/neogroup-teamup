@@ -221,6 +221,76 @@ export async function moveCompetitor(
   }
 
   competitor.tournamentCategoryId = targetCategory.id
+
+  // The competitor keeps its (manually-set) seed across the category change,
+  // but a category may never have two seeded competitors sharing the same
+  // number: displace whoever already holds that seed in the destination
+  // category, falling back to ranking-based assignment when the tournament
+  // starts (see autoAssignPreclassification).
+  if (competitor.seedNumber != null) {
+    const conflicting = await Competitor.where('tournamentCategoryId', targetCategory.id)
+      .where('seedNumber', competitor.seedNumber)
+      .where('id', '<>', competitor.id)
+      .first()
+
+    if (conflicting) {
+      conflicting.seedNumber = null
+      await conflicting.save()
+    }
+  }
+
+  await competitor.save()
+
+  return competitor
+}
+
+/**
+ * Manually sets (or clears) a competitor's preclassification seed number, on
+ * behalf of the organizer. Before the tournament starts, a non-null
+ * `seedNumber` can only come from here, so it is what `autoAssignPreclassification`
+ * treats as a manual seed and gives priority over ranking (see that function).
+ *
+ * A tournament category may never have two seeded competitors sharing the
+ * same number: if `seedNumber` is already held by another competitor in the
+ * same category, that other competitor is displaced — its seed is cleared,
+ * falling back to ranking-based assignment at tournament start.
+ */
+export async function setCompetitorSeed(
+  tournament: Tournament,
+  competitorId: number,
+  seedNumber: number | null
+): Promise<Competitor> {
+  const categoryIds = new Set((tournament.categories ?? []).map((category) => category.id))
+  const competitor = await Competitor.find(Number(competitorId))
+
+  if (!competitor || !categoryIds.has(competitor.tournamentCategoryId)) {
+    throw new ApiException('Competidor no encontrado')
+  }
+
+  if (seedNumber == null) {
+    competitor.seedNumber = null
+    await competitor.save()
+
+    return competitor
+  }
+
+  const normalizedSeed = Number(seedNumber)
+
+  if (!Number.isInteger(normalizedSeed) || normalizedSeed < 1) {
+    throw new ApiException('El seed debe ser un número entero mayor a cero')
+  }
+
+  const conflicting = await Competitor.where('tournamentCategoryId', competitor.tournamentCategoryId)
+    .where('seedNumber', normalizedSeed)
+    .where('id', '<>', competitor.id)
+    .first()
+
+  if (conflicting) {
+    conflicting.seedNumber = null
+    await conflicting.save()
+  }
+
+  competitor.seedNumber = normalizedSeed
   await competitor.save()
 
   return competitor

@@ -43,6 +43,20 @@ export function useTournamentAdmin() {
     },
     [executeRequest, showSuccessMessage]
   )
+  const setCompetitorSeed = useCallback(
+    async (tournamentId: number, competitorId: number, seedNumber: number | null): Promise<void> => {
+      await executeRequest('/setCompetitorSeed', { tournamentId, competitorId, seedNumber })
+      showSuccessMessage('Seed actualizado correctamente')
+    },
+    [executeRequest, showSuccessMessage]
+  )
 
-  return { addCategory, removeCategory, registerCompetitor, moveCompetitor, unregisterCompetitor }
+  return {
+    addCategory,
+    removeCategory,
+    registerCompetitor,
+    moveCompetitor,
+    unregisterCompetitor,
+    setCompetitorSeed
+  }
 }

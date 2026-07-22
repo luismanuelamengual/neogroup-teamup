@@ -84,7 +84,7 @@ describe('preclassification count', () => {
 
 describe('snake seeding', () => {
   it('keeps top seeds in different groups', () => {
-    const groups = snakeSeedGroups([1, 2, 3, 4], [5, 6, 7, 8], 4)
+    const groups = snakeSeedGroups([1, 2, 3, 4], [5, 6, 7, 8], [2, 2, 2, 2])
 
     // Seeds 1..4 land in distinct groups.
     expect(groups.map((g) => g[0])).toEqual([1, 2, 3, 4])
@@ -93,12 +93,33 @@ describe('snake seeding', () => {
   })
 
   it('snakes the second seeding round in reverse', () => {
-    const groups = snakeSeedGroups([1, 2, 3, 4, 5, 6], [], 3)
+    const groups = snakeSeedGroups([1, 2, 3, 4, 5, 6], [], [2, 2, 2])
 
     // round 1: seeds 1,2,3 → groups 0,1,2 ; round 2: seeds 4,5,6 → groups 2,1,0
     expect(groups[0]).toEqual([1, 6])
     expect(groups[1]).toEqual([2, 5])
     expect(groups[2]).toEqual([3, 4])
+  })
+
+  it('respects group capacity so nobody is shorted a slot (regression: 11 competitors, 4 seeds)', () => {
+    // computeGroupSizes(11, 4) = [4, 4, 3]; every competitor must land in a group.
+    const seeded = [1, 2, 3, 4]
+    const unseeded = [5, 6, 7, 8, 9, 10, 11]
+    const groups = snakeSeedGroups(seeded, unseeded, [4, 4, 3])
+
+    expect(groups.map((g) => g.length)).toEqual([4, 4, 3])
+    expect(groups.flat().sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    // Every seed is placed (this is the seed that used to go missing).
+    expect(seeded.every((id) => groups.some((g) => g.includes(id)))).toBe(true)
+  })
+
+  it('never leaves a group with a single member when a balanced split exists (regression: 9 competitors, 1 seed)', () => {
+    // computeGroupSizes(9, 4) = [3, 3, 3], not the skewed [4, 3, 2] the old
+    // two-independent-modulo-passes implementation produced.
+    const groups = snakeSeedGroups([1], [2, 3, 4, 5, 6, 7, 8, 9], [3, 3, 3])
+
+    expect(groups.map((g) => g.length)).toEqual([3, 3, 3])
+    expect(groups.flat().sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
   })
 })
 

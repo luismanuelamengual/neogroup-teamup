@@ -219,6 +219,10 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
       Object.assign(competitor, {
         tournamentCategoryId: category.id,
         playerIds: [userId],
+        // A pre-set seed in the harness models an organizer-assigned manual
+        // seed — the only way a competitor has a non-null seedNumber before a
+        // tournament starts — so autoAssignPreclassification treats it as
+        // locked, exactly like the admin page's setCompetitorSeed would leave it.
         seedNumber: seed,
         createdAt: new Date()
       })

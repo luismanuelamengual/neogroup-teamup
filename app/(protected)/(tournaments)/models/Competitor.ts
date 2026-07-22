@@ -19,6 +19,12 @@ export class Competitor extends BaseEntity {
   @Column({ cast: 'array' })
   playerIds!: number[]
 
+  /**
+   * Preclassification seed. Before the tournament starts, this is only ever
+   * non-null when the organizer set it manually from the admin page; once set
+   * that way it takes priority over the ranking-based auto-assignment that
+   * runs when the tournament starts (see `autoAssignPreclassification`).
+   */
   @Column({ cast: 'number' })
   seedNumber!: number | null
 

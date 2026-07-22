@@ -17,10 +17,8 @@ import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
-import {
-  autoAssignPreclassification,
-  supportsPreclassification
-} from '@/app/(protected)/(tournaments)/utils/preclassification'
+import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
+import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   createRound,

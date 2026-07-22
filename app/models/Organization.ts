@@ -17,7 +17,7 @@ export class Organization extends BaseEntity {
    * Empty array means no self-registration is allowed — all users must be created manually.
    * E.g. [Role.PLAYER] allows only players; [Role.PLAYER, Role.ORGANIZER] allows both.
    */
-  @Column({ cast: 'json' })
+  @Column({ cast: 'array' })
   allowedRegistrationRoles!: number[]
 
   /**
