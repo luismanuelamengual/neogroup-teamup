@@ -4,15 +4,16 @@ import './index.scss'
 import { MouseEvent as ReactMouseEvent, useCallback, useMemo, useRef, useState } from 'react'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { useUserStore } from '@/app/stores/users'
 
 interface BracketViewProps {
   tournament: TournamentDto
   category?: number
   /** Which knockout bracket to render (main or consolation). Defaults to the main bracket. */
-  roundType?: RoundType
+  bracketType?: MatchType
   organizerMode?: boolean
   onEditMatch?: (match: MatchDto) => void
 }
@@ -85,7 +86,7 @@ export function roundLabel(roundIndex: number, totalRounds: number, matchCount: 
 export default function BracketView({
   tournament,
   category,
-  roundType = RoundType.KNOCKOUT,
+  bracketType = MatchType.BRACKET,
   organizerMode = false,
   onEditMatch
 }: BracketViewProps) {
@@ -97,57 +98,52 @@ export default function BracketView({
   /** Drag-to-scroll state (mouse-based horizontal panning on empty space). */
   const dragStateRef = useRef<{ startX: number; startScrollLeft: number; moved: boolean } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const rounds = useMemo(() => {
-    const all = tournament.rounds ?? []
-    const filtered = all.filter(
-      (r) => (category == null || r.tournamentCategoryId === category) && r.type === roundType
-    )
-
-    return [...filtered].sort((a, b) => a.number - b.number)
-  }, [tournament.rounds, category, roundType])
-  /** Matches per round, aligned to the `rounds` array and sorted by position. */
+  /** Matches of the requested bracket lane. */
+  const bracketMatches = useMemo(
+    () =>
+      (tournament.matches ?? []).filter(
+        (m) => (category == null || m.tournamentCategoryId === category) && m.type === bracketType
+      ),
+    [tournament.matches, category, bracketType]
+  )
+  /** Ascending round numbers present in the bracket. */
+  const rounds = useMemo(
+    () => [...new Set(bracketMatches.map((m) => m.roundNumber))].sort((a, b) => a - b),
+    [bracketMatches]
+  )
+  /** Matches per round, aligned to the `rounds` array and sorted by bracket position. */
   const roundMatchLists = useMemo(() => {
-    const byRound: Record<number, MatchDto[]> = {}
+    const byRound = new Map<number, MatchDto[]>()
 
-    for (const match of tournament.matches ?? []) {
-      if (!byRound[match.roundId]) {
-        byRound[match.roundId] = []
+    for (const match of bracketMatches) {
+      if (!byRound.has(match.roundNumber)) {
+        byRound.set(match.roundNumber, [])
       }
 
-      byRound[match.roundId]!.push(match)
+      byRound.get(match.roundNumber)!.push(match)
     }
 
-    return rounds.map((round) => (byRound[round.id] ?? []).slice().sort((a, b) => a.position - b.position))
-  }, [rounds, tournament.matches])
+    return rounds.map((roundNumber) => (byRound.get(roundNumber) ?? []).slice().sort((a, b) => a.position - b.position))
+  }, [rounds, bracketMatches])
   const { editableMatchIds, highlightedMatchIds } = useMemo(() => {
-    const currentOpenRoundIds = new Set(
-      (tournament.rounds ?? [])
-        .filter(
-          (r) =>
-            // Active rounds are editable: the current frontier plus any
-            // just-closed round still in its grace window.
-            r.active && r.type === roundType && (category == null || r.tournamentCategoryId === category)
-        )
-        .map((r) => r.id)
+    const categoryMatches = (tournament.matches ?? []).filter(
+      (m) => category == null || m.tournamentCategoryId === category
+    )
+    const editable = bracketMatches.filter((m) =>
+      isMatchEditable(m, categoryMatches, tournament.type, tournament.status)
     )
 
-    if (currentOpenRoundIds.size === 0) {
-      return { editableMatchIds: [], highlightedMatchIds: [] }
-    }
-
-    const currentOpenMatches = (tournament.matches ?? []).filter((m) => currentOpenRoundIds.has(m.roundId))
-
     if (organizerMode) {
-      return { editableMatchIds: currentOpenMatches.map((m) => m.id), highlightedMatchIds: [] }
+      return { editableMatchIds: editable.map((m) => m.id), highlightedMatchIds: [] as number[] }
     }
 
     const userEntry = (tournament.competitors ?? []).find((c) => userId != null && c.playerIds.includes(userId))
 
     if (!userEntry) {
-      return { editableMatchIds: [], highlightedMatchIds: [] }
+      return { editableMatchIds: [] as number[], highlightedMatchIds: [] as number[] }
     }
 
-    const userMatchIds = currentOpenMatches
+    const userMatchIds = editable
       .filter(
         (m) =>
           m.awayCompetitorIds !== null &&
@@ -156,7 +152,7 @@ export default function BracketView({
       .map((m) => m.id)
 
     return { editableMatchIds: userMatchIds, highlightedMatchIds: userMatchIds }
-  }, [tournament, category, roundType, organizerMode, userId])
+  }, [tournament, bracketMatches, category, organizerMode, userId])
   /**
    * Full geometric layout. Rounds at/after `base` are laid out; the base round is
    * stacked compactly and each later round centers each match between its two
@@ -204,7 +200,7 @@ export default function BracketView({
       const x = r * COL_STEP
 
       titles.push({
-        key: rounds[r]!.id,
+        key: rounds[r]!,
         x,
         label: roundLabel(r, total, roundMatchLists[r].length)
       })

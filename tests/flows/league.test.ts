@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -43,7 +43,7 @@ describe('LEAGUE — full flows', () => {
       expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
 
       const categoryId = built.categoryIds[0]
-      const leagueRounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.LEAGUE)
+      const leagueRounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.LEAGUE)
 
       // Number of rounds matches the circle-method schedule.
       expect(leagueRounds.length).toBe(roundRobinRounds(n))

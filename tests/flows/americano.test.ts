@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -42,7 +42,7 @@ describe('AMERICANO — full flows', () => {
       expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
 
       const categoryId = built.categoryIds[0]
-      const rounds = (await getRounds(categoryId)).filter((r) => r.type === RoundType.AMERICANO)
+      const rounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.LEAGUE)
 
       expect(rounds.length).toBe(roundRobinRounds(n))
 
@@ -67,7 +67,7 @@ describe('AMERICANO — full flows', () => {
     await start(built)
     await playToCompletion(built)
 
-    const rounds = (await getRounds(built.categoryIds[0])).filter((r) => r.type === RoundType.AMERICANO)
+    const rounds = (await getRounds(built.categoryIds[0])).filter((r) => r.type === MatchType.LEAGUE)
 
     expect(rounds.length).toBe(3)
     expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
@@ -82,7 +82,7 @@ describe('AMERICANO — full flows', () => {
 
     await start(built)
 
-    const rounds = (await getRounds(built.categoryIds[0])).filter((r) => r.type === RoundType.AMERICANO)
+    const rounds = (await getRounds(built.categoryIds[0])).filter((r) => r.type === MatchType.LEAGUE)
     const round1 = rounds.find((r) => r.number === 1)!
     const matches = await getMatches(round1.id)
 

@@ -6,7 +6,7 @@ import {
   RankingScheme
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
 import { Tournament } from '../../(tournaments)/models/Tournament'
 
@@ -40,10 +40,10 @@ export function computeCategoryPlacements(tournament: Tournament, tournamentCate
 
   const placements: CompetitorPlacement[] = []
 
-  placements.push(...computeBracketPlacements(tournament, tournamentCategoryId, RoundType.KNOCKOUT, false))
+  placements.push(...computeBracketPlacements(tournament, tournamentCategoryId, MatchType.BRACKET, false))
 
   if (scheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION) {
-    placements.push(...computeBracketPlacements(tournament, tournamentCategoryId, RoundType.KNOCKOUT_CONSOLATION, true))
+    placements.push(...computeBracketPlacements(tournament, tournamentCategoryId, MatchType.CONSOLATION_BRACKET, true))
   }
 
   return placements
@@ -53,27 +53,29 @@ export function computeCategoryPlacements(tournament: Tournament, tournamentCate
 function computeBracketPlacements(
   tournament: Tournament,
   tournamentCategoryId: number,
-  roundType: RoundType,
+  matchType: MatchType,
   consolation: boolean
 ): CompetitorPlacement[] {
-  const rounds = (tournament.rounds ?? [])
-    .filter(
-      (round) =>
-        round.tournamentCategoryId === tournamentCategoryId &&
-        round.type === roundType &&
-        (round.groupNumber ?? null) === null
-    )
-    .sort((a, b) => a.number - b.number)
+  const bracketMatches = (tournament.matches ?? []).filter(
+    (match) =>
+      match.tournamentCategoryId === tournamentCategoryId &&
+      match.type === matchType &&
+      (match.groupNumber ?? null) === null
+  )
 
-  if (rounds.length === 0) {
+  if (bracketMatches.length === 0) {
     return []
   }
 
-  const finalRoundNumber = Math.max(...rounds.map((round) => round.number))
+  const finalRoundNumber = Math.max(...bracketMatches.map((match) => match.roundNumber))
   const placements: CompetitorPlacement[] = []
 
-  for (const round of rounds) {
-    const distance = finalRoundNumber - round.number
+  for (const match of bracketMatches) {
+    if (!match.awayCompetitorIds || match.winner === null) {
+      continue
+    }
+
+    const distance = finalRoundNumber - match.roundNumber
     const stage = KNOCKOUT_STAGE_KEYS[distance]
 
     if (!stage) {
@@ -81,24 +83,18 @@ function computeBracketPlacements(
     }
 
     const loserKey = knockoutStageKey(stage, consolation)
-    const matches = (tournament.matches ?? []).filter(
-      (match) => match.roundId === round.id && match.awayCompetitorIds && match.winner !== null
-    )
+    const loserIds = match.winner === MatchSide.HOME ? match.awayCompetitorIds : match.homeCompetitorIds
 
-    for (const match of matches) {
-      const loserIds = match.winner === MatchSide.HOME ? match.awayCompetitorIds : match.homeCompetitorIds
+    for (const competitorId of loserIds ?? []) {
+      placements.push({ competitorId, placementKey: loserKey })
+    }
 
-      for (const competitorId of loserIds ?? []) {
-        placements.push({ competitorId, placementKey: loserKey })
-      }
+    // The winner of the final round is the bracket champion.
+    if (match.roundNumber === finalRoundNumber) {
+      const winnerIds = match.winner === MatchSide.HOME ? match.homeCompetitorIds : match.awayCompetitorIds
 
-      // The winner of the final round is the bracket champion.
-      if (round.number === finalRoundNumber) {
-        const winnerIds = match.winner === MatchSide.HOME ? match.homeCompetitorIds : match.awayCompetitorIds
-
-        for (const competitorId of winnerIds ?? []) {
-          placements.push({ competitorId, placementKey: knockoutStageKey('winner', consolation) })
-        }
+      for (const competitorId of winnerIds ?? []) {
+        placements.push({ competitorId, placementKey: knockoutStageKey('winner', consolation) })
       }
     }
   }

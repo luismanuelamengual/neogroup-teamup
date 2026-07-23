@@ -8,7 +8,7 @@ import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/Comp
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { formatScore, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { formatScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { MatchDto } from '../../models/MatchDto'
 import { TournamentDto } from '../../models/TournamentDto'
 
@@ -32,7 +32,8 @@ export default function MatchCard({
     (tournament.competitors ?? []).map((c) => [c.id, c])
   )
   const scoreFormat = tournament.scoreFormat
-  const isBye = match.awayCompetitorIds === null
+  const isVoid = match.status === MatchStatus.VOID
+  const isBye = match.awayCompetitorIds === null && !isVoid
   const winner: MatchSide | null = match.winner
 
   const handleSideClick = (ids: number[] | null) => {
@@ -77,18 +78,25 @@ export default function MatchCard({
   return (
     <>
       <div className={`match-card ${highlighted ? 'highlighted' : ''}`}>
-        <div className="sides">
-          {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
-          {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
-        </div>
+        {isVoid ? (
+          <div className="sides">
+            <div className="bye">Sin clasificado</div>
+          </div>
+        ) : (
+          <div className="sides">
+            {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
+            {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
+          </div>
+        )}
         <div className="result">
           {!isBye &&
+            !isVoid &&
             (match.status === MatchStatus.PENDING ? (
               <span className="pending">Pendiente</span>
             ) : (
-              <span className="score">{formatScore(parseScore(match.score), scoreFormat)}</span>
+              <span className="score">{formatScore(match.score, scoreFormat)}</span>
             ))}
-          {editable && !isBye && (
+          {editable && !isBye && !isVoid && (
             <IconButton size="small" className="edit" onClick={() => onEdit?.(match)}>
               <EditIcon fontSize="small" />
             </IconButton>

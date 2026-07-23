@@ -3,10 +3,10 @@ import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/StandingsRowDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { Tournament } from '../models/Tournament'
 import { TournamentDto } from '../models/TournamentDto'
 
@@ -36,18 +36,14 @@ export function computeStandings(
     return []
   }
 
-  const allRounds = tournament.rounds ?? []
-  const roundIds = new Set(
-    allRounds
-      .filter(
-        (r) =>
-          (category == null || r.tournamentCategoryId === category) &&
-          (r.groupNumber ?? null) === (groupNumber ?? null) &&
-          (r.type === RoundType.LEAGUE || r.type === RoundType.AMERICANO)
-      )
-      .map((r) => r.id)
+  // League and americano both live in the round-robin (LEAGUE) lane; groups carry
+  // their group index in groupNumber. Standings are computed over that lane only.
+  const matches = (tournament.matches ?? []).filter(
+    (m) =>
+      (category == null || m.tournamentCategoryId === category) &&
+      (m.groupNumber ?? null) === (groupNumber ?? null) &&
+      m.type === MatchType.LEAGUE
   )
-  const matches = (tournament.matches ?? []).filter((m) => roundIds.has(m.roundId))
   // League/americano rank every category competitor; groups rank only the ones
   // that actually play in the group (derived from the group matches).
   const allCompetitors = tournament.competitors ?? []
@@ -111,7 +107,7 @@ export function computeStandings(
       continue
     }
 
-    const score = parseScore(match.score) ?? {}
+    const score = match.score ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
 
     if (type === TournamentType.LEAGUE) {

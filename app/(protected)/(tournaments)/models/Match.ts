@@ -1,7 +1,8 @@
 import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity } from '@neogroup/neorm'
+import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { Round } from '@/app/(protected)/(tournaments)/models/Round'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 
@@ -14,11 +15,34 @@ export class Match extends BaseEntity {
   @Column({ cast: 'number' })
   tournamentCategoryId!: number
 
+  /** 1-based round ("fecha") of the match inside its lane. */
   @Column({ cast: 'number' })
-  roundId!: number
+  roundNumber!: number
 
+  /** Lane discriminator (BRACKET / LEAGUE / CONSOLATION_BRACKET). */
+  @Column({ cast: 'number' })
+  type!: MatchType
+
+  /** Group index for a groups+playoff group lane; null otherwise. */
+  @Column({ cast: 'number' })
+  groupNumber!: number | null
+
+  /**
+   * Order of the match inside its round. In a knockout lane its parity also
+   * encodes the home/away slot of the next match (even → home, odd → away).
+   */
   @Column({ cast: 'number' })
   position!: number
+
+  /**
+   * Knockout only: the bracket instance ("instancia") of the match counted from
+   * the final — 1 = Final, 2 = Semifinal, 3 = Cuartos, 4 = Octavos, … Null for
+   * round-robin lanes. The winner advances to the same-lane match at
+   * `bracketInstance − 1` and `floor(position / 2)`, so the next match (and thus
+   * editability) is derivable without a stored pointer.
+   */
+  @Column({ cast: 'number' })
+  bracketInstance!: number | null
 
   @Column({ cast: 'array' })
   homeCompetitorIds!: number[]
@@ -26,8 +50,8 @@ export class Match extends BaseEntity {
   @Column({ cast: 'array' })
   awayCompetitorIds!: number[] | null
 
-  @Column()
-  score!: string | null
+  @Column({ cast: 'json' })
+  score!: MatchScore | null
 
   @Column({ cast: 'number' })
   status!: MatchStatus
@@ -46,7 +70,4 @@ export class Match extends BaseEntity {
 
   @BelongsToThrough(() => Tournament, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   tournament?: Tournament
-
-  @BelongsTo(() => Round, 'roundId')
-  round?: Round
 }

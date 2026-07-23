@@ -18,12 +18,12 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
+import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
-import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getScoreWinner, isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   createRound,
   createTournamentCategories,
-  deactivateTournamentRounds,
   isTournamentComplete,
   isTournamentStartDue,
   loadOrganizationTimezones,
@@ -42,7 +42,6 @@ export interface TournamentOptions {
   playerId?: number
   statuses?: TournamentStatus[]
   withCompetitors?: boolean
-  withRounds?: boolean
   withMatches?: boolean
   withImage?: boolean
   page?: number
@@ -56,7 +55,6 @@ export async function getTournaments({
   name,
   statuses,
   withCompetitors = false,
-  withRounds = false,
   withMatches = false,
   withImage = false,
   page = 1,
@@ -71,8 +69,7 @@ export async function getTournaments({
     .when(withCompetitors, (query) =>
       query.with({ competitors: (query) => query.orderBy('seedNumber').orderBy('id') }).with('competitors.players')
     )
-    .when(withRounds, (query) => query.with({ rounds: (query) => query.orderBy('number') }))
-    .when(withMatches, (query) => query.with({ matches: (query) => query.orderBy('roundId').orderBy('position') }))
+    .when(withMatches, (query) => query.with({ matches: (query) => query.orderBy('roundNumber').orderBy('position') }))
     .when(withImage, (query) => query.with('image'))
     .orderBy('status')
     .orderByDesc('id')
@@ -247,12 +244,13 @@ export async function startTournament(tournament: Tournament): Promise<void> {
 }
 
 /**
- * Finalises a tournament: marks it as finished, deactivates every (grace-window)
- * round and awards ranking points. Analogous to startTournament but for the
- * ONGOING → FINISHED transition.
+ * Finalises a tournament: marks it as finished and awards ranking points.
+ * Analogous to startTournament but for the ONGOING → FINISHED transition. Once
+ * finished the tournament is no longer ONGOING, so every match becomes read-only
+ * (match editability is derived and requires an ONGOING tournament).
  *
  * The whole operation runs in a single transaction so it is atomic: status
- * change, round deactivation and ranking awards are committed together or not at
+ * change and ranking awards are committed together or not at
  * all. This matters because finalisation can be triggered by the processTournaments
  * cron, whose 10s timeout on Vercel's Hobby plan could otherwise interrupt it and
  * leave the tournament FINISHED with only some of its ranking points awarded. If
@@ -268,7 +266,6 @@ export async function finishTournament(tournament: Tournament): Promise<void> {
     tournament.status = TournamentStatus.FINISHED
     tournament.updatedAt = new Date()
     await tournament.save()
-    await deactivateTournamentRounds(tournament)
     await awardRankingPoints(tournament.id)
   })
 }
@@ -397,12 +394,12 @@ export async function processTournaments(now: Date = new Date()): Promise<Proces
 /**
  * Saves (or edits) a match result on behalf of `userId` and drives the tournament
  * forward. Allowed for the tournament owner and for players taking part in the
- * match, while the match round is open. Throws an ApiException when the match or
- * round is not in an editable state, the caller is not allowed to submit the
- * result, or the score is invalid.
+ * match, while the match is editable. Throws an ApiException when the match is
+ * not in an editable state, the caller is not allowed to submit the result, or
+ * the score is invalid.
  */
 export async function setMatchResult(matchId: number, score: MatchScore, userId: number): Promise<void> {
-  const match = await Match.where('id', matchId).with('tournamentCategory.tournament', 'round').first()
+  const match = await Match.where('id', matchId).with('tournamentCategory.tournament').first()
 
   if (!match || !match.awayCompetitorIds) {
     throw new ApiException('notFound')
@@ -414,11 +411,12 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
     throw new ApiException('invalidStatus')
   }
 
-  const round = match.round ?? null
+  // A match is editable while its result has not been consumed downstream: the
+  // current frontier of its lane, plus any just-completed round still inside its
+  // (derived) grace window. This replaces the former rounds.active flag.
+  const categoryMatches = await Match.where('tournamentCategoryId', match.tournamentCategoryId).get()
 
-  // A round is editable while it is active: the current frontier, plus any
-  // just-completed round still inside its grace window (closed but active).
-  if (!round || !round.active) {
+  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status)) {
     throw new ApiException('roundClosed')
   }
 
@@ -438,12 +436,15 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
     throw new ApiException('invalidScore')
   }
 
+  // Whether this match already held a result (a correction) vs a first-time entry.
+  const wasAlreadyResolved = match.status !== MatchStatus.PENDING
+
   if (score.walkover) {
-    match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
+    match.score = { walkover: score.walkover }
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = serializeScore(score, tournament.scoreFormat)
+    match.score = score
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }
@@ -451,7 +452,7 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
   match.updatedAt = new Date()
   await match.save()
 
-  // Automatically drive the tournament forward: update pairings/standings, close
-  // the round and create the next one (or finish) without any organizer action.
-  await progressTournamentAfterResult(tournament, round)
+  // Automatically drive the tournament forward: update pairings/standings and
+  // create the next round without any organizer action.
+  await progressTournamentAfterResult(tournament, match, wasAlreadyResolved)
 }

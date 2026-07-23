@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -101,7 +101,7 @@ describe('boundaries — degenerate groups', () => {
 
     expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
 
-    const knockout = (await getRounds(built.categoryIds[0])).filter((r) => r.type === RoundType.KNOCKOUT)
+    const knockout = (await getRounds(built.categoryIds[0])).filter((r) => r.type === MatchType.BRACKET)
 
     expect(knockout.length).toBeGreaterThan(0)
     expect(getChampionCompetitorId(await reloadTournament(built.tournament.id))).not.toBeNull()

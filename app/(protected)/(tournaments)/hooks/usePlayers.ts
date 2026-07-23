@@ -20,6 +20,21 @@ export function usePlayers() {
     },
     [executeRequest]
   )
+  // Same search, scoped to a tournament: the server excludes players already
+  // registered as competitors in it, so the (paginated, limit-10) picker
+  // doesn't run dry as competitors get added — see the route's own comment.
+  const getPlayersForJoin = useCallback(
+    async (tournamentId: number, query: string, excludeIds: number[] = []): Promise<UserDto[]> => {
+      const normalized = query.trim()
 
-  return { getPlayers }
+      if (normalized.length === 1) {
+        return []
+      }
+
+      return executeRequest<UserDto[]>('/getPlayersForJoin', { tournamentId, query: normalized, excludeIds })
+    },
+    [executeRequest]
+  )
+
+  return { getPlayers, getPlayersForJoin }
 }

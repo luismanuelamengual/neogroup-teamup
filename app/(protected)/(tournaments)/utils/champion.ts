@@ -1,5 +1,5 @@
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
-import { RoundType } from '@/app/(protected)/(tournaments)/models/RoundType'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
 import { Tournament } from '../models/Tournament'
@@ -24,14 +24,15 @@ export function getPodiumCompetitorIds(tournament: Tournament, category: number 
   }
 
   // Knockout: the decisive structure is the main knockout bracket of the category.
-  const rounds = (tournament.rounds ?? []).filter(
-    (round) =>
-      (category == null || round.tournamentCategoryId === category) &&
-      round.type === RoundType.KNOCKOUT &&
-      (round.groupNumber ?? null) === null
+  // The final is the bracket match at bracketInstance 1.
+  const bracketMatches = (tournament.matches ?? []).filter(
+    (match) =>
+      (category == null || match.tournamentCategoryId === category) &&
+      match.type === MatchType.BRACKET &&
+      (match.groupNumber ?? null) === null
   )
 
-  if (rounds.length === 0) {
+  if (bracketMatches.length === 0) {
     // A single-group groups+playoff has no knockout (it would only replay the
     // group); its podium comes from that group's standings.
     if (tournament.type === TournamentType.GROUPS_PLAYOFF) {
@@ -43,9 +44,8 @@ export function getPodiumCompetitorIds(tournament: Tournament, category: number 
     return []
   }
 
-  const finalRound = rounds.reduce((latest, round) => (round.number > latest.number ? round : latest))
-  const finalMatch = (tournament.matches ?? []).find(
-    (match) => match.roundId === finalRound.id && match.awayCompetitorIds !== null && match.winner !== null
+  const finalMatch = bracketMatches.find(
+    (match) => match.bracketInstance === 1 && match.awayCompetitorIds !== null && match.winner !== null
   )
 
   if (!finalMatch || finalMatch.winner === null || !finalMatch.awayCompetitorIds) {

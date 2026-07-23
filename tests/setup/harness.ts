@@ -15,8 +15,7 @@ import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { Round } from '@/app/(protected)/(tournaments)/models/Round'
-import { RoundStatus } from '@/app/(protected)/(tournaments)/models/RoundStatus'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
@@ -24,12 +23,16 @@ import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
-import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { getScoreWinner, isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { isTournamentComplete, progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { Organization } from '@/app/models/Organization'
 import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'
 import migration002 from '@/database/migrations/002-competitors-player-ids'
+import migration004 from '@/database/migrations/004-drop-rounds-denormalize-matches'
+import migration005 from '@/database/migrations/005-reconcile-matches-position-instance'
+import migration006 from '@/database/migrations/006-matches-score-jsonb'
 
 const TABLES = [
   'tournament_payments',
@@ -92,8 +95,17 @@ export async function resetDatabase(): Promise<void> {
 
   await migration.up()
   // Apply the incremental migrations too, so the harness schema matches
-  // production (competitors/tournament_payments use playerIds, not userId).
+  // production: 002 moves competitors/tournament_payments to playerIds; 004
+  // removes the rounds table and denormalises its fields onto matches.
   await migration002.up()
+  await migration004.up()
+  // No-op on the final schema, but keeps the harness aligned with production
+  // (which will have 005 applied to heal any interim 004 build).
+  await migration005.up()
+  // 006 turns matches.score from TEXT into JSONB (a no-op here since the table
+  // is freshly created and empty, but keeps the harness schema — and the
+  // Match.score entity cast — aligned with production).
+  await migration006.up()
 
   const organization = new Organization()
 
@@ -236,10 +248,7 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
 
 /** Reloads a tournament (without the org scope) with relations. */
 export async function reloadTournament(id: number): Promise<Tournament> {
-  const tournament = await Tournament.withoutGlobalScopes()
-    .where('id', id)
-    .with('competitors', 'rounds', 'matches')
-    .first()
+  const tournament = await Tournament.withoutGlobalScopes().where('id', id).with('competitors', 'matches').first()
 
   if (!tournament) {
     throw new Error(`tournament ${id} not found`)
@@ -249,12 +258,14 @@ export async function reloadTournament(id: number): Promise<Tournament> {
     tournament.competitors = [...tournament.competitors].sort((a, b) => a.id - b.id)
   }
 
-  if (tournament.rounds) {
-    tournament.rounds = [...tournament.rounds].sort((a, b) => a.number - b.number)
-  }
-
   if (tournament.matches) {
-    tournament.matches = [...tournament.matches].sort((a, b) => a.roundId - b.roundId || a.position - b.position)
+    tournament.matches = [...tournament.matches].sort(
+      (a, b) =>
+        a.type - b.type ||
+        (a.groupNumber ?? -1) - (b.groupNumber ?? -1) ||
+        a.roundNumber - b.roundNumber ||
+        a.position - b.position
+    )
   }
 
   return tournament
@@ -290,10 +301,7 @@ export interface SetResultError extends Error {
  * code when the round is closed, the score is invalid, etc.
  */
 export async function setResult(matchId: number, score: MatchScore): Promise<void> {
-  const match = await Match.withoutGlobalScopes()
-    .where('id', matchId)
-    .with('tournamentCategory.tournament', 'round')
-    .first()
+  const match = await Match.withoutGlobalScopes().where('id', matchId).with('tournamentCategory.tournament').first()
 
   if (!match || !match.awayCompetitorIds) {
     throw Object.assign(new Error('notFound'), { apiCode: 'notFound' })
@@ -305,9 +313,11 @@ export async function setResult(matchId: number, score: MatchScore): Promise<voi
     throw Object.assign(new Error('invalidStatus'), { apiCode: 'invalidStatus' })
   }
 
-  const round = match.round ?? null
+  const categoryMatches = await Match.withoutGlobalScopes()
+    .where('tournamentCategoryId', match.tournamentCategoryId)
+    .get()
 
-  if (!round || !round.active) {
+  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status)) {
     throw Object.assign(new Error('roundClosed'), { apiCode: 'roundClosed' })
   }
 
@@ -315,31 +325,101 @@ export async function setResult(matchId: number, score: MatchScore): Promise<voi
     throw Object.assign(new Error('invalidScore'), { apiCode: 'invalidScore' })
   }
 
+  const wasAlreadyResolved = match.status !== MatchStatus.PENDING
+
   if (score.walkover) {
-    match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
+    match.score = { walkover: score.walkover }
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = serializeScore(score, tournament.scoreFormat)
+    match.score = score
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }
 
   match.updatedAt = new Date()
   await match.save()
-  await progressTournamentAfterResult(tournament, round)
+  await progressTournamentAfterResult(tournament, match, wasAlreadyResolved)
 }
 
 // ── query helpers ─────────────────────────────────────────────────────────────
 
-export async function getRounds(tournamentCategoryId: number): Promise<Round[]> {
-  return (await Round.withoutGlobalScopes().where('tournamentCategoryId', tournamentCategoryId).get()).sort(
-    (a, b) => a.number - b.number || (a.groupNumber ?? -1) - (b.groupNumber ?? -1) || a.type - b.type
-  )
+/**
+ * The `rounds` table is gone; a "round" is now the set of matches of a category
+ * that share (type, groupNumber, roundNumber). These helpers derive that view
+ * from the matches so the existing tests keep reading rounds the same way.
+ */
+export interface RoundView {
+  id: number
+  tournamentCategoryId: number
+  number: number
+  type: MatchType
+  groupNumber: number | null
+  matches: Match[]
+}
+
+/** Stable, decodable synthetic id so getMatches(round.id) can round-trip. */
+function syntheticRoundId(catId: number, roundNumber: number, type: MatchType, groupNumber: number | null): number {
+  return catId * 1_000_000 + roundNumber * 1000 + type * 100 + (groupNumber == null ? 99 : groupNumber)
+}
+
+function decodeSyntheticRoundId(id: number): {
+  catId: number
+  roundNumber: number
+  type: MatchType
+  groupNumber: number | null
+} {
+  const catId = Math.floor(id / 1_000_000)
+  const rem = id % 1_000_000
+  const roundNumber = Math.floor(rem / 1000)
+  const rem2 = rem % 1000
+  const type = Math.floor(rem2 / 100) as MatchType
+  const g = rem2 % 100
+
+  return { catId, roundNumber, type, groupNumber: g === 99 ? null : g }
+}
+
+export async function getRounds(tournamentCategoryId: number): Promise<RoundView[]> {
+  const matches = await Match.withoutGlobalScopes().where('tournamentCategoryId', tournamentCategoryId).get()
+  const groups = new Map<string, Match[]>()
+
+  for (const match of matches) {
+    const groupNumber = match.groupNumber ?? null
+    const key = `${match.roundNumber}:${match.type}:${groupNumber}`
+
+    if (!groups.has(key)) {
+      groups.set(key, [])
+    }
+
+    groups.get(key)!.push(match)
+  }
+
+  const rounds: RoundView[] = [...groups.values()].map((groupMatches) => {
+    const sample = groupMatches[0]
+    const groupNumber = sample.groupNumber ?? null
+
+    return {
+      id: syntheticRoundId(tournamentCategoryId, sample.roundNumber, sample.type, groupNumber),
+      tournamentCategoryId,
+      number: sample.roundNumber,
+      type: sample.type,
+      groupNumber,
+      matches: [...groupMatches].sort((a, b) => a.position - b.position)
+    }
+  })
+
+  return rounds.sort((a, b) => a.number - b.number || (a.groupNumber ?? -1) - (b.groupNumber ?? -1) || a.type - b.type)
 }
 
 export async function getMatches(roundId: number): Promise<Match[]> {
-  return (await Match.withoutGlobalScopes().where('roundId', roundId).get()).sort((a, b) => a.position - b.position)
+  const { catId, roundNumber, type, groupNumber } = decodeSyntheticRoundId(roundId)
+  const matches = await Match.withoutGlobalScopes().where('tournamentCategoryId', catId).get()
+
+  return matches
+    .filter(
+      (m) => m.roundNumber === roundNumber && m.type === type && (m.groupNumber ?? null) === (groupNumber ?? null)
+    )
+    .sort((a, b) => a.position - b.position)
 }
 
 /** All matches of a category instance across every round/lane. */
@@ -347,19 +427,43 @@ export async function getAllMatches(tournamentCategoryId: number): Promise<Match
   return Match.withoutGlobalScopes().where('tournamentCategoryId', tournamentCategoryId).get()
 }
 
-/** Currently active+open matches that still need a result, across all categories. */
+/** Currently editable matches that still need a result, across all categories. */
 export async function getPendingActiveMatches(categoryIds: number[]): Promise<Match[]> {
-  const rounds = await Round.withoutGlobalScopes().whereIn('tournamentCategoryId', categoryIds).get()
-  const activeOpen = rounds.filter((r) => r.active && r.status === RoundStatus.OPEN)
-  const roundIds = activeOpen.map((r) => r.id)
-
-  if (roundIds.length === 0) {
+  if (categoryIds.length === 0) {
     return []
   }
 
-  const matches = await Match.withoutGlobalScopes().whereIn('roundId', roundIds).get()
+  const categories = await TournamentCategory.withoutGlobalScopes().whereIn('id', categoryIds).get()
+  const tournamentIds = [...new Set(categories.map((c) => c.tournamentId))]
+  const tournaments = await Tournament.withoutGlobalScopes().whereIn('id', tournamentIds).get()
+  const tournamentById = new Map(tournaments.map((t) => [t.id, t]))
+  const tournamentByCategory = new Map(categories.map((c) => [c.id, tournamentById.get(c.tournamentId) ?? null]))
+  const matches = await Match.withoutGlobalScopes().whereIn('tournamentCategoryId', categoryIds).get()
+  const matchesByCategory = new Map<number, Match[]>()
 
-  return matches.filter((m) => m.status === MatchStatus.PENDING && m.awayCompetitorIds != null)
+  for (const match of matches) {
+    if (!matchesByCategory.has(match.tournamentCategoryId)) {
+      matchesByCategory.set(match.tournamentCategoryId, [])
+    }
+
+    matchesByCategory.get(match.tournamentCategoryId)!.push(match)
+  }
+
+  return matches.filter((match) => {
+    if (match.status !== MatchStatus.PENDING) {
+      return false
+    }
+
+    const tournament = tournamentByCategory.get(match.tournamentCategoryId) ?? null
+
+    if (!tournament) {
+      return false
+    }
+
+    const categoryMatches = matchesByCategory.get(match.tournamentCategoryId) ?? []
+
+    return isMatchEditable(match, categoryMatches, tournament.type, tournament.status)
+  })
 }
 
 export async function getTournamentStatus(id: number): Promise<TournamentStatus> {

@@ -40,6 +40,7 @@ import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFo
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { useUserStore } from '@/app/stores/users'
@@ -64,30 +65,41 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
   const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false)
   const userId = useUserStore((state) => state.user?.id ?? null)
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
-  const rounds = useMemo(() => tournament?.rounds ?? [], [tournament])
   const matches = useMemo(() => tournament?.matches ?? [], [tournament])
   const userEntry = useMemo(
     () => competitors.find((c) => userId != null && c.playerIds.includes(userId)) ?? null,
     [competitors, userId]
   )
-  const openCurrentRoundIds = useMemo(
-    // Active rounds are editable: the current frontier plus any just-closed
-    // round still in its grace window.
-    () => new Set(rounds.filter((round) => round.active).map((round) => round.id)),
-    [rounds]
-  )
   const myMatches = useMemo(() => {
-    if (!userEntry) {
+    if (!userEntry || !tournament) {
       return []
+    }
+
+    // Matches the player can currently load a result for: their own matchups that
+    // are editable (the current frontier plus any just-closed round still in its
+    // derived grace window).
+    const matchesByCategory = new Map<number, MatchDto[]>()
+
+    for (const match of matches) {
+      if (!matchesByCategory.has(match.tournamentCategoryId)) {
+        matchesByCategory.set(match.tournamentCategoryId, [])
+      }
+
+      matchesByCategory.get(match.tournamentCategoryId)!.push(match)
     }
 
     return matches.filter(
       (match) =>
-        openCurrentRoundIds.has(match.roundId) &&
         match.awayCompetitorIds !== null &&
-        (match.homeCompetitorIds.includes(userEntry.id) || match.awayCompetitorIds.includes(userEntry.id))
+        (match.homeCompetitorIds.includes(userEntry.id) || match.awayCompetitorIds.includes(userEntry.id)) &&
+        isMatchEditable(
+          match,
+          matchesByCategory.get(match.tournamentCategoryId) ?? [],
+          tournament.type,
+          tournament.status
+        )
     )
-  }, [matches, userEntry, openCurrentRoundIds])
+  }, [matches, userEntry, tournament])
   const categories = useMemo(() => tournament?.categories ?? [], [tournament])
   const categoryKeys = useMemo<number[]>(() => categories.map((category) => category.id), [categories])
   const categoryNameById = useMemo(
@@ -258,9 +270,9 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
 
   const categoryGroups = categoryKeys.map((key) => {
     const groupCompetitors = competitors.filter((competitor) => competitor.tournamentCategoryId === key)
-    const groupRounds = rounds.filter((round) => round.tournamentCategoryId === key)
+    const hasMatches = matches.some((match) => match.tournamentCategoryId === key)
 
-    return { key, groupCompetitors, groupRounds }
+    return { key, groupCompetitors, hasMatches }
   })
 
   const handleLeave = () => {
@@ -386,7 +398,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
         </Paper>
       )}
 
-      {categoryGroups.map(({ key, groupCompetitors, groupRounds }) => {
+      {categoryGroups.map(({ key, groupCompetitors, hasMatches }) => {
         // Collapsed by default, except while inscriptions are open or when the
         // player is registered and playing in this specific category.
         const isPlayingCategory = userEntry?.tournamentCategoryId === key
@@ -424,7 +436,7 @@ export default function PlayerTournamentView({ tournamentId }: PlayerTournamentV
                 <CompetitorsList tournament={tournament} category={key} />
               </div>
 
-              {groupRounds.length > 0 && (
+              {hasMatches && (
                 <>
                   <Divider />
                   <TournamentRoundsView tournament={tournament} category={key} onEditMatch={setScoreMatch} />

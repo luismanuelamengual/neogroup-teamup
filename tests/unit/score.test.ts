@@ -6,9 +6,7 @@ import {
   getGamesWon,
   getScoreWinner,
   getSetsWon,
-  isValidScore,
-  parseScore,
-  serializeScore
+  isValidScore
 } from '@/app/(protected)/(tournaments)/utils/score'
 
 describe('score — BASIC_COUNT validation', () => {
@@ -27,13 +25,6 @@ describe('score — BASIC_COUNT validation', () => {
   it('rejects negatives and missing sides', () => {
     expect(isValidScore({ home: -1, away: 3 }, f)).toBe(false)
     expect(isValidScore({ home: 5 } as any, f)).toBe(false)
-  })
-
-  it('round-trips through serialize/parse', () => {
-    const serialized = serializeScore({ home: 14, away: 5 }, f)
-
-    expect(serialized).toBe('3:14-5')
-    expect(parseScore(serialized)).toEqual({ home: 14, away: 5 })
   })
 })
 
@@ -223,13 +214,6 @@ describe('score — walkovers', () => {
   it('accepts walkover for either side', () => {
     expect(isValidScore({ walkover: MatchSide.HOME }, ScoreFormat.THREE_SETS)).toBe(true)
     expect(isValidScore({ walkover: MatchSide.AWAY }, ScoreFormat.BASIC_COUNT)).toBe(true)
-  })
-
-  it('round-trips a walkover', () => {
-    const serialized = serializeScore({ walkover: MatchSide.AWAY }, ScoreFormat.THREE_SETS)
-
-    expect(serialized).toBe('1:wo2')
-    expect(parseScore(serialized)).toEqual({ walkover: MatchSide.AWAY })
   })
 
   it('formats a walkover as W.O.', () => {
