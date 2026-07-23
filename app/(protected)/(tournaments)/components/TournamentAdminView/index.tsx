@@ -46,19 +46,26 @@ interface TournamentAdminViewProps {
 
 const DEFAULT_MAX_COMPETITORS = 16
 
-/** Reusable player search autocomplete (platform players by name / email). */
+/**
+ * Reusable player search autocomplete (platform players by name / email), scoped to a
+ * tournament: the server excludes players already registered as competitors in it, so
+ * `excludeIds` here is only for extra local exclusions (e.g. hiding the main entrant
+ * while picking their pair partner in the same form).
+ */
 function PlayerPicker({
   label,
   value,
   onChange,
+  tournamentId,
   excludeIds
 }: {
   label: string
   value: UserDto | null
   onChange: (value: UserDto | null) => void
+  tournamentId: number
   excludeIds: number[]
 }) {
-  const { getPlayers } = usePlayers()
+  const { getPlayersForJoin } = usePlayers()
   const [query, setQuery] = useState('')
   const [options, setOptions] = useState<UserDto[]>([])
   const [searching, setSearching] = useState(false)
@@ -76,16 +83,16 @@ function PlayerPicker({
 
     const timeout = setTimeout(
       async () => {
-        const users = await getPlayers(normalized)
+        const users = await getPlayersForJoin(tournamentId, normalized, excludeIds)
 
-        setOptions(users.filter((user) => !excludeIds.includes(user.id)))
+        setOptions(users)
         setSearching(false)
       },
       normalized.length === 0 ? 0 : 350
     )
 
     return () => clearTimeout(timeout)
-  }, [getPlayers, query, excludeIds])
+  }, [getPlayersForJoin, tournamentId, query, excludeIds])
 
   return (
     <Autocomplete
@@ -189,15 +196,6 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
       })),
     [categories, competitors]
   )
-  const registeredUserIds = useMemo(() => {
-    const ids: number[] = []
-
-    for (const competitor of competitors) {
-      ids.push(...competitor.playerIds)
-    }
-
-    return ids
-  }, [competitors])
   const categoryNameById = useMemo(
     () => new Map(categories.map((category) => [category.id, category.category?.name ?? 'Categoría única'])),
     [categories]
@@ -602,13 +600,20 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
               ))}
             </TextField>
           )}
-          <PlayerPicker label="Buscar jugador..." value={player} onChange={setPlayer} excludeIds={registeredUserIds} />
+          <PlayerPicker
+            label="Buscar jugador..."
+            value={player}
+            onChange={setPlayer}
+            tournamentId={tournament.id}
+            excludeIds={[]}
+          />
           {needsPartner && (
             <PlayerPicker
               label="Buscar compañero/a..."
               value={partner}
               onChange={setPartner}
-              excludeIds={[...registeredUserIds, ...(player ? [player.id] : [])]}
+              tournamentId={tournament.id}
+              excludeIds={player ? [player.id] : []}
             />
           )}
         </DialogContent>

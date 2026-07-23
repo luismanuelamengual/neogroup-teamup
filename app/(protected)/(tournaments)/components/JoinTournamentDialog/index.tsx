@@ -32,7 +32,7 @@ interface JoinTournamentModalProps {
 
 export default function JoinTournamentDialog({ open, tournament, onClose, onSuccess }: JoinTournamentModalProps) {
   const { joinTournament } = useTournaments()
-  const { getPlayers } = usePlayers()
+  const { getPlayersForJoin } = usePlayers()
   const [partnerQuery, setPartnerQuery] = useState('')
   const [partnerOptions, setPartnerOptions] = useState<UserDto[]>([])
   const [partnerUser, setPartnerUser] = useState<UserDto | null>(null)
@@ -75,7 +75,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
 
     const timeout = setTimeout(
       async () => {
-        const users = await getPlayers(normalized)
+        const users = await getPlayersForJoin(tournament.id, normalized)
 
         setPartnerOptions(users)
         setSearching(false)
@@ -84,7 +84,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
     )
 
     return () => clearTimeout(timeout)
-  }, [open, getPlayers, partnerQuery])
+  }, [open, getPlayersForJoin, tournament.id, partnerQuery])
 
   // Only real categories are selectable; the single category (categoryId = null)
   // is resolved automatically by the server.
