@@ -80,7 +80,7 @@ import {
   getPreclassificationCount,
   supportsPreclassification
 } from '@/app/(protected)/(tournaments)/utils/preclassification'
-import { getScoreWinner, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getScoreWinner } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   createRound,
   createTournamentCategories,
@@ -395,11 +395,11 @@ async function playMatch(tournament: Tournament, match: Match): Promise<void> {
   const wasAlreadyResolved = match.status !== MatchStatus.PENDING
 
   if (score.walkover) {
-    match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
+    match.score = { walkover: score.walkover }
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = serializeScore(score, tournament.scoreFormat)
+    match.score = score
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }

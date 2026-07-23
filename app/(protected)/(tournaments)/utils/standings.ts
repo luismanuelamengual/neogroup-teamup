@@ -6,7 +6,7 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/StandingsRowDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { Tournament } from '../models/Tournament'
 import { TournamentDto } from '../models/TournamentDto'
 
@@ -107,7 +107,7 @@ export function computeStandings(
       continue
     }
 
-    const score = parseScore(match.score) ?? {}
+    const score = match.score ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
 
     if (type === TournamentType.LEAGUE) {

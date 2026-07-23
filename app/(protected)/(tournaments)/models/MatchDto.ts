@@ -1,3 +1,4 @@
+import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
@@ -12,7 +13,7 @@ export interface MatchDto {
   bracketInstance: number | null
   homeCompetitorIds: number[]
   awayCompetitorIds: number[] | null
-  score: string | null
+  score: MatchScore | null
   status: MatchStatus
   winner: MatchSide | null
   createdAt: string

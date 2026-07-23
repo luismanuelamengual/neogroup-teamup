@@ -20,7 +20,7 @@ import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/cat
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
-import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getScoreWinner, isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   createRound,
   createTournamentCategories,
@@ -440,11 +440,11 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
   const wasAlreadyResolved = match.status !== MatchStatus.PENDING
 
   if (score.walkover) {
-    match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
+    match.score = { walkover: score.walkover }
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = serializeScore(score, tournament.scoreFormat)
+    match.score = score
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }

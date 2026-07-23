@@ -24,7 +24,7 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
-import { getScoreWinner, isValidScore, serializeScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getScoreWinner, isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { isTournamentComplete, progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { Organization } from '@/app/models/Organization'
 import { User } from '@/app/models/User'
@@ -32,6 +32,7 @@ import migration from '@/database/migrations/001-create-base-tables'
 import migration002 from '@/database/migrations/002-competitors-player-ids'
 import migration004 from '@/database/migrations/004-drop-rounds-denormalize-matches'
 import migration005 from '@/database/migrations/005-reconcile-matches-position-instance'
+import migration006 from '@/database/migrations/006-matches-score-jsonb'
 
 const TABLES = [
   'tournament_payments',
@@ -101,6 +102,10 @@ export async function resetDatabase(): Promise<void> {
   // No-op on the final schema, but keeps the harness aligned with production
   // (which will have 005 applied to heal any interim 004 build).
   await migration005.up()
+  // 006 turns matches.score from TEXT into JSONB (a no-op here since the table
+  // is freshly created and empty, but keeps the harness schema — and the
+  // Match.score entity cast — aligned with production).
+  await migration006.up()
 
   const organization = new Organization()
 
@@ -323,11 +328,11 @@ export async function setResult(matchId: number, score: MatchScore): Promise<voi
   const wasAlreadyResolved = match.status !== MatchStatus.PENDING
 
   if (score.walkover) {
-    match.score = serializeScore({ walkover: score.walkover }, tournament.scoreFormat)
+    match.score = { walkover: score.walkover }
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = serializeScore(score, tournament.scoreFormat)
+    match.score = score
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }

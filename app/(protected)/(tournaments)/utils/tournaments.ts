@@ -11,7 +11,7 @@ import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { snakeSeedGroups, supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
-import { getGamesWon, getSetsWon, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
 
@@ -1148,7 +1148,7 @@ function rankGroup(competitorIds: number[], matches: Match[], settings?: Tournam
       continue
     }
 
-    const score = parseScore(match.score) ?? {}
+    const score = match.score ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
     const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
 
@@ -1289,7 +1289,7 @@ function computeAmericanoPoints(
       continue
     }
 
-    const score = parseScore(match.score) ?? {}
+    const score = match.score ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
     const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
 

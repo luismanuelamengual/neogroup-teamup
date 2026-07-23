@@ -11,6 +11,28 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { getPodiumCompetitorIds } from '@/app/(protected)/(tournaments)/utils/champion'
 import { Tournament } from '../../(tournaments)/models/Tournament'
 
+/**
+ * Normalizes a raw `score` value selected via the query builder (which skips
+ * entity casts) into a MatchScore-shaped object. PostgreSQL's driver returns
+ * jsonb columns already parsed as a JS object; SQLite stores it as TEXT, so
+ * the driver returns a JSON string that still needs parsing.
+ */
+function parseRawScore(value: unknown): Record<string, unknown> | null {
+  if (value == null) {
+    return null
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+
+  return value as Record<string, unknown>
+}
+
 /** Parses an INT[] (Postgres) or JSON-encoded TEXT (SQLite) array column value. */
 function toIntArray(value: unknown): number[] {
   if (Array.isArray(value)) {
@@ -213,7 +235,7 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
       bracketInstance: row.bracketinstance != null ? Number(row.bracketinstance) : null,
       homeCompetitorIds: toIntArray(row.homecompetitorids),
       awayCompetitorIds: row.awaycompetitorids != null ? toIntArray(row.awaycompetitorids) : null,
-      score: row.score as string | null,
+      score: parseRawScore(row.score),
       status: Number(row.status),
       winner: row.winner != null ? Number(row.winner) : null
     })

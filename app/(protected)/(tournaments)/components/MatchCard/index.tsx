@@ -8,7 +8,7 @@ import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/Comp
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { formatScore, parseScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { formatScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { MatchDto } from '../../models/MatchDto'
 import { TournamentDto } from '../../models/TournamentDto'
 
@@ -94,7 +94,7 @@ export default function MatchCard({
             (match.status === MatchStatus.PENDING ? (
               <span className="pending">Pendiente</span>
             ) : (
-              <span className="score">{formatScore(parseScore(match.score), scoreFormat)}</span>
+              <span className="score">{formatScore(match.score, scoreFormat)}</span>
             ))}
           {editable && !isBye && !isVoid && (
             <IconButton size="small" className="edit" onClick={() => onEdit?.(match)}>
