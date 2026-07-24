@@ -1,12 +1,17 @@
 'use client'
 
 import './index.scss'
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { MouseEvent as ReactMouseEvent, useCallback, useMemo, useRef, useState } from 'react'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
+import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
+import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
+import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import Avatar from '@/app/components/Avatar'
 import { useUserStore } from '@/app/stores/users'
 
 interface BracketViewProps {
@@ -35,6 +40,10 @@ const NODE_STEP = NODE_HEIGHT + NODE_VGAP
 const TITLE_BAND = 40
 /** Tolerance (px) before a round counts as fully scrolled past the left edge. */
 const PAST_TOLERANCE = 1
+/** Vertical gap between the final match card and the champion panel below it. */
+const CHAMPION_GAP = 24
+/** Space reserved below the final match for the champion panel (label + card). */
+const CHAMPION_BLOCK_HEIGHT = 130
 
 interface NodeLayout {
   match: MatchDto
@@ -57,6 +66,11 @@ interface TitleLayout {
   key: number
   x: number
   label: string
+}
+
+interface ChampionLayout {
+  x: number
+  y: number
 }
 
 /** Stage label for a round, counting Final/Semifinal/4tos/8vos from the end. */
@@ -125,6 +139,28 @@ export default function BracketView({
 
     return rounds.map((roundNumber) => (byRound.get(roundNumber) ?? []).slice().sort((a, b) => a.position - b.position))
   }, [rounds, bracketMatches])
+  /** Champion of this bracket lane: the winning side of a decided final, once the bracket is complete. */
+  const champion = useMemo((): CompetitorDto | null => {
+    const finalMatches = roundMatchLists[rounds.length - 1]
+
+    if (!finalMatches || finalMatches.length !== 1) {
+      return null
+    }
+
+    const finalMatch = finalMatches[0]!
+
+    if (finalMatch.winner === null || finalMatch.status === MatchStatus.VOID || finalMatch.awayCompetitorIds === null) {
+      return null
+    }
+
+    const winnerIds = finalMatch.winner === MatchSide.HOME ? finalMatch.homeCompetitorIds : finalMatch.awayCompetitorIds
+    const competitorsById: Record<number, CompetitorDto> = Object.fromEntries(
+      (tournament.competitors ?? []).map((c) => [c.id, c])
+    )
+    const winnerId = winnerIds[0]
+
+    return winnerId != null ? (competitorsById[winnerId] ?? null) : null
+  }, [rounds, roundMatchLists, tournament.competitors])
   const { editableMatchIds, highlightedMatchIds } = useMemo(() => {
     const categoryMatches = (tournament.matches ?? []).filter(
       (m) => category == null || m.tournamentCategoryId === category
@@ -189,9 +225,21 @@ export default function BracketView({
       }
     }
 
-    // Canvas height is driven by the base round (the tallest visible round).
+    // Canvas height is driven by the base round (the tallest visible round),
+    // extended to fit the champion panel below the final match, if shown.
     const baseCount = roundMatchLists[base]?.length ?? 0
-    const canvasHeight = Math.max(NODE_HEIGHT, (baseCount - 1) * NODE_STEP + NODE_HEIGHT)
+    let canvasHeight = Math.max(NODE_HEIGHT, (baseCount - 1) * NODE_STEP + NODE_HEIGHT)
+    let championLayout: ChampionLayout | null = null
+    const finalRoundIndex = total - 1
+    const finalCenter = champion ? centers[finalRoundIndex]?.[0] : undefined
+
+    if (champion && finalCenter != null) {
+      const championY = finalCenter + NODE_HEIGHT / 2 + CHAMPION_GAP
+
+      championLayout = { x: finalRoundIndex * COL_STEP, y: championY }
+      canvasHeight = Math.max(canvasHeight, championY + CHAMPION_BLOCK_HEIGHT)
+    }
+
     const nodes: NodeLayout[] = []
     const titles: TitleLayout[] = []
     const segments: Segment[] = []
@@ -260,8 +308,8 @@ export default function BracketView({
 
     const canvasWidth = total > 0 ? (total - 1) * COL_STEP + COLUMN_WIDTH : 0
 
-    return { nodes, titles, segments, canvasWidth, canvasHeight }
-  }, [rounds, roundMatchLists, baseRound])
+    return { nodes, titles, segments, canvasWidth, canvasHeight, championLayout }
+  }, [rounds, roundMatchLists, baseRound, champion])
   /** Recompute the first visible round from the horizontal scroll offset. */
   const handleScroll = useCallback(() => {
     if (rafRef.current != null) {
@@ -328,52 +376,85 @@ export default function BracketView({
   }
 
   return (
-    <div
-      className={`bracket-view${isDragging ? ' is-dragging' : ''}`}
-      ref={scrollRef}
-      onScroll={handleScroll}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={endDrag}
-      onMouseLeave={endDrag}
-    >
-      <div className="bracket-canvas" style={{ width: layout.canvasWidth, height: TITLE_BAND + layout.canvasHeight }}>
-        <div className="titles">
-          {layout.titles.map((title) => (
-            <h3 key={title.key} className="round-title" style={{ transform: `translateX(${title.x}px)` }}>
-              {title.label}
-            </h3>
-          ))}
-        </div>
+    <>
+      <div
+        className={`bracket-view${isDragging ? ' is-dragging' : ''}`}
+        ref={scrollRef}
+        onScroll={handleScroll}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={endDrag}
+        onMouseLeave={endDrag}
+      >
+        <div className="bracket-canvas" style={{ width: layout.canvasWidth, height: TITLE_BAND + layout.canvasHeight }}>
+          <div className="titles">
+            {layout.titles.map((title) => (
+              <h3 key={title.key} className="round-title" style={{ transform: `translateX(${title.x}px)` }}>
+                {title.label}
+              </h3>
+            ))}
+          </div>
 
-        <div className="connectors" style={{ top: TITLE_BAND }}>
-          {layout.segments.map((seg) => (
-            <span
-              key={seg.key}
-              className="connector"
-              style={{ transform: `translate(${seg.x}px, ${seg.y}px)`, width: seg.w, height: seg.h }}
-            />
-          ))}
-        </div>
-
-        <div className="nodes" style={{ top: TITLE_BAND }}>
-          {layout.nodes.map((node) => (
-            <div
-              key={node.match.id}
-              className="bracket-node"
-              style={{ transform: `translate(${node.x}px, ${node.yCenter - NODE_HEIGHT / 2}px)` }}
-            >
-              <MatchCard
-                match={node.match}
-                tournament={tournament}
-                highlighted={highlightedMatchIds.includes(node.match.id)}
-                editable={editableMatchIds.includes(node.match.id)}
-                onEdit={onEditMatch}
+          <div className="connectors" style={{ top: TITLE_BAND }}>
+            {layout.segments.map((seg) => (
+              <span
+                key={seg.key}
+                className="connector"
+                style={{ transform: `translate(${seg.x}px, ${seg.y}px)`, width: seg.w, height: seg.h }}
               />
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <div className="nodes" style={{ top: TITLE_BAND }}>
+            {layout.nodes.map((node) => (
+              <div
+                key={node.match.id}
+                className="bracket-node"
+                style={{ transform: `translate(${node.x}px, ${node.yCenter - NODE_HEIGHT / 2}px)` }}
+              >
+                <MatchCard
+                  match={node.match}
+                  tournament={tournament}
+                  highlighted={highlightedMatchIds.includes(node.match.id)}
+                  editable={editableMatchIds.includes(node.match.id)}
+                  onEdit={onEditMatch}
+                />
+              </div>
+            ))}
+
+            {champion && layout.championLayout && (
+              <div
+                className={`bracket-champion-wrap ${bracketType === MatchType.BRACKET ? 'gold' : 'silver'}`}
+                style={{
+                  transform: `translate(${layout.championLayout.x}px, ${layout.championLayout.y}px)`,
+                  width: COLUMN_WIDTH
+                }}
+              >
+                <span className="bracket-champion-label">Campeón</span>
+                <div className="bracket-champion">
+                  <div className="bracket-champion-avatars">
+                    {(champion.players?.length ? champion.players : [null]).map((player, i) => (
+                      <Avatar
+                        key={i}
+                        email={player?.email ?? ''}
+                        name={
+                          player
+                            ? [player.firstName, player.lastName].filter(Boolean).join(' ') || player.email
+                            : champion.displayName
+                        }
+                        size="md"
+                        className="bracket-champion-avatar"
+                      />
+                    ))}
+                  </div>
+                  <span className="bracket-champion-name">{champion.shortName}</span>
+                  <EmojiEventsIcon className="bracket-champion-trophy" />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

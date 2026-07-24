@@ -3,6 +3,7 @@
 import './index.scss'
 import CloseIcon from '@mui/icons-material/Close'
 import PhoneIcon from '@mui/icons-material/Phone'
+import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
@@ -11,6 +12,12 @@ import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import Avatar from '@/app/components/Avatar'
+
+function getWhatsAppLink(phoneNumber: string, displayName: string) {
+  const digits = phoneNumber.replace(/\D/g, '')
+  const message = `Hola ${displayName}!`
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
+}
 
 interface CompetitorInfoModalProps {
   open: boolean
@@ -41,6 +48,15 @@ function PersonCard({ firstName, lastName, phoneNumber, email }: PersonCardProps
             <Typography variant="body2" color="text.secondary">
               {phoneNumber}
             </Typography>
+            <IconButton
+              size="small"
+              color="success"
+              className="whatsapp-btn"
+              aria-label="Enviar mensaje por WhatsApp"
+              onClick={() => window.open(getWhatsAppLink(phoneNumber, displayName), '_blank')}
+            >
+              <WhatsAppIcon fontSize="small" />
+            </IconButton>
           </div>
         )}
       </div>
