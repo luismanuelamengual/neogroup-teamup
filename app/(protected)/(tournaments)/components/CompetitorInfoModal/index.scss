@@ -33,6 +33,11 @@
       display: flex;
       align-items: center;
       gap: 6px;
+
+      .whatsapp-btn {
+        padding: 2px;
+        margin-left: 2px;
+      }
     }
   }
 }
