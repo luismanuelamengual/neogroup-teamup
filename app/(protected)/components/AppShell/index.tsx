@@ -3,6 +3,7 @@
 import './index.scss'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import GetAppIcon from '@mui/icons-material/GetApp'
+import GroupIcon from '@mui/icons-material/Group'
 import HomeIcon from '@mui/icons-material/Home'
 import LeaderboardIcon from '@mui/icons-material/Leaderboard'
 import LogoutIcon from '@mui/icons-material/Logout'
@@ -24,7 +25,7 @@ import { MouseEvent, ReactNode, useEffect, useState } from 'react'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import Avatar from '@/app/components/Avatar'
 import { useInstallPrompt } from '@/app/hooks/useInstallPrompt'
-import { Role } from '@/app/models/Role'
+import { Role, RoleNames } from '@/app/models/Role'
 import { useUserStore } from '@/app/stores/users'
 
 interface NavItem {
@@ -33,6 +34,19 @@ interface NavItem {
   href: string
   icon: ReactNode
 }
+
+const HOME_NAV_ITEM: NavItem = { key: 'home', label: 'Inicio', href: '/home', icon: <HomeIcon /> }
+/** Navigation of every role except the administrator (organizers and players share it). */
+const DEFAULT_NAV_ITEMS: NavItem[] = [
+  HOME_NAV_ITEM,
+  { key: 'tournaments', label: 'Torneos', href: '/tournaments', icon: <EmojiEventsIcon /> },
+  { key: 'rankings', label: 'Rankings', href: '/rankings', icon: <LeaderboardIcon /> }
+]
+/** The administrator only manages the organization: its home plus the users ABM. */
+const ADMINISTRATOR_NAV_ITEMS: NavItem[] = [
+  HOME_NAV_ITEM,
+  { key: 'users', label: 'Usuarios', href: '/users', icon: <GroupIcon /> }
+]
 
 export default function AppShell({
   children,
@@ -65,27 +79,8 @@ export default function AppShell({
 
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [router])
-  const isOrganizer = user?.roleId === Role.ORGANIZER
-  const navItems: NavItem[] = [
-    {
-      key: 'home',
-      label: 'Inicio',
-      href: '/home',
-      icon: <HomeIcon />
-    },
-    {
-      key: 'tournaments',
-      label: 'Torneos',
-      href: '/tournaments',
-      icon: <EmojiEventsIcon />
-    },
-    {
-      key: 'rankings',
-      label: 'Rankings',
-      href: '/rankings',
-      icon: <LeaderboardIcon />
-    }
-  ]
+  const isAdministrator = user?.roleId === Role.ADMINISTRATOR
+  const navItems: NavItem[] = isAdministrator ? ADMINISTRATOR_NAV_ITEMS : DEFAULT_NAV_ITEMS
 
   const isActive = (href: string) => {
     if (href === '/home') {
@@ -148,7 +143,7 @@ export default function AppShell({
           >
             <div className="app-shell-menu-header">
               <span className="name">{user?.displayName}</span>
-              <span className="profile">{isOrganizer ? 'Organizador' : 'Jugador'}</span>
+              <span className="profile">{user?.roleId != null ? RoleNames[user.roleId] : ''}</span>
             </div>
             <Divider className="app-shell-menu-divider" />
             <MenuItem component={Link} href="/account" onClick={closeMenu}>

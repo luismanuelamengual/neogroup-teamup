@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/app/(auth)/services/auth'
 import { ApiException } from '@/app/models/ApiException'
 import { ApiResponse } from '@/app/models/ApiResponse'
+import { Role } from '@/app/models/Role'
 import { getOrganization } from '@/app/services/organizations'
 
 /** Helpers shared by the /api route handlers. */
@@ -86,6 +87,34 @@ export function withAuth<P = Record<string, string>>(handler: AuthenticatedApiHa
 
     if (!userId) {
       return errorResponse(new ApiException('Usuario no autenticado', 401))
+    }
+
+    try {
+      const organizationId = await resolveOrganizationId(request)
+
+      return successResponse(await handler(request, context, userId, organizationId))
+    } catch (error) {
+      return errorResponse(error)
+    }
+  }
+}
+
+/**
+ * Same as withAuth, but additionally requires the signed-in user to be the
+ * organization administrator (403 otherwise). Used by every endpoint of the
+ * users management module.
+ */
+export function withAdmin<P = Record<string, string>>(handler: AuthenticatedApiHandler<P>) {
+  return async (request: NextRequest, context: RouteContext<P>): Promise<NextResponse> => {
+    const session = await auth()
+    const userId = session?.user?.id ? Number(session.user.id) : null
+
+    if (!userId) {
+      return errorResponse(new ApiException('Usuario no autenticado', 401))
+    }
+
+    if (session?.user?.roleId !== Role.ADMINISTRATOR) {
+      return errorResponse(new ApiException('Operación no autorizada', 403))
     }
 
     try {

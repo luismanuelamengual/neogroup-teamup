@@ -1,9 +1,10 @@
 import { expect, Page } from '@playwright/test'
 import { getLatestEmailVerificationToken } from './db'
 
+/** Mirrors `app/models/Role.ts` (ADMINISTRATOR = 1 is not reachable from the UI). */
 export const Role = {
-  ORGANIZER: 1,
-  PLAYER: 2
+  ORGANIZER: 2,
+  PLAYER: 3
 } as const
 
 export type RoleId = (typeof Role)[keyof typeof Role]

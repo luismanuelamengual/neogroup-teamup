@@ -122,11 +122,24 @@ On `localhost` (no subdomain), the organization is taken from the `DEV_ORGANIZAT
 
 ### Users and roles
 
-A user has a **`roleId`** assigned once — `Role.ORGANIZER = 1`, `Role.PLAYER = 2` (`app/models/Role.ts`) — and **it cannot be switched**. The role is chosen in the registration form; users signing in without a role (e.g. first Google login) pick it once at `/select-role`.
+A user has a **`roleId`** assigned once — `Role.ADMINISTRATOR = 1`, `Role.ORGANIZER = 2`, `Role.PLAYER = 3` (`app/models/Role.ts`) — and **it cannot be switched**. Organizers and players choose their role in the registration form; users signing in without a role (e.g. first Google login) pick it once at `/select-role`. **Administrators are never self-assignable**: they are created by the seed or a maintenance script (`isValidRole` / `ManageableRoles` only cover organizer and player).
 
-The signed-in user (including its `roleId`) lives in a **zustand store**: `useUserStore` in `app/stores/users.ts`, hydrated by `app/(protected)/layout.tsx` through `UserStoreHydrator`. Any client component that needs to take a decision based on the role reads it from this store via the `useUserRole` / `useIsOrganizer` helpers. Server components and API handlers read the role from the session (`session.user.roleId`).
+> **Role ids start at 1, never 0.** A `0` would be falsy, so every `if (user.roleId)` would silently treat that role as "no role assigned". Adding the administrator shifted organizer/player from 1/2 to 2/3 (migration `007-shift-role-ids`); keep any future role above `0` and the only "no role" value stays `null`.
 
-Pages are shared between roles: the same `/tournaments` routes render the organizer or the player experience based on the role.
+The signed-in user (including its `roleId`) lives in a **zustand store**: `useUserStore` in `app/stores/users.ts`, hydrated by `app/(protected)/layout.tsx` through `UserStoreHydrator`. Any client component that needs to take a decision based on the role reads it from this store via the `useUserRole` / `useIsOrganizer` / `useIsAdministrator` helpers. Server components and API handlers read the role from the session (`session.user.roleId`).
+
+Pages are shared between roles: the same `/tournaments` routes render the organizer or the player experience based on the role. The **administrator** is the exception — its navigation (`AppShell`) only has `/home` (organization metrics, no tournament listing) and `/users` (the users ABM), and the tournaments/rankings pages redirect it back to `/home`.
+
+### Users administration (`app/(protected)/(users)`)
+
+The administrator manages the users of its organization from `/users`: search by name/email, filter by role, create, edit (including activate/deactivate), delete and trigger a password reset. Its endpoints are wrapped with **`withAdmin`** (`app/utils/api-server.ts`), the `withAuth` variant that also requires `Role.ADMINISTRATOR`.
+
+Rules baked into `app/(protected)/(users)/services/users.ts`:
+
+- Administrator accounts are never listed, edited or deleted from the UI, and only organizer/player can be assigned — an administrator can't lock itself out or escalate anybody.
+- Listings drop the `activeScope` / `emailVerifiedScope` global scopes (banned and unverified accounts must be visible) but keep the `OrganizationScope`.
+- **Creating a user** doesn't set a password: the account is created verified, with `passwordHash = null`, and gets an invitation email to choose its own password (`sendPasswordResetEmail(..., { invitation: true })` in `app/(auth)/services/passwords.ts`, shared with the public "forgot password" flow).
+- **Deleting** is a real `DELETE`, so it is rejected when the user has activity attached (owned tournaments, registrations, ranking points or payments); those accounts should be deactivated instead.
 
 ### Entities and DTOs
 
@@ -154,7 +167,7 @@ All endpoints (except Auth.js own `/api/auth/[...nextauth]`) follow the same con
 { success: false, error: { name, message } }          // error (message is shown to the user as-is)
 ```
 
-Handlers are wrapped with `withApi` (public) or `withAuth` (requires session), both from `app/utils/api-server.ts`. Both resolve the current `organizationId` from the request's `Host` header and inject it into the handler; `withAuth` also resolves and injects the signed-in `userId` (401 if there is none). Whatever the handler **returns** is sent as `data`, and errors are signalled by **throwing** `ApiException(message, status)` — unexpected (non-`ApiException`) errors are logged server-side and masked as `"internalError"` in the response.
+Handlers are wrapped with `withApi` (public), `withAuth` (requires session) or `withAdmin` (requires an administrator session), all from `app/utils/api-server.ts`. They resolve the current `organizationId` from the request's `Host` header and inject it into the handler; `withAuth`/`withAdmin` also resolve and inject the signed-in `userId` (401 if there is none, 403 if `withAdmin` gets a non-administrator). Whatever the handler **returns** is sent as `data`, and errors are signalled by **throwing** `ApiException(message, status)` — unexpected (non-`ApiException`) errors are logged server-side and masked as `"internalError"` in the response.
 
 ```ts
 export const POST = withAuth(async (request, context, userId, organizationId) => {
@@ -185,7 +198,7 @@ Imports are always absolute via the `@/` alias (enforced by ESLint), e.g. `impor
 
 ## Domain notes
 
-- **Roles**: each user is an Organizer or a Player (`roleId`), assigned once at registration (or at `/select-role` on the first login) and not switchable.
+- **Roles**: each user is an Administrator, an Organizer or a Player (`roleId`), assigned once — at registration, at `/select-role` on the first login, or by an administrator from `/users` — and not switchable by the user. Administrators don't take part in the competition: they only manage the organization's users.
 - **Tournament types** (`TournamentType`): league (round robin), americano and americano with partner swapping per round, playoff (knockout bracket), playoff with consolation bracket, and groups + playoff (round-robin groups feeding a knockout stage).
 - **Disciplines**: padel (always doubles) or tennis (singles or doubles via `subDiscipline`).
 - **Score formats**: 3 sets, 2 sets + super tiebreak, or a basic counter. Walkovers (W.O.) are supported everywhere.

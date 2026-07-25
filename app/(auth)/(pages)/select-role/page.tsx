@@ -13,7 +13,7 @@ export default async function SelectRolePage({ searchParams }: { searchParams: P
     redirect('/login')
   }
 
-  if (session.user.roleId) {
+  if (session.user.roleId != null) {
     redirect('/')
   }
 

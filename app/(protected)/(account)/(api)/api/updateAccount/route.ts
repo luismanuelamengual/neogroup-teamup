@@ -47,7 +47,7 @@ export const POST = withApi(async (request, _context, organizationId) => {
       throw new ApiException('unauthorized', 401)
     }
 
-    if (user.roleId) {
+    if (user.roleId != null) {
       throw new ApiException('roleAlreadyAssigned')
     }
 

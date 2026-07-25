@@ -50,7 +50,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // same-origin relative path before using it anywhere.
   const safeCallbackPath = resolveCallbackPath(callbackUrl)
 
-  if (!session.user.roleId) {
+  if (session.user.roleId == null) {
     redirect(`/select-role${safeCallbackPath ? `?callbackUrl=${encodeURIComponent(safeCallbackPath)}` : ''}`)
   }
 

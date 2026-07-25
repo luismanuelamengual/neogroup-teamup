@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { auth } from '@/app/(auth)/services/auth'
 import OrganizerJoinNotice from '@/app/(protected)/(tournaments)/components/OrganizerJoinNotice'
 import TournamentView from '@/app/(protected)/(tournaments)/components/TournamentView'
@@ -16,6 +17,12 @@ export default async function TournamentPage({
   const { id } = await params
   const { join } = await searchParams
   const session = await auth()
+
+  // Administrators manage users, not tournaments: this page is not part of their navigation.
+  if (session?.user?.roleId === Role.ADMINISTRATOR) {
+    redirect('/home')
+  }
+
   const isOrganizer = session?.user?.roleId === Role.ORGANIZER
 
   // Join links (/tournaments/[id]/join) redirect here with `?join=1` for
