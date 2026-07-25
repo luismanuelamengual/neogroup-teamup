@@ -1,5 +1,6 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany, HasManyThrough, HasOne } from '@neogroup/neorm'
 import { RankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
+import { Site } from '@/app/(protected)/(sites)/models/Site'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
@@ -51,8 +52,9 @@ export class Tournament extends BaseEntity {
   @Column()
   startTime!: string | null
 
+  /** Venue where the tournament is played (catalogue managed by the administrator). */
   @Column()
-  location!: string | null
+  siteId!: number | null
 
   @Column({ cast: 'json' })
   settings!: TournamentSettings | null
@@ -80,6 +82,9 @@ export class Tournament extends BaseEntity {
 
   @BelongsTo(() => User, 'ownerId')
   owner?: User
+
+  @BelongsTo(() => Site, 'siteId')
+  site?: Site | null
 
   @HasMany(() => TournamentCategory, 'tournamentId')
   categories?: TournamentCategory[]

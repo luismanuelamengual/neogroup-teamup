@@ -5,11 +5,12 @@ import { OrganizationScope } from '@/app/models/OrganizationScope'
 
 /**
  * Catalogue of categories scoped to an organization and a discipline /
- * sub-discipline. Categories are created on demand the first time an organizer
- * uses a given name while creating a tournament, and reused afterwards (which
- * powers the category autocomplete). Tournaments materialise a subset of them
- * into tournament_categories rows; competitors, rounds and matches point to one
- * of those category instances.
+ * sub-discipline. They are maintained by the administrator (the /categories
+ * ABM) and only ever picked from a selector — organizers no longer create them
+ * by typing a name into the tournament form, which used to fill the catalogue
+ * with near-duplicates. Tournaments materialise a subset of them into
+ * tournament_categories rows; competitors and matches point to one of those
+ * category instances.
  */
 @Entity({ table: 'categories' })
 export class Category extends BaseEntity {

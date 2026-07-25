@@ -57,6 +57,7 @@ import { User } from '@/app//models/User'
 import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { getDefaultRankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
+import { Site } from '@/app/(protected)/(sites)/models/Site'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
@@ -1084,6 +1085,35 @@ const SPECS: TournamentSpec[] = [
 // Tournament creation + simulation
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolves the site (venue) a seeded tournament is played at, creating it on
+ * demand. The ids are cached per run so every tournament shares the same
+ * handful of sedes instead of creating one each.
+ */
+async function resolveSiteId(organizationId: number, name: string): Promise<number> {
+  const key = `${organizationId}::${name.toLowerCase()}`
+  const cached = seededSiteIds.get(key)
+
+  if (cached !== undefined) {
+    return cached
+  }
+
+  let site = await Site.where('organizationId', organizationId).where('name', name).first()
+
+  if (!site) {
+    site = new Site()
+    site.organizationId = organizationId
+    site.name = name
+    await site.save()
+  }
+
+  seededSiteIds.set(key, site.id)
+
+  return site.id
+}
+
+const seededSiteIds = new Map<string, number>()
+
 async function buildTournament(
   spec: TournamentSpec,
   organizerId: number,
@@ -1119,7 +1149,7 @@ async function buildTournament(
   tournament.scoreFormat = spec.scoreFormat
   tournament.startDate = startDateFor(spec.status)
   tournament.startTime = randomItem(['09:00', '10:30', '14:00', '18:30', '20:00', null])
-  tournament.location = randomItem(VENUES)
+  tournament.siteId = await resolveSiteId(organizationId, randomItem(VENUES))
   tournament.settings = spec.settings
   // Ranking points only count for tournaments that define categories.
   tournament.rankingSettings = categoryIds && categoryIds.length > 0 ? getDefaultRankingSettings(spec.type) : null

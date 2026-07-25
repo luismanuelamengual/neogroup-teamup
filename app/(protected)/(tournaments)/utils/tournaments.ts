@@ -2109,34 +2109,29 @@ export function normalizeImage(value: unknown): string | null | false {
 }
 
 /**
- * Normalizes the organizer-provided category names: trims, drops blanks and
- * removes duplicates (case-insensitive). Returns null when there are none.
+ * Normalizes the category ids picked by the organizer: keeps positive integers
+ * only, in order, without duplicates. Returns null when there are none, which
+ * is what tells createTournament to materialise a single "no category"
+ * instance.
  */
-export function normalizeCategories(value: unknown): string[] | null {
+export function normalizeCategoryIds(value: unknown): number[] | null {
   if (!Array.isArray(value)) {
     return null
   }
 
-  const seen = new Set<string>()
-  const categories: string[] = []
+  const categoryIds: number[] = []
 
   for (const entry of value) {
-    if (typeof entry !== 'string') {
+    const id = Number(entry)
+
+    if (!Number.isInteger(id) || id <= 0 || categoryIds.includes(id)) {
       continue
     }
 
-    const trimmed = entry.trim()
-    const key = trimmed.toLowerCase()
-
-    if (trimmed === '' || seen.has(key)) {
-      continue
-    }
-
-    seen.add(key)
-    categories.push(trimmed)
+    categoryIds.push(id)
   }
 
-  return categories.length > 0 ? categories : null
+  return categoryIds.length > 0 ? categoryIds : null
 }
 
 /**

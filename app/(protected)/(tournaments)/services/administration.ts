@@ -2,7 +2,7 @@ import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
+import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { createCompetitor } from '@/app/(protected)/(tournaments)/services/registrations'
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { ApiException } from '@/app/models/ApiException'
@@ -48,45 +48,42 @@ async function countCompetitors(tournamentCategoryId: number): Promise<number> {
 }
 
 /**
- * Adds a category instance to a tournament. The name is resolved to a catalogue
- * category (created on demand) for the tournament's organization + discipline +
- * sub-discipline, exactly like tournament creation does. A category already
- * present in the tournament is rejected.
+ * Adds a category instance to a tournament. The category is picked from the
+ * organization catalogue (the administrator's /categories ABM) and must match
+ * the tournament's discipline + sub-discipline, exactly like tournament
+ * creation does. A category already present in the tournament is rejected.
  */
 export async function addTournamentCategory(
   tournament: Tournament,
   organizationId: number,
-  name: string,
+  categoryId: number,
   maxCompetitors: number
 ): Promise<TournamentCategory> {
-  const trimmed = name.trim()
-
-  if (!trimmed) {
-    throw new ApiException('El nombre de la categoría es requerido')
-  }
-
   if (!maxCompetitors || maxCompetitors < 2) {
     throw new ApiException('El cupo máximo debe ser al menos 2')
   }
 
-  const [categoryId] = await resolveCategoryIds(organizationId, tournament.discipline, tournament.subDiscipline, [
-    trimmed
-  ])
+  const [resolvedCategoryId] = await validateCategoryIds(
+    organizationId,
+    tournament.discipline,
+    tournament.subDiscipline,
+    [Number(categoryId)].filter((id) => Number.isInteger(id) && id > 0)
+  )
 
-  if (!categoryId) {
-    throw new ApiException('No se pudo resolver la categoría')
+  if (!resolvedCategoryId) {
+    throw new ApiException('La categoría seleccionada no es válida')
   }
 
   const existing = tournament.categories ?? []
 
-  if (existing.some((category) => category.categoryId === categoryId)) {
+  if (existing.some((category) => category.categoryId === resolvedCategoryId)) {
     throw new ApiException('La categoría ya existe en el torneo')
   }
 
   const tournamentCategory = new TournamentCategory()
 
   tournamentCategory.tournamentId = tournament.id
-  tournamentCategory.categoryId = categoryId
+  tournamentCategory.categoryId = resolvedCategoryId
   tournamentCategory.maxCompetitors = Math.floor(maxCompetitors)
   await tournamentCategory.save()
 

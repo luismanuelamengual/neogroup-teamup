@@ -1,6 +1,7 @@
 'use client'
 
 import './index.scss'
+import CategoryIcon from '@mui/icons-material/Category'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import GetAppIcon from '@mui/icons-material/GetApp'
 import GroupIcon from '@mui/icons-material/Group'
@@ -8,6 +9,7 @@ import HomeIcon from '@mui/icons-material/Home'
 import LeaderboardIcon from '@mui/icons-material/Leaderboard'
 import LogoutIcon from '@mui/icons-material/Logout'
 import PersonIcon from '@mui/icons-material/Person'
+import PlaceIcon from '@mui/icons-material/Place'
 import AppBar from '@mui/material/AppBar'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
@@ -42,10 +44,12 @@ const DEFAULT_NAV_ITEMS: NavItem[] = [
   { key: 'tournaments', label: 'Torneos', href: '/tournaments', icon: <EmojiEventsIcon /> },
   { key: 'rankings', label: 'Rankings', href: '/rankings', icon: <LeaderboardIcon /> }
 ]
-/** The administrator only manages the organization: its home plus the users ABM. */
+/** The administrator only manages the organization: its home plus the catalogue ABMs. */
 const ADMINISTRATOR_NAV_ITEMS: NavItem[] = [
   HOME_NAV_ITEM,
-  { key: 'users', label: 'Usuarios', href: '/users', icon: <GroupIcon /> }
+  { key: 'users', label: 'Usuarios', href: '/users', icon: <GroupIcon /> },
+  { key: 'sites', label: 'Sedes', href: '/sites', icon: <PlaceIcon /> },
+  { key: 'categories', label: 'Categorías', href: '/categories', icon: <CategoryIcon /> }
 ]
 
 export default function AppShell({

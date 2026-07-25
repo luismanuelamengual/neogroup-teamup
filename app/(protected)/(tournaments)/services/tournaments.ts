@@ -1,5 +1,6 @@
 import { DB } from '@neogroup/neorm'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
+import { Site } from '@/app/(protected)/(sites)/models/Site'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { CreateTournamentInput } from '@/app/(protected)/(tournaments)/models/CreateTournamentInput'
@@ -16,7 +17,7 @@ import { TournamentImage } from '@/app/(protected)/(tournaments)/models/Tourname
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
+import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
@@ -27,7 +28,7 @@ import {
   isTournamentComplete,
   isTournamentStartDue,
   loadOrganizationTimezones,
-  normalizeCategories,
+  normalizeCategoryIds,
   normalizeImage,
   normalizeStartTime,
   progressTournamentAfterResult
@@ -61,7 +62,7 @@ export async function getTournaments({
   pageSize = 10
 }: TournamentOptions = {}): Promise<PaginatedResponse<Tournament[]>> {
   const result = await Tournament.when(id, (query) => query.where('id', id))
-    .with('categories', 'categories.category')
+    .with('categories', 'categories.category', 'site')
     .when(ownerId, (query) => query.where('ownerId', ownerId))
     .when(playerId, (query) => query.whereHas('competitors', (q) => q.whereArrayContains('playerIds', playerId)))
     .when(name, (query) => query.whereLike('name', '%' + name + '%'))
@@ -87,10 +88,37 @@ export async function getTournament(options: TournamentOptions = {}): Promise<To
 }
 
 /**
+ * Resolves the venue a tournament is played at.
+ *
+ * Sites belong to the catalogue the administrator maintains (/sites ABM), so an
+ * id that is not one of the organization's sites is rejected rather than
+ * silently stored. `null` / undefined means "no venue", which stays valid.
+ */
+export async function resolveSiteId(organizationId: number, siteId: unknown): Promise<number | null> {
+  if (siteId === undefined || siteId === null || siteId === '') {
+    return null
+  }
+
+  const id = Number(siteId)
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  const site = await Site.where('organizationId', organizationId).where('id', id).first()
+
+  if (!site) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  return site.id
+}
+
+/**
  * Creates a new tournament (in STAND_BY status) owned by `userId` inside
- * `organizationId`, from the organizer-provided input. Validates the input,
- * resolves/creates its categories, materialises the category instances and
- * stores the optional poster image. Returns the new tournament id.
+ * `organizationId`, from the organizer-provided input. Validates the input and
+ * the referenced catalogue rows (site, categories), materialises the category
+ * instances and stores the optional poster image. Returns the new tournament id.
  */
 export async function createTournament(
   input: CreateTournamentInput,
@@ -134,11 +162,12 @@ export async function createTournament(
     throw new ApiException('invalidImage')
   }
 
-  const categoryNames = normalizeCategories(input.categoryNames)
   const subDiscipline = input.discipline === Discipline.TENNIS ? (input.subDiscipline ?? null) : null
-  const categoryIds = categoryNames
-    ? await resolveCategoryIds(organizationId, input.discipline, subDiscipline, categoryNames)
+  const pickedCategoryIds = normalizeCategoryIds(input.categoryIds)
+  const categoryIds = pickedCategoryIds
+    ? await validateCategoryIds(organizationId, input.discipline, subDiscipline, pickedCategoryIds)
     : null
+  const siteId = await resolveSiteId(organizationId, input.siteId)
   let settings: TournamentSettings = {}
 
   if (input.type === TournamentType.LEAGUE) {
@@ -175,7 +204,7 @@ export async function createTournament(
   tournament.scoreFormat = input.scoreFormat
   tournament.startDate = input.startDate
   tournament.startTime = startTime
-  tournament.location = input.location?.trim() || null
+  tournament.siteId = siteId
   tournament.paid = Boolean(input.paid)
   tournament.entryFee = input.paid && input.entryFee && input.entryFee > 0 ? input.entryFee : null
   tournament.currency = input.currency?.trim() || 'ARS'

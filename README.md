@@ -78,6 +78,8 @@ app/(protected)/
   (tournaments)/            Tournaments module (create/manage/join tournaments, scoring, brackets)
   (home)/                   Home/dashboard module (organizer & player dashboards, stats)
   (rankings)/               Rankings module
+  (sites)/                  Sites (venues) module — administrator ABM + the catalogue tournaments pick from
+  (categories)/             Categories module — administrator ABM of the category catalogue
 ```
 
 ### Anatomy of a feature module
@@ -141,6 +143,17 @@ Rules baked into `app/(protected)/(users)/services/users.ts`:
 - **Creating a user** doesn't set a password: the account is created verified, with `passwordHash = null`, and gets an invitation email to choose its own password (`sendPasswordResetEmail(..., { invitation: true })` in `app/(auth)/services/passwords.ts`, shared with the public "forgot password" flow).
 - **Deleting** is a real `DELETE`, so it is rejected when the user has activity attached (owned tournaments, registrations, ranking points or payments); those accounts should be deactivated instead.
 
+### Catalogues administration (`(sites)` and `(categories)`)
+
+Two more administrator-only ABMs, built exactly like the users one (`withAdmin` endpoints, a `*Browser` component with search + pagination and a `*FormDialog`), reachable from `/sites` and `/categories`:
+
+- **Sedes** (`app/(protected)/(sites)`, table `sites`: `id`, `organizationId`, `name`) — the venues a tournament can be played at. They replaced the free-text `tournaments.location` column, where the same club ended up spelled in as many ways as organizers there were; migration `008-sites` creates a site per distinct location and repoints every tournament at it through `tournaments.siteId`.
+- **Categorías** (`app/(protected)/(categories)`, on the existing `categories` table) — the category catalogue, scoped to a discipline and, for tennis only, a sub-discipline. Categories used to be created on the fly from the tournament form, which split the rankings of a single category across near-duplicates ("4ta", "Cuarta", "4TA").
+
+Both refuse to delete a row that is already in use (a site assigned to a tournament, a category used by a tournament or holding ranking points), and both reject duplicate names case-insensitively.
+
+Organizers never type either value: they pick it from the reusable **`SiteSelector`** / **`CategorySelector`** components (each one in its own module's `components/` folder), used by the tournament form, the edit-tournament dialog, the tournament admin view and the rankings filters. When the catalogue is empty the selector renders disabled with a message pointing at the administrator. Reading the catalogues is open to every signed-in user (`/api/getSites`, `/api/getCategories`); only the write endpoints and the admin listing (`/api/getManagedCategories`) are `withAdmin`.
+
 ### Entities and DTOs
 
 Entities (in each module's `models/` folder) are neorm Active Record classes. Besides `@Column`, they declare their **relationships** with `@HasOne`, `@HasMany`, `@HasManyThrough`, `@BelongsTo` (e.g. `Tournament` has many `categories` and, through them, `competitors` and `matches`, and belongs to its `owner` User). Relations can be eager-loaded with `Entity.with('relation')`.
@@ -201,6 +214,7 @@ Imports are always absolute via the `@/` alias (enforced by ESLint), e.g. `impor
 - **Roles**: each user is an Administrator, an Organizer or a Player (`roleId`), assigned once — at registration, at `/select-role` on the first login, or by an administrator from `/users` — and not switchable by the user. Administrators don't take part in the competition: they only manage the organization's users.
 - **Tournament types** (`TournamentType`): league (round robin), americano and americano with partner swapping per round, playoff (knockout bracket), playoff with consolation bracket, and groups + playoff (round-robin groups feeding a knockout stage).
 - **Disciplines**: padel (always doubles) or tennis (singles or doubles via `subDiscipline`).
+- **Catalogues**: the **sedes** (venues) and **categorías** a tournament uses are organization-wide catalogues maintained by the administrator; organizers only pick from them (see "Catalogues administration").
 - **Score formats**: 3 sets, 2 sets + super tiebreak, or a basic counter. Walkovers (W.O.) are supported everywhere.
 - The organizer starts the tournament, closes each round once all results are loaded and opens the next one; pairings are computed automatically based on the tournament type. `GET /api/processTournaments` (a Vercel Cron job, see `vercel.json`, secured by `CRON_SECRET`) auto-starts scheduled tournaments at the organization's local time.
 - Players register from the tournament page (or via the shared WhatsApp link `/tournaments/:id/join`), choosing a platform user or a free-text name as partner in doubles disciplines.

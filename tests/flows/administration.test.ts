@@ -14,7 +14,7 @@ import {
   setCompetitorSeed,
   unregisterCompetitor
 } from '@/app/(protected)/(tournaments)/services/administration'
-import { buildTournament, createUser, resetDatabase } from '@/tests/setup/harness'
+import { buildTournament, createCategory, createUser, resetDatabase } from '@/tests/setup/harness'
 
 /** Reloads a tournament through the same gate the API routes use. */
 function manageable(tournamentId: number, ownerId: number) {
@@ -49,20 +49,28 @@ describe('tournament administration', () => {
   })
 
   describe('categories', () => {
-    it('adds a category and rejects duplicates', async () => {
+    it('adds a category from the catalogue and rejects duplicates', async () => {
       const built = await buildTournament({ type: TournamentType.LEAGUE, categories: [1, 1] })
       let tournament = await manageable(built.tournament.id, built.ownerId)
+      const catalogueId = await createCategory(tournament.organizationId, 'Cuarta')
 
-      await addTournamentCategory(tournament, tournament.organizationId, 'Cuarta', 8)
+      await addTournamentCategory(tournament, tournament.organizationId, catalogueId, 8)
 
       const categories = await TournamentCategory.where('tournamentId', built.tournament.id).get()
 
       expect(categories).toHaveLength(3)
 
       tournament = await manageable(built.tournament.id, built.ownerId)
-      await expect(addTournamentCategory(tournament, tournament.organizationId, 'cuarta', 8)).rejects.toThrow(
+      await expect(addTournamentCategory(tournament, tournament.organizationId, catalogueId, 8)).rejects.toThrow(
         'ya existe'
       )
+    })
+
+    it('rejects a category that does not belong to the organization catalogue', async () => {
+      const built = await buildTournament({ type: TournamentType.LEAGUE, categories: [1, 1] })
+      const tournament = await manageable(built.tournament.id, built.ownerId)
+
+      await expect(addTournamentCategory(tournament, tournament.organizationId, 999999, 8)).rejects.toThrow('no es')
     })
 
     it('removes an empty category but not one with competitors', async () => {

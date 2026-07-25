@@ -22,6 +22,7 @@ const TABLES = [
   'competitors',
   'tournament_categories',
   'tournaments',
+  'sites',
   'rankings',
   'player_statistics',
   'organization_statistics',

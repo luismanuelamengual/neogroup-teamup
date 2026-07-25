@@ -16,6 +16,7 @@ import Avatar from '@/app/components/Avatar'
 function getWhatsAppLink(phoneNumber: string, displayName: string) {
   const digits = phoneNumber.replace(/\D/g, '')
   const message = `Hola ${displayName}!`
+
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
 }
 

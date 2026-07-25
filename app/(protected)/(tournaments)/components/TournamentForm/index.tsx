@@ -8,7 +8,6 @@ import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
-import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
@@ -26,6 +25,7 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import { Dayjs } from 'dayjs'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useEffect, useState } from 'react'
+import CategorySelector from '@/app/(protected)/(categories)/components/CategorySelector'
 import {
   getDefaultRankingSettings,
   getRankingScheme,
@@ -36,10 +36,11 @@ import {
   RankingScheme,
   RankingSettings
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
+import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import TournamentImageField from '@/app/(protected)/(tournaments)/components/TournamentImageField'
-import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
+import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
@@ -51,7 +52,6 @@ import { isDoublesDiscipline } from '@/app/(protected)/(tournaments)/utils/disci
 
 export default function TournamentForm() {
   const { createTournament } = useTournaments()
-  const { getCategories } = useCategories()
   const router = useRouter()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -63,10 +63,13 @@ export default function TournamentForm() {
   const isAmericano = type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
   const [startDate, setStartDate] = useState<Dayjs | null>(null)
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
-  const [location, setLocation] = useState('')
-  const [categories, setCategories] = useState<string[]>([])
-  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
-  const [categoryInput, setCategoryInput] = useState('')
+  const [siteId, setSiteId] = useState<number | null>(null)
+  // Categories added to the tournament, in the order the organizer picked them,
+  // plus the catalogue they come from (the selector reports it) so the added
+  // rows can show the name behind each id.
+  const [categoryIds, setCategoryIds] = useState<number[]>([])
+  const [categoryOptions, setCategoryOptions] = useState<CategoryDto[]>([])
+  const [categoryToAdd, setCategoryToAdd] = useState<number | null>(null)
   const [maxCompetitors, setMaxCompetitors] = useState(16)
   const [paid, setPaid] = useState(false)
   const [entryFee, setEntryFee] = useState<number | null>(null)
@@ -95,33 +98,12 @@ export default function TournamentForm() {
           TournamentType.GROUPS_PLAYOFF
         ]
 
-  // Load existing categories for the current discipline / sub-discipline so the
-  // organizer can pick from previously used ones (still able to type new ones).
-  // Changing discipline/sub-discipline resets the categories already added,
-  // since a category belongs to a specific discipline + sub-discipline.
+  // A category belongs to a specific discipline + sub-discipline, so the ones
+  // already picked stop being valid as soon as either changes.
   useEffect(() => {
-    let cancelled = false
-    const sub = discipline === Discipline.TENNIS ? subDiscipline : null
-
-    setCategories([])
-    setCategoryInput('')
-
-    getCategories(discipline, sub)
-      .then((options) => {
-        if (!cancelled) {
-          setCategoryOptions(options.map((option) => option.name))
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCategoryOptions([])
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [discipline, getCategories, subDiscipline])
+    setCategoryIds([])
+    setCategoryToAdd(null)
+  }, [discipline, subDiscipline])
 
   // Reset the ranking points to the defaults of the selected tournament type
   // whenever the type (and therefore the ranking scheme) changes.
@@ -131,21 +113,18 @@ export default function TournamentForm() {
 
   const setRankingPoints = (key: string, value: number) =>
     setRankingSettings((prev) => ({ points: { ...prev.points, [key]: Math.max(0, value) } }))
+  const categoryNameById = new Map(categoryOptions.map((category) => [category.id, category.name]))
 
   const handleAddCategory = () => {
-    const value = categoryInput.trim()
-
-    if (value === '') {
+    if (categoryToAdd === null) {
       return
     }
 
-    setCategories((prev) =>
-      prev.some((category) => category.toLowerCase() === value.toLowerCase()) ? prev : [...prev, value]
-    )
-    setCategoryInput('')
+    setCategoryIds((prev) => (prev.includes(categoryToAdd) ? prev : [...prev, categoryToAdd]))
+    setCategoryToAdd(null)
   }
 
-  const handleRemoveCategory = (index: number) => setCategories((prev) => prev.filter((_, i) => i !== index))
+  const handleRemoveCategory = (categoryId: number) => setCategoryIds((prev) => prev.filter((id) => id !== categoryId))
 
   const handleDisciplineChange = (value: Discipline) => {
     setDiscipline(value)
@@ -176,8 +155,8 @@ export default function TournamentForm() {
         scoreFormat: isAmericano ? ScoreFormat.BASIC_COUNT : scoreFormat,
         startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
         startTime: startTime ? startTime.format('HH:mm') : null,
-        location,
-        categoryNames: categories.map((value) => value.trim()).filter((value) => value !== ''),
+        siteId,
+        categoryIds,
         maxCompetitors,
         paid,
         entryFee: paid ? (entryFee ?? 0) : null,
@@ -258,7 +237,7 @@ export default function TournamentForm() {
             minRows={2}
             fullWidth
           />
-          <TextField label="Lugar" value={location} onChange={(event) => setLocation(event.target.value)} fullWidth />
+          <SiteSelector value={siteId} onChange={setSiteId} />
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
             <div className="row">
               <DatePicker
@@ -508,40 +487,33 @@ export default function TournamentForm() {
         </AccordionSummary>
         <AccordionDetails className="section-content">
           <Alert severity="info">
-            Las categorías permiten segmentar a los competidores del torneo. Podés agregar varias.
+            Las categorías permiten segmentar a los competidores del torneo. Podés agregar varias de las que definió el
+            administrador de tu organización.
           </Alert>
-          {categories.map((category, index) => (
-            <div key={category} className="category-row">
-              <TextField value={category} fullWidth slotProps={{ input: { readOnly: true } }} />
-              <IconButton aria-label="Eliminar" onClick={() => handleRemoveCategory(index)}>
+          {categoryIds.map((categoryId) => (
+            <div key={categoryId} className="category-row">
+              <TextField
+                value={categoryNameById.get(categoryId) ?? ''}
+                fullWidth
+                slotProps={{ input: { readOnly: true } }}
+              />
+              <IconButton aria-label="Eliminar" onClick={() => handleRemoveCategory(categoryId)}>
                 <DeleteOutlineIcon />
               </IconButton>
             </div>
           ))}
           <div className="category-row">
-            <Autocomplete
-              freeSolo
-              fullWidth
-              options={categoryOptions.filter(
-                (option) => !categories.some((category) => category.toLowerCase() === option.toLowerCase())
-              )}
-              inputValue={categoryInput}
-              onInputChange={(_event, value) => setCategoryInput(value)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Categorías"
-                  placeholder="Agregar categoría..."
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      handleAddCategory()
-                    }
-                  }}
-                />
-              )}
+            <CategorySelector
+              value={categoryToAdd}
+              onChange={setCategoryToAdd}
+              onOptionsChange={setCategoryOptions}
+              discipline={discipline}
+              subDiscipline={discipline === Discipline.TENNIS ? subDiscipline : null}
+              excludedIds={categoryIds}
+              label="Categorías"
+              emptyLabel="Agregar categoría..."
             />
-            <Button variant="outlined" onClick={handleAddCategory} disabled={categoryInput.trim() === ''}>
+            <Button variant="outlined" onClick={handleAddCategory} disabled={categoryToAdd === null}>
               Agregar
             </Button>
           </div>

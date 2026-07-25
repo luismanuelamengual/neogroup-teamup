@@ -9,6 +9,7 @@
  * logic end to end.
  */
 import { DB, SqliteDataSource } from '@neogroup/neorm'
+import { Site } from '@/app/(protected)/(sites)/models/Site'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -33,6 +34,7 @@ import migration002 from '@/database/migrations/002-competitors-player-ids'
 import migration004 from '@/database/migrations/004-drop-rounds-denormalize-matches'
 import migration005 from '@/database/migrations/005-reconcile-matches-position-instance'
 import migration006 from '@/database/migrations/006-matches-score-jsonb'
+import migration008 from '@/database/migrations/008-sites'
 
 const TABLES = [
   'tournament_payments',
@@ -41,6 +43,7 @@ const TABLES = [
   'competitors',
   'tournament_categories',
   'tournaments',
+  'sites',
   'rankings',
   'player_statistics',
   'organization_statistics',
@@ -106,6 +109,9 @@ export async function resetDatabase(): Promise<void> {
   // is freshly created and empty, but keeps the harness schema — and the
   // Match.score entity cast — aligned with production).
   await migration006.up()
+  // 008 creates the sites catalogue and swaps tournaments.location for a
+  // tournaments.siteId pointing at it.
+  await migration008.up()
 
   const organization = new Organization()
 
@@ -116,6 +122,28 @@ export async function resetDatabase(): Promise<void> {
     createdAt: new Date()
   })
   await organization.save()
+}
+
+let organizationSeq = 1
+
+/**
+ * Creates an extra organization (id 1 is already seeded by resetDatabase).
+ * Used by the tests that check nothing leaks across organizations.
+ */
+export async function createOrganization(): Promise<number> {
+  organizationSeq++
+
+  const organization = new Organization()
+
+  Object.assign(organization, {
+    name: `Test Org ${organizationSeq}`,
+    domainName: `test-${organizationSeq}-${Date.now()}`,
+    allowedRegistrationRoles: [],
+    createdAt: new Date()
+  })
+  await organization.save()
+
+  return organization.id
 }
 
 let userSeq = 0
@@ -135,6 +163,31 @@ export async function createUser(organizationId = 1): Promise<number> {
   await user.save()
 
   return user.id
+}
+
+/** Creates a catalogue category (the rows the administrator maintains in /categories). */
+export async function createCategory(
+  organizationId = 1,
+  name = 'Test Category',
+  discipline: Discipline = Discipline.PADEL,
+  subDiscipline: SubDiscipline | null = null
+): Promise<number> {
+  const category = new Category()
+
+  Object.assign(category, { organizationId, name, discipline, subDiscipline })
+  await category.save()
+
+  return category.id
+}
+
+/** Creates a site (the venues the administrator maintains in /sites). */
+export async function createSite(organizationId = 1, name = 'Test Site'): Promise<number> {
+  const site = new Site()
+
+  Object.assign(site, { organizationId, name })
+  await site.save()
+
+  return site.id
 }
 
 export interface CreateTournamentOptions {
@@ -182,7 +235,7 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
     scoreFormat: options.scoreFormat ?? ScoreFormat.BASIC_COUNT,
     startDate: options.startDate ?? '2026-01-01',
     startTime: null,
-    location: null,
+    siteId: null,
     settings: options.settings ?? {},
     rankingSettings: null,
     createdAt: new Date(),
