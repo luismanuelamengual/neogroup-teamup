@@ -40,6 +40,12 @@ const CONFIG_OVERRIDES: Record<string, Partial<PwaConfig>> = {
     shortName: 'Club Alemán',
     themeColor: '#111111',
     backgroundColor: '#ffffff'
+  },
+  fmt: {
+    name: 'Federación Mendocina de Tenis',
+    shortName: 'FMT',
+    themeColor: '#4a90c2',
+    backgroundColor: '#ffffff'
   }
 }
 
