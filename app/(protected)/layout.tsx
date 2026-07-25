@@ -25,7 +25,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
     redirect('/login')
   }
 
-  if (!session.user.roleId) {
+  if (session.user.roleId == null) {
     redirect('/select-role')
   }
 

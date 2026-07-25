@@ -30,7 +30,7 @@ export class User extends BaseEntity {
   @Column()
   phoneNumber!: string | null
 
-  /** Role of the user: 1 = administrator, 2 = organizer, 3 = player. Assigned once, cannot be switched. */
+  /** Role of the user: 1 = administrator, 2 = organizer, 3 = player. Assigned once, cannot be switched by the user. */
   @Column()
   roleId!: Role | null
 

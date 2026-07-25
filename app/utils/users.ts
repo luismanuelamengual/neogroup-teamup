@@ -1,9 +1,22 @@
-import { Role } from '@/app/models/Role'
+import { ManageableRoles, Role } from '@/app/models/Role'
 
 /** User helpers shared across the app. */
 
+/**
+ * True for the roles a user may end up with through registration / role
+ * selection / the administrator's user management screen.
+ *
+ * `Role.ADMINISTRATOR` is deliberately excluded: administrators are never
+ * self-assignable nor assignable from the UI — they are created by a seed or
+ * a maintenance script.
+ */
 export function isValidRole(value: unknown): value is Role {
-  return value === Role.ORGANIZER || value === Role.PLAYER
+  return ManageableRoles.includes(value as Role)
+}
+
+/** True when the given role is the organization administrator. */
+export function isAdministrator(roleId: Role | null | undefined): boolean {
+  return roleId === Role.ADMINISTRATOR
 }
 
 export function getUserDisplayName(user: {

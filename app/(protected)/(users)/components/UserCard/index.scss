@@ -1,0 +1,91 @@
+$card-hover-color: rgb(239, 249, 251);
+
+.user-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 2px solid white;
+
+  &:hover {
+    background-color: $card-hover-color;
+    border-color: $card-hover-color;
+  }
+
+  .avatar {
+    flex-shrink: 0;
+  }
+
+  .body {
+    flex: 1;
+    width: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+
+    .identity {
+      flex: 1;
+      width: 0;
+      display: flex;
+      flex-direction: column;
+
+      .name {
+        font-weight: 700;
+        font-size: 16px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .email {
+        font-size: 13px;
+        color: var(--color-text-secondary, #666);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    .tags {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+  }
+
+  .menu-button {
+    flex-shrink: 0;
+  }
+
+  .delete-action {
+    color: var(--mui-palette-error-main, #d32f2f);
+  }
+
+  @media (max-width: 600px) {
+    gap: 10px;
+    padding: 10px 12px;
+
+    .body {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+
+      .identity {
+        width: 100%;
+
+        .name {
+          font-size: 15px;
+        }
+      }
+
+      .tags {
+        justify-content: flex-start;
+      }
+    }
+  }
+}

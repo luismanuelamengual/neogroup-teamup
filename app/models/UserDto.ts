@@ -14,4 +14,5 @@ export interface UserDto {
   shortName: string
   avatarUrl: string
   active: boolean
+  emailVerified: boolean
 }

@@ -5,6 +5,7 @@
  * Connects to the database configured through the environment variables (same
  * resolution used by scripts/migrate-database.ts) and builds a full demo/test data set:
  *
+ *   - One administrator account (email "demo-admin@gmail.com", password "123qwe").
  *   - One organizer account (email "demo-organizer@gmail.com", password "123qwe").
  *   - 140 player accounts (email "demo{id}@gmail.com", password "123qwe") with realistic names.
  *     (Every tournament draws its own shuffled subset from this same pool, so each tournament's
@@ -230,12 +231,29 @@ const PASSWORD = '123qwe'
 // ---------------------------------------------------------------------------
 
 interface SeededUsers {
+  administrator: User
   organizer: User
   players: User[]
 }
 
 async function createUsers(playerCount: number, organizationId: number): Promise<SeededUsers> {
   const passwordHash = await bcrypt.hash(PASSWORD, 10)
+  // Administrator accounts are never created from the UI (the users ABM only
+  // manages organizers and players), so the seed is what provisions this one.
+  const administrator = new User()
+
+  administrator.organizationId = organizationId
+  administrator.email = 'demo-admin@gmail.com'
+  administrator.passwordHash = passwordHash
+  administrator.firstName = 'Demo'
+  administrator.lastName = 'Admin'
+  administrator.nickname = null
+  administrator.phoneNumber = randomPhone()
+  administrator.roleId = Role.ADMINISTRATOR
+  administrator.emailVerified = true
+  administrator.active = true
+  await administrator.save()
+
   const organizer = new User()
 
   organizer.organizationId = organizationId
@@ -270,9 +288,11 @@ async function createUsers(playerCount: number, organizationId: number): Promise
     players.push(player)
   }
 
-  console.log(`Created organizer (id=${organizer.id}) and ${players.length} players.`)
+  console.log(
+    `Created administrator (id=${administrator.id}), organizer (id=${organizer.id}) and ${players.length} players.`
+  )
 
-  return { organizer, players }
+  return { administrator, organizer, players }
 }
 
 // ---------------------------------------------------------------------------

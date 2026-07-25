@@ -26,3 +26,8 @@ export function useUserRole(): Role | null {
 export function useIsOrganizer(): boolean {
   return useUserStore((state) => state.user?.roleId === Role.ORGANIZER)
 }
+
+/** True when the signed-in user is the organization administrator. */
+export function useIsAdministrator(): boolean {
+  return useUserStore((state) => state.user?.roleId === Role.ADMINISTRATOR)
+}

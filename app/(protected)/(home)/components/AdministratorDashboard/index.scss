@@ -1,0 +1,38 @@
+.administrator-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+
+  .hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 24px 26px;
+    border-radius: 18px;
+    flex-wrap: wrap;
+    color: #405650;
+    background: #f1f4f3;
+    border: 1px solid #a6b7ac;
+
+    .greeting {
+      font-weight: 800;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      opacity: 0.85;
+      font-size: 14px;
+    }
+  }
+
+  .block {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+
+    .block-title {
+      font-weight: 700;
+    }
+  }
+}
