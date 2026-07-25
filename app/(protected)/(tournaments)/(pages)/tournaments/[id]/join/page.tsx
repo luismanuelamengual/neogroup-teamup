@@ -2,10 +2,10 @@ import { redirect } from 'next/navigation'
 
 /**
  * Invite-link landing route, e.g. "https://club-aleman.teamup.ar/tournaments/36/join"
- * (this is the URL shared from ManageTournamentView's "Compartir" dialog).
+ * (this is the URL shared from TournamentView's "Compartir" dialog).
  *
  * This route itself does nothing but redirect to the tournament page with
- * `?join=1`, which tells PlayerTournamentView to auto-open the join dialog.
+ * `?join=1`, which tells TournamentView to auto-open the join dialog.
  * The interesting part happens before we even get here: this path is
  * protected (see auth.config.ts), so an unauthenticated visitor is
  * intercepted by the proxy middleware and sent to
