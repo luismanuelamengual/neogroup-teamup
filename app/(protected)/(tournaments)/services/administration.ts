@@ -3,8 +3,13 @@ import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
-import { createCompetitor } from '@/app/(protected)/(tournaments)/services/registrations'
-import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import {
+  assignSiteLabels,
+  createCompetitor,
+  resolveTeamData,
+  resolveTeamRoster
+} from '@/app/(protected)/(tournaments)/services/registrations'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { ApiException } from '@/app/models/ApiException'
 import { User } from '@/app/models/User'
 
@@ -66,7 +71,6 @@ export async function addTournamentCategory(
   const [resolvedCategoryId] = await validateCategoryIds(
     organizationId,
     tournament.discipline,
-    tournament.subDiscipline,
     [Number(categoryId)].filter((id) => Number.isInteger(id) && id > 0)
   )
 
@@ -116,14 +120,20 @@ export async function removeTournamentCategory(tournament: Tournament, tournamen
 }
 
 /**
- * Registers a competitor (optionally with a partner) into a specific category,
- * on behalf of the organizer. Only free tournaments are supported — paid
- * tournaments must go through the Mercado Pago checkout flow.
+ * Registers a competitor into a specific category on behalf of the organizer:
+ * a single player, a pair, or a whole interclubes team (with the venue it
+ * represents). Only free tournaments are supported — paid tournaments must go
+ * through the Mercado Pago checkout flow.
+ *
+ * `playerIds` follows the same convention as the player-facing join: index 0 is
+ * the main player (team captain in interclubes) and the rest are their partner
+ * or team mates.
  */
 export async function registerCompetitor(
   tournament: Tournament,
   tournamentCategoryId: number,
-  playerIds: number[]
+  playerIds: number[],
+  siteId: number | null = null
 ): Promise<Competitor> {
   if (tournament.paid && tournament.entryFee && tournament.entryFee > 0) {
     throw new ApiException('Los torneos pagos se inscriben mediante el flujo de pago')
@@ -136,10 +146,8 @@ export async function registerCompetitor(
     throw new ApiException('Categoría inválida')
   }
 
-  // Main player at index 0, optional partner at index 1 (for pair disciplines).
-  const [rawUserId, rawPartnerId] = playerIds
+  const [rawUserId, ...rawMateIds] = playerIds
   const userId = Number(rawUserId)
-  const partnerUserId = rawPartnerId != null ? Number(rawPartnerId) : null
   const user = await User.find(userId)
 
   if (!user) {
@@ -158,10 +166,21 @@ export async function registerCompetitor(
     throw new ApiException('No se aceptan más inscripciones (cupo máximo)')
   }
 
+  const mateIds = [...new Set(rawMateIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))]
+
+  if (registersAsTeam(tournament.type)) {
+    const roster = await resolveTeamRoster(user.id, mateIds, competitors)
+    const data = await resolveTeamData(tournament.organizationId, siteId)
+
+    return createCompetitor(targetCategory.id, roster, data)
+  }
+
   const needsPartner = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
   const resolvedPlayerIds: number[] = [user.id]
 
   if (needsPartner) {
+    const [partnerUserId] = mateIds
+
     if (!partnerUserId) {
       throw new ApiException('El usuario compañero es requerido')
     }
@@ -217,7 +236,7 @@ export async function moveCompetitor(
     throw new ApiException('La categoría destino alcanzó su cupo máximo')
   }
 
-  competitor.tournamentCategoryId = targetCategory.id
+  const previousCategoryId = competitor.tournamentCategoryId
 
   // The competitor keeps its (manually-set) seed across the category change,
   // but a category may never have two seeded competitors sharing the same
@@ -236,7 +255,13 @@ export async function moveCompetitor(
     }
   }
 
+  competitor.tournamentCategoryId = targetCategory.id
   await competitor.save()
+
+  // Team labels are relative to the other teams of their category, so BOTH the
+  // category it left and the one it joined may need to be renamed.
+  await assignSiteLabels(previousCategoryId)
+  await assignSiteLabels(targetCategory.id)
 
   return competitor
 }
@@ -302,5 +327,9 @@ export async function unregisterCompetitor(tournament: Tournament, competitorId:
     throw new ApiException('Competidor no encontrado')
   }
 
+  const tournamentCategoryId = competitor.tournamentCategoryId
+
   await competitor.delete()
+  // Losing a team can turn "Alemán A" / "Alemán B" back into a single "Alemán".
+  await assignSiteLabels(tournamentCategoryId)
 }

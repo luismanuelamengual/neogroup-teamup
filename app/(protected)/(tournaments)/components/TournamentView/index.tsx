@@ -50,8 +50,9 @@ import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFo
 import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { dataUrlToFile } from '@/app/(protected)/(tournaments)/utils/image'
+import { describeInterclubsFormat } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { useNotifications } from '@/app/hooks/useNotifications'
@@ -132,6 +133,16 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
         )
     )
   }, [isOrganizer, matches, userEntry, tournament])
+  // Interclubes derives its structure from the number of registered teams, so
+  // the notice also spells out what that number produces right now. With
+  // several categories each one has its own count, so the sentence is skipped.
+  const formatNotice = useMemo(() => {
+    if (tournament?.type !== TournamentType.INTERCLUBS || categories.length !== 1) {
+      return null
+    }
+
+    return describeInterclubsFormat(competitors.length)
+  }, [tournament?.type, categories.length, competitors.length])
   const loadTournament = useCallback(async () => {
     const data = await getTournament(tournamentId)
 
@@ -550,6 +561,25 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
           </div>
         </div>
       </Paper>
+
+      {tournament.type === TournamentType.INTERCLUBS && (
+        <Alert severity="info" className="interclubs-notice">
+          <strong>Cómo se arma el torneo.</strong> El formato depende de cuántos equipos se inscriban: hasta 4 equipos
+          se juega una zona única de todos contra todos, ida y vuelta. Con más de 4 se arman zonas de 4 equipos y los
+          que sobran se reparten entre esas zonas (por ejemplo, 11 equipos son 2 zonas, de 6 y 5). De cada zona
+          clasifican los 2 primeros a la eliminatoria; si queda una zona única, clasifican los 4 primeros.
+          <br />
+          Cada encuentro se juega a 3 partidos (dependiendo de la categoría se juega un dobles y dos singles, o dos
+          dobles y un single) y ningún jugador puede disputar más de uno. La localía se alterna: si dos clubes ya se
+          enfrentaron, se invierte, y si no, es local el que menos veces lo fue.
+          {formatNotice && (
+            <>
+              <br />
+              <strong>{formatNotice}</strong>
+            </>
+          )}
+        </Alert>
+      )}
 
       {myMatches.length > 0 && (
         <Paper className="section my-match">

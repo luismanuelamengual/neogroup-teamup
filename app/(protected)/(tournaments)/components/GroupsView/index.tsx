@@ -14,11 +14,19 @@ interface GroupsViewProps {
   tournament: TournamentDto
   category?: number
   organizerMode?: boolean
+  /** Word used for a group in this tournament ("Grupo", or "Zona" in interclubes). */
+  groupLabel?: string
   onEditMatch?: (match: MatchDto) => void
 }
 
 /** Round-robin group phase of a "groups + playoff" tournament, one tab per group. */
-export default function GroupsView({ tournament, category, organizerMode = false, onEditMatch }: GroupsViewProps) {
+export default function GroupsView({
+  tournament,
+  category,
+  organizerMode = false,
+  groupLabel = 'Grupo',
+  onEditMatch
+}: GroupsViewProps) {
   const groups = useMemo(() => {
     const numbers = new Set<number>()
 
@@ -60,7 +68,7 @@ export default function GroupsView({ tournament, category, organizerMode = false
         className="groups-tabs"
       >
         {groups.map((groupNumber, index) => (
-          <Tab key={groupNumber} label={`Grupo ${index + 1}`} />
+          <Tab key={groupNumber} label={`${groupLabel} ${index + 1}`} />
         ))}
       </Tabs>
       <div className="group-panel">

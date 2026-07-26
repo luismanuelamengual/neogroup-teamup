@@ -10,8 +10,16 @@ import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import {
+  assignLocality,
+  InterclubsMode,
+  LocalityPair,
+  orderKnockoutSides,
+  resolveInterclubsFormat
+} from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { snakeSeedGroups, supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
+import { rankInterclubs } from '@/app/(protected)/(tournaments)/utils/standings'
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
 
@@ -100,6 +108,17 @@ export function seedFromGroups(qualifiers: number[][]): number[] {
   return seeded
 }
 
+/**
+ * Zone sizes of an interclubes category. Unlike groups+playoff (which targets a
+ * configurable group size and derives the COUNT with a ceil division), the
+ * number of interclubes zones is `floor(count / 4)` and the leftovers are
+ * spread over them, so zones grow instead of multiplying — see
+ * `resolveInterclubsFormat`.
+ */
+function interclubsGroupSizes(competitorsCount: number): number[] {
+  return resolveInterclubsFormat(competitorsCount).groupSizes
+}
+
 /** Total number of rounds for a tournament given its competitors count. */
 export function getTotalRounds(type: TournamentType, settings: TournamentSettings, competitorsCount: number): number {
   if (competitorsCount < 2) {
@@ -109,6 +128,19 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
   switch (type) {
     case TournamentType.LEAGUE:
       return roundRobinRoundsFor(competitorsCount)
+
+    case TournamentType.INTERCLUBS: {
+      const format = resolveInterclubsFormat(competitorsCount)
+
+      // Few teams: a single zone played home and away — twice the round robin.
+      if (format.mode === InterclubsMode.DOUBLE_LEAGUE) {
+        return roundRobinRoundsFor(competitorsCount) * 2
+      }
+
+      const groupRounds = format.groupSizes.reduce((max, size) => Math.max(max, roundRobinRoundsFor(size)), 0)
+
+      return groupRounds + getKnockoutRounds(format.totalQualifiers)
+    }
 
     case TournamentType.AMERICANO: {
       const totalRounds = roundRobinRoundsFor(competitorsCount)
@@ -153,14 +185,25 @@ export function getMaxTotalRounds(type: TournamentType, settings: TournamentSett
   return groupSizes.reduce((max, size) => Math.max(max, getTotalRounds(type, settings, size)), 0)
 }
 
-/** Group-phase rounds of a groups+playoff category (round-robin, largest group). */
-export function getGroupPhaseRounds(settings: TournamentSettings, competitorsCount: number): number {
-  const groupSize = settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+/**
+ * Group-phase rounds of a category that plays groups before a knockout
+ * (groups+playoff, or an interclubes tournament that outgrew the single-zone
+ * league), taken from its largest group.
+ */
+export function getGroupPhaseRounds(
+  settings: TournamentSettings,
+  competitorsCount: number,
+  type: TournamentType = TournamentType.GROUPS_PLAYOFF
+): number {
+  const sizes =
+    type === TournamentType.INTERCLUBS
+      ? interclubsGroupSizes(competitorsCount)
+      : computeGroupSizes(
+          competitorsCount,
+          settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
+        )
 
-  return computeGroupSizes(competitorsCount, groupSize).reduce(
-    (max, size) => Math.max(max, roundRobinRoundsFor(size)),
-    0
-  )
+  return sizes.reduce((max, size) => Math.max(max, roundRobinRoundsFor(size)), 0)
 }
 
 /**
@@ -205,6 +248,51 @@ export function generateRoundRobinRound(competitorIds: number[], roundNumber: nu
   }
 
   return pairings
+}
+
+/**
+ * One round of an interclubes round-robin (a zone, or the single home-and-away
+ * league of a small tournament).
+ *
+ * The circle method decides WHO plays whom; who plays at HOME is then decided
+ * separately by the interclubes rotation rule (`assignLocality`), because in
+ * this format home advantage is real and must alternate fairly — the side a
+ * competitor happens to land on in the circle carries no meaning.
+ *
+ * For the home-and-away variant, rounds beyond the first full round robin
+ * replay it from the start (`roundNumber` wrapped around `R`); the rematch gets
+ * the inverted localía for free, since the two teams have met before.
+ */
+function generateInterclubsRoundRobinRound(
+  competitorIds: number[],
+  roundNumber: number,
+  previousMatches: Match[],
+  doubleRound: boolean
+): Pairing[] {
+  const totalRounds = roundRobinRoundsFor(competitorIds.length)
+
+  if (totalRounds === 0 || roundNumber > (doubleRound ? totalRounds * 2 : totalRounds)) {
+    return []
+  }
+
+  const baseRound = ((roundNumber - 1) % totalRounds) + 1
+  const pairs = roundRobinPairs(competitorIds, baseRound)
+  const pending: LocalityPair[] = []
+  let position = 0
+
+  for (const [first, second] of pairs) {
+    if (first == null || second == null) {
+      continue
+    }
+
+    pending.push({ first, second, position: position++ })
+  }
+
+  return assignLocality(pending, previousMatches, roundNumber).map((sides) => ({
+    home: [sides.home],
+    away: [sides.away],
+    position: sides.position
+  }))
 }
 
 /**
@@ -353,6 +441,12 @@ export function generateRoundPairings(
 
     case TournamentType.GROUPS_PLAYOFF:
       // Groups+playoff rounds are generated bracket-by-bracket by the helpers.
+      return []
+
+    case TournamentType.INTERCLUBS:
+      // Interclubes needs every match played so far to assign the localía, which
+      // this signature does not carry: its rounds are built by
+      // `generateInterclubsRoundRobinRound` from the materialisation helpers.
       return []
   }
 }
@@ -605,7 +699,8 @@ async function computeCategoryGroups(
   tournamentCategoryId: number,
   competitorIds: number[],
   settings: Tournament['settings'],
-  cache?: AdvanceCache
+  cache?: AdvanceCache,
+  type: TournamentType = TournamentType.GROUPS_PLAYOFF
 ): Promise<number[][]> {
   const safeSettings = settings ?? {}
   const groupSize = safeSettings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
@@ -615,9 +710,31 @@ async function computeCategoryGroups(
   const seededCount = allCategoryCompetitors.filter((competitor) => competitor.seedNumber != null).length
   const seededIds = competitorIds.slice(0, seededCount)
   const unseededIds = competitorIds.slice(seededCount)
-  const groupSizes = computeGroupSizes(competitorIds.length, groupSize)
+  const groupSizes =
+    type === TournamentType.INTERCLUBS
+      ? interclubsGroupSizes(competitorIds.length)
+      : computeGroupSizes(competitorIds.length, groupSize)
 
-  return seededCount > 0 ? snakeSeedGroups(seededIds, unseededIds, groupSizes) : assignGroups(competitorIds, groupSize)
+  if (seededCount > 0) {
+    return snakeSeedGroups(seededIds, unseededIds, groupSizes)
+  }
+
+  if (type === TournamentType.INTERCLUBS) {
+    // Zones are filled in registration order. `assignGroups` cannot be reused
+    // here: it re-derives the zone COUNT with the groups+playoff ceil rule,
+    // which is not how interclubes zones are sized.
+    const groups: number[][] = []
+    let cursor = 0
+
+    for (const size of groupSizes) {
+      groups.push(competitorIds.slice(cursor, cursor + size))
+      cursor += size
+    }
+
+    return groups
+  }
+
+  return assignGroups(competitorIds, groupSize)
 }
 
 /**
@@ -695,7 +812,8 @@ async function syncKnockoutNextRound(
   tournamentCategoryId: number,
   lane: RoundLane,
   roundNumber: number,
-  cache?: AdvanceCache
+  cache?: AdvanceCache,
+  applyLocality = false
 ): Promise<boolean> {
   const all = await loadCategoryMatches(tournamentCategoryId, cache)
   const current = roundMatchesOf(all, lane, roundNumber)
@@ -722,8 +840,24 @@ async function syncKnockoutNextRound(
 
     const homeFeeder = currentByBracket.get(target.position * 2) ?? null
     const awayFeeder = currentByBracket.get(target.position * 2 + 1) ?? null
-    const homeIds = homeFeeder ? (matchWinnerIds(homeFeeder) ?? []) : []
-    const awayIds = awayFeeder ? (matchWinnerIds(awayFeeder) ?? []) : []
+    let homeIds = homeFeeder ? (matchWinnerIds(homeFeeder) ?? []) : []
+    let awayIds = awayFeeder ? (matchWinnerIds(awayFeeder) ?? []) : []
+
+    // Interclubes: the bracket decides WHO meets, the localía rule decides who
+    // hosts. The match being filled is excluded from the history it is compared
+    // against — otherwise its own (previous) assignment would read as an earlier
+    // encounter and the sides would flip on every pass.
+    if (applyLocality && homeIds.length === 1 && awayIds.length === 1) {
+      const [home, away] = orderKnockoutSides(
+        homeIds[0],
+        awayIds[0],
+        all.filter((match) => match.id !== target.id),
+        `${target.roundNumber}:${target.position}`
+      )
+
+      homeIds = [home]
+      awayIds = [away]
+    }
 
     if (sameIds(target.homeCompetitorIds, homeIds) && sameIds(target.awayCompetitorIds ?? [], awayIds)) {
       continue
@@ -755,7 +889,8 @@ async function createKnockoutBracket(
   tournamentCategoryId: number,
   lane: RoundLane,
   seededIds: number[],
-  startRound: number
+  startRound: number,
+  applyLocality = false
 ): Promise<number> {
   if (seededIds.length < 2) {
     return 0
@@ -763,11 +898,33 @@ async function createKnockoutBracket(
 
   const bracketSize = getBracketSize(seededIds.length)
   const totalRounds = getKnockoutRounds(seededIds.length)
+  const firstRoundPairings = seedPlayoffPairings(seededIds)
+
+  // Interclubes: seeding says who meets whom, the localía rule says who hosts.
+  if (applyLocality) {
+    const played = await loadCategoryMatches(tournamentCategoryId)
+
+    for (const pairing of firstRoundPairings) {
+      if (pairing.away?.length !== 1 || pairing.home.length !== 1) {
+        continue
+      }
+
+      const [home, away] = orderKnockoutSides(
+        pairing.home[0],
+        pairing.away[0],
+        played,
+        `${startRound}:${pairing.position}`
+      )
+
+      pairing.home = [home]
+      pairing.away = [away]
+    }
+  }
 
   // The first knockout round is the furthest from the final: instance = totalRounds
   // (e.g. 3 for an 8-player bracket: Cuartos). Each later round is one closer, so the
   // final (last round) is instance 1.
-  await persistRoundMatches(tournamentCategoryId, startRound, lane, seedPlayoffPairings(seededIds), totalRounds)
+  await persistRoundMatches(tournamentCategoryId, startRound, lane, firstRoundPairings, totalRounds)
 
   for (let roundIndex = 2; roundIndex <= totalRounds; roundIndex++) {
     const matchCount = bracketSize / Math.pow(2, roundIndex)
@@ -790,7 +947,7 @@ async function createKnockoutBracket(
   const roundNumbers = laneRoundNumbers(await loadCategoryMatches(tournamentCategoryId), lane)
 
   for (const roundNumber of roundNumbers.slice(0, -1)) {
-    await syncKnockoutNextRound(tournamentCategoryId, lane, roundNumber)
+    await syncKnockoutNextRound(tournamentCategoryId, lane, roundNumber, undefined, applyLocality)
   }
 
   return 1
@@ -1112,7 +1269,18 @@ async function syncConsolationNextRound(
 }
 
 /** Ranks the competitors of a round-robin group from its resolved matches. */
-function rankGroup(competitorIds: number[], matches: Match[], settings?: Tournament['settings']): number[] {
+function rankGroup(
+  competitorIds: number[],
+  matches: Match[],
+  settings?: Tournament['settings'],
+  type: TournamentType = TournamentType.GROUPS_PLAYOFF
+): number[] {
+  // Interclubes zones rank by encounters won → individual matches → sets, with
+  // the very same function that feeds the standings table the players see.
+  if (type === TournamentType.INTERCLUBS) {
+    return rankInterclubs(competitorIds, matches).map((row) => row.competitorId)
+  }
+
   const groupsDefaults = DEFAULT_GROUPS_PLAYOFF_SETTINGS
   const league = {
     pointsPerPresent: settings?.pointsPerPresent ?? groupsDefaults.pointsPerPresent,
@@ -1242,16 +1410,17 @@ async function computeGroupsKnockoutSeeds(
   tournamentCategoryId: number,
   competitorIds: number[],
   settings: Tournament['settings'],
-  cache?: AdvanceCache
+  cache?: AdvanceCache,
+  type: TournamentType = TournamentType.GROUPS_PLAYOFF
 ): Promise<number[]> {
   const safeSettings = settings ?? {}
-  const qualifiersPerGroup = Math.max(
-    1,
-    safeSettings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
-  )
+  const qualifiersPerGroup =
+    type === TournamentType.INTERCLUBS
+      ? resolveInterclubsFormat(competitorIds.length).qualifiersPerGroup
+      : Math.max(1, safeSettings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup)
   // Reconstruct the very same groups that were played (snake-seeded when there
   // are seeds) so the ranking is computed over the right competitors.
-  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache)
+  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache, type)
   const all = await loadCategoryMatches(tournamentCategoryId, cache)
   const qualifiers: number[][] = []
 
@@ -1263,7 +1432,7 @@ async function computeGroupsKnockoutSeeds(
     }
 
     const groupMatches = all.filter((match) => match.type === MatchType.LEAGUE && (match.groupNumber ?? null) === index)
-    const ranked = rankGroup(group, groupMatches, settings)
+    const ranked = rankGroup(group, groupMatches, settings, type)
 
     qualifiers.push(ranked.slice(0, Math.min(qualifiersPerGroup, group.length)))
   }
@@ -1568,6 +1737,97 @@ async function materializeCategoryRound(
       return created
     }
 
+    case TournamentType.INTERCLUBS: {
+      const format = resolveInterclubsFormat(competitorIds.length)
+
+      // Few teams: one zone, everybody against everybody, home and away.
+      if (format.mode === InterclubsMode.DOUBLE_LEAGUE) {
+        const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: null }
+
+        if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
+          return 0
+        }
+
+        if (roundExistsIn(all, lane, roundNumber)) {
+          return 0
+        }
+
+        const pairings = generateInterclubsRoundRobinRound(competitorIds, roundNumber, all, true)
+
+        if (pairings.length === 0) {
+          return 0
+        }
+
+        await persistRoundMatches(tournamentCategoryId, roundNumber, lane, pairings)
+
+        return 1
+      }
+
+      const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length, tournament.type)
+
+      if (roundNumber <= groupPhaseRounds) {
+        const groups = await computeCategoryGroups(
+          tournamentCategoryId,
+          competitorIds,
+          settings,
+          undefined,
+          tournament.type
+        )
+        let created = 0
+        // Localía spans the whole category, so every zone of this round sees the
+        // matches the previous zones just produced.
+        let known = [...all]
+
+        for (let index = 0; index < groups.length; index++) {
+          const group = groups[index]
+
+          if (group.length < 2 || roundNumber > roundRobinRoundsFor(group.length)) {
+            continue
+          }
+
+          const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: index }
+
+          if (roundExistsIn(all, lane, roundNumber)) {
+            continue
+          }
+
+          const pairings = generateInterclubsRoundRobinRound(group, roundNumber, known, false)
+
+          if (pairings.length === 0) {
+            continue
+          }
+
+          const persisted = await persistRoundMatches(tournamentCategoryId, roundNumber, lane, pairings)
+
+          known = [...known, ...persisted]
+          created++
+        }
+
+        return created
+      }
+
+      // First knockout round: seed the bracket from the final zone standings.
+      if (roundNumber === groupPhaseRounds + 1) {
+        const knockoutLane: RoundLane = { type: MatchType.BRACKET, groupNumber: null }
+
+        if (roundExistsIn(all, knockoutLane, roundNumber)) {
+          return 0
+        }
+
+        const seeded = await computeGroupsKnockoutSeeds(
+          tournamentCategoryId,
+          competitorIds,
+          settings,
+          undefined,
+          tournament.type
+        )
+
+        return createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, groupPhaseRounds + 1, true)
+      }
+
+      return 0
+    }
+
     case TournamentType.GROUPS_PLAYOFF: {
       const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length)
 
@@ -1726,16 +1986,20 @@ async function buildLaneNextRound(
     return null
   }
 
-  // Group lane of a groups+playoff tournament (round robin inside the group).
+  // Group lane of a groups+playoff (or interclubes) tournament: round robin
+  // inside the group.
   if (lane.groupNumber != null) {
-    const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache)
+    const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache, tournament.type)
     const group = groups[lane.groupNumber] ?? []
 
     if (group.length < 2 || nextNumber > roundRobinRoundsFor(group.length)) {
       return null
     }
 
-    const pairings = generateRoundRobinRound(group, nextNumber)
+    const pairings =
+      tournament.type === TournamentType.INTERCLUBS
+        ? generateInterclubsRoundRobinRound(group, nextNumber, all, false)
+        : generateRoundRobinRound(group, nextNumber)
 
     return pairings.length > 0 ? persistRoundMatches(tournamentCategoryId, nextNumber, lane, pairings) : null
   }
@@ -1743,6 +2007,13 @@ async function buildLaneNextRound(
   // Plain league / americano lane.
   if (nextNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
     return null
+  }
+
+  // Interclubes single zone: home and away, with the localía rotation.
+  if (tournament.type === TournamentType.INTERCLUBS) {
+    const pairings = generateInterclubsRoundRobinRound(competitorIds, nextNumber, all, true)
+
+    return pairings.length > 0 ? persistRoundMatches(tournamentCategoryId, nextNumber, lane, pairings) : null
   }
 
   let pairings: Pairing[]
@@ -1835,7 +2106,14 @@ async function maybeStartGroupsKnockout(
   competitorIds: number[],
   cache?: AdvanceCache
 ): Promise<boolean> {
-  if (tournament.type !== TournamentType.GROUPS_PLAYOFF) {
+  const isInterclubs = tournament.type === TournamentType.INTERCLUBS
+
+  if (tournament.type !== TournamentType.GROUPS_PLAYOFF && !isInterclubs) {
+    return false
+  }
+
+  // An interclubes small enough to be a home-and-away league has no knockout.
+  if (isInterclubs && resolveInterclubsFormat(competitorIds.length).mode === InterclubsMode.DOUBLE_LEAGUE) {
     return false
   }
 
@@ -1847,10 +2125,12 @@ async function maybeStartGroupsKnockout(
   }
 
   const settings = tournament.settings ?? {}
-  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache)
+  const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache, tournament.type)
 
-  // With a single group there is nothing to cross-seed.
-  if (groups.filter((group) => group.length > 0).length <= 1) {
+  // Groups+playoff with a single group is just a league: there is nothing to
+  // cross-seed, so no knockout is built. Interclubes is the opposite — a single
+  // zone still sends its top 4 to a knockout, which is what decides the title.
+  if (!isInterclubs && groups.filter((group) => group.length > 0).length <= 1) {
     return false
   }
 
@@ -1874,9 +2154,15 @@ async function maybeStartGroupsKnockout(
     }
   }
 
-  const seeded = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings, cache)
-  const startNumber = getGroupPhaseRounds(settings, competitorIds.length) + 1
-  const created = await createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, startNumber)
+  const seeded = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings, cache, tournament.type)
+  const startNumber = getGroupPhaseRounds(settings, competitorIds.length, tournament.type) + 1
+  const created = await createKnockoutBracket(
+    tournamentCategoryId,
+    knockoutLane,
+    seeded,
+    startNumber,
+    tournament.type === TournamentType.INTERCLUBS
+  )
 
   if (created === 0) {
     return false
@@ -1984,6 +2270,8 @@ async function regenerateDownstreamRounds(tournament: Tournament, editedMatch: M
       break
     }
 
+    case TournamentType.INTERCLUBS:
+
     case TournamentType.GROUPS_PLAYOFF: {
       // A group-phase edit can change who qualifies → drop the knockout so it is
       // reseeded. Only reachable while the knockout holds no results yet.
@@ -2049,7 +2337,13 @@ export async function progressTournamentAfterResult(
     // (see MatchStatus.VOID), which plain syncKnockoutNextRound doesn't model.
     await syncConsolationNextRound(match.tournamentCategoryId, match.roundNumber)
   } else if (isKnockoutType(match.type)) {
-    await syncKnockoutNextRound(match.tournamentCategoryId, lane, match.roundNumber)
+    await syncKnockoutNextRound(
+      match.tournamentCategoryId,
+      lane,
+      match.roundNumber,
+      undefined,
+      tournament.type === TournamentType.INTERCLUBS
+    )
   }
 
   if (wasAlreadyResolved) {

@@ -30,11 +30,11 @@ export const POST = withAuth(async (request, context, userId, organizationId): P
     throw new ApiException('Torneo no encontrado')
   }
 
-  const { targetCategory, playerIds } = await resolveRegistration(tournament, userId, input)
+  const { targetCategory, playerIds, data } = await resolveRegistration(tournament, userId, input)
 
   // Free tournament: register immediately.
   if (!tournament.paid || !tournament.entryFee || tournament.entryFee <= 0) {
-    await createCompetitor(targetCategory.id, playerIds)
+    await createCompetitor(targetCategory.id, playerIds, data)
 
     return { paid: false }
   }
@@ -51,6 +51,7 @@ export const POST = withAuth(async (request, context, userId, organizationId): P
     tournament,
     organization,
     playerIds,
+    data,
     targetCategory,
     origin
   })

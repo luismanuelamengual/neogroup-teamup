@@ -3,7 +3,6 @@ import { CategoryFilters } from '@/app/(protected)/(categories)/models/CategoryF
 import { CategoryInput } from '@/app/(protected)/(categories)/models/CategoryInput'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Discipline, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
@@ -16,17 +15,15 @@ import { PaginatedResponse } from '@/app/models/PaginatedResponse'
  * that split the rankings of what is really a single category. They are now
  * defined once here and only ever picked from a selector.
  *
- * A category belongs to a discipline, and — for tennis only — to a
- * sub-discipline (singles / doubles); padel is always played in doubles, so its
- * categories store `subDiscipline = null`.
+ * A category belongs to a discipline and nothing else: it is a division
+ * ("Primera", "4ta"), not a modality. Tennis categories used to be split
+ * between singles and doubles, but an interclubes encounter mixes both, so
+ * singles-vs-doubles is a property of the tournament and of each match, never
+ * of the category (see migration 010).
  */
 
 /** Validates and normalizes the fields of a category. */
-function normalizeInput(input: CategoryInput): {
-  name: string
-  discipline: Discipline
-  subDiscipline: SubDiscipline | null
-} {
+function normalizeInput(input: CategoryInput): { name: string; discipline: Discipline } {
   const name = (input.name ?? '').trim()
 
   if (!name) {
@@ -37,16 +34,7 @@ function normalizeInput(input: CategoryInput): {
     throw new ApiException('La disciplina seleccionada no es válida')
   }
 
-  // Only tennis distinguishes singles from doubles.
-  if (input.discipline !== Discipline.TENNIS) {
-    return { name, discipline: input.discipline, subDiscipline: null }
-  }
-
-  if (!input.subDiscipline || !SubDisciplines.includes(input.subDiscipline)) {
-    throw new ApiException('La modalidad seleccionada no es válida')
-  }
-
-  return { name, discipline: input.discipline, subDiscipline: input.subDiscipline }
+  return { name, discipline: input.discipline }
 }
 
 /** Finds a category of the organization, or throws a 404. */
@@ -61,21 +49,18 @@ async function findCategory(organizationId: number, categoryId: number): Promise
 }
 
 /**
- * Rejects a name already taken inside the same organization + discipline +
- * sub-discipline. Comparison is case-insensitive — allowing "4ta" next to
- * "4TA" would recreate exactly the duplication this ABM exists to remove.
+ * Rejects a name already taken inside the same organization + discipline.
+ * Comparison is case-insensitive — allowing "4ta" next to "4TA" would recreate
+ * exactly the duplication this ABM exists to remove.
  */
 async function assertNameIsAvailable(
   organizationId: number,
-  { name, discipline, subDiscipline }: { name: string; discipline: Discipline; subDiscipline: SubDiscipline | null },
+  { name, discipline }: { name: string; discipline: Discipline },
   excludedId?: number
 ): Promise<void> {
   const siblings = await Category.where('organizationId', organizationId).where('discipline', discipline).get()
   const taken = siblings.some(
-    (category) =>
-      category.id !== excludedId &&
-      (category.subDiscipline ?? null) === subDiscipline &&
-      category.name.toLowerCase() === name.toLowerCase()
+    (category) => category.id !== excludedId && category.name.toLowerCase() === name.toLowerCase()
   )
 
   if (taken) {
@@ -115,7 +100,6 @@ export async function createCategory(organizationId: number, input: CategoryInpu
   category.organizationId = organizationId
   category.name = normalized.name
   category.discipline = normalized.discipline
-  category.subDiscipline = normalized.subDiscipline
   await category.save()
 
   return category
@@ -124,10 +108,10 @@ export async function createCategory(organizationId: number, input: CategoryInpu
 /**
  * Updates a category of the organization.
  *
- * The discipline / sub-discipline of a category already used by a tournament or
- * holding ranking points cannot change: doing so would move historical results
- * to a discipline they were never played in. Renaming stays allowed — it is the
- * same category under a better name.
+ * The discipline of a category already used by a tournament or holding ranking
+ * points cannot change: doing so would move historical results to a discipline
+ * they were never played in. Renaming stays allowed — it is the same category
+ * under a better name.
  */
 export async function updateCategory(
   organizationId: number,
@@ -136,12 +120,10 @@ export async function updateCategory(
 ): Promise<Category> {
   const category = await findCategory(organizationId, categoryId)
   const normalized = normalizeInput(input)
-  const disciplineChanged =
-    normalized.discipline !== category.discipline || normalized.subDiscipline !== (category.subDiscipline ?? null)
 
-  if (disciplineChanged && (await countCategoryReferences(category.id)) > 0) {
+  if (normalized.discipline !== category.discipline && (await countCategoryReferences(category.id)) > 0) {
     throw new ApiException(
-      'La categoría ya se usa en torneos o rankings: podés renombrarla, pero no cambiar su disciplina o modalidad.'
+      'La categoría ya se usa en torneos o rankings: podés renombrarla, pero no cambiar su disciplina.'
     )
   }
 
@@ -149,7 +131,6 @@ export async function updateCategory(
 
   category.name = normalized.name
   category.discipline = normalized.discipline
-  category.subDiscipline = normalized.subDiscipline
   await category.save()
 
   return category

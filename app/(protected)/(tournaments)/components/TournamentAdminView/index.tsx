@@ -27,6 +27,8 @@ import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import CategorySelector from '@/app/(protected)/(categories)/components/CategorySelector'
+import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
+import TeamRosterField, { RosterPlayer } from '@/app/(protected)/(tournaments)/components/TeamRosterField'
 import { usePlayers } from '@/app/(protected)/(tournaments)/hooks/usePlayers'
 import { useTournamentAdmin } from '@/app/(protected)/(tournaments)/hooks/useTournamentAdmin'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
@@ -34,7 +36,8 @@ import { CompetitorDto, CompetitorUserInfo } from '@/app/(protected)/(tournament
 import { TournamentCategoryDto } from '@/app/(protected)/(tournaments)/models/TournamentCategoryDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { INTERCLUBS_MIN_TEAM_PLAYERS } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
@@ -158,6 +161,10 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const [registerCategoryId, setRegisterCategoryId] = useState<number | ''>('')
   const [player, setPlayer] = useState<UserDto | null>(null)
   const [partner, setPartner] = useState<UserDto | null>(null)
+  // Interclubes only: venue of the team and its members beyond the captain
+  // (`player` above, who always heads the roster).
+  const [registerSiteId, setRegisterSiteId] = useState<number | null>(null)
+  const [teamMates, setTeamMates] = useState<RosterPlayer[]>([])
   // "Move to category" menu anchored to a competitor's chip.
   const [moveMenu, setMoveMenu] = useState<{ anchorEl: HTMLElement; competitor: CompetitorDto } | null>(null)
   // Generic confirmation dialog.
@@ -170,6 +177,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const needsPartner = tournament
     ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
     : false
+  const isTeam = tournament ? registersAsTeam(tournament.type) : false
   // Seeding only makes sense for bracket-style tournaments (see
   // supportsPreclassification); the manual seed set here takes priority over
   // the ranking-based auto-assignment that runs when the tournament starts.
@@ -285,6 +293,8 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     setRegisterCategoryId('')
     setPlayer(null)
     setPartner(null)
+    setRegisterSiteId(null)
+    setTeamMates([])
     setRegisterOpen(true)
   }
 
@@ -293,12 +303,13 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
       return
     }
 
+    const playerIds = isTeam
+      ? [player.id, ...teamMates.map((mate) => mate.id)]
+      : needsPartner && partner
+        ? [player.id, partner.id]
+        : [player.id]
     const ok = await runAction(() =>
-      registerCompetitor(
-        tournament.id,
-        Number(effectiveRegisterCategoryId),
-        needsPartner && partner ? [player.id, partner.id] : [player.id]
-      )
+      registerCompetitor(tournament.id, Number(effectiveRegisterCategoryId), playerIds, isTeam ? registerSiteId : null)
     )
 
     if (ok) {
@@ -360,7 +371,12 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     await runAction(action)
   }
 
-  const canRegister = !!player && effectiveRegisterCategoryId !== '' && (!needsPartner || !!partner)
+  const teamSize = player ? teamMates.length + 1 : 0
+  const canRegister =
+    !!player &&
+    effectiveRegisterCategoryId !== '' &&
+    (!needsPartner || !!partner) &&
+    (!isTeam || (registerSiteId != null && teamSize >= INTERCLUBS_MIN_TEAM_PLAYERS))
   /** A single competitor "card": avatar(s), name and the seed/move/unregister actions. */
   const renderCompetitorCard = (competitor: CompetitorDto) => (
     <div key={competitor.id} className="competitor-card">
@@ -469,7 +485,6 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
             value={newCategoryId}
             onChange={setNewCategoryId}
             discipline={tournament.discipline}
-            subDiscipline={tournament.subDiscipline}
             excludedIds={usedCategoryIds}
             label="Nueva categoría"
             size="small"
@@ -571,7 +586,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
       </Menu>
 
       <Dialog open={registerOpen} onClose={() => setRegisterOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Inscribir competidor</DialogTitle>
+        <DialogTitle>{isTeam ? 'Inscribir equipo' : 'Inscribir competidor'}</DialogTitle>
         <DialogContent className="register-dialog-content">
           {categories.length > 1 && (
             <TextField
@@ -589,12 +604,15 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
               ))}
             </TextField>
           )}
+          {isTeam && (
+            <SiteSelector value={registerSiteId} onChange={setRegisterSiteId} label="Sede" required size="small" />
+          )}
           <PlayerPicker
-            label="Buscar jugador..."
+            label={isTeam ? 'Buscar capitán...' : 'Buscar jugador...'}
             value={player}
             onChange={setPlayer}
             tournamentId={tournament.id}
-            excludeIds={[]}
+            excludeIds={teamMates.map((mate) => mate.id)}
           />
           {needsPartner && (
             <PlayerPicker
@@ -603,6 +621,15 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
               onChange={setPartner}
               tournamentId={tournament.id}
               excludeIds={player ? [player.id] : []}
+            />
+          )}
+          {isTeam && (
+            <TeamRosterField
+              tournamentId={tournament.id}
+              captain={player}
+              value={teamMates}
+              onChange={setTeamMates}
+              disabled={!player}
             />
           )}
         </DialogContent>

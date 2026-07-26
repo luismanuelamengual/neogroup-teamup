@@ -12,7 +12,6 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useManagedCategories } from '@/app/(protected)/(categories)/hooks/useManagedCategories'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { useNotifications } from '@/app/hooks/useNotifications'
 
 interface CategoryFormDialogProps {
@@ -29,7 +28,6 @@ export default function CategoryFormDialog({ open, category, onClose, onSaved }:
   const isEdit = !!category
   const [name, setName] = useState('')
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
-  const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [loading, setLoading] = useState(false)
 
   // Reset the form every time the dialog opens so it never shows the previous category's data.
@@ -37,7 +35,6 @@ export default function CategoryFormDialog({ open, category, onClose, onSaved }:
     if (open) {
       setName(category?.name ?? '')
       setDiscipline(category?.discipline ?? Discipline.PADEL)
-      setSubDiscipline(category?.subDiscipline ?? SubDiscipline.SINGLES)
       setLoading(false)
     }
   }, [open, category])
@@ -46,12 +43,7 @@ export default function CategoryFormDialog({ open, category, onClose, onSaved }:
     event.preventDefault()
     setLoading(true)
 
-    // Only tennis distinguishes singles from doubles; padel is always doubles.
-    const input = {
-      name,
-      discipline,
-      subDiscipline: discipline === Discipline.TENNIS ? subDiscipline : null
-    }
+    const input = { name, discipline }
 
     try {
       if (category) {
@@ -98,21 +90,6 @@ export default function CategoryFormDialog({ open, category, onClose, onSaved }:
               </MenuItem>
             ))}
           </TextField>
-          {discipline === Discipline.TENNIS && (
-            <TextField
-              select
-              label="Modalidad"
-              value={subDiscipline}
-              onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
-              fullWidth
-            >
-              {SubDisciplines.map((value) => (
-                <MenuItem key={value} value={value}>
-                  {SubDisciplineNames[value]}
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose} disabled={loading}>

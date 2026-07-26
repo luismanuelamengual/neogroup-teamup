@@ -1,0 +1,84 @@
+.series-score-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .series-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+  }
+
+  .series-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .series-entry-title {
+    font-weight: 700 !important;
+  }
+
+  .series-entry-players {
+    display: flex;
+    gap: 12px;
+
+    @media (max-width: 600px) {
+      flex-direction: column;
+    }
+  }
+
+  .series-entry-side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .series-entry-team {
+    font-size: 12px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &.home {
+      color: var(--color-home);
+    }
+
+    &.away {
+      color: var(--color-away);
+    }
+  }
+
+  .sets {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .set-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .MuiTextField-root {
+      width: 80px;
+    }
+  }
+
+  .set-label {
+    width: 80px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+
+  .set-separator {
+    font-weight: 700;
+  }
+}

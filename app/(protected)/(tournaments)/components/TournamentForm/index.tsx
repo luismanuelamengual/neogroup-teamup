@@ -61,6 +61,7 @@ export default function TournamentForm() {
   const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
   const [scoreFormat, setScoreFormat] = useState<ScoreFormat>(ScoreFormat.THREE_SETS)
   const isAmericano = type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
+  const isInterclubs = type === TournamentType.INTERCLUBS
   const [startDate, setStartDate] = useState<Dayjs | null>(null)
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
   const [siteId, setSiteId] = useState<number | null>(null)
@@ -95,15 +96,20 @@ export default function TournamentForm() {
           TournamentType.LEAGUE,
           TournamentType.PLAYOFF,
           TournamentType.PLAYOFF_WITH_CONSOLATION,
-          TournamentType.GROUPS_PLAYOFF
+          TournamentType.GROUPS_PLAYOFF,
+          // Interclubes is a tennis-only format.
+          TournamentType.INTERCLUBS
         ]
+  // Only tennis distinguishes singles from doubles — and not even in
+  // interclubes, where a single encounter is played partly in each.
+  const showSubDiscipline = discipline === Discipline.TENNIS && !isInterclubs
 
-  // A category belongs to a specific discipline + sub-discipline, so the ones
-  // already picked stop being valid as soon as either changes.
+  // A category belongs to a specific discipline, so the ones already picked
+  // stop being valid as soon as it changes.
   useEffect(() => {
     setCategoryIds([])
     setCategoryToAdd(null)
-  }, [discipline, subDiscipline])
+  }, [discipline])
 
   // Reset the ranking points to the defaults of the selected tournament type
   // whenever the type (and therefore the ranking scheme) changes.
@@ -129,10 +135,13 @@ export default function TournamentForm() {
   const handleDisciplineChange = (value: Discipline) => {
     setDiscipline(value)
 
-    if (
-      value !== Discipline.PADEL &&
-      (type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP)
-    ) {
+    // Each discipline offers its own types; fall back to the league when the
+    // selected one is not available in the new discipline (americanos are padel
+    // only, interclubes is tennis only).
+    const isPadelOnly = type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
+    const isTennisOnly = type === TournamentType.INTERCLUBS
+
+    if ((value !== Discipline.PADEL && isPadelOnly) || (value !== Discipline.TENNIS && isTennisOnly)) {
       setType(TournamentType.LEAGUE)
     }
   }
@@ -150,7 +159,7 @@ export default function TournamentForm() {
         description,
         image,
         discipline,
-        subDiscipline: discipline === Discipline.TENNIS ? subDiscipline : null,
+        subDiscipline: showSubDiscipline ? subDiscipline : null,
         type,
         scoreFormat: isAmericano ? ScoreFormat.BASIC_COUNT : scoreFormat,
         startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
@@ -280,7 +289,23 @@ export default function TournamentForm() {
                 </MenuItem>
               ))}
             </TextField>
-            {discipline === Discipline.TENNIS && (
+            <TextField
+              select
+              label="Tipo"
+              value={type}
+              onChange={(event) => setType(Number(event.target.value) as TournamentType)}
+              fullWidth
+            >
+              {availableTypes.map((value) => (
+                <MenuItem key={value} value={value}>
+                  {TournamentTypeNames[value]}
+                </MenuItem>
+              ))}
+            </TextField>
+            {/* Modality comes last of the three because it depends on both: it
+                only applies to tennis, and not to interclubes, whose encounters
+                mix singles and doubles. */}
+            {showSubDiscipline && (
               <TextField
                 select
                 label="Modalidad"
@@ -295,19 +320,6 @@ export default function TournamentForm() {
                 ))}
               </TextField>
             )}
-            <TextField
-              select
-              label="Tipo"
-              value={type}
-              onChange={(event) => setType(Number(event.target.value) as TournamentType)}
-              fullWidth
-            >
-              {availableTypes.map((value) => (
-                <MenuItem key={value} value={value}>
-                  {TournamentTypeNames[value]}
-                </MenuItem>
-              ))}
-            </TextField>
           </div>
 
           <div className="row">
@@ -324,7 +336,7 @@ export default function TournamentForm() {
               </TextField>
             )}
             <TextField
-              label={isDoubles ? 'Máx. parejas' : 'Máx. competidores'}
+              label={isInterclubs ? 'Máx. equipos' : isDoubles ? 'Máx. parejas' : 'Máx. competidores'}
               type="number"
               value={maxCompetitors}
               onChange={(event) => setMaxCompetitors(Math.max(2, Number(event.target.value)))}
@@ -333,6 +345,16 @@ export default function TournamentForm() {
               slotProps={{ htmlInput: { min: 2 } }}
             />
           </div>
+
+          {isInterclubs && (
+            <Alert severity="info">
+              En los torneos de Interclubes se inscriben equipos de una sede (mínimo 4 jugadores cada uno) y el formato
+              se arma solo según cuántos equipos se anoten: hasta 4 equipos juegan una zona única de ida y vuelta; con
+              más se arman zonas de 4 (repartiendo los equipos sobrantes entre ellas) y clasifican los 2 primeros de
+              cada zona a la eliminatoria — o los 4 primeros si queda una zona única. Cada encuentro se juega a 3
+              partidos.
+            </Alert>
+          )}
 
           {type === TournamentType.LEAGUE && (
             <div className="row">
@@ -508,7 +530,6 @@ export default function TournamentForm() {
               onChange={setCategoryToAdd}
               onOptionsChange={setCategoryOptions}
               discipline={discipline}
-              subDiscipline={discipline === Discipline.TENNIS ? subDiscipline : null}
               excludedIds={categoryIds}
               label="Categorías"
               emptyLabel="Agregar categoría..."

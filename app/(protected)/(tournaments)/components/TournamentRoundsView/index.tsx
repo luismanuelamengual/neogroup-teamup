@@ -35,14 +35,69 @@ export default function TournamentRoundsView({
   organizerMode = false,
   onEditMatch
 }: TournamentRoundsViewProps) {
-  const { hasConsolation, hasKnockout } = useMemo(() => {
+  const { hasConsolation, hasKnockout, hasZones } = useMemo(() => {
     const matches = (tournament.matches ?? []).filter((m) => category == null || m.tournamentCategoryId === category)
 
     return {
       hasConsolation: matches.some((m) => m.type === MatchType.CONSOLATION_BRACKET),
-      hasKnockout: matches.some((m) => m.type === MatchType.BRACKET)
+      hasKnockout: matches.some((m) => m.type === MatchType.BRACKET),
+      hasZones: matches.some((m) => m.type === MatchType.LEAGUE && m.groupNumber != null)
     }
   }, [tournament.matches, category])
+
+  // Interclubes takes one of two shapes depending on how many teams entered:
+  // a single home-and-away league (no zones) or zones feeding a knockout. Which
+  // one it is can be read straight off the matches that were generated.
+  if (tournament.type === TournamentType.INTERCLUBS) {
+    return (
+      <div className="rounds-view">
+        {hasZones ? (
+          <div className="rounds-section">
+            <SectionTitle>Fase de zonas</SectionTitle>
+            <GroupsView
+              tournament={tournament}
+              category={category}
+              groupLabel="Zona"
+              organizerMode={organizerMode}
+              onEditMatch={onEditMatch}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="rounds-section">
+              <SectionTitle>Posiciones</SectionTitle>
+              <StandingsTable tournament={tournament} category={category} />
+            </div>
+            <Divider />
+            <div className="rounds-section">
+              <SectionTitle>Fixture (ida y vuelta)</SectionTitle>
+              <FixtureView
+                tournament={tournament}
+                category={category}
+                organizerMode={organizerMode}
+                onEditMatch={onEditMatch}
+              />
+            </div>
+          </>
+        )}
+        {hasKnockout && (
+          <>
+            <Divider />
+            <div className="rounds-section">
+              <SectionTitle>Fase eliminatoria</SectionTitle>
+              <BracketView
+                tournament={tournament}
+                category={category}
+                bracketType={MatchType.BRACKET}
+                organizerMode={organizerMode}
+                onEditMatch={onEditMatch}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
 
   if (
     tournament.type === TournamentType.LEAGUE ||

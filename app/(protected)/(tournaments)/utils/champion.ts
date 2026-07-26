@@ -7,7 +7,10 @@ import { Tournament } from '../models/Tournament'
 const KNOCKOUT_TYPES = new Set<TournamentType>([
   TournamentType.PLAYOFF,
   TournamentType.PLAYOFF_WITH_CONSOLATION,
-  TournamentType.GROUPS_PLAYOFF
+  TournamentType.GROUPS_PLAYOFF,
+  // Interclubes ends in a bracket whenever it has more than 4 teams; the small
+  // home-and-away variant produces no bracket and is handled below.
+  TournamentType.INTERCLUBS
 ])
 
 /**
@@ -37,6 +40,14 @@ export function getPodiumCompetitorIds(tournament: Tournament, category: number 
     // group); its podium comes from that group's standings.
     if (tournament.type === TournamentType.GROUPS_PLAYOFF) {
       return computeStandings(tournament, category, 0)
+        .slice(0, 3)
+        .map((row) => row.competitorId)
+    }
+
+    // Small interclubes (2–4 teams): the home-and-away league IS the tournament,
+    // and it runs in the group-less lane.
+    if (tournament.type === TournamentType.INTERCLUBS) {
+      return computeStandings(tournament, category)
         .slice(0, 3)
         .map((row) => row.competitorId)
     }

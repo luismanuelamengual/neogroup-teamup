@@ -12,15 +12,19 @@ import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useEffect, useState } from 'react'
+import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
+import TeamRosterField, { RosterPlayer } from '@/app/(protected)/(tournaments)/components/TeamRosterField'
 import { usePlayers } from '@/app/(protected)/(tournaments)/hooks/usePlayers'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { INTERCLUBS_MIN_TEAM_PLAYERS } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
+import { useUserStore } from '@/app/stores/users'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 
 interface JoinTournamentModalProps {
@@ -33,14 +37,21 @@ interface JoinTournamentModalProps {
 export default function JoinTournamentDialog({ open, tournament, onClose, onSuccess }: JoinTournamentModalProps) {
   const { joinTournament } = useTournaments()
   const { getPlayersForJoin } = usePlayers()
+  const currentUser = useUserStore((state) => state.user)
   const [partnerQuery, setPartnerQuery] = useState('')
   const [partnerOptions, setPartnerOptions] = useState<UserDto[]>([])
   const [partnerUser, setPartnerUser] = useState<UserDto | null>(null)
   const [categoryId, setCategoryId] = useState<number | ''>('')
+  const [siteId, setSiteId] = useState<number | null>(null)
+  const [teamMates, setTeamMates] = useState<RosterPlayer[]>([])
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const isTeam = registersAsTeam(tournament.type)
   const needsPartner = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
+  // The signed-in player is the captain and counts towards the minimum.
+  const teamSize = teamMates.length + 1
+  const teamReady = isTeam && siteId != null && teamSize >= INTERCLUBS_MIN_TEAM_PLAYERS
 
   // Reset form state when modal opens.
   useEffect(() => {
@@ -49,6 +60,8 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
       setPartnerOptions([])
       setPartnerUser(null)
       setCategoryId('')
+      setSiteId(null)
+      setTeamMates([])
       setError(null)
       setLoading(false)
     }
@@ -59,7 +72,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
   // `open` too, since reopening the dialog resets partnerQuery to '' without
   // necessarily changing it (no-op state update), which wouldn't otherwise re-run this.
   useEffect(() => {
-    if (!open) {
+    if (!open || !needsPartner) {
       return
     }
 
@@ -84,13 +97,35 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
     )
 
     return () => clearTimeout(timeout)
-  }, [open, getPlayersForJoin, tournament.id, partnerQuery])
+  }, [open, needsPartner, getPlayersForJoin, tournament.id, partnerQuery])
 
   // Only real categories are selectable; the single category (categoryId = null)
   // is resolved automatically by the server.
   const categories = (tournament.categories ?? []).filter((category) => category.categoryId != null)
   const hasCategories = categories.length > 0
   const isPaid = tournament.paid && !!tournament.entryFee && tournament.entryFee > 0
+  // Rendered in a different place depending on the type (see below), so it is
+  // built once here instead of being duplicated in both branches.
+  const categoryField = hasCategories ? (
+    <div className="category">
+      <TextField
+        select
+        label="Categoría"
+        value={categoryId}
+        onChange={(event) => setCategoryId(Number(event.target.value))}
+        placeholder="Seleccionar categoría"
+        size="small"
+        fullWidth
+        required
+      >
+        {categories.map((category) => (
+          <MenuItem key={category.id} value={category.id}>
+            {category.category?.name}
+          </MenuItem>
+        ))}
+      </TextField>
+    </div>
+  ) : null
 
   const handleJoin = async () => {
     setError(null)
@@ -98,7 +133,8 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
 
     try {
       const result = await joinTournament(tournament.id, {
-        partnerUserId: needsPartner ? (partnerUser?.id ?? null) : null,
+        playerIds: isTeam ? teamMates.map((player) => player.id) : needsPartner && partnerUser ? [partnerUser.id] : [],
+        siteId: isTeam ? siteId : null,
         tournamentCategoryId: hasCategories && categoryId !== '' ? categoryId : null
       })
 
@@ -149,27 +185,27 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
             </Alert>
           )}
           {error && <Alert severity="error">{error}</Alert>}
-          {hasCategories && (
-            <div className="category">
-              <Typography variant="subtitle1" className="category-title">
-                Categoría
-              </Typography>
-              <TextField
-                select
-                value={categoryId}
-                onChange={(event) => setCategoryId(Number(event.target.value))}
-                placeholder="Seleccionar categoría"
-                size="small"
-                fullWidth
-                required
-              >
-                {categories.map((category) => (
-                  <MenuItem key={category.id} value={category.id}>
-                    {category.category?.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </div>
+          {/* A team registration reads as one form (sede → categoría → jugadores),
+              so the category field is rendered inside that block instead of
+              above it. */}
+          {!isTeam && categoryField}
+          {isTeam && (
+            <>
+              <Alert severity="info">
+                Inscribís un equipo de una sede. Vos quedás como capitán del equipo y tenés que sumar al menos{' '}
+                {INTERCLUBS_MIN_TEAM_PLAYERS} jugadores en total.
+              </Alert>
+              <div className="team">
+                <SiteSelector value={siteId} onChange={setSiteId} label="Sede" required size="small" />
+                {categoryField}
+                <TeamRosterField
+                  tournamentId={tournament.id}
+                  captain={currentUser}
+                  value={teamMates}
+                  onChange={setTeamMates}
+                />
+              </div>
+            </>
           )}
           {needsPartner && (
             <div className="partner">
@@ -205,10 +241,15 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
             variant="contained"
             size="large"
             onClick={handleJoin}
-            disabled={loading || (needsPartner && !partnerUser) || (hasCategories && categoryId === '')}
+            disabled={
+              loading ||
+              (needsPartner && !partnerUser) ||
+              (isTeam && !teamReady) ||
+              (hasCategories && categoryId === '')
+            }
             loading={loading}
           >
-            {isPaid ? 'Pagar e inscribirme' : 'Confirmar inscripción'}
+            {isPaid ? 'Pagar e inscribirme' : isTeam ? 'Inscribir equipo' : 'Confirmar inscripción'}
           </Button>
         </div>
       </DialogContent>

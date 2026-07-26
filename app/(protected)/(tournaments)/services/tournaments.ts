@@ -21,7 +21,7 @@ import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/ca
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
-import { getScoreWinner, isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getScoreWinner, isValidScore, normalizeScore } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   createRound,
   createTournamentCategories,
@@ -139,7 +139,15 @@ export async function createTournament(
     throw new ApiException('El monto de inscripción debe ser mayor a cero')
   }
 
-  if (input.discipline === Discipline.TENNIS && !input.subDiscipline) {
+  // Interclubes is tennis-only, and its encounters mix singles and doubles, so
+  // it is also the one tennis format that carries no modality.
+  const isInterclubs = input.type === TournamentType.INTERCLUBS
+
+  if (isInterclubs && input.discipline !== Discipline.TENNIS) {
+    throw new ApiException('Los torneos de Interclubes solo están disponibles para tenis')
+  }
+
+  if (input.discipline === Discipline.TENNIS && !isInterclubs && !input.subDiscipline) {
     throw new ApiException('missingFields')
   }
 
@@ -162,10 +170,10 @@ export async function createTournament(
     throw new ApiException('invalidImage')
   }
 
-  const subDiscipline = input.discipline === Discipline.TENNIS ? (input.subDiscipline ?? null) : null
+  const subDiscipline = input.discipline === Discipline.TENNIS && !isInterclubs ? (input.subDiscipline ?? null) : null
   const pickedCategoryIds = normalizeCategoryIds(input.categoryIds)
   const categoryIds = pickedCategoryIds
-    ? await validateCategoryIds(organizationId, input.discipline, subDiscipline, pickedCategoryIds)
+    ? await validateCategoryIds(organizationId, input.discipline, pickedCategoryIds)
     : null
   const siteId = await resolveSiteId(organizationId, input.siteId)
   let settings: TournamentSettings = {}
@@ -450,10 +458,12 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
   }
 
   const isOwner = tournament.ownerId === userId
+  const participants = await Competitor.whereIn('id', [
+    ...match.homeCompetitorIds,
+    ...(match.awayCompetitorIds ?? [])
+  ]).get()
 
   if (!isOwner) {
-    const competitorIds = [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]
-    const participants = await Competitor.whereIn('id', competitorIds).get()
     const isParticipant = participants.some((competitor) => competitor.playerIds.includes(userId))
 
     if (!isParticipant) {
@@ -461,7 +471,19 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
     }
   }
 
-  if (!isValidScore(score, tournament.scoreFormat)) {
+  // Interclubes results are series of three individual matches, and each of
+  // those names the players who took the court — so validation needs the two
+  // rosters to check nobody plays for the wrong team (or twice in the series).
+  const homeRoster = participants.find((competitor) => match.homeCompetitorIds.includes(competitor.id))
+  const awayRoster = participants.find((competitor) => (match.awayCompetitorIds ?? []).includes(competitor.id))
+
+  if (
+    !isValidScore(score, tournament.scoreFormat, {
+      type: tournament.type,
+      homePlayerIds: homeRoster?.playerIds,
+      awayPlayerIds: awayRoster?.playerIds
+    })
+  ) {
     throw new ApiException('invalidScore')
   }
 
@@ -473,7 +495,7 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = score
+    match.score = normalizeScore(score)
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }

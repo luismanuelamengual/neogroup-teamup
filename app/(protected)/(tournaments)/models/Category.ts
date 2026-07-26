@@ -1,16 +1,20 @@
 import { BaseEntity, Column, Entity } from '@neogroup/neorm'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { OrganizationScope } from '@/app/models/OrganizationScope'
 
 /**
- * Catalogue of categories scoped to an organization and a discipline /
- * sub-discipline. They are maintained by the administrator (the /categories
- * ABM) and only ever picked from a selector — organizers no longer create them
- * by typing a name into the tournament form, which used to fill the catalogue
- * with near-duplicates. Tournaments materialise a subset of them into
- * tournament_categories rows; competitors and matches point to one of those
- * category instances.
+ * Catalogue of categories scoped to an organization and a discipline. They are
+ * maintained by the administrator (the /categories ABM) and only ever picked
+ * from a selector — organizers no longer create them by typing a name into the
+ * tournament form, which used to fill the catalogue with near-duplicates.
+ * Tournaments materialise a subset of them into tournament_categories rows;
+ * competitors and matches point to one of those category instances.
+ *
+ * A category is a **division** of a discipline ("Primera", "4ta"), not a
+ * modality: it used to carry a sub-discipline for tennis, but an interclubes
+ * encounter is played partly in singles and partly in doubles, so that
+ * distinction belongs to the tournament (and to each individual match), never
+ * to the category. See migration 010.
  */
 @Entity({ table: 'categories' })
 export class Category extends BaseEntity {
@@ -25,9 +29,6 @@ export class Category extends BaseEntity {
 
   @Column({ cast: 'number' })
   discipline!: Discipline
-
-  @Column()
-  subDiscipline!: SubDiscipline | null
 
   protected static booted(): void {
     Category.addGlobalScope(new OrganizationScope())

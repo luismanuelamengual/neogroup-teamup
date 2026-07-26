@@ -30,6 +30,17 @@
     font-size: 12px;
   }
 
+  .series-result {
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  .series-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+  }
+
   .sets {
     display: flex;
     flex-direction: column;

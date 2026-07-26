@@ -1,6 +1,7 @@
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { assignSiteLabels } from '@/app/(protected)/(tournaments)/services/registrations'
 import { getTournamentCategories } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
@@ -30,5 +31,10 @@ export const POST = withAuth(async (request, context, userId, _organizationId) =
     throw new ApiException('Usuario no inscripto en el torneo')
   }
 
+  const tournamentCategoryId = entry.tournamentCategoryId
+
   await entry.delete()
+  // Interclubes team labels are relative to the other teams of the category
+  // ("Alemán A" goes back to "Alemán" when its sibling leaves).
+  await assignSiteLabels(tournamentCategoryId)
 })
