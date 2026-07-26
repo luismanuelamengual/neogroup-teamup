@@ -56,10 +56,10 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
             )}
           </div>
           <div className="details">
-            {tournament.location && (
+            {tournament.site?.name && (
               <span className="detail">
                 <PlaceIcon fontSize="inherit" />
-                {tournament.location}
+                {tournament.site.name}
               </span>
             )}
             <span className="detail">

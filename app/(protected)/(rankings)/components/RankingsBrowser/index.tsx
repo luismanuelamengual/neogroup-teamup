@@ -4,11 +4,11 @@ import './index.scss'
 import MenuItem from '@mui/material/MenuItem'
 import Pagination from '@mui/material/Pagination'
 import TextField from '@mui/material/TextField'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import CategorySelector from '@/app/(protected)/(categories)/components/CategorySelector'
 import RankingCard, { RankingCardSkeleton } from '@/app/(protected)/(rankings)/components/RankingCard'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
-import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
@@ -18,45 +18,30 @@ import { useLoadingData } from '@/app/hooks/useLoadingData'
 const PAGE_SIZE = 10
 
 export default function RankingsBrowser() {
-  const { getCategories } = useCategories()
   const { getRankings } = useRankings()
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
-  const [categoryOptions, setCategoryOptions] = useState<CategoryDto[]>([])
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [entries, setEntries] = useState<RankingEntryDto[]>([])
   const [page, setPage] = useState(1)
   const [pageCount, setPageCount] = useState(1)
   const sub = discipline === Discipline.TENNIS ? subDiscipline : null
+  // A ranking is always read for one category, so the selector's first option is
+  // preselected as soon as the catalogue of the current discipline is loaded.
+  const handleCategoriesLoaded = useCallback((options: CategoryDto[]) => {
+    setCategoryId(options.length > 0 ? options[0].id : null)
+    setLoadingCategories(false)
+    setPage(1)
+  }, [])
 
-  // Reload the category options when the discipline / sub-discipline changes.
+  // Changing the discipline invalidates the selected category (it belongs to the
+  // previous one): drop it right away so no ranking is read with a stale filter
+  // while the selector reloads its options.
   useEffect(() => {
-    let cancelled = false
-
     setCategoryId(null)
     setLoadingCategories(true)
-    setPage(1)
-
-    getCategories(discipline, sub)
-      .then((options) => {
-        if (!cancelled) {
-          setCategoryOptions(options)
-          setCategoryId(options.length > 0 ? options[0].id : null)
-          setLoadingCategories(false)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCategoryOptions([])
-          setLoadingCategories(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [discipline, getCategories, sub])
+  }, [discipline, sub])
 
   // Reset to the first page whenever the category filter changes.
   useEffect(() => {
@@ -116,23 +101,18 @@ export default function RankingsBrowser() {
             ))}
           </TextField>
         )}
-        <TextField
-          select
-          size="small"
+        <CategorySelector
+          value={categoryId}
+          onChange={setCategoryId}
+          discipline={discipline}
+          subDiscipline={sub}
+          onOptionsChange={handleCategoriesLoaded}
           label="Categoría"
-          value={categoryId ?? ''}
-          onChange={(event) => setCategoryId(event.target.value === '' ? null : Number(event.target.value))}
+          required
+          size="small"
+          fullWidth={false}
           className="filter"
-        >
-          <MenuItem value="" disabled>
-            Seleccioná una categoría
-          </MenuItem>
-          {categoryOptions.map((category) => (
-            <MenuItem key={category.id} value={category.id}>
-              {category.name}
-            </MenuItem>
-          ))}
-        </TextField>
+        />
       </div>
 
       {loadingCategories || (categoryId !== null && loading) ? (

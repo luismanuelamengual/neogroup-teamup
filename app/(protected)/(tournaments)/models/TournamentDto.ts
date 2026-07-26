@@ -1,4 +1,5 @@
 import { RankingSettings } from '@/app/(protected)/(rankings)/models/RankingSettings'
+import { SiteDto } from '@/app/(protected)/(sites)/models/SiteDto'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -24,7 +25,9 @@ export interface TournamentDto {
   scoreFormat: ScoreFormat
   startDate: string
   startTime: string | null
-  location: string | null
+  siteId: number | null
+  /** Resolved venue (eager-loaded with the tournament). */
+  site?: SiteDto | null
   paid: boolean
   entryFee: number | null
   currency: string

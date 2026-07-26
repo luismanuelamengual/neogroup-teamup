@@ -1,6 +1,7 @@
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { ApiException } from '@/app/models/ApiException'
 
 export interface CategoryQuery {
   discipline: Discipline
@@ -28,8 +29,49 @@ export async function getCategoriesByIds(ids: number[] | null | undefined): Prom
 }
 
 /**
+ * Checks that every given id is a category of the organization for that
+ * discipline + sub-discipline, and returns them de-duplicated, in input order.
+ *
+ * This is what the tournament form goes through: categories are defined once by
+ * the administrator (/categories ABM) and only ever picked from the catalogue,
+ * so anything that does not resolve here is a stale or forged id, not a new
+ * category to create.
+ */
+export async function validateCategoryIds(
+  organizationId: number,
+  discipline: Discipline,
+  subDiscipline: SubDiscipline | null,
+  ids: number[]
+): Promise<number[]> {
+  if (ids.length === 0) {
+    return []
+  }
+
+  const sub = subDiscipline ?? null
+  const existing = await Category.where('organizationId', organizationId).where('discipline', discipline).get()
+  const allowed = new Map(
+    existing.filter((category) => (category.subDiscipline ?? null) === sub).map((category) => [category.id, category])
+  )
+  const resolved: number[] = []
+
+  for (const id of ids) {
+    if (!allowed.has(id)) {
+      throw new ApiException('Alguna de las categorías seleccionadas no es válida')
+    }
+
+    if (!resolved.includes(id)) {
+      resolved.push(id)
+    }
+  }
+
+  return resolved
+}
+
+/**
  * Resolves a list of category names to their ids for a given organization +
  * discipline + sub-discipline, creating any category that does not exist yet.
+ * Only used by the seed script: the application always picks existing
+ * categories through `validateCategoryIds`.
  * Matching is case-insensitive; the returned ids preserve the input order and
  * are de-duplicated.
  */

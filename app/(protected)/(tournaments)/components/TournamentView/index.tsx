@@ -450,9 +450,9 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
                     : 'Gratuito'
                 }
               />
-              {tournament.location && (
+              {tournament.site?.name && (
                 <span className="meta-item">
-                  <PlaceIcon fontSize="inherit" /> {tournament.location}
+                  <PlaceIcon fontSize="inherit" /> {tournament.site.name}
                 </span>
               )}
               <span className="meta-item">

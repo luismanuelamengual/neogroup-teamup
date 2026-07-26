@@ -3,7 +3,7 @@
  * Deletes an organization and everything that hangs off it — tournaments and
  * everything under them (categories, competitors, rounds, matches, payments),
  * users and everything under them (mercadopago accounts, statistics, tokens),
- * catalogue categories, rankings, cached org statistics — then the
+ * catalogue categories, sites, rankings, cached org statistics — then the
  * organization row itself.
  *
  * Unlike db:reset / db:seed, this is meant to be safe to run against ANY
@@ -94,6 +94,7 @@ async function resolveScope(organizationId: number): Promise<Scope> {
     rankings: await countWhere('rankings', 'organizationId', organizationId),
     organization_statistics: await countWhere('organization_statistics', 'organizationId', organizationId),
     categories: await countWhere('categories', 'organizationId', organizationId),
+    sites: await countWhere('sites', 'organizationId', organizationId),
     users: userIds.length,
     mercadopago_accounts: await countWhereIn('mercadopago_accounts', 'userId', userIds),
     player_statistics: await countWhereIn('player_statistics', 'playerId', userIds),
@@ -133,6 +134,8 @@ async function deleteScope(scope: Scope): Promise<void> {
 
     await DB.table('users').where('organizationId', organizationId).delete()
     await DB.table('categories').where('organizationId', organizationId).delete()
+    // After tournaments: they hold the FK to sites.
+    await DB.table('sites').where('organizationId', organizationId).delete()
     await DB.table('organizations').where('id', organizationId).delete()
   })
 }

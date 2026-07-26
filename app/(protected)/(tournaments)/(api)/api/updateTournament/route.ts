@@ -1,13 +1,13 @@
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { UpdateTournamentInput } from '@/app/(protected)/(tournaments)/models/UpdateTournamentInput'
-import { setTournamentImage } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { resolveSiteId, setTournamentImage } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { normalizeImage, normalizeStartTime } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 import { Tournament } from '../../../models/Tournament'
 
 /** POST /api/updateTournament — updates the editable attributes (owner only). */
-export const POST = withAuth(async (request) => {
+export const POST = withAuth(async (request, _context, _userId, organizationId) => {
   const { id, ...input } = (await request.json()) as UpdateTournamentInput & { id: number }
   const tournament = await Tournament.find(Number(id))
 
@@ -35,7 +35,7 @@ export const POST = withAuth(async (request) => {
 
   tournament.name = name
   tournament.description = input.description?.trim() || null
-  tournament.location = input.location?.trim() || null
+  tournament.siteId = await resolveSiteId(organizationId, input.siteId)
   tournament.startDate = input.startDate
   tournament.startTime = startTime
 

@@ -26,7 +26,7 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
+import CategorySelector from '@/app/(protected)/(categories)/components/CategorySelector'
 import { usePlayers } from '@/app/(protected)/(tournaments)/hooks/usePlayers'
 import { useTournamentAdmin } from '@/app/(protected)/(tournaments)/hooks/useTournamentAdmin'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
@@ -147,14 +147,12 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const { getTournament } = useTournaments()
-  const { getCategories } = useCategories()
   const { addCategory, removeCategory, registerCompetitor, moveCompetitor, unregisterCompetitor, setCompetitorSeed } =
     useTournamentAdmin()
   const userId = useUserStore((state) => state.user?.id ?? null)
   // Add-category form.
-  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryId, setNewCategoryId] = useState<number | null>(null)
   const [newCategoryMax, setNewCategoryMax] = useState<string>(String(DEFAULT_MAX_COMPETITORS))
-  const [catalogueNames, setCatalogueNames] = useState<string[]>([])
   // Register-competitor modal.
   const [registerOpen, setRegisterOpen] = useState(false)
   const [registerCategoryId, setRegisterCategoryId] = useState<number | ''>('')
@@ -211,18 +209,6 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     loadTournament()
   }, [loadTournament])
 
-  // Populate the category-name autocomplete from the organization catalogue for
-  // this discipline / sub-discipline, excluding names already in the tournament.
-  useEffect(() => {
-    if (!tournament) {
-      return
-    }
-
-    getCategories(tournament.discipline, tournament.subDiscipline)
-      .then((list) => setCatalogueNames(list.map((category) => category.name)))
-      .catch(() => setCatalogueNames([]))
-  }, [getCategories, tournament])
-
   const runAction = async (action: () => Promise<void>): Promise<boolean> => {
     setWorking(true)
 
@@ -273,24 +259,24 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     )
   }
 
-  const availableCatalogueNames = catalogueNames.filter(
-    (name) => !categories.some((category) => (category.category?.name ?? '').toLowerCase() === name.toLowerCase())
-  )
+  // Categories already materialised in the tournament are not offered again.
+  const usedCategoryIds = categories
+    .map((category) => category.categoryId)
+    .filter((categoryId): categoryId is number => categoryId != null)
   const effectiveRegisterCategoryId =
     categories.length === 1 ? categories[0].id : registerCategoryId === '' ? '' : Number(registerCategoryId)
 
   const handleAddCategory = async () => {
-    const name = newCategoryName.trim()
     const max = Number(newCategoryMax)
 
-    if (!name || !max || max < 2) {
+    if (!newCategoryId || !max || max < 2) {
       return
     }
 
-    const ok = await runAction(() => addCategory(tournament.id, name, max))
+    const ok = await runAction(() => addCategory(tournament.id, newCategoryId, max))
 
     if (ok) {
-      setNewCategoryName('')
+      setNewCategoryId(null)
       setNewCategoryMax(String(DEFAULT_MAX_COMPETITORS))
     }
   }
@@ -479,13 +465,16 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
         </div>
         <Divider />
         <div className="add-category">
-          <Autocomplete
-            freeSolo
-            options={availableCatalogueNames}
-            inputValue={newCategoryName}
-            onInputChange={(_, value) => setNewCategoryName(value)}
+          <CategorySelector
+            value={newCategoryId}
+            onChange={setNewCategoryId}
+            discipline={tournament.discipline}
+            subDiscipline={tournament.subDiscipline}
+            excludedIds={usedCategoryIds}
+            label="Nueva categoría"
+            size="small"
+            fullWidth={false}
             className="add-category-name"
-            renderInput={(params) => <TextField {...params} label="Nueva categoría" size="small" />}
           />
           <TextField
             label="Cupo"
@@ -500,7 +489,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleAddCategory}
-            disabled={working || !newCategoryName.trim() || Number(newCategoryMax) < 2}
+            disabled={working || !newCategoryId || Number(newCategoryMax) < 2}
           >
             Agregar
           </Button>

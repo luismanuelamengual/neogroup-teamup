@@ -9,8 +9,8 @@ export function useTournamentAdmin() {
   const executeRequest = useRequests()
   const { showSuccessMessage } = useNotifications()
   const addCategory = useCallback(
-    async (tournamentId: number, name: string, maxCompetitors: number): Promise<void> => {
-      await executeRequest('/addTournamentCategory', { tournamentId, name, maxCompetitors })
+    async (tournamentId: number, categoryId: number, maxCompetitors: number): Promise<void> => {
+      await executeRequest('/addTournamentCategory', { tournamentId, categoryId, maxCompetitors })
       showSuccessMessage('Categoría agregada correctamente')
     },
     [executeRequest, showSuccessMessage]

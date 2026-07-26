@@ -1,0 +1,15 @@
+.sites-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .title {
+      font-weight: 800;
+    }
+  }
+}
