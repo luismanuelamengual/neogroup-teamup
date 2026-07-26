@@ -23,8 +23,13 @@ export function useTournamentAdmin() {
     [executeRequest, showSuccessMessage]
   )
   const registerCompetitor = useCallback(
-    async (tournamentId: number, tournamentCategoryId: number, playerIds: number[]): Promise<void> => {
-      await executeRequest('/registerCompetitor', { tournamentId, tournamentCategoryId, playerIds })
+    async (
+      tournamentId: number,
+      tournamentCategoryId: number,
+      playerIds: number[],
+      siteId: number | null = null
+    ): Promise<void> => {
+      await executeRequest('/registerCompetitor', { tournamentId, tournamentCategoryId, playerIds, siteId })
       showSuccessMessage('Competidor inscripto correctamente')
     },
     [executeRequest, showSuccessMessage]

@@ -26,7 +26,7 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 config({ path: '.env' })
 
-import { DB } from '@neogroup/neorm'
+import { DB, Schema } from '@neogroup/neorm'
 import * as readline from 'readline'
 
 function prompt(question: string): Promise<string> {
@@ -88,7 +88,12 @@ async function resolveScope(organizationId: number): Promise<Scope> {
     tournaments: tournamentIds.length,
     tournament_categories: tournamentCategoryIds.length,
     matches: await countWhereIn('matches', 'tournamentCategoryId', tournamentCategoryIds),
-    rounds: await countWhereIn('rounds', 'tournamentCategoryId', tournamentCategoryIds),
+    // `rounds` was folded into `matches` and dropped by migration 004, but a
+    // database migrated before that may still have it — only count it when the
+    // table is actually there.
+    rounds: (await Schema.hasTable('rounds'))
+      ? await countWhereIn('rounds', 'tournamentCategoryId', tournamentCategoryIds)
+      : 0,
     competitors: await countWhereIn('competitors', 'tournamentCategoryId', tournamentCategoryIds),
     tournament_payments: await countWhere('tournament_payments', 'organizationId', organizationId),
     rankings: await countWhere('rankings', 'organizationId', organizationId),
@@ -111,7 +116,13 @@ async function deleteScope(scope: Scope): Promise<void> {
   await DB.transaction(async () => {
     if (tournamentCategoryIds.length > 0) {
       await DB.table('matches').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
-      await DB.table('rounds').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
+
+      // See the note in `collectScope`: `rounds` only exists on databases that
+      // predate migration 004.
+      if (await Schema.hasTable('rounds')) {
+        await DB.table('rounds').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
+      }
+
       await DB.table('competitors').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
     }
 

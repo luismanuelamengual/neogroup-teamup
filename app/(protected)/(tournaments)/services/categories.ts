@@ -1,22 +1,21 @@
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { ApiException } from '@/app/models/ApiException'
 
 export interface CategoryQuery {
   discipline: Discipline
-  subDiscipline?: SubDiscipline | null
 }
 
 /**
- * Categories available for an organization + discipline + sub-discipline,
- * ordered by name. Powers the category autocomplete in the tournament form.
+ * Categories available for an organization + discipline, ordered by name.
+ * Powers the category autocomplete in the tournament form.
+ *
+ * A category is a division of a discipline and nothing else — it carries no
+ * singles/doubles modality (see migration 010), so the discipline is the only
+ * filter there is.
  */
-export async function getCategories({ discipline, subDiscipline }: CategoryQuery): Promise<Category[]> {
-  const sub = subDiscipline ?? null
-  const categories = await Category.where('discipline', discipline).orderBy('name').get()
-
-  return categories.filter((category) => (category.subDiscipline ?? null) === sub)
+export async function getCategories({ discipline }: CategoryQuery): Promise<Category[]> {
+  return Category.where('discipline', discipline).orderBy('name').get()
 }
 
 /** Loads the categories with the given ids (used to resolve a tournament's categoryIds). */
@@ -30,7 +29,7 @@ export async function getCategoriesByIds(ids: number[] | null | undefined): Prom
 
 /**
  * Checks that every given id is a category of the organization for that
- * discipline + sub-discipline, and returns them de-duplicated, in input order.
+ * discipline, and returns them de-duplicated, in input order.
  *
  * This is what the tournament form goes through: categories are defined once by
  * the administrator (/categories ABM) and only ever picked from the catalogue,
@@ -40,18 +39,14 @@ export async function getCategoriesByIds(ids: number[] | null | undefined): Prom
 export async function validateCategoryIds(
   organizationId: number,
   discipline: Discipline,
-  subDiscipline: SubDiscipline | null,
   ids: number[]
 ): Promise<number[]> {
   if (ids.length === 0) {
     return []
   }
 
-  const sub = subDiscipline ?? null
   const existing = await Category.where('organizationId', organizationId).where('discipline', discipline).get()
-  const allowed = new Map(
-    existing.filter((category) => (category.subDiscipline ?? null) === sub).map((category) => [category.id, category])
-  )
+  const allowed = new Map(existing.map((category) => [category.id, category]))
   const resolved: number[] = []
 
   for (const id of ids) {
@@ -69,25 +64,22 @@ export async function validateCategoryIds(
 
 /**
  * Resolves a list of category names to their ids for a given organization +
- * discipline + sub-discipline, creating any category that does not exist yet.
- * Only used by the seed script: the application always picks existing
- * categories through `validateCategoryIds`.
+ * discipline, creating any category that does not exist yet. Only used by the
+ * seed script: the application always picks existing categories through
+ * `validateCategoryIds`.
  * Matching is case-insensitive; the returned ids preserve the input order and
  * are de-duplicated.
  */
 export async function resolveCategoryIds(
   organizationId: number,
   discipline: Discipline,
-  subDiscipline: SubDiscipline | null,
   names: string[]
 ): Promise<number[]> {
   if (names.length === 0) {
     return []
   }
 
-  const sub = subDiscipline ?? null
-  const existing = await Category.where('organizationId', organizationId).where('discipline', discipline).get()
-  const pool = existing.filter((category) => (category.subDiscipline ?? null) === sub)
+  const pool = await Category.where('organizationId', organizationId).where('discipline', discipline).get()
   const ids: number[] = []
 
   for (const rawName of names) {
@@ -104,7 +96,6 @@ export async function resolveCategoryIds(
       category.organizationId = organizationId
       category.name = name
       category.discipline = discipline
-      category.subDiscipline = sub
       await category.save()
       pool.push(category)
     }

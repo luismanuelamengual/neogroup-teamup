@@ -6,7 +6,6 @@ import {
   updateCategory
 } from '@/app/(protected)/(categories)/services/categories'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { buildTournament, createOrganization, resetDatabase } from '@/tests/setup/harness'
@@ -18,25 +17,20 @@ describe('categories administration', () => {
     await resetDatabase()
   })
 
-  it('creates a padel category with no sub-discipline', async () => {
+  it('creates a category, trimming its name', async () => {
     const category = await createCategory(ORGANIZATION_ID, { name: '  Cuarta  ', discipline: Discipline.PADEL })
 
     expect(category.name).toBe('Cuarta')
-    expect(category.subDiscipline).toBeNull()
+    expect(category.discipline).toBe(Discipline.PADEL)
   })
 
-  it('forces a sub-discipline on tennis categories', async () => {
-    await expect(createCategory(ORGANIZATION_ID, { name: 'Cuarta', discipline: Discipline.TENNIS })).rejects.toThrow(
-      'modalidad'
-    )
+  it('creates a tennis category without asking for a modality', async () => {
+    // A category is a division of a discipline, not a modality: singles vs
+    // doubles belongs to the tournament (and, in interclubes, to each match).
+    const category = await createCategory(ORGANIZATION_ID, { name: 'Primera', discipline: Discipline.TENNIS })
 
-    const category = await createCategory(ORGANIZATION_ID, {
-      name: 'Cuarta',
-      discipline: Discipline.TENNIS,
-      subDiscipline: SubDiscipline.DOUBLES
-    })
-
-    expect(category.subDiscipline).toBe(SubDiscipline.DOUBLES)
+    expect(category.name).toBe('Primera')
+    expect(category.discipline).toBe(Discipline.TENNIS)
   })
 
   it('rejects an empty name and an unknown discipline', async () => {
@@ -55,11 +49,7 @@ describe('categories administration', () => {
       'Ya existe'
     )
 
-    const tennis = await createCategory(ORGANIZATION_ID, {
-      name: 'Cuarta',
-      discipline: Discipline.TENNIS,
-      subDiscipline: SubDiscipline.SINGLES
-    })
+    const tennis = await createCategory(ORGANIZATION_ID, { name: 'Cuarta', discipline: Discipline.TENNIS })
 
     expect(tennis.id).toBeDefined()
   })
@@ -67,11 +57,7 @@ describe('categories administration', () => {
   it('filters the listing by discipline and name', async () => {
     await createCategory(ORGANIZATION_ID, { name: 'Cuarta', discipline: Discipline.PADEL })
     await createCategory(ORGANIZATION_ID, { name: 'Quinta', discipline: Discipline.PADEL })
-    await createCategory(ORGANIZATION_ID, {
-      name: 'Cuarta',
-      discipline: Discipline.TENNIS,
-      subDiscipline: SubDiscipline.SINGLES
-    })
+    await createCategory(ORGANIZATION_ID, { name: 'Cuarta', discipline: Discipline.TENNIS })
 
     expect((await getManagedCategories(ORGANIZATION_ID)).data).toHaveLength(3)
     expect((await getManagedCategories(ORGANIZATION_ID, { discipline: Discipline.TENNIS })).data).toHaveLength(1)
@@ -118,11 +104,7 @@ describe('categories administration', () => {
 
     await expect(deleteCategory(ORGANIZATION_ID, category.id)).rejects.toThrow('no puede eliminarse')
     await expect(
-      updateCategory(ORGANIZATION_ID, category.id, {
-        name: 'Cuarta',
-        discipline: Discipline.TENNIS,
-        subDiscipline: SubDiscipline.SINGLES
-      })
+      updateCategory(ORGANIZATION_ID, category.id, { name: 'Cuarta', discipline: Discipline.TENNIS })
     ).rejects.toThrow('no cambiar su disciplina')
 
     // Renaming it stays allowed — it is the same category under a better name.

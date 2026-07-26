@@ -4,7 +4,7 @@ import './index.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
 import { useState } from 'react'
-import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
+import MatchInfoModal from '@/app/(protected)/(tournaments)/components/MatchInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -27,7 +27,7 @@ export default function MatchCard({
   editable = false,
   onEdit
 }: MatchCardProps) {
-  const [modalCompetitors, setModalCompetitors] = useState<CompetitorDto[]>([])
+  const [detailOpen, setDetailOpen] = useState(false)
   const competitorsById: Record<number, CompetitorDto> = Object.fromEntries(
     (tournament.competitors ?? []).map((c) => [c.id, c])
   )
@@ -35,18 +35,8 @@ export default function MatchCard({
   const isVoid = match.status === MatchStatus.VOID
   const isBye = match.awayCompetitorIds === null && !isVoid
   const winner: MatchSide | null = match.winner
-
-  const handleSideClick = (ids: number[] | null) => {
-    if (!ids || ids.length === 0) {
-      return
-    }
-
-    const found = ids.map((id) => competitorsById[id]).filter(Boolean) as CompetitorDto[]
-
-    if (found.length > 0) {
-      setModalCompetitors(found)
-    }
-  }
+  // A placeholder ("to be defined") slot has nothing worth opening.
+  const hasDetail = !isVoid && match.homeCompetitorIds.length > 0
 
   const competitorLabel = (competitor: CompetitorDto | undefined, id: number): string => {
     if (!competitor) {
@@ -69,15 +59,18 @@ export default function MatchCard({
   const renderSide = (side: MatchSide, ids: number[] | null) => (
     <div className={`side ${winner === side ? 'winner' : ''} ${winner && winner !== side ? 'loser' : ''}`}>
       <span className={`side-dot ${MatchSideNames[side]}`} />
-      <span className="side-name clickable" onClick={() => handleSideClick(ids)}>
-        {sideName(ids)}
-      </span>
+      <span className="side-name">{sideName(ids)}</span>
     </div>
   )
 
   return (
     <>
-      <div className={`match-card ${highlighted ? 'highlighted' : ''}`}>
+      {/* The whole card opens the match detail — which is also where each
+          competitor's own info is reachable from. */}
+      <div
+        className={`match-card ${highlighted ? 'highlighted' : ''} ${hasDetail ? 'clickable' : ''}`}
+        onClick={() => hasDetail && setDetailOpen(true)}
+      >
         {isVoid ? (
           <div className="sides">
             <div className="bye">Sin clasificado</div>
@@ -97,17 +90,21 @@ export default function MatchCard({
               <span className="score">{formatScore(match.score, scoreFormat)}</span>
             ))}
           {editable && !isBye && !isVoid && (
-            <IconButton size="small" className="edit" onClick={() => onEdit?.(match)}>
+            <IconButton
+              size="small"
+              className="edit"
+              onClick={(event) => {
+                // Loading a result is a different intent than inspecting one.
+                event.stopPropagation()
+                onEdit?.(match)
+              }}
+            >
               <EditIcon fontSize="small" />
             </IconButton>
           )}
         </div>
       </div>
-      <CompetitorInfoModal
-        open={modalCompetitors.length > 0}
-        competitors={modalCompetitors}
-        onClose={() => setModalCompetitors([])}
-      />
+      <MatchInfoModal open={detailOpen} tournament={tournament} match={match} onClose={() => setDetailOpen(false)} />
     </>
   )
 }

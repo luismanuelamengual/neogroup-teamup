@@ -42,6 +42,9 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
     tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.GROUPS_PLAYOFF
   const showAmericanoColumns =
     tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP
+  // Interclubes: points ARE encounters won, so PG would just repeat Pts. What
+  // actually separates two teams on the same points are the two differentials.
+  const showInterclubsColumns = tournament.type === TournamentType.INTERCLUBS
   const pointsLegend = useMemo(() => {
     const settings = tournament.settings
 
@@ -90,7 +93,9 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
               <TableCell className="position-cell">#</TableCell>
               <TableCell className="competitor-name-cell">Competidor</TableCell>
               <TableCell align="center">PJ</TableCell>
-              <TableCell align="center">PG</TableCell>
+              {!showInterclubsColumns && <TableCell align="center">PG</TableCell>}
+              {showInterclubsColumns && <TableCell align="center">DP</TableCell>}
+              {showInterclubsColumns && <TableCell align="center">DS</TableCell>}
               {showLeagueColumns && <TableCell align="center">SF</TableCell>}
               {showLeagueColumns && <TableCell align="center">SC</TableCell>}
               {showLeagueColumns && <TableCell align="center">DS</TableCell>}
@@ -116,7 +121,13 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
                     : row.shortName}
                 </TableCell>
                 <TableCell align="center">{row.played}</TableCell>
-                <TableCell align="center">{row.won}</TableCell>
+                {!showInterclubsColumns && <TableCell align="center">{row.won}</TableCell>}
+                {showInterclubsColumns && (
+                  <TableCell align="center">{(row.subMatchesWon ?? 0) - (row.subMatchesLost ?? 0)}</TableCell>
+                )}
+                {showInterclubsColumns && (
+                  <TableCell align="center">{(row.setsWon ?? 0) - (row.setsLost ?? 0)}</TableCell>
+                )}
                 {showLeagueColumns && <TableCell align="center">{row.setsWon ?? 0}</TableCell>}
                 {showLeagueColumns && <TableCell align="center">{row.setsLost ?? 0}</TableCell>}
                 {showLeagueColumns && <TableCell align="center">{(row.setsWon ?? 0) - (row.setsLost ?? 0)}</TableCell>}
@@ -136,6 +147,12 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
           </TableBody>
         </Table>
       </TableContainer>
+      {showInterclubsColumns && (
+        <div className="legend">
+          Pts: encuentros ganados · DP: diferencia de partidos · DS: diferencia de sets. Se desempata en ese orden y, si
+          persiste, por el resultado entre sí.
+        </div>
+      )}
       {!!pointsLegend && <div className="legend">Puntos: {pointsLegend}</div>}
       <CompetitorInfoModal
         open={modalCompetitors.length > 0}

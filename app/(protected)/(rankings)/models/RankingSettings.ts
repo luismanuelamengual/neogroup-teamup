@@ -48,6 +48,10 @@ export function getRankingScheme(type: TournamentType): RankingScheme {
   switch (type) {
     case TournamentType.PLAYOFF:
     case TournamentType.GROUPS_PLAYOFF:
+    // Interclubes ends in a knockout for any realistic size. The small (2–4
+    // teams) home-and-away variant has no bracket, so its final standings are
+    // mapped onto the same stage keys instead — see computeCategoryPlacements.
+    case TournamentType.INTERCLUBS:
       return RankingScheme.KNOCKOUT
     case TournamentType.PLAYOFF_WITH_CONSOLATION:
       return RankingScheme.KNOCKOUT_WITH_CONSOLATION

@@ -6,16 +6,19 @@ import { withAuth } from '@/app/utils/api-server'
  * behalf of the organizer (owner, stand_by, free tournaments only).
  */
 export const POST = withAuth(async (request, context, userId) => {
-  const { tournamentId, tournamentCategoryId, playerIds } = (await request.json()) as {
+  const { tournamentId, tournamentCategoryId, playerIds, siteId } = (await request.json()) as {
     tournamentId: number
     tournamentCategoryId: number
     playerIds: number[]
+    /** Venue of the team (interclubes only). */
+    siteId?: number | null
   }
   const tournament = await loadManageableTournament(Number(tournamentId), userId)
 
   await registerCompetitor(
     tournament,
     Number(tournamentCategoryId),
-    (playerIds ?? []).map((id) => Number(id))
+    (playerIds ?? []).map((id) => Number(id)),
+    siteId != null ? Number(siteId) : null
   )
 })

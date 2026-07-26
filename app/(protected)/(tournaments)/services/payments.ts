@@ -1,4 +1,5 @@
 import { DB } from '@neogroup/neorm'
+import { CompetitorData } from '@/app/(protected)/(tournaments)/models/CompetitorData'
 import { PaymentStatus } from '@/app/(protected)/(tournaments)/models/PaymentStatus'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
@@ -25,6 +26,8 @@ export interface CreateRegistrationPaymentInput {
   organization: Organization
   /** Player roster to register once the payment is approved (payer is playerIds[0]). */
   playerIds: number[]
+  /** Type-specific attributes of the competitor to create (interclubes: `{ siteId }`). */
+  data?: CompetitorData | null
   targetCategory: TournamentCategory
   /** Origin used to build the back/notification URLs (e.g. https://club.teamup.ar). */
   origin: string
@@ -37,7 +40,7 @@ export interface CreateRegistrationPaymentInput {
  * its checkout URL (`initPoint`), where the player must be redirected.
  */
 export async function createRegistrationPayment(input: CreateRegistrationPaymentInput): Promise<TournamentPayment> {
-  const { tournament, organization, playerIds, targetCategory, origin } = input
+  const { tournament, organization, playerIds, data = null, targetCategory, origin } = input
   const amount = tournament.entryFee ?? 0
 
   if (!tournament.paid || amount <= 0) {
@@ -60,6 +63,7 @@ export async function createRegistrationPayment(input: CreateRegistrationPayment
   payment.tournamentId = tournament.id
   payment.tournamentCategoryId = targetCategory.id
   payment.playerIds = playerIds
+  payment.data = data
   payment.status = PaymentStatus.PENDING
   payment.amount = amount
   payment.currency = currency
@@ -183,16 +187,19 @@ export async function confirmPaymentFromWebhook(paymentRowId: number, mpPaymentI
   }
 
   try {
-    // Re-validate the current tournament state (payer is playerIds[0]; the
-    // optional partner, when the discipline registers as pairs, is playerIds[1]).
-    const [payerId, partnerId = null] = payment.playerIds
+    // Re-validate the current tournament state from the snapshot taken when the
+    // checkout started: the payer heads the roster (playerIds[0]), the rest are
+    // their partner or team mates, and `data` carries the venue of an
+    // interclubes team.
+    const [payerId, ...mateIds] = payment.playerIds
     const resolved = await resolveRegistration(fullTournament, payerId, {
       tournamentCategoryId: payment.tournamentCategoryId,
-      partnerUserId: partnerId
+      playerIds: mateIds,
+      siteId: payment.data?.siteId ?? null
     })
 
     await DB.transaction(async () => {
-      const competitor = await createCompetitor(resolved.targetCategory.id, resolved.playerIds)
+      const competitor = await createCompetitor(resolved.targetCategory.id, resolved.playerIds, resolved.data)
 
       payment.competitorId = competitor.id
       payment.status = PaymentStatus.APPROVED

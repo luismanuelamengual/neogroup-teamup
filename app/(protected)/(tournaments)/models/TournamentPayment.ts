@@ -1,5 +1,6 @@
 import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
+import { CompetitorData } from '@/app/(protected)/(tournaments)/models/CompetitorData'
 import { PaymentStatus } from '@/app/(protected)/(tournaments)/models/PaymentStatus'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
@@ -30,6 +31,14 @@ export class TournamentPayment extends BaseEntity {
   /** Roster of players this payment registers (payer is playerIds[0]). */
   @Column({ cast: 'array' })
   playerIds!: number[]
+
+  /**
+   * Type-specific attributes of the competitor this payment will create, kept
+   * so the webhook can rebuild the exact registration the player submitted.
+   * Interclubes stores the chosen venue here (`{ siteId }`); null otherwise.
+   */
+  @Column({ cast: 'json' })
+  data!: CompetitorData | null
 
   @Column({ cast: 'number' })
   status!: PaymentStatus

@@ -15,7 +15,6 @@ import MuiSkeleton from '@mui/material/Skeleton'
 import { MouseEvent, useState } from 'react'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 
 interface CategoryCardProps {
   category: CategoryDto
@@ -41,9 +40,6 @@ export default function CategoryCard({ category, onEdit, onDelete }: CategoryCar
         <span className="name">{category.name}</span>
         <div className="tags">
           <Chip size="small" variant="outlined" label={DisciplineNames[category.discipline]} />
-          {category.subDiscipline != null && (
-            <Chip size="small" variant="outlined" label={SubDisciplineNames[category.subDiscipline]} />
-          )}
         </div>
       </div>
       <IconButton

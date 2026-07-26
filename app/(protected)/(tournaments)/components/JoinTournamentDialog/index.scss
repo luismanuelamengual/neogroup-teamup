@@ -42,6 +42,12 @@
       flex-direction: column;
       gap: 8px;
     }
+
+    .team {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
   
     .partner-title {
       font-weight: 600 !important;

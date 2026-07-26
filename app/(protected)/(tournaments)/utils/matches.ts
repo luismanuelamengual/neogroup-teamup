@@ -86,7 +86,10 @@ export function isMatchEditable(
     return false
   }
 
-  if (tournamentType === TournamentType.GROUPS_PLAYOFF && match.groupNumber != null) {
+  if (
+    (tournamentType === TournamentType.GROUPS_PLAYOFF || tournamentType === TournamentType.INTERCLUBS) &&
+    match.groupNumber != null
+  ) {
     const knockoutHasResult = categoryMatches.some(
       (candidate) => candidate.type === MatchType.BRACKET && candidate.status !== MatchStatus.PENDING
     )

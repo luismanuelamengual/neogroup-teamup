@@ -1,4 +1,5 @@
 import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity, HasManyInArray, Serializable } from '@neogroup/neorm'
+import { CompetitorData } from '@/app/(protected)/(tournaments)/models/CompetitorData'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { User } from '@/app/models/User'
@@ -28,6 +29,24 @@ export class Competitor extends BaseEntity {
   @Column({ cast: 'number' })
   seedNumber!: number | null
 
+  /**
+   * Extra, tournament-type-specific attributes of the competitor. Only
+   * interclubes uses it today, to hold the venue the team represents
+   * (`{ siteId }`); every other type leaves it null.
+   */
+  @Column({ cast: 'json' })
+  data!: CompetitorData | null
+
+  /**
+   * Display name of the competitor when it is not simply "its players": an
+   * interclubes team is shown by its venue name ("Alemán", or "Alemán A" /
+   * "Alemán B" when a venue enters several teams in the same category), never
+   * by the concatenation of its N players. Null for every other type, where the
+   * name is derived from the roster.
+   */
+  @Column()
+  label!: string | null
+
   @Column({ cast: 'date' })
   createdAt!: Date
 
@@ -41,8 +60,17 @@ export class Competitor extends BaseEntity {
   @HasManyInArray(() => User, 'playerIds')
   players?: User[]
 
+  /**
+   * Name shown for the competitor. A set `label` (interclubes teams) always
+   * wins over the roster: the whole point of the label is to replace the list
+   * of player names.
+   */
   @Serializable()
   get displayName(): string {
+    if (this.label) {
+      return this.label
+    }
+
     return (this.players ?? [])
       .map((player) => getUserDisplayName(player))
       .filter(Boolean)
@@ -51,6 +79,10 @@ export class Competitor extends BaseEntity {
 
   @Serializable()
   get shortName(): string {
+    if (this.label) {
+      return this.label
+    }
+
     return (this.players ?? [])
       .map((player) => getUserShortName(player))
       .filter(Boolean)

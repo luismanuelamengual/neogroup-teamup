@@ -10,10 +10,14 @@
  *   - 140 player accounts (email "demo{id}@gmail.com", password "123qwe") with realistic names.
  *     (Every tournament draws its own shuffled subset from this same pool, so each tournament's
  *     total players needed — competitorsCount summed across categories, doubled for pair
- *     disciplines like padel or tennis doubles — must not exceed this pool size.)
+ *     disciplines like padel or tennis doubles, or multiplied by TEAM_ROSTER_SIZE for
+ *     interclubes — must not exceed this pool size.)
  *   - A broad catalogue of tournaments exercising every feature of the app:
  *       · every discipline / sub-discipline (padel, tennis singles, tennis doubles)
- *       · every type (league, americano, playoff, groups + playoff)
+ *       · every type (league, americano, playoff, groups + playoff, interclubes)
+ *       · interclubes in each of its derived shapes: the home-and-away league (few teams),
+ *         zones + knockout, a single zone with 4 qualifiers, and two teams sharing a venue
+ *         so their labels come out as "Club X A" / "Club X B"
  *       · playoffs with and without a consolation bracket
  *       · every status (stand_by, ongoing, finished)
  *       · several development phases (just started, mid-round, advanced)
@@ -49,7 +53,7 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 config({ path: '.env' })
 
-import { DB } from '@neogroup/neorm'
+import { DB, Schema } from '@neogroup/neorm'
 import bcrypt from 'bcryptjs'
 import { Organization } from '@/app//models/Organization'
 import { Role } from '@/app//models/Role'
@@ -76,7 +80,9 @@ import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
-import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { assignSiteLabels } from '@/app/(protected)/(tournaments)/services/registrations'
+import { finishTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import {
   getPreclassificationCount,
@@ -87,6 +93,7 @@ import {
   createRound,
   createTournamentCategories,
   getTournamentCategories,
+  isTournamentComplete,
   progressTournamentAfterResult
 } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { assertNotProduction } from './utils/production-guard'
@@ -210,6 +217,12 @@ function randomPhone(): string {
   return `+54 ${area} ${number.slice(0, 4)}-${number.slice(4)}`
 }
 
+/**
+ * Players per interclubes team. The minimum roster is 4, but 5 is seeded so the
+ * generated series can also use the two-doubles-plus-one-single line-up (which
+ * needs five players, since nobody may play twice in the same encounter).
+ */
+const TEAM_ROSTER_SIZE = 5
 const VENUES = [
   'Club Náutico Hacoaj',
   'Polideportivo Municipal',
@@ -357,6 +370,49 @@ function generateScore(format: ScoreFormat, allowWalkover: boolean): MatchScore 
   return { sets: buildSets(format, homeWins) }
 }
 
+/**
+ * Generates a valid interclubes series: three individual matches (one doubles
+ * plus two singles, or two doubles plus one single when both rosters are big
+ * enough), with a different player in each — the rule the score validator
+ * enforces — and a decisive overall result.
+ */
+function generateSeriesScore(format: ScoreFormat, homeRoster: number[], awayRoster: number[]): MatchScore {
+  if (Math.random() < 0.05) {
+    return { walkover: randomSide() }
+  }
+
+  const canDoubleUp = homeRoster.length >= 5 && awayRoster.length >= 5
+  const twoDoubles = canDoubleUp && Math.random() < 0.4
+  const lineups = twoDoubles
+    ? [
+        { double: true, home: homeRoster.slice(0, 2), away: awayRoster.slice(0, 2) },
+        { double: true, home: homeRoster.slice(2, 4), away: awayRoster.slice(2, 4) },
+        { double: false, home: [homeRoster[4]], away: [awayRoster[4]] }
+      ]
+    : [
+        { double: true, home: homeRoster.slice(0, 2), away: awayRoster.slice(0, 2) },
+        { double: false, home: [homeRoster[2]], away: [awayRoster[2]] },
+        { double: false, home: [homeRoster[3]], away: [awayRoster[3]] }
+      ]
+  // 3-0, 2-1, 1-2 or 0-3 — never a tie, a series always has a winner.
+  const homeWins = randomInt(0, 3)
+  const matches = lineups.map((lineup, index) => {
+    const homeWinsThis = index < homeWins
+    const score =
+      format === ScoreFormat.BASIC_COUNT ? basicCountScore(homeWinsThis) : { sets: buildSets(format, homeWinsThis) }
+
+    return {
+      double: lineup.double,
+      homePlayerIds: lineup.home,
+      awayPlayerIds: lineup.away,
+      score,
+      winner: homeWinsThis ? MatchSide.HOME : MatchSide.AWAY
+    }
+  })
+
+  return { home: homeWins, away: matches.length - homeWins, matches }
+}
+
 // ---------------------------------------------------------------------------
 // Competitor registration
 // ---------------------------------------------------------------------------
@@ -365,9 +421,11 @@ async function registerCompetitors(
   tournament: Tournament,
   pool: User[],
   tournamentCategories: TournamentCategory[],
-  competitorCounts: number[]
+  competitorCounts: number[],
+  teamSitesByCategory: (string[] | undefined)[] = []
 ): Promise<void> {
   const isPairs = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
+  const isTeam = registersAsTeam(tournament.type)
   const withPreclassification =
     supportsPreclassification(tournament.type) && tournament.status !== TournamentStatus.STAND_BY
   const players = shuffle(pool)
@@ -387,7 +445,14 @@ async function registerCompetitors(
     for (let i = 0; i < categorySize; i++) {
       const competitor = new Competitor()
 
-      if (isPairs) {
+      if (isTeam) {
+        // A team of a venue: the first player is its captain.
+        competitor.playerIds = Array.from({ length: TEAM_ROSTER_SIZE }, () => players[cursor++].id)
+
+        const siteName = teamSitesByCategory[categoryIndex]?.[i] ?? VENUES[i % VENUES.length]
+
+        competitor.data = { siteId: await resolveSiteId(tournament.organizationId, siteName) }
+      } else if (isPairs) {
         const player = players[cursor++]
         const partner = players[cursor++]
 
@@ -403,6 +468,13 @@ async function registerCompetitors(
       competitor.seedNumber = withPreclassification && i < maxSeeds ? i + 1 : null
       await competitor.save()
     }
+
+    // Team names ("Club X A" / "Club X B") depend on the whole category, so they
+    // are assigned once every team of it is in — by the very same service the
+    // registration endpoints use.
+    if (isTeam) {
+      await assignSiteLabels(categoryId)
+    }
   }
 }
 
@@ -410,9 +482,24 @@ async function registerCompetitors(
 // Tournament engine simulation
 // ---------------------------------------------------------------------------
 
+/** Loads the two teams of an interclubes match and generates a series between them. */
+async function generateSeriesScoreFor(tournament: Tournament, match: Match): Promise<MatchScore> {
+  const competitors = await Competitor.whereIn('id', [
+    ...match.homeCompetitorIds,
+    ...(match.awayCompetitorIds ?? [])
+  ]).get()
+  const home = competitors.find((competitor) => match.homeCompetitorIds.includes(competitor.id))
+  const away = competitors.find((competitor) => (match.awayCompetitorIds ?? []).includes(competitor.id))
+
+  return generateSeriesScore(tournament.scoreFormat, home?.playerIds ?? [], away?.playerIds ?? [])
+}
+
 /** Applies a generated result to a single match and drives the tournament forward. */
 async function playMatch(tournament: Tournament, match: Match): Promise<void> {
-  const score = generateScore(tournament.scoreFormat, true)
+  const score =
+    tournament.type === TournamentType.INTERCLUBS
+      ? await generateSeriesScoreFor(tournament, match)
+      : generateScore(tournament.scoreFormat, true)
   const wasAlreadyResolved = match.status !== MatchStatus.PENDING
 
   if (score.walkover) {
@@ -522,6 +609,12 @@ type OngoingPhase = 'just_started' | 'partial' | 'mid'
 interface CategorySpec {
   category: string | null
   competitorsCount: number
+  /**
+   * Interclubes only: venue of each team, positionally. Repeating a name puts
+   * two teams in the same venue, which is exactly what produces the "Club X A"
+   * / "Club X B" labels. Defaults to one distinct venue per team.
+   */
+  teamSites?: string[]
 }
 
 interface TournamentSpec {
@@ -1078,6 +1171,77 @@ const SPECS: TournamentSpec[] = [
     maxCompetitors: 24,
     settings: { competitorsPerGroup: 5, qualifiersPerGroup: 2 },
     status: TournamentStatus.STAND_BY
+  },
+
+  // ---- Interclubes ----
+  // The format is derived from the number of registered teams, so these four
+  // specs deliberately land on every shape it can take (see utils/interclubs).
+
+  // 3 equipos → zona única de ida y vuelta, en curso.
+  {
+    name: 'Interclubes Zona Chica',
+    description: '3 equipos jugando todos contra todos, ida y vuelta. Cada encuentro se define a 3 partidos.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: null,
+    type: TournamentType.INTERCLUBS,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
+    categories: [
+      {
+        category: null,
+        competitorsCount: 3,
+        // Two teams of the same club, so their labels come out as "A" and "B".
+        teamSites: ['Club Hindú', 'GEBA', 'Club Hindú']
+      }
+    ],
+    settings: {},
+    status: TournamentStatus.ONGOING,
+    phase: 'mid',
+    completedRounds: 2
+  },
+
+  // 11 equipos → 2 zonas (6 y 5) + eliminatoria, en fase de zonas.
+  {
+    name: 'Interclubes Metropolitano',
+    description: '11 equipos repartidos en 2 zonas; clasifican los 2 primeros de cada zona a la eliminatoria.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: null,
+    type: TournamentType.INTERCLUBS,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: [{ category: null, competitorsCount: 11 }],
+    settings: {},
+    status: TournamentStatus.ONGOING,
+    phase: 'mid',
+    completedRounds: 3
+  },
+
+  // 6 equipos → zona única con 4 clasificados (semis + final), finalizado.
+  {
+    name: 'Interclubes Copa Verano',
+    description: '6 equipos en zona única; los 4 primeros disputan semifinales y final.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: null,
+    type: TournamentType.INTERCLUBS,
+    scoreFormat: ScoreFormat.THREE_SETS,
+    categories: [{ category: null, competitorsCount: 6 }],
+    settings: {},
+    status: TournamentStatus.FINISHED
+  },
+
+  // Inscripción abierta, con dos categorías en paralelo.
+  {
+    name: 'Interclubes Apertura 2026',
+    description: 'Inscripción abierta por equipos de sede (mínimo 4 jugadores), en dos categorías.',
+    discipline: Discipline.TENNIS,
+    subDiscipline: null,
+    type: TournamentType.INTERCLUBS,
+    scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
+    categories: [
+      { category: 'Primera', competitorsCount: 5 },
+      { category: 'Segunda', competitorsCount: 4 }
+    ],
+    maxCompetitors: 12,
+    settings: {},
+    status: TournamentStatus.STAND_BY
   }
 ]
 
@@ -1133,9 +1297,7 @@ async function buildTournament(
 
   // Resolve (and create on demand) the named categories of this tournament.
   const categoryIds =
-    categoryNames.length > 0
-      ? await resolveCategoryIds(organizationId, spec.discipline, subDiscipline, categoryNames)
-      : null
+    categoryNames.length > 0 ? await resolveCategoryIds(organizationId, spec.discipline, categoryNames) : null
   const tournament = new Tournament()
 
   tournament.organizationId = organizationId
@@ -1167,7 +1329,13 @@ async function buildTournament(
     spec.maxCompetitors ?? totalCompetitors
   )
 
-  await registerCompetitors(tournament, pool, tournamentCategories, competitorCounts)
+  await registerCompetitors(
+    tournament,
+    pool,
+    tournamentCategories,
+    competitorCounts,
+    spec.categories.map((category) => category.teamSites)
+  )
 
   if (spec.status === TournamentStatus.STAND_BY) {
     return
@@ -1179,7 +1347,20 @@ async function buildTournament(
 
   if (spec.status === TournamentStatus.FINISHED) {
     await playFullRounds(tournament, 60)
-    // Grant the configured ranking points (only effective for category tournaments).
+
+    // Playing every match does NOT finish a tournament: finalisation is an
+    // explicit step (the organizer's button, or the processTournaments cron once
+    // isTournamentComplete). Without it a seeded "finished" tournament would
+    // stay ONGOING forever, which is what used to happen here. finishTournament
+    // awards the configured ranking points as part of the same transaction.
+    if (await isTournamentComplete(tournament)) {
+      await finishTournament(tournament)
+
+      return
+    }
+
+    // Could not be played to the end (shouldn't happen): still grant the points
+    // so the ranking demo data is not empty.
     await awardRankingPoints(tournament.id)
 
     return
@@ -1250,10 +1431,14 @@ async function seedDemoRankings(organizationId: number, players: User[]): Promis
 /**
  * Wipes every record that belongs to the "demo" organization so the script
  * can be run any number of times. Only rows scoped to `organizationId` — or
- * transitively hanging off them (tournament categories, competitors, rounds,
- * matches, payments, users, their tokens/statistics) — are removed. The
- * `organizations` row itself and every other organization's data are left
- * untouched.
+ * transitively hanging off them (tournament categories, competitors, matches,
+ * payments, users, their tokens/statistics) — are removed. The `organizations`
+ * row itself and every other organization's data are left untouched.
+ *
+ * The former `rounds` table is handled defensively: migration 004 folded it
+ * into `matches` and dropped it, but a database that was migrated before that
+ * (or where 004 exited early because `matches.roundNumber` already existed) can
+ * still have it around, so it is only cleaned when it is actually there.
  */
 async function clearDemoOrganizationData(organizationId: number): Promise<void> {
   await DB.transaction(async () => {
@@ -1273,7 +1458,11 @@ async function clearDemoOrganizationData(organizationId: number): Promise<void> 
     // Children of the tournament_categories instances.
     if (tournamentCategoryIds.length > 0) {
       await DB.table('matches').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
-      await DB.table('rounds').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
+
+      if (await Schema.hasTable('rounds')) {
+        await DB.table('rounds').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
+      }
+
       await DB.table('competitors').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
     }
 

@@ -12,14 +12,18 @@ import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import SeriesScoreFields, { SeriesPlayer } from '@/app/(protected)/(tournaments)/components/SeriesScoreFields'
+import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
+import { SeriesMatchScore } from '@/app/(protected)/(tournaments)/models/SeriesMatchScore'
 import { SetScore } from '@/app/(protected)/(tournaments)/models/SetScore'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { getSeriesMatchesWon, isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
 
 interface ScoreDialogProps {
   open: boolean
@@ -39,17 +43,40 @@ const EMPTY_SET_INPUTS: SetInput[] = [
 ]
 
 export default function ScoreDialog({ open, tournament, match, saving = false, onClose, onSave }: ScoreDialogProps) {
-  const competitorNames = Object.fromEntries((tournament.competitors ?? []).map((c) => [c.id, c.displayName]))
+  const competitorsById = useMemo(
+    () => new Map((tournament.competitors ?? []).map((competitor) => [competitor.id, competitor])),
+    [tournament.competitors]
+  )
   const scoreFormat = tournament.scoreFormat
-  const homeName = match?.homeCompetitorIds.map((id) => competitorNames[id] ?? '').join(' / ')
-  const awayName = (match?.awayCompetitorIds ?? []).map((id) => competitorNames[id] ?? '').join(' / ')
+  const isInterclubs = tournament.type === TournamentType.INTERCLUBS
+  const homeName = match?.homeCompetitorIds.map((id) => competitorsById.get(id)?.displayName ?? '').join(' / ')
+  const awayName = (match?.awayCompetitorIds ?? []).map((id) => competitorsById.get(id)?.displayName ?? '').join(' / ')
   const initialScore = match?.score ?? null
   const [walkover, setWalkover] = useState(false)
   const [walkoverWinner, setWalkoverWinner] = useState<MatchSide>(MatchSide.HOME)
   const [sets, setSets] = useState<SetInput[]>(EMPTY_SET_INPUTS)
   const [homeCount, setHomeCount] = useState('')
   const [awayCount, setAwayCount] = useState('')
+  const [seriesMatches, setSeriesMatches] = useState<SeriesMatchScore[]>([])
   const [invalid, setInvalid] = useState(false)
+  // Interclubes teams field their players by name, so the pickers need the
+  // roster of each side: `playerIds` and `players` are parallel, in roster order.
+  const homeTeam = match ? competitorsById.get(match.homeCompetitorIds[0]) : undefined
+  const awayTeam = match?.awayCompetitorIds ? competitorsById.get(match.awayCompetitorIds[0]) : undefined
+  const rosterOf = useCallback(
+    (competitor: CompetitorDto | undefined): SeriesPlayer[] =>
+      (competitor?.playerIds ?? []).map((id, index) => {
+        const player = competitor?.players?.[index]
+        const name = [player?.firstName, player?.lastName].filter(Boolean).join(' ')
+
+        return { id, name: name || player?.email || `#${id}` }
+      }),
+    []
+  )
+  const homePlayers = useMemo(() => rosterOf(homeTeam), [homeTeam, rosterOf])
+  const awayPlayers = useMemo(() => rosterOf(awayTeam), [awayTeam, rosterOf])
+  const seriesScore = useMemo<MatchScore>(() => ({ matches: seriesMatches }), [seriesMatches])
+  const seriesResult = getSeriesMatchesWon(seriesScore)
 
   useEffect(() => {
     if (!open) {
@@ -85,6 +112,8 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
 
     if (walkover) {
       score = { walkover: walkoverWinner }
+    } else if (isInterclubs) {
+      score = seriesScore
     } else if (usesSets) {
       const parsedSets: SetScore[] = sets.map((s) => ({
         home: s.home === '' ? 0 : Number(s.home),
@@ -99,7 +128,13 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
       }
     }
 
-    if (!isValidScore(score, scoreFormat)) {
+    if (
+      !isValidScore(score, scoreFormat, {
+        type: tournament.type,
+        homePlayerIds: homeTeam?.playerIds,
+        awayPlayerIds: awayTeam?.playerIds
+      })
+    ) {
       setInvalid(true)
 
       return
@@ -112,15 +147,30 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
     scoreFormat === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && index === 2 ? 'Super tiebreak' : `Set ${index + 1}`
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Resultado</DialogTitle>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth={isInterclubs ? 'sm' : 'xs'}>
+      <DialogTitle>{isInterclubs ? 'Resultado del encuentro' : 'Resultado'}</DialogTitle>
       <DialogContent className="score-dialog">
-        {invalid && <Alert severity="error">El resultado ingresado no es válido</Alert>}
+        {invalid && (
+          <Alert severity="error">
+            {isInterclubs
+              ? 'El resultado no es válido: cargá los 3 partidos (un dobles y dos singles, o dos dobles y un single) con jugadores distintos en cada uno.'
+              : 'El resultado ingresado no es válido'}
+          </Alert>
+        )}
         <div className="header">
           <span className="competitor home">{homeName}</span>
-          <span className="vs">vs</span>
+          {isInterclubs && !walkover ? (
+            <span className="series-result">{`${seriesResult.home} - ${seriesResult.away}`}</span>
+          ) : (
+            <span className="vs">vs</span>
+          )}
           <span className="competitor away">{awayName}</span>
         </div>
+        {isInterclubs && !walkover && (
+          <span className="series-hint">
+            Local a la izquierda. Se juegan 3 partidos y cada jugador disputa uno solo.
+          </span>
+        )}
         <FormControlLabel
           control={<Switch checked={walkover} onChange={(event) => setWalkover(event.target.checked)} />}
           label="W.O. (no se presentó)"
@@ -136,6 +186,17 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
               <FormControlLabel value={MatchSide.AWAY} control={<Radio />} label={awayName} />
             </RadioGroup>
           </div>
+        ) : isInterclubs ? (
+          <SeriesScoreFields
+            format={scoreFormat}
+            homeName={homeName ?? ''}
+            awayName={awayName ?? ''}
+            homePlayers={homePlayers}
+            awayPlayers={awayPlayers}
+            initialScore={initialScore}
+            resetKey={open}
+            onChange={setSeriesMatches}
+          />
         ) : usesSets ? (
           <div className="sets">
             {sets.map((set, index) => (

@@ -14,6 +14,14 @@
     box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
   }
 
+  &.clickable {
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-primary);
+    }
+  }
+
   .sides {
     display: flex;
     flex-direction: column;
@@ -59,15 +67,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-
-    &.clickable {
-      cursor: pointer;
-
-      &:hover {
-        text-decoration: underline;
-        color: var(--color-primary);
-      }
-    }
   }
 
   .bye {

@@ -148,7 +148,7 @@ Rules baked into `app/(protected)/(users)/services/users.ts`:
 Two more administrator-only ABMs, built exactly like the users one (`withAdmin` endpoints, a `*Browser` component with search + pagination and a `*FormDialog`), reachable from `/sites` and `/categories`:
 
 - **Sedes** (`app/(protected)/(sites)`, table `sites`: `id`, `organizationId`, `name`) — the venues a tournament can be played at. They replaced the free-text `tournaments.location` column, where the same club ended up spelled in as many ways as organizers there were; migration `008-sites` creates a site per distinct location and repoints every tournament at it through `tournaments.siteId`.
-- **Categorías** (`app/(protected)/(categories)`, on the existing `categories` table) — the category catalogue, scoped to a discipline and, for tennis only, a sub-discipline. Categories used to be created on the fly from the tournament form, which split the rankings of a single category across near-duplicates ("4ta", "Cuarta", "4TA").
+- **Categorías** (`app/(protected)/(categories)`, on the existing `categories` table) — the category catalogue, scoped to a **discipline** and nothing else. Categories used to be created on the fly from the tournament form, which split the rankings of a single category across near-duplicates ("4ta", "Cuarta", "4TA"). A category is a *division* ("Primera", "4ta"), not a modality: tennis categories used to carry a sub-discipline, but an interclubes encounter is played partly in singles and partly in doubles, so singles-vs-doubles belongs to the tournament (and to each match), never to the category — see migration `010-categories-drop-subdiscipline`, which also merges the categories that only differed by modality.
 
 Both refuse to delete a row that is already in use (a site assigned to a tournament, a category used by a tournament or holding ranking points), and both reject duplicate names case-insensitively.
 
@@ -212,14 +212,31 @@ Imports are always absolute via the `@/` alias (enforced by ESLint), e.g. `impor
 ## Domain notes
 
 - **Roles**: each user is an Administrator, an Organizer or a Player (`roleId`), assigned once — at registration, at `/select-role` on the first login, or by an administrator from `/users` — and not switchable by the user. Administrators don't take part in the competition: they only manage the organization's users.
-- **Tournament types** (`TournamentType`): league (round robin), americano and americano with partner swapping per round, playoff (knockout bracket), playoff with consolation bracket, and groups + playoff (round-robin groups feeding a knockout stage).
-- **Disciplines**: padel (always doubles) or tennis (singles or doubles via `subDiscipline`).
+- **Tournament types** (`TournamentType`): league (round robin), americano and americano with partner swapping per round, playoff (knockout bracket), playoff with consolation bracket, groups + playoff (round-robin groups feeding a knockout stage), and **interclubes** (see below).
+- **Disciplines**: padel (always doubles) or tennis (singles or doubles via `subDiscipline`; interclubes is the exception — it is tennis-only and mixes both, so it stores no `subDiscipline`).
 - **Catalogues**: the **sedes** (venues) and **categorías** a tournament uses are organization-wide catalogues maintained by the administrator; organizers only pick from them (see "Catalogues administration").
-- **Score formats**: 3 sets, 2 sets + super tiebreak, or a basic counter. Walkovers (W.O.) are supported everywhere.
+- **Score formats**: 3 sets, 2 sets + super tiebreak, or a basic counter. Walkovers (W.O.) are supported everywhere. Interclubes stores a richer payload in the same `matches.score` column (see below).
 - The organizer starts the tournament, closes each round once all results are loaded and opens the next one; pairings are computed automatically based on the tournament type. `GET /api/processTournaments` (a Vercel Cron job, see `vercel.json`, secured by `CRON_SECRET`) auto-starts scheduled tournaments at the organization's local time.
-- Players register from the tournament page (or via the shared WhatsApp link `/tournaments/:id/join`), choosing a platform user or a free-text name as partner in doubles disciplines.
+- Players register from the tournament page (or via the shared WhatsApp link `/tournaments/:id/join`), choosing a platform user or a free-text name as partner in doubles disciplines. Interclubes registers whole teams instead (see below).
 - Avatars come from Gravatar based on the account email.
 - The app is installable as a **PWA** (Serwist service worker, offline fallback at `/~offline`, web manifest) — see `app/sw.ts` and `app/(public)/(pages)`.
+
+## Interclubes tournaments
+
+`TournamentType.INTERCLUBS` is **tennis-only**, the one type where competitors are **teams of a venue** rather than a player or a pair, and where the organizer configures no format at all: everything below is derived. It is also the only tennis format with no modality — an encounter mixes singles and doubles, so `subDiscipline` stays null (which is why the tournament form asks for the type *before* the modality, and hides the latter here). The rules live in `app/(protected)/(tournaments)/utils/interclubs.ts` (pure, shared by server and client) and are explained to organizers and players in a notice on the tournament page.
+
+**Registration.** A team registers with a **sede** (`sites`) and **4 players minimum**. The person registering is the team captain and plays like anyone else. The venue is stored in the new `competitors.data` JSONB (`{ siteId }`) and the team is displayed through the new `competitors.label`: the venue name, or the venue name plus a letter when that venue enters more than one team in the same **tournament category** ("Alemán A", "Alemán B"). Labels are relative to each other, so `assignSiteLabels()` recomputes the whole category on every register / unregister / move — the first team goes back to a plain "Alemán" when its sibling leaves. `Competitor.displayName` / `shortName` return the label when set, so every list, bracket and table shows it without changes. Two teams of the same venue in *different* categories keep the same plain name.
+
+**Format, derived from the number of teams** (`resolveInterclubsFormat`):
+
+- **2 to 4 teams** → a single zone played **home and away** (everybody meets everybody twice). No knockout: the table decides the title.
+- **more than 4** → zones of 4 plus a knockout. The zone count is `floor(teams / 4)` and the leftovers are spread over them, so zones *grow* instead of multiplying (11 teams → 2 zones of 6 and 5, not 3 of 4/4/3 — unlike groups+playoff, which targets a group size with a ceil division). Zones play a single round robin. The **top 2 of each zone** advance, except when everybody fits in a single zone, where the **top 4** do so there is still a semifinals + final to decide the title.
+
+**Home advantage (localía).** Playing at home is not the same as playing away, so the round-robin circle method only decides *who* meets whom; who *hosts* is decided by `assignLocality`, for every match of the tournament including the knockout: (1) if the two clubs already met, the localía is inverted; (2) otherwise the club that has hosted fewer times hosts; (3) ties are broken by a hash of the matchup rather than `Math.random()`, because the engine deletes and rebuilds rounds when an earlier result is corrected and real randomness would silently swap the venue of unrelated matches.
+
+**Series scores.** An encounter is always **3 individual matches** — one doubles + two singles, or two doubles + one single — and **a player may only play one of them** (hence the 4-player minimum, and 5 for the two-doubles line-up). They are stored in the existing JSONB `matches.score` as `{ home, away, matches: [...] }`, where `home`/`away` is the series result (3-0, 2-1, …) and each entry of `matches` carries its type, the players of each side, its own result in the tournament's score format and its winner. `isValidScore` enforces all of it when the tournament type is interclubes (rosters included), and the score dialog only offers players who are still free.
+
+**Standings.** No configurable points: **Pts** = encounters won, then **DP** (difference of individual matches), then **DS** (difference of sets), then the head-to-head between the tied teams. `rankInterclubs` is shared by the standings table and the knockout seeding, so what the table shows and who advances can never disagree.
 
 ## Registration payments (Mercado Pago)
 

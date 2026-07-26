@@ -2,16 +2,53 @@ import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SetScore } from '@/app/(protected)/(tournaments)/models/SetScore'
+import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { INTERCLUBS_SERIES_MATCHES } from '@/app/(protected)/(tournaments)/utils/interclubs'
 
 /** Number of set inputs shown for each score format. */
 export function getSetsCount(format: ScoreFormat): number {
   return format === ScoreFormat.THREE_SETS || format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK ? 3 : 0
 }
 
+/**
+ * True when a score holds an interclubes series (three individual matches)
+ * rather than a single result. The shape is the discriminator: a series always
+ * carries its `matches` array, and nothing else ever does.
+ */
+export function isSeriesScore(score: MatchScore | null | undefined): boolean {
+  return !!score && Array.isArray(score.matches) && score.matches.length > 0
+}
+
+/** Individual matches won by each side in a series. */
+export function getSeriesMatchesWon(score: MatchScore): { home: number; away: number } {
+  const result = { home: 0, away: 0 }
+
+  for (const match of score.matches ?? []) {
+    if (match.winner === MatchSide.HOME) {
+      result.home++
+    } else if (match.winner === MatchSide.AWAY) {
+      result.away++
+    }
+  }
+
+  return result
+}
+
 /** Computes the winning side of a score, or null when it cannot be determined. */
 export function getScoreWinner(score: MatchScore, format: ScoreFormat): MatchSide | null {
   if (score.walkover) {
     return score.walkover
+  }
+
+  // An interclubes series is won by whoever took most of its three matches.
+  if (isSeriesScore(score)) {
+    const matches = getSeriesMatchesWon(score)
+
+    if (matches.home === matches.away) {
+      return null
+    }
+
+    return matches.home > matches.away ? MatchSide.HOME : MatchSide.AWAY
   }
 
   if (format === ScoreFormat.BASIC_COUNT) {
@@ -48,6 +85,18 @@ export function getScoreWinner(score: MatchScore, format: ScoreFormat): MatchSid
 
 /** Counts sets won by each side (sets formats only). */
 export function getSetsWon(score: MatchScore): { home: number; away: number } {
+  // A series has no sets of its own: its sets are those of its three matches.
+  if (isSeriesScore(score)) {
+    return (score.matches ?? []).reduce(
+      (total, match) => {
+        const sets = getSetsWon(match.score)
+
+        return { home: total.home + sets.home, away: total.away + sets.away }
+      },
+      { home: 0, away: 0 }
+    )
+  }
+
   const result = { home: 0, away: 0 }
 
   for (const set of score.sets ?? []) {
@@ -65,6 +114,17 @@ export function getSetsWon(score: MatchScore): { home: number; away: number } {
  *  For TWO_SETS_SUPER_TIEBREAK, the super tiebreak (3rd set) is excluded because it counts
  *  as a set win rather than individual games. */
 export function getGamesWon(score: MatchScore, format: ScoreFormat): { home: number; away: number } {
+  if (isSeriesScore(score)) {
+    return (score.matches ?? []).reduce(
+      (total, match) => {
+        const games = getGamesWon(match.score, format)
+
+        return { home: total.home + games.home, away: total.away + games.away }
+      },
+      { home: 0, away: 0 }
+    )
+  }
+
   if (format === ScoreFormat.BASIC_COUNT) {
     return { home: score.home ?? 0, away: score.away ?? 0 }
   }
@@ -100,8 +160,101 @@ function isValidSuperTiebreak(set: SetScore): boolean {
   return (hi === 10 && lo <= 8) || (hi > 10 && hi - lo === 2)
 }
 
+/**
+ * Extra information `isValidScore` needs beyond the raw payload. Only
+ * interclubes uses it: its scores must BE a series (a plain 6-3 6-4 is not a
+ * valid result for an encounter), and the players of each individual match must
+ * come from the right team.
+ */
+export interface ScoreContext {
+  type?: TournamentType
+  /** Roster of the home competitor, when known. */
+  homePlayerIds?: number[]
+  /** Roster of the away competitor, when known. */
+  awayPlayerIds?: number[]
+}
+
+/**
+ * Validates the three individual matches of an interclubes series.
+ *
+ * Rules, all of them from how interclubes is actually played:
+ *  - exactly three matches, either 1 doubles + 2 singles or 2 doubles + 1 single;
+ *  - a doubles fields 2 players per side, a single 1;
+ *  - **a player may only play one of the three matches** — whoever plays the
+ *    single is not available for the doubles and vice versa (which is why a
+ *    team needs at least 4 players, and 5 for the two-doubles line-up);
+ *  - every player must belong to the team they play for (when the rosters are
+ *    known);
+ *  - each individual result must be valid for the tournament's score format and
+ *    produce a winner.
+ *
+ * A walkover at series level (`score.walkover`) short-circuits all of this: the
+ * encounter was not played at all.
+ */
+export function isValidSeriesScore(score: MatchScore, format: ScoreFormat, context: ScoreContext = {}): boolean {
+  if (score.walkover) {
+    return score.walkover === MatchSide.HOME || score.walkover === MatchSide.AWAY
+  }
+
+  const matches = score.matches ?? []
+
+  if (matches.length !== INTERCLUBS_SERIES_MATCHES) {
+    return false
+  }
+
+  const doublesCount = matches.filter((match) => match.double).length
+
+  // 3 doubles or 3 singles is not an interclubes encounter.
+  if (doublesCount !== 1 && doublesCount !== 2) {
+    return false
+  }
+
+  const usedHome = new Set<number>()
+  const usedAway = new Set<number>()
+
+  for (const match of matches) {
+    const expectedPlayers = match.double ? 2 : 1
+    const sides: [number[], Set<number>, number[] | undefined][] = [
+      [match.homePlayerIds ?? [], usedHome, context.homePlayerIds],
+      [match.awayPlayerIds ?? [], usedAway, context.awayPlayerIds]
+    ]
+
+    for (const [playerIds, used, roster] of sides) {
+      if (playerIds.length !== expectedPlayers || new Set(playerIds).size !== expectedPlayers) {
+        return false
+      }
+
+      for (const playerId of playerIds) {
+        if (used.has(playerId)) {
+          return false
+        }
+
+        if (roster && !roster.includes(playerId)) {
+          return false
+        }
+
+        used.add(playerId)
+      }
+    }
+
+    if (!isValidScore(match.score, format)) {
+      return false
+    }
+
+    if (getScoreWinner(match.score, format) !== match.winner) {
+      return false
+    }
+  }
+
+  return getScoreWinner(score, format) !== null
+}
+
 /** Validates a score payload for the given format before persisting it. */
-export function isValidScore(score: MatchScore, format: ScoreFormat): boolean {
+export function isValidScore(score: MatchScore, format: ScoreFormat, context: ScoreContext = {}): boolean {
+  if (context.type === TournamentType.INTERCLUBS) {
+    return isValidSeriesScore(score, format, context)
+  }
+
   if (score.walkover) {
     return score.walkover === MatchSide.HOME || score.walkover === MatchSide.AWAY
   }
@@ -165,7 +318,24 @@ export function isValidScore(score: MatchScore, format: ScoreFormat): boolean {
   return getScoreWinner(score, format) !== null
 }
 
-/** Formats a score for display (e.g. "6-3 4-6 10-7" or "6-19" or "W.O."). */
+/**
+ * Prepares a score for storage. For an interclubes series it fills in the
+ * overall scoreline (`home` / `away` = individual matches won by each side) so
+ * the stored JSON is self-contained — `{ home: 2, away: 1, matches: [...] }` —
+ * and anything reading the column knows the series result without replaying the
+ * three matches. Every other score is stored as it comes.
+ */
+export function normalizeScore(score: MatchScore): MatchScore {
+  if (!isSeriesScore(score)) {
+    return score
+  }
+
+  const matches = getSeriesMatchesWon(score)
+
+  return { ...score, home: matches.home, away: matches.away }
+}
+
+/** Formats a score for display (e.g. "6-3 4-6 10-7", "6-19", "2-1" or "W.O."). */
 export function formatScore(score: MatchScore | null, format: ScoreFormat): string {
   if (!score) {
     return ''
@@ -173,6 +343,13 @@ export function formatScore(score: MatchScore | null, format: ScoreFormat): stri
 
   if (score.walkover) {
     return 'W.O.'
+  }
+
+  // A series is shown by its own scoreline (individual matches won).
+  if (isSeriesScore(score)) {
+    const matches = getSeriesMatchesWon(score)
+
+    return `${matches.home}-${matches.away}`
   }
 
   if (format === ScoreFormat.BASIC_COUNT) {

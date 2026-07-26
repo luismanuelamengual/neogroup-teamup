@@ -15,6 +15,7 @@ import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
+import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
@@ -23,9 +24,11 @@ import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { assignSiteLabels } from '@/app/(protected)/(tournaments)/services/registrations'
 import { finishTournament, startTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { INTERCLUBS_MIN_TEAM_PLAYERS } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
-import { getScoreWinner, isValidScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { getScoreWinner, isValidScore, normalizeScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { isTournamentComplete, progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { Organization } from '@/app/models/Organization'
 import { User } from '@/app/models/User'
@@ -35,6 +38,8 @@ import migration004 from '@/database/migrations/004-drop-rounds-denormalize-matc
 import migration005 from '@/database/migrations/005-reconcile-matches-position-instance'
 import migration006 from '@/database/migrations/006-matches-score-jsonb'
 import migration008 from '@/database/migrations/008-sites'
+import migration009 from '@/database/migrations/009-interclubs'
+import migration010 from '@/database/migrations/010-categories-drop-subdiscipline'
 
 const TABLES = [
   'tournament_payments',
@@ -112,6 +117,11 @@ export async function resetDatabase(): Promise<void> {
   // 008 creates the sites catalogue and swaps tournaments.location for a
   // tournaments.siteId pointing at it.
   await migration008.up()
+  // 009 adds competitors.data / competitors.label (interclubes teams) and
+  // tournament_payments.data.
+  await migration009.up()
+  // 010 drops categories.subDiscipline: categories are scoped by discipline only.
+  await migration010.up()
 
   const organization = new Organization()
 
@@ -169,12 +179,11 @@ export async function createUser(organizationId = 1): Promise<number> {
 export async function createCategory(
   organizationId = 1,
   name = 'Test Category',
-  discipline: Discipline = Discipline.PADEL,
-  subDiscipline: SubDiscipline | null = null
+  discipline: Discipline = Discipline.PADEL
 ): Promise<number> {
   const category = new Category()
 
-  Object.assign(category, { organizationId, name, discipline, subDiscipline })
+  Object.assign(category, { organizationId, name, discipline })
   await category.save()
 
   return category.id
@@ -199,6 +208,17 @@ export interface CreateTournamentOptions {
   /** Number of competitors when no explicit categories are given. */
   competitors?: number
   /**
+   * Players per competitor. Interclubes competitors are teams, so they default
+   * to 4 (the minimum roster); every other type keeps a single player.
+   */
+  playersPerCompetitor?: number
+  /**
+   * Venue name of each competitor, positionally (interclubes). Repeating a name
+   * puts two teams in the same venue, which is what makes the labels come out
+   * as "Alemán A" / "Alemán B". Defaults to one distinct venue per team.
+   */
+  sites?: string[]
+  /**
    * Per-category competitor counts. When provided, one real category instance is
    * created per entry. When omitted, a single category (categoryId = null) holds
    * `competitors` players.
@@ -215,6 +235,8 @@ export interface BuiltTournament {
   categoryIds: number[]
   competitorIds: number[]
   ownerId: number
+  /** Roster of every competitor, keyed by competitor id (teams for interclubes). */
+  rosterByCompetitorId: Map<number, number[]>
 }
 
 /** Builds a STAND_BY tournament with its category instances and competitors. */
@@ -245,7 +267,14 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
 
   const categoryIds: number[] = []
   const competitorIds: number[] = []
+  const rosterByCompetitorId = new Map<number, number[]>()
   const perCategory = options.categories ?? [options.competitors ?? 0]
+  const isTeamTournament = options.type === TournamentType.INTERCLUBS
+  const playersPerCompetitor = options.playersPerCompetitor ?? (isTeamTournament ? INTERCLUBS_MIN_TEAM_PLAYERS : 1)
+  // Venues are only created for team tournaments; by default every team gets
+  // its own, so labels stay unambiguous unless a test asks otherwise.
+  const siteIdByName = new Map<string, number>()
+  let competitorIndex = 0
 
   for (let categoryIndex = 0; categoryIndex < perCategory.length; categoryIndex++) {
     const count = perCategory[categoryIndex]
@@ -259,8 +288,7 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
       Object.assign(catalogue, {
         organizationId,
         name: `Category ${categoryIndex + 1}`,
-        discipline: options.discipline ?? Discipline.PADEL,
-        subDiscipline: options.subDiscipline ?? null
+        discipline: options.discipline ?? Discipline.PADEL
       })
       await catalogue.save()
       catalogueCategoryId = catalogue.id
@@ -277,13 +305,33 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
     categoryIds.push(category.id)
 
     for (let i = 0; i < count; i++) {
-      const userId = await createUser(organizationId)
+      const playerIds: number[] = []
+
+      for (let player = 0; player < playersPerCompetitor; player++) {
+        playerIds.push(await createUser(organizationId))
+      }
+
       const competitor = new Competitor()
       const seed = perCategory.length === 1 ? (options.seeds?.[i] ?? null) : null
+      let data: { siteId: number } | null = null
+
+      if (isTeamTournament) {
+        const siteName = options.sites?.[competitorIndex] ?? `Sede ${competitorIndex + 1}`
+        let siteId = siteIdByName.get(siteName)
+
+        if (siteId === undefined) {
+          siteId = await createSite(organizationId, siteName)
+          siteIdByName.set(siteName, siteId)
+        }
+
+        data = { siteId }
+      }
 
       Object.assign(competitor, {
         tournamentCategoryId: category.id,
-        playerIds: [userId],
+        playerIds,
+        data,
+        label: null,
         // A pre-set seed in the harness models an organizer-assigned manual
         // seed — the only way a competitor has a non-null seedNumber before a
         // tournament starts — so autoAssignPreclassification treats it as
@@ -293,10 +341,18 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
       })
       await competitor.save()
       competitorIds.push(competitor.id)
+      rosterByCompetitorId.set(competitor.id, playerIds)
+      competitorIndex++
+    }
+
+    // Team labels ("Alemán A" / "Alemán B") are assigned by the real service,
+    // the same one the registration endpoints call.
+    if (isTeamTournament) {
+      await assignSiteLabels(category.id)
     }
   }
 
-  return { tournament, categoryIds, competitorIds, ownerId }
+  return { tournament, categoryIds, competitorIds, ownerId, rosterByCompetitorId }
 }
 
 /** Reloads a tournament (without the org scope) with relations. */
@@ -374,7 +430,21 @@ export async function setResult(matchId: number, score: MatchScore): Promise<voi
     throw Object.assign(new Error('roundClosed'), { apiCode: 'roundClosed' })
   }
 
-  if (!isValidScore(score, tournament.scoreFormat)) {
+  // Same validation context the route builds: interclubes series are checked
+  // against the two teams' rosters.
+  const participants = await Competitor.withoutGlobalScopes()
+    .whereIn('id', [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])])
+    .get()
+  const homeRoster = participants.find((competitor) => match.homeCompetitorIds.includes(competitor.id))
+  const awayRoster = participants.find((competitor) => (match.awayCompetitorIds ?? []).includes(competitor.id))
+
+  if (
+    !isValidScore(score, tournament.scoreFormat, {
+      type: tournament.type,
+      homePlayerIds: homeRoster?.playerIds,
+      awayPlayerIds: awayRoster?.playerIds
+    })
+  ) {
     throw Object.assign(new Error('invalidScore'), { apiCode: 'invalidScore' })
   }
 
@@ -385,7 +455,7 @@ export async function setResult(matchId: number, score: MatchScore): Promise<voi
     match.status = MatchStatus.WALKOVER
     match.winner = score.walkover
   } else {
-    match.score = score
+    match.score = normalizeScore(score)
     match.status = MatchStatus.PLAYED
     match.winner = getScoreWinner(score, tournament.scoreFormat)
   }
@@ -585,6 +655,38 @@ export function homeWinScore(format: ScoreFormat): MatchScore {
   }
 }
 
+/**
+ * A valid interclubes series between two teams: one doubles plus two singles,
+ * with a different player in each match (the rule the validator enforces), and
+ * `homeWins` of the three going to the home side.
+ *
+ * Rosters must hold at least 4 players — exactly the reason the minimum roster
+ * is 4: the doubles takes two players per side and the two singles one each.
+ */
+export function seriesScore(
+  format: ScoreFormat,
+  homeRoster: number[],
+  awayRoster: number[],
+  homeWins: number
+): MatchScore {
+  const lineups: { double: boolean; homePlayerIds: number[]; awayPlayerIds: number[] }[] = [
+    { double: true, homePlayerIds: homeRoster.slice(0, 2), awayPlayerIds: awayRoster.slice(0, 2) },
+    { double: false, homePlayerIds: [homeRoster[2]], awayPlayerIds: [awayRoster[2]] },
+    { double: false, homePlayerIds: [homeRoster[3]], awayPlayerIds: [awayRoster[3]] }
+  ]
+  const matches = lineups.map((lineup, index) => {
+    const homeWinsThis = index < homeWins
+
+    return {
+      ...lineup,
+      score: homeWinsThis ? homeWinScore(format) : awayWinScore(format),
+      winner: homeWinsThis ? MatchSide.HOME : MatchSide.AWAY
+    }
+  })
+
+  return { home: homeWins, away: matches.length - homeWins, matches }
+}
+
 /** A decisive score (away wins). */
 export function awayWinScore(format: ScoreFormat): MatchScore {
   switch (format) {
@@ -627,6 +729,7 @@ export async function playToCompletion(
   const format = built.tournament.scoreFormat
   const decide = options.decide ?? (() => 'home' as const)
   const maxIterations = options.maxIterations ?? 5000
+  const isInterclubs = built.tournament.type === TournamentType.INTERCLUBS
   let resolved = 0
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
@@ -653,7 +756,18 @@ export async function playToCompletion(
 
     for (const match of pending) {
       const side = decide(match)
-      const score = side === 'home' ? homeWinScore(format) : awayWinScore(format)
+      const score = isInterclubs
+        ? seriesScore(
+            format,
+            built.rosterByCompetitorId.get(match.homeCompetitorIds[0]) ?? [],
+            built.rosterByCompetitorId.get((match.awayCompetitorIds ?? [])[0]) ?? [],
+            // 3-0 / 0-3: decisive either way, and it keeps the individual-match
+            // differential meaningful in the standings.
+            side === 'home' ? 3 : 0
+          )
+        : side === 'home'
+          ? homeWinScore(format)
+          : awayWinScore(format)
 
       await setResult(match.id, score)
       resolved++

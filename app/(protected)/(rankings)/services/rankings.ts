@@ -2,7 +2,6 @@ import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
 import { computeCategoryPlacements } from '@/app/(protected)/(rankings)/utils/placements'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { getTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { Tournament } from '../../(tournaments)/models/Tournament'
@@ -136,8 +135,6 @@ export interface RankingBrowseOptions {
   categoryId?: number | null
   /** Restrict by discipline (used when no specific category is selected). */
   discipline?: Discipline | null
-  /** Restrict by sub-discipline (tennis). */
-  subDiscipline?: SubDiscipline | null
   page?: number
   pageSize?: number
 }
@@ -145,18 +142,16 @@ export interface RankingBrowseOptions {
 /**
  * Paginated ranking board: sums every still-valid award per player for the
  * requested category (or, when none is given, for every category of the
- * requested discipline / sub-discipline) and returns the players ordered by
- * total points. Pagination is applied on the server.
+ * requested discipline) and returns the players ordered by total points.
+ * Pagination is applied on the server.
  */
 export async function getRankings({
   categoryId = null,
   discipline = null,
-  subDiscipline = null,
   page = 1,
   pageSize = 20
 }: RankingBrowseOptions): Promise<PaginatedResponse<RankingEntryDto[]>> {
   const rankings = await Ranking.with('category', 'user').get()
-  const sub = subDiscipline ?? null
   const totals = new Map<number, RankingEntryDto>()
 
   for (const ranking of rankings) {
@@ -167,7 +162,7 @@ export async function getRankings({
         continue
       }
     } else if (discipline != null) {
-      if (!category || category.discipline !== discipline || (category.subDiscipline ?? null) !== sub) {
+      if (!category || category.discipline !== discipline) {
         continue
       }
     }

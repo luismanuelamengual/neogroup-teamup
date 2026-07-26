@@ -7,8 +7,16 @@ import {
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
+import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
 import { Tournament } from '../../(tournaments)/models/Tournament'
+
+/**
+ * Stage keys the top of a bracket-less standings table maps to, in order: the
+ * league winner is the champion, the runner-up is the "finalist", and the next
+ * two are placed as "semifinalists".
+ */
+const LEAGUE_STAGE_KEYS = ['winner', 'finalist', 'semifinalist', 'semifinalist']
 
 /** A competitor together with the placement key it finished a category in. */
 export interface CompetitorPlacement {
@@ -27,6 +35,9 @@ export interface CompetitorPlacement {
  *    round is from the final (final → `finalist`, semis → `semifinalist`, ...).
  *  - Playoff with consolation: the same, plus the consolation bracket placed
  *    with the `consolation_` prefix.
+ *  - Interclubes: the knockout mapping above, except for the small home-and-away
+ *    variant (2–4 teams), which has no bracket at all and is placed from its
+ *    final standings onto the same stage keys.
  */
 export function computeCategoryPlacements(tournament: Tournament, tournamentCategoryId: number): CompetitorPlacement[] {
   const scheme = getRankingScheme(tournament.type)
@@ -41,6 +52,15 @@ export function computeCategoryPlacements(tournament: Tournament, tournamentCate
   const placements: CompetitorPlacement[] = []
 
   placements.push(...computeBracketPlacements(tournament, tournamentCategoryId, MatchType.BRACKET, false))
+
+  // A bracket-less interclubes (2–4 teams, played home and away) still has a
+  // champion and a runner-up: read them off the standings so the configured
+  // ranking points are awarded all the same.
+  if (placements.length === 0 && tournament.type === TournamentType.INTERCLUBS) {
+    return computeStandings(tournament, tournamentCategoryId)
+      .slice(0, LEAGUE_STAGE_KEYS.length)
+      .map((row, index) => ({ competitorId: row.competitorId, placementKey: LEAGUE_STAGE_KEYS[index] }))
+  }
 
   if (scheme === RankingScheme.KNOCKOUT_WITH_CONSOLATION) {
     placements.push(...computeBracketPlacements(tournament, tournamentCategoryId, MatchType.CONSOLATION_BRACKET, true))

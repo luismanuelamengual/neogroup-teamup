@@ -118,6 +118,57 @@ function fmt(value: unknown): string {
   }
 }
 
+/** What `expect(promise).resolves` exposes: `toThrow`, plus its own `not` chain. */
+interface ResolvesAssertion {
+  toThrow(expected?: string | RegExp): Promise<void>
+  readonly not: ResolvesAssertion
+}
+
+/**
+ * Builds the `expect(promise).resolves[.not].toThrow()` chain. `not` has to be
+ * re-exposed here (rather than only on Assertion) because it is written AFTER
+ * `.resolves`, so by then the plain Assertion is out of the chain.
+ */
+function buildResolvesAssertion(actual: unknown, negated: boolean): ResolvesAssertion {
+  return {
+    async toThrow(expected?: string | RegExp): Promise<void> {
+      let threw = false
+      let error: unknown = null
+
+      try {
+        await (typeof actual === 'function' ? (actual as Fn)() : actual)
+      } catch (e) {
+        threw = true
+        error = e
+      }
+
+      if (negated) {
+        if (threw) {
+          throw new Error(`expected promise not to throw but it threw ${fmt(String(error))}`)
+        }
+
+        return
+      }
+
+      if (!threw) {
+        throw new Error('expected promise to throw, but it resolved')
+      }
+
+      if (expected) {
+        const msg = error instanceof Error ? error.message : String(error)
+        const ok = expected instanceof RegExp ? expected.test(msg) : msg.includes(expected)
+
+        if (!ok) {
+          throw new Error(`expected error "${msg}" to match ${fmt(expected)}`)
+        }
+      }
+    },
+    get not(): ResolvesAssertion {
+      return buildResolvesAssertion(actual, !negated)
+    }
+  }
+}
+
 class Assertion {
   constructor(
     private actual: unknown,
@@ -220,6 +271,16 @@ class Assertion {
         throw new Error(`expected error "${msg}" to match ${fmt(expected)}`)
       }
     }
+  }
+
+  /**
+   * Vitest's `expect(promise).resolves.*`. Only `.toThrow()` is modelled — in
+   * practice always as `.resolves.not.toThrow()`, the "this must not blow up"
+   * assertion — so the returned object carries its own `not` to keep that chain
+   * working (unlike `.not`, which is an Assertion-level modifier).
+   */
+  get resolves(): ResolvesAssertion {
+    return buildResolvesAssertion(this.actual, this.negated)
   }
 
   get rejects() {

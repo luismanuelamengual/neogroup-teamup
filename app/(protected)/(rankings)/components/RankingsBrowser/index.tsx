@@ -11,7 +11,6 @@ import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import MessagePanel from '@/app/components/MessagePanel'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
@@ -20,13 +19,11 @@ const PAGE_SIZE = 10
 export default function RankingsBrowser() {
   const { getRankings } = useRankings()
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
-  const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [entries, setEntries] = useState<RankingEntryDto[]>([])
   const [page, setPage] = useState(1)
   const [pageCount, setPageCount] = useState(1)
-  const sub = discipline === Discipline.TENNIS ? subDiscipline : null
   // A ranking is always read for one category, so the selector's first option is
   // preselected as soon as the catalogue of the current discipline is loaded.
   const handleCategoriesLoaded = useCallback((options: CategoryDto[]) => {
@@ -41,7 +38,7 @@ export default function RankingsBrowser() {
   useEffect(() => {
     setCategoryId(null)
     setLoadingCategories(true)
-  }, [discipline, sub])
+  }, [discipline])
 
   // Reset to the first page whenever the category filter changes.
   useEffect(() => {
@@ -58,7 +55,6 @@ export default function RankingsBrowser() {
 
     const { data, lastPage } = await getRankings({
       discipline,
-      subDiscipline: sub,
       categoryId,
       page,
       pageSize: PAGE_SIZE
@@ -66,7 +62,7 @@ export default function RankingsBrowser() {
 
     setEntries(data)
     setPageCount(lastPage)
-  }, [discipline, sub, categoryId, page])
+  }, [discipline, categoryId, page])
 
   return (
     <div className="rankings-browser">
@@ -85,27 +81,10 @@ export default function RankingsBrowser() {
             </MenuItem>
           ))}
         </TextField>
-        {discipline === Discipline.TENNIS && (
-          <TextField
-            select
-            size="small"
-            label="Modalidad"
-            value={subDiscipline}
-            onChange={(event) => setSubDiscipline(Number(event.target.value) as SubDiscipline)}
-            className="filter"
-          >
-            {SubDisciplines.map((value) => (
-              <MenuItem key={value} value={value}>
-                {SubDisciplineNames[value]}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
         <CategorySelector
           value={categoryId}
           onChange={setCategoryId}
           discipline={discipline}
-          subDiscipline={sub}
           onOptionsChange={handleCategoriesLoaded}
           label="Categoría"
           required

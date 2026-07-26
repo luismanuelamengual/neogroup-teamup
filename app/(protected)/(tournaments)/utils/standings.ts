@@ -1,14 +1,156 @@
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
+import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/StandingsRowDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSeriesMatchesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { Tournament } from '../models/Tournament'
 import { TournamentDto } from '../models/TournamentDto'
+
+/** Minimal match shape the interclubes ranking needs. Both `Match` and `MatchDto` satisfy it. */
+export interface RankableMatch {
+  homeCompetitorIds: number[]
+  awayCompetitorIds: number[] | null
+  status: MatchStatus
+  winner: MatchSide | null
+  score: MatchScore | null
+}
+
+/** Blank interclubes stats row. */
+function emptyInterclubsRow(competitorId: number): StandingsRowDto {
+  return {
+    competitorId,
+    displayName: '',
+    shortName: '',
+    played: 0,
+    won: 0,
+    setsWon: 0,
+    setsLost: 0,
+    subMatchesWon: 0,
+    subMatchesLost: 0,
+    points: 0
+  }
+}
+
+/**
+ * Ranks interclubes competitors from their played series.
+ *
+ * The ladder, in order:
+ *  1. **Ptos** — encounters (series) won. Nothing else earns points: winning
+ *     3-0 or 2-1 is worth exactly the same.
+ *  2. **DP** — difference of individual matches won and lost, which is what
+ *     separates two teams that won the same number of encounters.
+ *  3. **DS** — same idea one level down, on sets.
+ *  4. Head-to-head between the tied teams.
+ *
+ * A series settled by walkover counts as a win but contributes no individual
+ * matches or sets to either side — the same convention the league standings
+ * already use for a walkover's sets, since nothing was actually played.
+ *
+ * It is deliberately shared by the standings table and the knockout seeding
+ * (`rankGroup`), so what the table shows and who advances can never disagree.
+ */
+export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]): StandingsRowDto[] {
+  const rows = new Map(competitorIds.map((id) => [id, emptyInterclubsRow(id)]))
+
+  const addTo = (ids: number[] | null, updater: (row: StandingsRowDto) => void) => {
+    for (const id of ids ?? []) {
+      const row = rows.get(id)
+
+      if (row) {
+        updater(row)
+      }
+    }
+  }
+
+  for (const match of matches) {
+    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      continue
+    }
+
+    const score = match.score ?? {}
+    const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
+    const subMatches = isWalkover ? { home: 0, away: 0 } : getSeriesMatchesWon(score)
+    const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
+
+    addTo(match.homeCompetitorIds, (row) => {
+      row.played++
+      row.subMatchesWon = (row.subMatchesWon ?? 0) + subMatches.home
+      row.subMatchesLost = (row.subMatchesLost ?? 0) + subMatches.away
+      row.setsWon = (row.setsWon ?? 0) + sets.home
+      row.setsLost = (row.setsLost ?? 0) + sets.away
+
+      if (match.winner === MatchSide.HOME) {
+        row.won++
+        row.points++
+      }
+    })
+    addTo(match.awayCompetitorIds, (row) => {
+      row.played++
+      row.subMatchesWon = (row.subMatchesWon ?? 0) + subMatches.away
+      row.subMatchesLost = (row.subMatchesLost ?? 0) + subMatches.home
+      row.setsWon = (row.setsWon ?? 0) + sets.away
+      row.setsLost = (row.setsLost ?? 0) + sets.home
+
+      if (match.winner === MatchSide.AWAY) {
+        row.won++
+        row.points++
+      }
+    })
+  }
+
+  /** 1 when idA beat idB in a direct encounter, -1 when idB won, 0 otherwise. */
+  const headToHead = (idA: number, idB: number): number => {
+    for (const match of matches) {
+      if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+        continue
+      }
+
+      const homeHasA = match.homeCompetitorIds.includes(idA)
+      const homeHasB = match.homeCompetitorIds.includes(idB)
+      const awayHasA = match.awayCompetitorIds.includes(idA)
+      const awayHasB = match.awayCompetitorIds.includes(idB)
+
+      if ((homeHasA && awayHasB) || (homeHasB && awayHasA)) {
+        if (match.winner === MatchSide.HOME) {
+          return homeHasA ? 1 : -1
+        }
+
+        if (match.winner === MatchSide.AWAY) {
+          return awayHasA ? 1 : -1
+        }
+      }
+    }
+
+    return 0
+  }
+
+  return [...rows.values()].sort((a, b) => {
+    if (b.points !== a.points) {
+      return b.points - a.points
+    }
+
+    const subDiffA = (a.subMatchesWon ?? 0) - (a.subMatchesLost ?? 0)
+    const subDiffB = (b.subMatchesWon ?? 0) - (b.subMatchesLost ?? 0)
+
+    if (subDiffB !== subDiffA) {
+      return subDiffB - subDiffA
+    }
+
+    const setDiffA = (a.setsWon ?? 0) - (a.setsLost ?? 0)
+    const setDiffB = (b.setsWon ?? 0) - (b.setsLost ?? 0)
+
+    if (setDiffB !== setDiffA) {
+      return setDiffB - setDiffA
+    }
+
+    return headToHead(b.competitorId, a.competitorId)
+  })
+}
 
 /**
  * Computes the standings table from the resolved matches of a tournament.
@@ -29,7 +171,11 @@ export function computeStandings(
     return []
   }
 
-  // Groups+playoff: only the round-robin group phase (a specific group) has standings.
+  const isInterclubs = tournament.type === TournamentType.INTERCLUBS
+  // Groups+playoff: only the round-robin group phase (a specific group) has
+  // standings. Interclubes is the same when it plays zones, but its small
+  // variant is a single league whose lane carries no group index — so, unlike
+  // groups+playoff, a null groupNumber is a legitimate table there.
   const isGroups = tournament.type === TournamentType.GROUPS_PLAYOFF
 
   if (isGroups && groupNumber == null) {
@@ -56,11 +202,35 @@ export function computeStandings(
     }
   }
 
-  const competitors = isGroups
-    ? allCompetitors.filter((c) => groupCompetitorIds.has(c.id))
-    : category != null
-      ? allCompetitors.filter((c) => c.tournamentCategoryId === category)
-      : allCompetitors
+  // An interclubes zone ranks only the teams that play in it, exactly like a
+  // groups+playoff group.
+  if (isInterclubs && groupNumber != null) {
+    for (const match of matches) {
+      match.homeCompetitorIds.forEach((id) => groupCompetitorIds.add(id))
+      match.awayCompetitorIds?.forEach((id) => groupCompetitorIds.add(id))
+    }
+  }
+
+  const competitors =
+    isGroups || (isInterclubs && groupNumber != null)
+      ? allCompetitors.filter((c) => groupCompetitorIds.has(c.id))
+      : category != null
+        ? allCompetitors.filter((c) => c.tournamentCategoryId === category)
+        : allCompetitors
+
+  // Interclubes has its own ladder (encounters won → individual matches → sets),
+  // with no configurable points at all.
+  if (isInterclubs) {
+    return rankInterclubs(
+      competitors.map((competitor) => competitor.id),
+      matches
+    ).map((row) => {
+      const competitor = competitors.find((entry) => entry.id === row.competitorId)
+
+      return { ...row, displayName: competitor?.displayName ?? '', shortName: competitor?.shortName ?? '' }
+    })
+  }
+
   // Groups score like a league (sets + match wins).
   // AMERICANO_WITH_SWAP scores the same as AMERICANO.
   const rawType = isGroups ? TournamentType.LEAGUE : tournament.type

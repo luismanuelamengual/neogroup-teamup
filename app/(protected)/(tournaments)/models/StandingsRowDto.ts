@@ -9,5 +9,11 @@ export interface StandingsRowDto {
   setsLost?: number
   gamesWon?: number
   gamesLost?: number
+  /**
+   * Interclubes only: individual matches (of the three played in every series)
+   * won and lost. They are what separates two teams on the same points.
+   */
+  subMatchesWon?: number
+  subMatchesLost?: number
   points: number
 }

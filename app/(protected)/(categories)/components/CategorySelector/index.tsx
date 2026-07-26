@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react'
 import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 
 /** Shown in place of the helper text when the organization has no categories for the filters. */
 const EMPTY_MESSAGE = 'No hay ninguna categoría cargada, pídele a un administrador que cree alguna categoría'
@@ -15,8 +14,6 @@ const EMPTY_MESSAGE = 'No hay ninguna categoría cargada, pídele a un administr
 interface BaseCategorySelectorProps {
   /** Discipline whose categories are offered. */
   discipline: Discipline
-  /** Sub-discipline (tennis only); null for every other discipline. */
-  subDiscipline?: SubDiscipline | null
   label?: string
   /** Option shown for "no category" (single selection only, and only when not required). */
   emptyLabel?: string
@@ -50,11 +47,11 @@ export type CategorySelectorProps = SingleCategorySelectorProps | MultipleCatego
  * Reusable selector of the categories of the organization, maintained by the
  * administrator in the /categories ABM.
  *
- * The options are the categories of the given discipline + sub-discipline (a
- * category belongs to exactly one pair), reloaded whenever those change. While
- * they load, and when nothing matches, the field renders disabled with an
- * explanatory message: categories are no longer invented from the tournament
- * form, they are picked from the catalogue.
+ * The options are the categories of the given discipline (a category belongs to
+ * exactly one), reloaded whenever it changes. While they load, and when nothing
+ * matches, the field renders disabled with an explanatory message: categories
+ * are no longer invented from the tournament form, they are picked from the
+ * catalogue.
  *
  * Set `multiple` to let the user pick several at once (the tournament form
  * does); `value` is then a list of ids instead of a single one.
@@ -62,7 +59,6 @@ export type CategorySelectorProps = SingleCategorySelectorProps | MultipleCatego
 export default function CategorySelector(props: CategorySelectorProps) {
   const {
     discipline,
-    subDiscipline = null,
     label = 'Categorías',
     emptyLabel = 'Sin categoría',
     excludedIds,
@@ -82,7 +78,7 @@ export default function CategorySelector(props: CategorySelectorProps) {
     let cancelled = false
 
     setLoading(true)
-    getCategories(discipline, subDiscipline)
+    getCategories(discipline)
       .then((options) => {
         if (!cancelled) {
           setCategories(options)
@@ -101,7 +97,7 @@ export default function CategorySelector(props: CategorySelectorProps) {
     return () => {
       cancelled = true
     }
-  }, [discipline, getCategories, onOptionsChange, subDiscipline])
+  }, [discipline, getCategories, onOptionsChange])
 
   const options = excludedIds?.length ? categories.filter((category) => !excludedIds.includes(category.id)) : categories
   const isEmpty = !loading && options.length === 0

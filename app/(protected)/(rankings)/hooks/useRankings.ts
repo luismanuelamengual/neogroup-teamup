@@ -9,17 +9,12 @@ import { RankingFilters } from '../models/RankingFilters'
 export function useRankings() {
   const executeRequest = useRequests()
   const getRankings = useCallback(
-    ({
-      categoryId = null,
-      discipline = null,
-      subDiscipline = null,
-      page = 1,
-      pageSize = 20
-    }: RankingFilters = {}): Promise<PaginatedResponse<RankingEntryDto[]>> =>
+    ({ categoryId = null, discipline = null, page = 1, pageSize = 20 }: RankingFilters = {}): Promise<
+      PaginatedResponse<RankingEntryDto[]>
+    > =>
       executeRequest<PaginatedResponse<RankingEntryDto[]>>('/getRankings', {
         categoryId,
         discipline,
-        subDiscipline,
         page,
         pageSize
       }),
