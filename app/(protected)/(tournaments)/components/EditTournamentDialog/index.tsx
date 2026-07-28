@@ -8,6 +8,8 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogContentText from '@mui/material/DialogContentText'
 import DialogTitle from '@mui/material/DialogTitle'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
@@ -44,6 +46,7 @@ export default function EditTournamentDialog({
   const [startTime, setStartTime] = useState<Dayjs | null>(
     tournament.startTime ? dayjs(`2000-01-01T${tournament.startTime}`) : null
   )
+  const [allowPlayerSetScore, setAllowPlayerSetScore] = useState(tournament.allowPlayerSetScore)
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -56,6 +59,7 @@ export default function EditTournamentDialog({
       setSiteId(tournament.siteId ?? null)
       setStartDate(tournament.startDate ? dayjs(tournament.startDate) : null)
       setStartTime(tournament.startTime ? dayjs(`2000-01-01T${tournament.startTime}`) : null)
+      setAllowPlayerSetScore(tournament.allowPlayerSetScore)
     }
   }, [open, tournament])
 
@@ -69,7 +73,8 @@ export default function EditTournamentDialog({
         image,
         siteId,
         startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
-        startTime: startTime ? startTime.format('HH:mm') : null
+        startTime: startTime ? startTime.format('HH:mm') : null,
+        allowPlayerSetScore
       })
       onSaved()
     } catch (requestError) {}
@@ -120,6 +125,12 @@ export default function EditTournamentDialog({
             ampm={false}
           />
         </LocalizationProvider>
+        <FormControlLabel
+          control={
+            <Switch checked={allowPlayerSetScore} onChange={(event) => setAllowPlayerSetScore(event.target.checked)} />
+          }
+          label="Permitir que los jugadores carguen el resultado de sus partidos"
+        />
       </DialogContent>
       <DialogActions className="actions">
         <Button

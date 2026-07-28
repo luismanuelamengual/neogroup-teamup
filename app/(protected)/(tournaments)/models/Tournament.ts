@@ -74,6 +74,10 @@ export class Tournament extends BaseEntity {
   @Column()
   currency!: string
 
+  /** When true, a player taking part in a match may submit its result themselves. Otherwise only the organizer can. */
+  @Column({ cast: 'boolean' })
+  allowPlayerSetScore!: boolean
+
   @Column({ cast: 'date' })
   createdAt!: Date
 

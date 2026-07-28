@@ -16,6 +16,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
+import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -75,6 +76,7 @@ export default function TournamentForm() {
   const [maxCompetitors, setMaxCompetitors] = useState(16)
   const [paid, setPaid] = useState(false)
   const [entryFee, setEntryFee] = useState<number | null>(null)
+  const [allowPlayerSetScore, setAllowPlayerSetScore] = useState(false)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
   const [playoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
@@ -171,6 +173,7 @@ export default function TournamentForm() {
         paid,
         entryFee: paid ? (entryFee ?? 0) : null,
         currency: 'ARS',
+        allowPlayerSetScore,
         rankingSettings,
         settings:
           type === TournamentType.LEAGUE
@@ -487,6 +490,30 @@ export default function TournamentForm() {
               </div>
             </>
           )}
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion disableGutters elevation={0} className="section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
+          <Typography variant="subtitle1" className="title">
+            Resultados
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
+          <FormControlLabel
+            control={
+              <Switch
+                checked={allowPlayerSetScore}
+                onChange={(event) => setAllowPlayerSetScore(event.target.checked)}
+              />
+            }
+            label="Permitir que los jugadores carguen el resultado de sus partidos"
+          />
+          <Alert severity="info">
+            {allowPlayerSetScore
+              ? 'Cualquiera de los jugadores de un partido podrá cargar o editar su resultado, además del organizador.'
+              : 'Solo el organizador podrá cargar los resultados de los partidos.'}
+          </Alert>
         </AccordionDetails>
       </Accordion>
 

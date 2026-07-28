@@ -31,6 +31,7 @@ import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { getScoreWinner, isValidScore, normalizeScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { isTournamentComplete, progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { Organization } from '@/app/models/Organization'
+import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'
 import migration002 from '@/database/migrations/002-competitors-player-ids'
@@ -41,6 +42,7 @@ import migration008 from '@/database/migrations/008-sites'
 import migration009 from '@/database/migrations/009-interclubs'
 import migration010 from '@/database/migrations/010-categories-drop-subdiscipline'
 import migration011 from '@/database/migrations/011-organizations-enabled-disciplines'
+import migration012 from '@/database/migrations/012-tournaments-allow-player-set-score'
 
 const TABLES = [
   'tournament_payments',
@@ -125,6 +127,8 @@ export async function resetDatabase(): Promise<void> {
   await migration010.up()
   // 011 adds organizations.enabledDisciplines (defaults to every discipline).
   await migration011.up()
+  // 012 adds tournaments.allowPlayerSetScore (defaults to false).
+  await migration012.up()
 
   const organization = new Organization()
 
@@ -162,13 +166,14 @@ export async function createOrganization(): Promise<number> {
 let userSeq = 0
 
 /** Creates a throwaway user row (FK target for owners / competitors). */
-export async function createUser(organizationId = 1): Promise<number> {
+export async function createUser(organizationId = 1, roleId: Role | null = null): Promise<number> {
   userSeq++
   const user = new User()
 
   Object.assign(user, {
     organizationId,
     email: `user${userSeq}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.dev`,
+    roleId,
     active: true,
     emailVerified: true,
     createdAt: new Date()
@@ -231,6 +236,8 @@ export interface CreateTournamentOptions {
   seeds?: (number | null)[]
   organizationId?: number
   startDate?: string
+  /** Whether participants (not just the owner) may submit their own match results. Defaults to false. */
+  allowPlayerSetScore?: boolean
 }
 
 export interface BuiltTournament {
@@ -245,7 +252,9 @@ export interface BuiltTournament {
 /** Builds a STAND_BY tournament with its category instances and competitors. */
 export async function buildTournament(options: CreateTournamentOptions): Promise<BuiltTournament> {
   const organizationId = options.organizationId ?? 1
-  const ownerId = await createUser(organizationId)
+  // Real tournaments are only ever created by an organizer (the /tournaments/new
+  // page guards on Role.ORGANIZER), so the harness-built owner has that role too.
+  const ownerId = await createUser(organizationId, Role.ORGANIZER)
   const tournament = new Tournament()
 
   Object.assign(tournament, {
@@ -263,6 +272,7 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
     siteId: null,
     settings: options.settings ?? {},
     rankingSettings: null,
+    allowPlayerSetScore: options.allowPlayerSetScore ?? false,
     createdAt: new Date(),
     updatedAt: new Date()
   })

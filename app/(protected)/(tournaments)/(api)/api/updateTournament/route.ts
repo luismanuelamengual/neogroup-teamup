@@ -53,6 +53,10 @@ export const POST = withAuth(async (request, _context, _userId, organizationId) 
     }
   }
 
+  if (input.allowPlayerSetScore !== undefined) {
+    tournament.allowPlayerSetScore = Boolean(input.allowPlayerSetScore)
+  }
+
   tournament.updatedAt = new Date()
   await tournament.save()
   await setTournamentImage(tournament.id, image)

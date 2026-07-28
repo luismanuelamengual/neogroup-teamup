@@ -36,6 +36,8 @@ import {
 } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
+import { Role } from '@/app/models/Role'
+import { User } from '@/app/models/User'
 
 export interface TournamentOptions {
   id?: number
@@ -223,6 +225,7 @@ export async function createTournament(
   tournament.paid = Boolean(input.paid)
   tournament.entryFee = input.paid && input.entryFee && input.entryFee > 0 ? input.entryFee : null
   tournament.currency = input.currency?.trim() || 'ARS'
+  tournament.allowPlayerSetScore = Boolean(input.allowPlayerSetScore)
   tournament.settings = settings
   // Ranking points only apply to tournaments that define categories.
   tournament.rankingSettings =
@@ -437,10 +440,13 @@ export async function processTournaments(now: Date = new Date()): Promise<Proces
 
 /**
  * Saves (or edits) a match result on behalf of `userId` and drives the tournament
- * forward. Allowed for the tournament owner and for players taking part in the
- * match, while the match is editable. Throws an ApiException when the match is
- * not in an editable state, the caller is not allowed to submit the result, or
- * the score is invalid.
+ * forward. Always allowed for any organizer of the tournament's organization
+ * (not just its owner/creator) — mirrors the "any organizer can administer any
+ * tournament" rule used across the rest of the app. Players taking part in the
+ * match may also submit the result, but only when the tournament has
+ * `allowPlayerSetScore` enabled. The match must also be editable. Throws an
+ * ApiException when the match is not in an editable state, the caller is not
+ * allowed to submit the result, or the score is invalid.
  */
 export async function setMatchResult(matchId: number, score: MatchScore, userId: number): Promise<void> {
   const match = await Match.where('id', matchId).with('tournamentCategory.tournament').first()
@@ -464,14 +470,20 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
     throw new ApiException('roundClosed')
   }
 
-  const isOwner = tournament.ownerId === userId
+  // Any organizer of the organization may set a result for any of its
+  // tournaments — not just the specific tournament's owner/creator.
+  const caller = await User.where('id', userId).first()
+  const isOrganizer = caller?.roleId === Role.ORGANIZER
   const participants = await Competitor.whereIn('id', [
     ...match.homeCompetitorIds,
     ...(match.awayCompetitorIds ?? [])
   ]).get()
 
-  if (!isOwner) {
-    const isParticipant = participants.some((competitor) => competitor.playerIds.includes(userId))
+  if (!isOrganizer) {
+    // Players may only submit their own match result when the tournament opts
+    // into it via `allowPlayerSetScore`; otherwise only an organizer can.
+    const isParticipant =
+      tournament.allowPlayerSetScore && participants.some((competitor) => competitor.playerIds.includes(userId))
 
     if (!isParticipant) {
       throw new ApiException('unauthorized')
