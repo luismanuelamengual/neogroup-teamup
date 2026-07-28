@@ -2,7 +2,8 @@ import { DB } from '@neogroup/neorm'
 import { CategoryFilters } from '@/app/(protected)/(categories)/models/CategoryFilters'
 import { CategoryInput } from '@/app/(protected)/(categories)/models/CategoryInput'
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
-import { Discipline, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
 import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 
@@ -22,16 +23,32 @@ import { PaginatedResponse } from '@/app/models/PaginatedResponse'
  * of the category (see migration 010).
  */
 
-/** Validates and normalizes the fields of a category. */
-function normalizeInput(input: CategoryInput): { name: string; discipline: Discipline } {
+/**
+ * Validates and normalizes the fields of a category.
+ *
+ * `currentDiscipline` is the discipline the category already has (omitted for
+ * a brand-new one). It is what lets a category grandfathered into a since-disabled
+ * discipline keep being renamed: the enabled-catalogue check only applies when
+ * `input.discipline` is an actual new choice — a new category, or moving an
+ * existing one elsewhere — never to a value that isn't changing.
+ */
+async function normalizeInput(
+  organizationId: number,
+  input: CategoryInput,
+  currentDiscipline?: Discipline
+): Promise<{ name: string; discipline: Discipline }> {
   const name = (input.name ?? '').trim()
 
   if (!name) {
     throw new ApiException('El nombre de la categoría es obligatorio')
   }
 
-  if (!Disciplines.includes(input.discipline)) {
-    throw new ApiException('La disciplina seleccionada no es válida')
+  if (input.discipline !== currentDiscipline) {
+    const enabledDisciplines = await getEnabledDisciplines(organizationId)
+
+    if (!enabledDisciplines.includes(input.discipline)) {
+      throw new ApiException('La disciplina seleccionada no está habilitada para esta organización')
+    }
   }
 
   return { name, discipline: input.discipline }
@@ -91,7 +108,7 @@ export async function getManagedCategories(
 
 /** Creates a category of the organization. */
 export async function createCategory(organizationId: number, input: CategoryInput): Promise<Category> {
-  const normalized = normalizeInput(input)
+  const normalized = await normalizeInput(organizationId, input)
 
   await assertNameIsAvailable(organizationId, normalized)
 
@@ -119,7 +136,7 @@ export async function updateCategory(
   input: CategoryInput
 ): Promise<Category> {
   const category = await findCategory(organizationId, categoryId)
-  const normalized = normalizeInput(input)
+  const normalized = await normalizeInput(organizationId, input, category.discipline)
 
   if (normalized.discipline !== category.discipline && (await countCategoryReferences(category.id)) > 0) {
     throw new ApiException(

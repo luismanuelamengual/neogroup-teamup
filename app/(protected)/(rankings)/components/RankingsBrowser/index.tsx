@@ -1,16 +1,15 @@
 'use client'
 
 import './index.scss'
-import MenuItem from '@mui/material/MenuItem'
 import Pagination from '@mui/material/Pagination'
-import TextField from '@mui/material/TextField'
 import { useCallback, useEffect, useState } from 'react'
 import CategorySelector from '@/app/(protected)/(categories)/components/CategorySelector'
 import RankingCard, { RankingCardSkeleton } from '@/app/(protected)/(rankings)/components/RankingCard'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
+import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import MessagePanel from '@/app/components/MessagePanel'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
@@ -67,20 +66,7 @@ export default function RankingsBrowser() {
   return (
     <div className="rankings-browser">
       <div className="filters">
-        <TextField
-          select
-          size="small"
-          label="Disciplina"
-          value={discipline}
-          onChange={(event) => setDiscipline(Number(event.target.value) as Discipline)}
-          className="filter"
-        >
-          {Disciplines.map((value) => (
-            <MenuItem key={value} value={value}>
-              {DisciplineNames[value]}
-            </MenuItem>
-          ))}
-        </TextField>
+        <DisciplineSelector value={discipline} onChange={setDiscipline} size="small" className="filter" />
         <CategorySelector
           value={categoryId}
           onChange={setCategoryId}

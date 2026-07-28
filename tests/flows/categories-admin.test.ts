@@ -8,6 +8,7 @@ import {
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { Organization } from '@/app/models/Organization'
 import { buildTournament, createOrganization, resetDatabase } from '@/tests/setup/harness'
 
 const ORGANIZATION_ID = 1
@@ -72,6 +73,33 @@ describe('categories administration', () => {
     const { data } = await getManagedCategories(ORGANIZATION_ID)
 
     expect(data[0].name).toBe('4ta')
+  })
+
+  it('rejects a discipline the organization has disabled, but keeps grandfathering an existing category into it', async () => {
+    const category = await createCategory(ORGANIZATION_ID, { name: 'Cuarta', discipline: Discipline.PADEL })
+    // The organization drops padel — only tennis stays enabled.
+    const organization = await Organization.where('id', ORGANIZATION_ID).first()
+
+    organization!.enabledDisciplines = [Discipline.TENNIS]
+    await organization!.save()
+
+    // A brand-new category can no longer be created in the now-disabled discipline.
+    await expect(createCategory(ORGANIZATION_ID, { name: 'Quinta', discipline: Discipline.PADEL })).rejects.toThrow(
+      'no está habilitada'
+    )
+
+    // Renaming the existing padel category *without* touching its (now
+    // disabled) discipline must keep working — it is the same category under
+    // a better name, same rule as one already referenced by a tournament.
+    await updateCategory(ORGANIZATION_ID, category.id, { name: '4ta', discipline: Discipline.PADEL })
+
+    expect((await getManagedCategories(ORGANIZATION_ID)).data[0].name).toBe('4ta')
+
+    // Actively moving it to a *different* discipline the organization doesn't
+    // offer is still rejected.
+    await expect(
+      updateCategory(ORGANIZATION_ID, category.id, { name: '4ta', discipline: 99 as Discipline })
+    ).rejects.toThrow('no está habilitada')
   })
 
   it('does not reach a category of another organization', async () => {

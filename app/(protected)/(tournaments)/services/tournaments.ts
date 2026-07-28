@@ -18,6 +18,7 @@ import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
+import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
@@ -133,6 +134,12 @@ export async function createTournament(
 
   if (!input.startDate || !input.maxCompetitors || input.maxCompetitors < 2) {
     throw new ApiException('missingFields')
+  }
+
+  const enabledDisciplines = await getEnabledDisciplines(organizationId)
+
+  if (!enabledDisciplines.includes(input.discipline)) {
+    throw new ApiException('La disciplina seleccionada no está habilitada para esta organización')
   }
 
   if (input.paid && (!input.entryFee || input.entryFee <= 0)) {

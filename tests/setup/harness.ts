@@ -40,6 +40,7 @@ import migration006 from '@/database/migrations/006-matches-score-jsonb'
 import migration008 from '@/database/migrations/008-sites'
 import migration009 from '@/database/migrations/009-interclubs'
 import migration010 from '@/database/migrations/010-categories-drop-subdiscipline'
+import migration011 from '@/database/migrations/011-organizations-enabled-disciplines'
 
 const TABLES = [
   'tournament_payments',
@@ -122,6 +123,8 @@ export async function resetDatabase(): Promise<void> {
   await migration009.up()
   // 010 drops categories.subDiscipline: categories are scoped by discipline only.
   await migration010.up()
+  // 011 adds organizations.enabledDisciplines (defaults to every discipline).
+  await migration011.up()
 
   const organization = new Organization()
 

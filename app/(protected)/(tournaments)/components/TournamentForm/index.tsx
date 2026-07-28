@@ -37,11 +37,12 @@ import {
   RankingSettings
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
+import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
 import TournamentImageField from '@/app/(protected)/(tournaments)/components/TournamentImageField'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
@@ -56,7 +57,7 @@ export default function TournamentForm() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [image, setImage] = useState<string | null>(null)
-  const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
+  const [discipline, setDiscipline] = useState<Discipline>(Discipline.TENNIS)
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
   const [scoreFormat, setScoreFormat] = useState<ScoreFormat>(ScoreFormat.THREE_SETS)
@@ -276,19 +277,7 @@ export default function TournamentForm() {
         </AccordionSummary>
         <AccordionDetails className="section-content">
           <div className="row">
-            <TextField
-              select
-              label="Disciplina"
-              value={discipline}
-              onChange={(event) => handleDisciplineChange(Number(event.target.value) as Discipline)}
-              fullWidth
-            >
-              {Disciplines.map((value) => (
-                <MenuItem key={value} value={value}>
-                  {DisciplineNames[value]}
-                </MenuItem>
-              ))}
-            </TextField>
+            <DisciplineSelector value={discipline} onChange={handleDisciplineChange} fullWidth />
             <TextField
               select
               label="Tipo"
