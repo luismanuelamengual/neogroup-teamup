@@ -187,7 +187,13 @@ export default function BracketView({
       )
       .map((m) => m.id)
 
-    return { editableMatchIds: userMatchIds, highlightedMatchIds: userMatchIds }
+    // The highlight (marking the player's own current match) always shows;
+    // only self-reporting the result is gated behind allowPlayerSetScore —
+    // otherwise only an organizer (handled above) can edit it.
+    return {
+      editableMatchIds: tournament.allowPlayerSetScore ? userMatchIds : [],
+      highlightedMatchIds: userMatchIds
+    }
   }, [tournament, bracketMatches, category, organizerMode, userId])
   /**
    * Full geometric layout. Rounds at/after `base` are laid out; the base round is

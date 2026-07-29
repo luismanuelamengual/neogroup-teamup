@@ -118,7 +118,7 @@ Imports stay clean thanks to the folder + index resolution: `import CustomCompon
 
 The app is multi-tenant: every client is an `Organization` (`app/models/Organization.ts`) served from its own subdomain (`organizations.domainName`, e.g. `club-aleman.teamup.ar`). `proxy.ts` resolves the organization from the request's `Host` header (`app/utils/domains.ts`) and injects it as the `x-org-domain` header; API routes re-resolve it from the `Host` header directly (they're excluded from the middleware matcher) via `withApi`/`withAuth` (see "API endpoints" below).
 
-Most tenant-scoped entities (`User`, `Tournament`, ...) declare a global `OrganizationScope` in their `booted()` hook, so queries are automatically filtered to the current organization. Each organization also configures its own `allowedRegistrationRoles`, `timezone` (used to schedule tournament starts) and `serviceFeePercentage` (see "Registration payments" below).
+Most tenant-scoped entities (`User`, `Tournament`, ...) declare a global `OrganizationScope` in their `booted()` hook, so queries are automatically filtered to the current organization. Each organization also configures its own `allowedRegistrationRoles`, `timezone` (used to schedule tournament starts), `serviceFeePercentage` (see "Registration payments" below) and `enabledDisciplines` — the subset of `Discipline` (padel, tennis) it offers, defaulting to both; every discipline selector (categories, rankings, tournament form) and the category/tournament creation services filter against it (`getEnabledDisciplines`, `app/(protected)/(tournaments)/services/organizations.ts`).
 
 On `localhost` (no subdomain), the organization is taken from the `DEV_ORGANIZATION_DOMAIN` env var instead.
 

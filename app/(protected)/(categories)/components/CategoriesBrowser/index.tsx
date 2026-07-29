@@ -10,15 +10,15 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogContentText from '@mui/material/DialogContentText'
 import DialogTitle from '@mui/material/DialogTitle'
 import InputAdornment from '@mui/material/InputAdornment'
-import MenuItem from '@mui/material/MenuItem'
 import Pagination from '@mui/material/Pagination'
 import TextField from '@mui/material/TextField'
 import { useCallback, useEffect, useState } from 'react'
 import CategoryCard, { CategoryCardSkeleton } from '@/app/(protected)/(categories)/components/CategoryCard'
 import CategoryFormDialog from '@/app/(protected)/(categories)/components/CategoryFormDialog'
 import { useManagedCategories } from '@/app/(protected)/(categories)/hooks/useManagedCategories'
+import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import MessagePanel from '@/app/components/MessagePanel'
 import { useDebouncedValue } from '@/app/hooks/useDebouncedValue'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
@@ -98,6 +98,13 @@ export default function CategoriesBrowser() {
     <div className="categories-browser">
       <div className="header">
         <div className="filters">
+          <DisciplineSelector
+            withAll
+            value={disciplineFilter}
+            onChange={setDisciplineFilter}
+            size="small"
+            className="discipline-filter"
+          />
           <TextField
             size="small"
             placeholder="Buscar por nombre"
@@ -114,23 +121,6 @@ export default function CategoriesBrowser() {
               }
             }}
           />
-          <TextField
-            select
-            size="small"
-            label="Disciplina"
-            value={disciplineFilter}
-            onChange={(event) =>
-              setDisciplineFilter(event.target.value === 'all' ? 'all' : (Number(event.target.value) as Discipline))
-            }
-            className="discipline-filter"
-          >
-            <MenuItem value="all">Todas</MenuItem>
-            {Disciplines.map((value) => (
-              <MenuItem key={value} value={value}>
-                {DisciplineNames[value]}
-              </MenuItem>
-            ))}
-          </TextField>
         </div>
         <div className="actions">
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateForm} className="create-button">

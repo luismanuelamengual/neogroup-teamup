@@ -109,7 +109,13 @@ export default function FixtureView({
       )
       .map((m) => m.id)
 
-    return { editableMatchIds: userMatchIds, highlightedMatchIds: userMatchIds }
+    // The highlight (marking the player's own current match) always shows;
+    // only self-reporting the result is gated behind allowPlayerSetScore —
+    // otherwise only an organizer (handled above) can edit it.
+    return {
+      editableMatchIds: tournament.allowPlayerSetScore ? userMatchIds : [],
+      highlightedMatchIds: userMatchIds
+    }
   }, [tournament, laneMatches, category, organizerMode, userId])
 
   if (rounds.length === 0 || activeRoundNumber === null) {

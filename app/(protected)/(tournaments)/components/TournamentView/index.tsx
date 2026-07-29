@@ -104,7 +104,7 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
     [competitors, userId]
   )
   const myMatches = useMemo(() => {
-    if (isOrganizer || !userEntry || !tournament) {
+    if (isOrganizer || !userEntry || !tournament || !tournament.allowPlayerSetScore) {
       return []
     }
 

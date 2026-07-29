@@ -5,8 +5,10 @@ import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/(protected)/components/AppShell'
+import OrganizationStoreHydrator from '@/app/(protected)/components/OrganizationStoreHydrator'
 import Loading from '@/app/components/Loading'
 import { Role } from '@/app/models/Role'
+import { SessionOrganization } from '@/app/models/SessionOrganization'
 import { getOrganization, resolveOrganizationImage } from '@/app/services/organizations'
 
 /**
@@ -53,10 +55,17 @@ export default async function Layout({ children }: { children: ReactNode }) {
     avatarUrl: session.user.image ?? '',
     roleId: session.user.roleId as Role
   }
+  const sessionOrganization: SessionOrganization = {
+    id: organization.id,
+    name: organization.name,
+    domainName: organization.domainName,
+    enabledDisciplines: organization.enabledDisciplines
+  }
 
   return (
     <>
       <UserStoreHydrator user={user} />
+      <OrganizationStoreHydrator organization={sessionOrganization} />
       <AppShell user={user} logoSrc={resolveOrganizationImage(orgDomain, 'logo-bar.png')}>
         <Suspense fallback={<Loading />}>{children}</Suspense>
       </AppShell>

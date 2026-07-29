@@ -21,6 +21,15 @@ export class Organization extends BaseEntity {
   allowedRegistrationRoles!: number[]
 
   /**
+   * Disciplines (see app/(protected)/(tournaments)/models/Discipline.ts) the
+   * organization offers. Every screen that lists disciplines — category and
+   * tournament forms, ranking filters — only shows the ones in this array.
+   * Defaults to every discipline that exists today (padel and tennis).
+   */
+  @Column({ cast: 'array' })
+  enabledDisciplines!: number[]
+
+  /**
    * IANA timezone of the organization (e.g. "America/Argentina/Buenos_Aires").
    * Used to interpret a tournament's startDate/startTime so the processTournaments
    * cron starts each tournament at the organization's local scheduled time.

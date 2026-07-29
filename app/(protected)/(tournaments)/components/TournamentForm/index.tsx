@@ -16,6 +16,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
+import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -37,11 +38,12 @@ import {
   RankingSettings
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
+import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
 import TournamentImageField from '@/app/(protected)/(tournaments)/components/TournamentImageField'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline, DisciplineNames, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
@@ -56,7 +58,7 @@ export default function TournamentForm() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [image, setImage] = useState<string | null>(null)
-  const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
+  const [discipline, setDiscipline] = useState<Discipline>(Discipline.TENNIS)
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
   const [scoreFormat, setScoreFormat] = useState<ScoreFormat>(ScoreFormat.THREE_SETS)
@@ -74,6 +76,7 @@ export default function TournamentForm() {
   const [maxCompetitors, setMaxCompetitors] = useState(16)
   const [paid, setPaid] = useState(false)
   const [entryFee, setEntryFee] = useState<number | null>(null)
+  const [allowPlayerSetScore, setAllowPlayerSetScore] = useState(false)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
   const [playoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
@@ -170,6 +173,7 @@ export default function TournamentForm() {
         paid,
         entryFee: paid ? (entryFee ?? 0) : null,
         currency: 'ARS',
+        allowPlayerSetScore,
         rankingSettings,
         settings:
           type === TournamentType.LEAGUE
@@ -276,19 +280,7 @@ export default function TournamentForm() {
         </AccordionSummary>
         <AccordionDetails className="section-content">
           <div className="row">
-            <TextField
-              select
-              label="Disciplina"
-              value={discipline}
-              onChange={(event) => handleDisciplineChange(Number(event.target.value) as Discipline)}
-              fullWidth
-            >
-              {Disciplines.map((value) => (
-                <MenuItem key={value} value={value}>
-                  {DisciplineNames[value]}
-                </MenuItem>
-              ))}
-            </TextField>
+            <DisciplineSelector value={discipline} onChange={handleDisciplineChange} fullWidth />
             <TextField
               select
               label="Tipo"
@@ -498,6 +490,30 @@ export default function TournamentForm() {
               </div>
             </>
           )}
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion disableGutters elevation={0} className="section">
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
+          <Typography variant="subtitle1" className="title">
+            Resultados
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails className="section-content">
+          <FormControlLabel
+            control={
+              <Switch
+                checked={allowPlayerSetScore}
+                onChange={(event) => setAllowPlayerSetScore(event.target.checked)}
+              />
+            }
+            label="Permitir que los jugadores carguen el resultado de sus partidos"
+          />
+          <Alert severity="info">
+            {allowPlayerSetScore
+              ? 'Cualquiera de los jugadores de un partido podrá cargar o editar su resultado, además del organizador.'
+              : 'Solo el organizador podrá cargar los resultados de los partidos.'}
+          </Alert>
         </AccordionDetails>
       </Accordion>
 
