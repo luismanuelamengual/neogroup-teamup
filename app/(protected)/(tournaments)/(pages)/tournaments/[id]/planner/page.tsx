@@ -5,8 +5,9 @@ import { Role } from '@/app/models/Role'
 import { resolveOrganizationImage } from '@/app/services/organizations'
 
 /**
- * Match planner: organizer-only visual tool to place pending matches on a day,
- * court and time. Purely visual — nothing is persisted to the database.
+ * Match planner: organizer-only tool to place pending matches on a venue, day,
+ * court and time. Every placement is stored on the match itself (siteId / date /
+ * hour / courtNumber), so the schedule is visible everywhere the match is shown.
  */
 export default async function TournamentPlannerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

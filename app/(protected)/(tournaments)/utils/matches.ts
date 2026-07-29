@@ -25,6 +25,25 @@ export function isPlayableMatch(match: EditableMatch): boolean {
   return match.homeCompetitorIds.length > 0 && match.awayCompetitorIds != null && match.awayCompetitorIds.length > 0
 }
 
+/** Minimal shape needed to decide whether a match displays a schedule. */
+export interface SchedulableMatch {
+  siteId: number | null
+  date: string | null
+  hour: string | null
+}
+
+/**
+ * Whether a match card shows its schedule strip (day / time / venue). The venue
+ * on its own only counts when it differs from `tournamentSiteId`: a match played
+ * at the tournament's own site adds nothing worth displaying.
+ *
+ * Shared with BracketView, which lays its cards out on a fixed vertical grid and
+ * therefore needs to know, before rendering, whether the taller card applies.
+ */
+export function hasMatchSchedule(match: SchedulableMatch, tournamentSiteId: number | null): boolean {
+  return match.date != null || match.hour != null || (match.siteId != null && match.siteId !== tournamentSiteId)
+}
+
 /**
  * Whether a match currently accepts a result (either a first result or an edit
  * of an existing one). This is the derived replacement for the former

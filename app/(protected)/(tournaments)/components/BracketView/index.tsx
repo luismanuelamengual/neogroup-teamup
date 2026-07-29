@@ -10,7 +10,7 @@ import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { hasMatchSchedule, isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import Avatar from '@/app/components/Avatar'
 import { useUserStore } from '@/app/stores/users'
 
@@ -35,8 +35,22 @@ const COLUMN_WIDTH = 280
 const COLUMN_GAP = 56
 const COL_STEP = COLUMN_WIDTH + COLUMN_GAP
 const NODE_HEIGHT = 76
+/**
+ * Extra height a match card takes when it displays its schedule strip (day /
+ * time / venue), applied per node — an unscheduled card keeps NODE_HEIGHT, so
+ * scheduling one match no longer inflates the whole bracket.
+ *
+ * The bracket positions its cards absolutely (the elbow connectors need exact
+ * coordinates), so this space has to be reserved before the card paints and is
+ * therefore a constant rather than a measurement. It mirrors what the strip
+ * actually costs in MatchCard/index.scss: a 12px/1.4 single line (~17px) + 8px
+ * padding-bottom + 1px border + the card's own 8px column gap. The strip is
+ * pinned to one line there precisely so this stays true — see the comment on
+ * `.match-card-schedule`. Rounded up: a node is a centering box with a few px of
+ * slack, so erring high only adds whitespace, while erring low would overlap.
+ */
+const SCHEDULE_STRIP_HEIGHT = 34
 const NODE_VGAP = 18
-const NODE_STEP = NODE_HEIGHT + NODE_VGAP
 const TITLE_BAND = 40
 /** Tolerance (px) before a round counts as fully scrolled past the left edge. */
 const PAST_TOLERANCE = 1
@@ -52,6 +66,8 @@ interface NodeLayout {
   x: number
   /** Vertical center of the node within the canvas, in px. */
   yCenter: number
+  /** Height of this specific node — cards with a schedule strip are taller. */
+  height: number
 }
 
 interface Segment {
@@ -124,6 +140,17 @@ export default function BracketView({
   const rounds = useMemo(
     () => [...new Set(bracketMatches.map((m) => m.roundNumber))].sort((a, b) => a - b),
     [bracketMatches]
+  )
+  /**
+   * Height of a single node. The card is only ever taller for one reason — the
+   * schedule strip — so the height is derived per match instead of measured:
+   * only the scheduled cards grow, and the rest of the bracket keeps its
+   * original geometry.
+   */
+  const nodeHeightOf = useCallback(
+    (match: MatchDto): number =>
+      hasMatchSchedule(match, tournament.siteId) ? NODE_HEIGHT + SCHEDULE_STRIP_HEIGHT : NODE_HEIGHT,
+    [tournament.siteId]
   )
   /** Matches per round, aligned to the `rounds` array and sorted by bracket position. */
   const roundMatchLists = useMemo(() => {
@@ -205,14 +232,33 @@ export default function BracketView({
     const base = Math.min(baseRound, Math.max(0, total - 1))
     // Vertical center per match index, per round (only rounds >= base matter).
     const centers: number[][] = rounds.map(() => [])
+    // Node heights, same indexing as `centers`. Cards are not all the same
+    // height (only the scheduled ones carry a strip), so every vertical
+    // measurement below reads the height of the specific node it is placing
+    // instead of a single constant.
+    const heights: number[][] = rounds.map((_, r) => roundMatchLists[r]?.map(nodeHeightOf) ?? [])
+
+    /**
+     * Stacks a round's matches top to bottom, each separated by NODE_VGAP. With
+     * uneven heights the offset has to accumulate — the i-th center is not
+     * `i * step` any more, it depends on how tall the cards above it are.
+     */
+    const stackRound = (r: number): void => {
+      let top = 0
+
+      for (let i = 0; i < (roundMatchLists[r]?.length ?? 0); i++) {
+        const height = heights[r]![i]!
+
+        centers[r]![i] = top + height / 2
+        top += height + NODE_VGAP
+      }
+    }
 
     for (let r = base; r < total; r++) {
       const count = roundMatchLists[r].length
 
       if (r === base) {
-        for (let i = 0; i < count; i++) {
-          centers[r]![i] = i * NODE_STEP + NODE_HEIGHT / 2
-        }
+        stackRound(r)
       } else {
         const prev = centers[r - 1]!
 
@@ -225,22 +271,31 @@ export default function BracketView({
           } else if (c1 != null) {
             centers[r]![j] = c1
           } else {
-            centers[r]![j] = j * NODE_STEP + NODE_HEIGHT / 2
+            // No child to hang from (a partially built bracket): fall back to
+            // stacking this round on its own.
+            stackRound(r)
           }
         }
       }
     }
 
-    // Canvas height is driven by the base round (the tallest visible round),
-    // extended to fit the champion panel below the final match, if shown.
-    const baseCount = roundMatchLists[base]?.length ?? 0
-    let canvasHeight = Math.max(NODE_HEIGHT, (baseCount - 1) * NODE_STEP + NODE_HEIGHT)
+    // Canvas height has to consider every laid-out node, not just the base
+    // round: a taller card in a later round can now stick out past the bottom of
+    // the base round it was centered against.
+    let canvasHeight = 0
+
+    for (let r = base; r < total; r++) {
+      for (let i = 0; i < (centers[r]?.length ?? 0); i++) {
+        canvasHeight = Math.max(canvasHeight, centers[r]![i]! + heights[r]![i]! / 2)
+      }
+    }
+
     let championLayout: ChampionLayout | null = null
     const finalRoundIndex = total - 1
     const finalCenter = champion ? centers[finalRoundIndex]?.[0] : undefined
 
     if (champion && finalCenter != null) {
-      const championY = finalCenter + NODE_HEIGHT / 2 + CHAMPION_GAP
+      const championY = finalCenter + (heights[finalRoundIndex]?.[0] ?? NODE_HEIGHT) / 2 + CHAMPION_GAP
 
       championLayout = { x: finalRoundIndex * COL_STEP, y: championY }
       canvasHeight = Math.max(canvasHeight, championY + CHAMPION_BLOCK_HEIGHT)
@@ -260,7 +315,7 @@ export default function BracketView({
       })
 
       roundMatchLists[r].forEach((match, i) => {
-        nodes.push({ match, roundIndex: r, x, yCenter: centers[r]![i]! })
+        nodes.push({ match, roundIndex: r, x, yCenter: centers[r]![i]!, height: heights[r]![i]! })
       })
     }
 
@@ -315,7 +370,7 @@ export default function BracketView({
     const canvasWidth = total > 0 ? (total - 1) * COL_STEP + COLUMN_WIDTH : 0
 
     return { nodes, titles, segments, canvasWidth, canvasHeight, championLayout }
-  }, [rounds, roundMatchLists, baseRound, champion])
+  }, [rounds, roundMatchLists, baseRound, champion, nodeHeightOf])
   /** Recompute the first visible round from the horizontal scroll offset. */
   const handleScroll = useCallback(() => {
     if (rafRef.current != null) {
@@ -416,7 +471,10 @@ export default function BracketView({
               <div
                 key={node.match.id}
                 className="bracket-node"
-                style={{ transform: `translate(${node.x}px, ${node.yCenter - NODE_HEIGHT / 2}px)` }}
+                style={{
+                  height: node.height,
+                  transform: `translate(${node.x}px, ${node.yCenter - node.height / 2}px)`
+                }}
               >
                 <MatchCard
                   match={node.match}

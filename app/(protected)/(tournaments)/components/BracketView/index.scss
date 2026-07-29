@@ -78,6 +78,9 @@ $node-height: 76px;
     display: flex;
     align-items: center;
     width: $node-width;
+    // Height is set inline: it grows for the whole lane when any of its matches
+    // carries a schedule (see SCHEDULE_STRIP_HEIGHT in index.tsx). The variable
+    // is the unscheduled default, used until React paints.
     height: $node-height;
     transition:
       transform $bracket-transition,

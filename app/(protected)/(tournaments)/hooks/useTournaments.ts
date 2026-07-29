@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback } from 'react'
 import type { PaymentStatusResult } from '@/app/(protected)/(tournaments)/(api)/api/getPaymentStatus/route'
 import type { JoinTournamentResult } from '@/app/(protected)/(tournaments)/(api)/api/joinTournament/route'
+import type { MatchScheduleInput } from '@/app/(protected)/(tournaments)/models/MatchScheduleInput'
 import type { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useNotifications } from '@/app/hooks/useNotifications'
@@ -72,6 +73,18 @@ export function useTournaments() {
     },
     [executeRequest, showSuccessMessage]
   )
+  // Scheduling is written on every drag & drop of the planner, so unlike
+  // saveMatchResult these deliberately show no success toast — only failures are
+  // surfaced, and they reject so the caller can roll back its optimistic update.
+  const saveMatchSchedule = useCallback(
+    (matchId: number, schedule: MatchScheduleInput): Promise<void> =>
+      executeRequest('/setMatchSchedule', { id: matchId, ...schedule }).then(() => undefined),
+    [executeRequest]
+  )
+  const clearMatchSchedule = useCallback(
+    (matchId: number): Promise<void> => executeRequest('/clearMatchSchedule', { id: matchId }).then(() => undefined),
+    [executeRequest]
+  )
   const getTournaments = useCallback(
     ({
       name = undefined,
@@ -131,6 +144,8 @@ export function useTournaments() {
     joinTournament,
     leaveTournament,
     saveMatchResult,
+    saveMatchSchedule,
+    clearMatchSchedule,
     getPaymentStatus
   }
 }

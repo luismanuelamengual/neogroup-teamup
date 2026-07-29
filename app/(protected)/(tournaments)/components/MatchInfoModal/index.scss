@@ -52,12 +52,58 @@
 
   .side-name {
     font-size: 15px;
+    // Doubles pairs ("Juan Martínez / Pedro González") are long enough to overrun
+    // a phone-width column, and a single unbroken surname can too.
+    overflow-wrap: anywhere;
   }
 
   .score {
     flex-shrink: 0;
     font-weight: 700;
     font-size: 18px;
+  }
+
+  // --- When and where ------------------------------------------------------
+  .schedule {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .schedule-title {
+    font-weight: 700 !important;
+  }
+
+  .schedule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .schedule-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 14px;
+
+    dt {
+      flex: 0 0 72px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--color-text-secondary);
+    }
+
+    dd {
+      margin: 0;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      // The weekday comes out lowercase from dayjs' Spanish locale.
+      &::first-letter {
+        text-transform: uppercase;
+      }
+    }
   }
 
   .series-title {
@@ -75,18 +121,15 @@
     align-items: center;
     gap: 10px;
     padding: 8px 10px;
-    border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+    border: 1px solid var(--color-divider);
     border-radius: var(--radius-md);
     font-size: 13px;
-
-    @media (max-width: 600px) {
-      flex-wrap: wrap;
-    }
   }
 
   .series-players {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
 
     &.away {
       text-align: right;
@@ -101,5 +144,76 @@
     flex-shrink: 0;
     font-weight: 600;
     color: var(--color-text-secondary);
+  }
+}
+
+// --- Phones ----------------------------------------------------------------
+// Three-across layouts (side / score / side) leave each competitor barely a
+// couple of characters per line on a narrow screen, so they stack instead. The
+// dialog itself also reclaims the horizontal space MUI reserves as margin.
+@media (max-width: 600px) {
+  // MUI injects its own paper styles through emotion at runtime, after this
+  // stylesheet, so reclaiming its 32px margin needs !important — same reason the
+  // padding overrides below carry it.
+  .match-info-modal {
+    .MuiDialog-paper {
+      margin: 16px !important;
+      width: calc(100% - 32px) !important;
+      max-width: calc(100% - 32px) !important;
+      max-height: calc(100% - 32px) !important;
+    }
+  }
+
+  .match-info-modal-title {
+    padding: 16px 16px 8px !important;
+    font-size: 18px !important;
+  }
+
+  .match-info-modal-content {
+    padding: 0 16px 16px !important;
+
+    .sides {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    // Stacked, both sides read left-to-right; the score sits between them as its
+    // own centered row so it still reads as "A vs B".
+    .side.away {
+      text-align: left;
+    }
+
+    .score {
+      align-self: center;
+      font-size: 20px;
+    }
+
+    // DOM order is chip / home / score / away, which stacks into exactly the
+    // reading order we want — no reordering needed.
+    .series-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+
+      > .MuiChip-root {
+        align-self: flex-start;
+        margin-bottom: 2px;
+      }
+
+      .series-players {
+        flex: none;
+        text-align: left;
+
+        &.away {
+          text-align: left;
+        }
+      }
+
+      .series-score {
+        align-self: center;
+        font-size: 15px;
+      }
+    }
   }
 }

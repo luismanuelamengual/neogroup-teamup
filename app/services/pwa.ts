@@ -46,6 +46,12 @@ const CONFIG_OVERRIDES: Record<string, Partial<PwaConfig>> = {
     shortName: 'FMT',
     themeColor: '#4a90c2',
     backgroundColor: '#ffffff'
+  },
+  'punto-deporte': {
+    name: 'Punto Deporte',
+    shortName: 'Punto Deporte',
+    themeColor: '#33479f',
+    backgroundColor: '#ffffff'
   }
 }
 

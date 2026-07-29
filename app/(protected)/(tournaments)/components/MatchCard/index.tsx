@@ -1,13 +1,16 @@
 'use client'
 
+import 'dayjs/locale/es'
 import './index.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
+import dayjs from 'dayjs'
 import { useState } from 'react'
 import MatchInfoModal from '@/app/(protected)/(tournaments)/components/MatchInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
+import { hasMatchSchedule } from '@/app/(protected)/(tournaments)/utils/matches'
 import { formatScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { MatchDto } from '../../models/MatchDto'
 import { TournamentDto } from '../../models/TournamentDto'
@@ -37,6 +40,11 @@ export default function MatchCard({
   const winner: MatchSide | null = match.winner
   // A placeholder ("to be defined") slot has nothing worth opening.
   const hasDetail = !isVoid && match.homeCompetitorIds.length > 0
+  // The venue is only worth naming when the match deviates from the tournament's
+  // own site — otherwise it is the default everyone already assumes.
+  const otherSite = match.siteId != null && match.siteId !== tournament.siteId ? (match.site ?? null) : null
+  // The schedule header is skipped entirely for a match nobody has planned yet.
+  const hasSchedule = hasMatchSchedule(match, tournament.siteId)
 
   const competitorLabel = (competitor: CompetitorDto | undefined, id: number): string => {
     if (!competitor) {
@@ -71,37 +79,49 @@ export default function MatchCard({
         className={`match-card ${highlighted ? 'highlighted' : ''} ${hasDetail ? 'clickable' : ''}`}
         onClick={() => hasDetail && setDetailOpen(true)}
       >
-        {isVoid ? (
-          <div className="sides">
-            <div className="bye">Sin clasificado</div>
-          </div>
-        ) : (
-          <div className="sides">
-            {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
-            {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
+        {/* When and where the match is played, as set in the planner. The court
+            number is deliberately left out: it only means something to whoever
+            is standing at the venue, and the planner already shows it. */}
+        {hasSchedule && (
+          <div className="match-card-schedule">
+            {match.date && <span className="date">{dayjs(match.date).locale('es').format('ddd D MMM')}</span>}
+            {match.hour && <span className="hour">{match.hour}</span>}
+            {otherSite && <span className="site">{otherSite.name}</span>}
           </div>
         )}
-        <div className="result">
-          {!isBye &&
-            !isVoid &&
-            (match.status === MatchStatus.PENDING ? (
-              <span className="pending">Pendiente</span>
-            ) : (
-              <span className="score">{formatScore(match.score, scoreFormat)}</span>
-            ))}
-          {editable && !isBye && !isVoid && (
-            <IconButton
-              size="small"
-              className="edit"
-              onClick={(event) => {
-                // Loading a result is a different intent than inspecting one.
-                event.stopPropagation()
-                onEdit?.(match)
-              }}
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
+        <div className="match-card-main">
+          {isVoid ? (
+            <div className="sides">
+              <div className="bye">Sin clasificado</div>
+            </div>
+          ) : (
+            <div className="sides">
+              {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
+              {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
+            </div>
           )}
+          <div className="result">
+            {!isBye &&
+              !isVoid &&
+              (match.status === MatchStatus.PENDING ? (
+                <span className="pending">Pendiente</span>
+              ) : (
+                <span className="score">{formatScore(match.score, scoreFormat)}</span>
+              ))}
+            {editable && !isBye && !isVoid && (
+              <IconButton
+                size="small"
+                className="edit"
+                onClick={(event) => {
+                  // Loading a result is a different intent than inspecting one.
+                  event.stopPropagation()
+                  onEdit?.(match)
+                }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            )}
+          </div>
         </div>
       </div>
       <MatchInfoModal open={detailOpen} tournament={tournament} match={match} onClose={() => setDetailOpen(false)} />
