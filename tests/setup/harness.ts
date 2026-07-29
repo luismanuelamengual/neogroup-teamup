@@ -43,6 +43,7 @@ import migration009 from '@/database/migrations/009-interclubs'
 import migration010 from '@/database/migrations/010-categories-drop-subdiscipline'
 import migration011 from '@/database/migrations/011-organizations-enabled-disciplines'
 import migration012 from '@/database/migrations/012-tournaments-allow-player-set-score'
+import migration013 from '@/database/migrations/013-matches-schedule'
 
 const TABLES = [
   'tournament_payments',
@@ -129,6 +130,9 @@ export async function resetDatabase(): Promise<void> {
   await migration011.up()
   // 012 adds tournaments.allowPlayerSetScore (defaults to false).
   await migration012.up()
+  // 013 adds the scheduling fields to matches (siteId / date / hour /
+  // courtNumber), all nullable and empty until a match is planned.
+  await migration013.up()
 
   const organization = new Organization()
 

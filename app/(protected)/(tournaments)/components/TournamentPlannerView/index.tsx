@@ -2,23 +2,15 @@
 
 import 'dayjs/locale/es'
 import './index.scss'
-import AddIcon from '@mui/icons-material/Add'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CloseIcon from '@mui/icons-material/Close'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
-import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -27,6 +19,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import dayjs, { Dayjs } from 'dayjs'
 import Link from 'next/link'
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import { roundLabel } from '@/app/(protected)/(tournaments)/components/BracketView'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
@@ -50,37 +43,82 @@ const ROW_HEIGHT = 44
 /** Default duration of a match, in minutes (1h30). */
 const DEFAULT_DURATION = 90
 const DURATION_OPTIONS = [30, 60, 90, 120, 150, 180]
+const DEFAULT_COURTS = 2
 const MAX_COURTS = 12
 /** Maximum number of days that can be planned at once. */
 const MAX_PLANNING_DAYS = 10
-/** localStorage key used to persist the courts/duration configuration. */
-const CONFIG_STORAGE_KEY = 'tournamentPlanner:config'
+/**
+ * Match duration, in minutes. Unlike the courts configuration this is a habit of
+ * the organizer rather than a property of a venue, so it is stored once and
+ * reused across every site.
+ */
+const DURATION_STORAGE_KEY = 'tournamentPlanner:duration'
+/**
+ * Courts configuration, stored per site: how many courts it has and how they are
+ * named. "Cancha 3" of one club has nothing to do with "Cancha 3" of another, so
+ * switching sites in the selector loads that site's own setup.
+ */
+const courtsStorageKey = (siteId: number) => `tournamentPlanner:courts:${siteId}`
+/**
+ * Keys written by the previous, browser-only planner: match placements and
+ * free-text custom matches. Both concepts are gone — placements now live on the
+ * matches themselves and custom matches were removed — so any leftovers are
+ * cleared once, when the planner mounts, instead of lingering forever.
+ */
+const LEGACY_STORAGE_PREFIXES = [
+  'tournamentPlanner:placements:',
+  'tournamentPlanner:customMatches:',
+  'tournamentPlanner:config'
+]
 
-interface StoredConfig {
+function pruneLegacyPlannerStorage(): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const keys: string[] = []
+
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i)
+
+      if (key && LEGACY_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+        keys.push(key)
+      }
+    }
+
+    for (const key of keys) {
+      window.localStorage.removeItem(key)
+    }
+  } catch {
+    // Ignore read/write errors (e.g. storage disabled).
+  }
+}
+
+/** Courts setup of a single site. */
+interface CourtsConfig {
   courts: number
-  duration: number
   /** Custom court names, keyed by 1-based court number. Missing entries fall back to "Cancha N". */
   courtNames: Record<number, string>
 }
 
-/** Reads the persisted courts/duration/court-names config, falling back to defaults if absent or invalid. */
-function loadStoredConfig(): StoredConfig {
-  const fallback: StoredConfig = { courts: 2, duration: DEFAULT_DURATION, courtNames: {} }
+const DEFAULT_COURTS_CONFIG: CourtsConfig = { courts: DEFAULT_COURTS, courtNames: {} }
 
-  if (typeof window === 'undefined') {
-    return fallback
+/** Reads a site's persisted courts setup, falling back to defaults if absent or invalid. */
+function loadCourtsConfig(siteId: number | null): CourtsConfig {
+  if (typeof window === 'undefined' || siteId == null) {
+    return DEFAULT_COURTS_CONFIG
   }
 
   try {
-    const raw = window.localStorage.getItem(CONFIG_STORAGE_KEY)
+    const raw = window.localStorage.getItem(courtsStorageKey(siteId))
 
     if (!raw) {
-      return fallback
+      return DEFAULT_COURTS_CONFIG
     }
 
     const parsed = JSON.parse(raw)
     const courts = Number(parsed?.courts)
-    const duration = Number(parsed?.duration)
     const courtNames: Record<number, string> = {}
 
     if (parsed?.courtNames && typeof parsed.courtNames === 'object') {
@@ -94,12 +132,26 @@ function loadStoredConfig(): StoredConfig {
     }
 
     return {
-      courts: Number.isFinite(courts) ? Math.max(1, Math.min(MAX_COURTS, courts)) : fallback.courts,
-      duration: DURATION_OPTIONS.includes(duration) ? duration : fallback.duration,
+      courts: Number.isFinite(courts) ? Math.max(1, Math.min(MAX_COURTS, courts)) : DEFAULT_COURTS,
       courtNames
     }
   } catch {
-    return fallback
+    return DEFAULT_COURTS_CONFIG
+  }
+}
+
+/** Reads the persisted match duration, falling back to the default. */
+function loadDuration(): number {
+  if (typeof window === 'undefined') {
+    return DEFAULT_DURATION
+  }
+
+  try {
+    const duration = Number(window.localStorage.getItem(DURATION_STORAGE_KEY))
+
+    return DURATION_OPTIONS.includes(duration) ? duration : DEFAULT_DURATION
+  } catch {
+    return DEFAULT_DURATION
   }
 }
 
@@ -112,169 +164,9 @@ interface Placement {
   startMin: number
 }
 
-const PLACEMENTS_STORAGE_PREFIX = 'tournamentPlanner:placements:'
-const placementsStorageKey = (tournamentId: number) => `${PLACEMENTS_STORAGE_PREFIX}${tournamentId}`
 /**
- * How many days a tournament's planner data can sit untouched in localStorage before
- * it's considered abandoned and purged. This is deliberately based on when the data
- * was last *saved*, not on the matches' own scheduled dates — a tournament can be
- * legitimately scheduled for a day that's already in the past (an ongoing or delayed
- * event, for example), so using "today" as that cutoff would wipe out active plannings.
- */
-const PLANNER_RETENTION_DAYS = 30
-
-function isIsoDate(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
-}
-
-function isPlacementsMap(value: unknown): value is Record<number, Placement> {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  return Object.values(value as Record<string, unknown>).every((entry) => {
-    const placement = entry as { dateIso?: unknown; court?: unknown; startMin?: unknown } | null
-
-    return (
-      isIsoDate(placement?.dateIso) &&
-      Number.isFinite(Number(placement?.court)) &&
-      Number.isFinite(Number(placement?.startMin))
-    )
-  })
-}
-
-/**
- * Every persisted entry is wrapped with the date it was last saved, so staleness can be
- * judged by "when did the organizer last touch this" instead of by the dates inside it.
- */
-function writeStoredEnvelope<T>(key: string, data: T): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    window.localStorage.setItem(key, JSON.stringify({ savedAt: dayjs().format('YYYY-MM-DD'), data }))
-  } catch {
-    // Ignore write errors (e.g. storage disabled/full).
-  }
-}
-
-/** Reads back a stored envelope, returning null if missing or malformed (does not check age). */
-function readStoredEnvelope<T>(key: string, isValidData: (data: unknown) => data is T): T | null {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  try {
-    const raw = window.localStorage.getItem(key)
-
-    if (!raw) {
-      return null
-    }
-
-    const parsed = JSON.parse(raw)
-
-    if (!parsed || !isIsoDate(parsed.savedAt) || !isValidData(parsed.data)) {
-      return null
-    }
-
-    return parsed.data as T
-  } catch {
-    return null
-  }
-}
-
-/** Reads the persisted match placements for a tournament, if any. */
-function loadStoredPlacements(tournamentId: number): Record<number, Placement> {
-  return readStoredEnvelope(placementsStorageKey(tournamentId), isPlacementsMap) ?? {}
-}
-
-/**
- * Reads, transforms and rewrites a tournament's stored placements in one step — used to
- * persist a single match's move or removal immediately, independent of whatever range
- * is currently visible (so it never clobbers matches scheduled outside the current view).
- */
-function patchStoredPlacements(
-  tournamentId: number,
-  updater: (stored: Record<number, Placement>) => Record<number, Placement>
-): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  const next = updater(loadStoredPlacements(tournamentId))
-
-  if (Object.keys(next).length === 0) {
-    try {
-      window.localStorage.removeItem(placementsStorageKey(tournamentId))
-    } catch {
-      // Ignore write errors (e.g. storage disabled/full).
-    }
-  } else {
-    writeStoredEnvelope(placementsStorageKey(tournamentId), next)
-  }
-}
-
-/**
- * A free-text "placeholder" match the organizer adds by hand to plan bouts that
- * aren't formed yet (e.g. "Ganador Martínez/Amengual" vs "Ganador Pérez/González").
- * It is scheduled through the same placement machinery as real matches, keyed by a
- * negative id so it never collides with a real (positive) database match id.
- */
-interface CustomMatch {
-  id: number
-  home: string
-  away: string
-  /** Optional category label shown on the card header. */
-  category?: string
-  /** Optional round label shown as a badge. */
-  round?: string
-  /** Whether the organizer flagged this match as part of the consolation bracket. */
-  consolation?: boolean
-}
-
-const CUSTOM_MATCHES_STORAGE_PREFIX = 'tournamentPlanner:customMatches:'
-const customMatchesStorageKey = (tournamentId: number) => `${CUSTOM_MATCHES_STORAGE_PREFIX}${tournamentId}`
-
-function isCustomMatchList(value: unknown): value is CustomMatch[] {
-  return (
-    Array.isArray(value) &&
-    value.every((entry) => {
-      const custom = entry as { id?: unknown; home?: unknown; away?: unknown } | null
-
-      return Number.isFinite(Number(custom?.id)) && typeof custom?.home === 'string' && typeof custom?.away === 'string'
-    })
-  )
-}
-
-/** Reads the persisted custom matches for a tournament, if any. */
-function loadStoredCustomMatches(tournamentId: number): CustomMatch[] {
-  return readStoredEnvelope(customMatchesStorageKey(tournamentId), isCustomMatchList) ?? []
-}
-
-/** Persists (or clears, when empty) a tournament's custom matches. */
-function persistCustomMatches(tournamentId: number, matches: CustomMatch[]): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  if (matches.length === 0) {
-    try {
-      window.localStorage.removeItem(customMatchesStorageKey(tournamentId))
-    } catch {
-      // Ignore write errors (e.g. storage disabled/full).
-    }
-
-    return
-  }
-
-  writeStoredEnvelope(customMatchesStorageKey(tournamentId), matches)
-}
-
-/**
- * A normalized view of a schedulable match — real (from the tournament) or custom
- * (organizer-typed) — so the pool, grid, drag ghost and PDF export can treat both
- * the same way.
+ * A normalized view of a schedulable match, so the pool, grid, drag ghost and
+ * PDF export can all treat them the same way.
  */
 interface PlannerEntry {
   id: number
@@ -282,95 +174,14 @@ interface PlannerEntry {
   round: string | null
   home: string
   away: string
-  custom: boolean
   /** True when the match belongs to the consolation knockout bracket. */
   consolation: boolean
-}
-
-/**
- * Cleans up every tournament's stored placements, so old plannings don't linger in
- * localStorage forever. Two independent rules:
- *  - a match scheduled for a day before today is dropped — its plan is over, whether
- *    or not the match itself was actually played;
- *  - a tournament that hasn't been touched at all in PLANNER_RETENTION_DAYS days is
- *    dropped entirely, even if its matches happen to be scheduled in the future
- *    (an abandoned/never-revisited planning).
- * Meant to run once, when the planner mounts.
- */
-function pruneStalePlannerStorage(): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  const todayIso = dayjs().format('YYYY-MM-DD')
-  const cutoffIso = dayjs().subtract(PLANNER_RETENTION_DAYS, 'day').format('YYYY-MM-DD')
-  const keys: string[] = []
-
-  for (let i = 0; i < window.localStorage.length; i++) {
-    const key = window.localStorage.key(i)
-
-    if (key?.startsWith(PLACEMENTS_STORAGE_PREFIX)) {
-      keys.push(key)
-    }
-  }
-
-  for (const key of keys) {
-    const raw = window.localStorage.getItem(key)
-
-    if (!raw) {
-      continue
-    }
-
-    try {
-      const parsed = JSON.parse(raw)
-
-      if (!isIsoDate(parsed?.savedAt) || parsed.savedAt < cutoffIso || !isPlacementsMap(parsed.data)) {
-        window.localStorage.removeItem(key)
-        continue
-      }
-
-      const entries = Object.entries(parsed.data as Record<string, Placement>)
-      const kept = Object.fromEntries(entries.filter(([, placement]) => placement.dateIso >= todayIso))
-
-      if (Object.keys(kept).length === 0) {
-        window.localStorage.removeItem(key)
-      } else if (Object.keys(kept).length !== entries.length) {
-        writeStoredEnvelope(key, kept)
-      }
-    } catch {
-      window.localStorage.removeItem(key)
-    }
-  }
-
-  // Custom matches carry no dates, so they're only dropped when the tournament's
-  // planning is abandoned (untouched past the retention window) or malformed.
-  const customKeys: string[] = []
-
-  for (let i = 0; i < window.localStorage.length; i++) {
-    const key = window.localStorage.key(i)
-
-    if (key?.startsWith(CUSTOM_MATCHES_STORAGE_PREFIX)) {
-      customKeys.push(key)
-    }
-  }
-
-  for (const key of customKeys) {
-    const raw = window.localStorage.getItem(key)
-
-    if (!raw) {
-      continue
-    }
-
-    try {
-      const parsed = JSON.parse(raw)
-
-      if (!isIsoDate(parsed?.savedAt) || parsed.savedAt < cutoffIso || !isCustomMatchList(parsed.data)) {
-        window.localStorage.removeItem(key)
-      }
-    } catch {
-      window.localStorage.removeItem(key)
-    }
-  }
+  /**
+   * A match that already has a result. It stays visible in the grid so the day's
+   * schedule still reflects what happened, but it can no longer be moved or
+   * unscheduled.
+   */
+  locked: boolean
 }
 
 /** Identifies what is currently being dragged. */
@@ -385,6 +196,17 @@ function minToLabel(min: number): string {
   const m = min % 60
 
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** Parses an 'HH:mm' stored hour back into minutes from midnight. */
+function labelToMin(hour: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(hour)
+
+  if (!match) {
+    return null
+  }
+
+  return Number(match[1]) * 60 + Number(match[2])
 }
 
 /** All selectable start slots (8:00 … 23:00). */
@@ -405,39 +227,27 @@ interface TournamentPlannerViewProps {
 }
 
 export default function TournamentPlannerView({ tournamentId, logoSrc }: TournamentPlannerViewProps) {
-  const { getTournament } = useTournaments()
+  const { getTournament, saveMatchSchedule, clearMatchSchedule } = useTournaments()
   const { showWarningMessage } = useNotifications()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
-  // --- Configuration state (courts/duration persisted to localStorage) ----
-  const [courts, setCourts] = useState(() => loadStoredConfig().courts)
-  // The planner always opens on "today through +2 days" — it never restores a
-  // previously configured range. What DOES get restored, for whatever range is
-  // showing, is which matches localStorage says are placed on those days (see the
-  // sync effect below).
+  // --- Configuration state ------------------------------------------------
+  // The venue being planned. Every match dropped on the grid is scheduled here,
+  // and the grid only shows the matches of this site — otherwise "Cancha 1" of
+  // two different clubs would collide in the same column.
+  const [siteId, setSiteId] = useState<number | null>(null)
+  const [courts, setCourts] = useState(DEFAULT_COURTS)
+  const [courtNames, setCourtNames] = useState<Record<number, string>>({})
+  const [duration, setDuration] = useState(DEFAULT_DURATION)
   const [startDate, setStartDate] = useState<Dayjs>(() => dayjs().startOf('day'))
   const [endDate, setEndDate] = useState<Dayjs>(() => dayjs().startOf('day').add(2, 'day'))
-  const [duration, setDuration] = useState(() => loadStoredConfig().duration)
-  const [courtNames, setCourtNames] = useState<Record<number, string>>(() => loadStoredConfig().courtNames)
-  // --- Planning state (kept in sync with localStorage by the effect below) ------
-  const [placements, setPlacements] = useState<Record<number, Placement>>(() => {
-    // Purge every tournament's abandoned planner data (not just this one) before
-    // anything gets read back, so old plannings don't accumulate there forever.
-    pruneStalePlannerStorage()
-
-    return {}
-  })
-  // Always-current snapshot of `placements`, readable from effects that intentionally
-  // don't list it as a dependency (so they only re-run when the range/courts change,
-  // not on every drag) but still need the latest value rather than a stale closure.
-  const placementsRef = useRef(placements)
-
-  placementsRef.current = placements
-  // Organizer-typed free-text matches, persisted per tournament in localStorage.
-  const [customMatches, setCustomMatches] = useState<CustomMatch[]>(() => loadStoredCustomMatches(tournamentId))
-  // Creation dialog for a custom match.
-  const [customDialogOpen, setCustomDialogOpen] = useState(false)
-  const [customForm, setCustomForm] = useState({ home: '', away: '', category: '', round: '', consolation: false })
+  /**
+   * Optimistic overlay on top of what the server says. A drag applies here
+   * immediately (so the card moves without waiting for the round-trip) and the
+   * entry is dropped again once the tournament is refetched — or rolled back if
+   * the request fails. `null` marks a match being unscheduled.
+   */
+  const [pendingPlacements, setPendingPlacements] = useState<Record<number, Placement | null>>({})
   // Cell currently hovered while dragging — drives the drop-preview shadow.
   const [dragTarget, setDragTarget] = useState<Placement | null>(null)
   // Match currently being dragged — hidden from its original spot while moving.
@@ -446,21 +256,89 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
   const rootRef = useRef<HTMLDivElement>(null)
   // Persistent (already-painted) element reused as the drag image for pool drags.
   const ghostRef = useRef<HTMLDivElement>(null)
+  // True until the initial tournament load has seeded the site and day range, so
+  // those defaults are only ever applied once.
+  const initializedRef = useRef(false)
+
+  // Clear the leftovers of the previous localStorage-based planner, once.
+  useEffect(() => {
+    pruneLegacyPlannerStorage()
+    setDuration(loadDuration())
+  }, [])
+
+  const refreshTournament = useCallback(
+    () =>
+      getTournament(tournamentId).then((data) => {
+        setTournament(data)
+
+        return data
+      }),
+    [getTournament, tournamentId]
+  )
 
   useEffect(() => {
-    getTournament(tournamentId)
-      .then((data) => setTournament(data))
+    refreshTournament()
+      .then((data) => {
+        if (!data || initializedRef.current) {
+          return
+        }
+
+        initializedRef.current = true
+        // Open on the venue that already holds this tournament's planning (or the
+        // tournament's own site when nothing is scheduled yet).
+        const scheduled = (data.matches ?? []).filter((match) => match.date != null)
+        const firstScheduled = scheduled.map((match) => match.date!).sort()[0]
+
+        setSiteId(scheduled[0]?.siteId ?? data.siteId ?? null)
+
+        // Show the days that are already planned rather than always starting at
+        // "today", which would hide an existing planning behind a date change.
+        if (firstScheduled) {
+          const first = dayjs(firstScheduled).startOf('day')
+          const last = dayjs(
+            scheduled
+              .map((match) => match.date!)
+              .sort()
+              .at(-1)!
+          ).startOf('day')
+          const maxEnd = first.add(MAX_PLANNING_DAYS - 1, 'day')
+
+          setStartDate(first)
+          setEndDate(last.isAfter(maxEnd, 'day') ? maxEnd : last)
+        }
+      })
       .finally(() => setLoading(false))
-  }, [getTournament, tournamentId])
+  }, [refreshTournament])
 
-  // Persist courts/duration/court-names configuration so it's remembered across sessions.
+  // Load the selected site's own courts setup whenever the venue changes.
   useEffect(() => {
+    const config = loadCourtsConfig(siteId)
+
+    setCourts(config.courts)
+    setCourtNames(config.courtNames)
+  }, [siteId])
+
+  // Persist the courts setup against the site it belongs to.
+  useEffect(() => {
+    if (siteId == null || typeof window === 'undefined') {
+      return
+    }
+
     try {
-      window.localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ courts, duration, courtNames }))
+      window.localStorage.setItem(courtsStorageKey(siteId), JSON.stringify({ courts, courtNames }))
     } catch {
       // Ignore write errors (e.g. storage disabled/full).
     }
-  }, [courts, duration, courtNames])
+  }, [siteId, courts, courtNames])
+
+  // Duration is a habit of the organizer, not of a venue: stored once.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DURATION_STORAGE_KEY, String(duration))
+    } catch {
+      // Ignore write errors (e.g. storage disabled/full).
+    }
+  }, [duration])
 
   // Resolves the display name for a court, falling back to "Cancha N" if not renamed.
   const courtLabel = useCallback((court: number) => courtNames[court]?.trim() || `Cancha ${court}`, [courtNames])
@@ -540,110 +418,6 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       ),
     [tournament]
   )
-  // Only matches that are ready to be scheduled: currently editable (the frontier
-  // of their lane), not yet played (still pending and without a loaded result)
-  // and with both sides already known (excludes byes and not-yet-defined bracket
-  // matches).
-  const pendingMatches = useMemo<MatchDto[]>(() => {
-    if (!tournament) {
-      return []
-    }
-
-    const matches = tournament.matches ?? []
-    const matchesByCategory = new Map<number, MatchDto[]>()
-
-    for (const match of matches) {
-      if (!matchesByCategory.has(match.tournamentCategoryId)) {
-        matchesByCategory.set(match.tournamentCategoryId, [])
-      }
-
-      matchesByCategory.get(match.tournamentCategoryId)!.push(match)
-    }
-
-    return matches.filter(
-      (match) =>
-        match.status === MatchStatus.PENDING &&
-        match.score == null &&
-        match.winner == null &&
-        isMatchEditable(
-          match,
-          matchesByCategory.get(match.tournamentCategoryId) ?? [],
-          tournament.type,
-          tournament.status
-        )
-    )
-  }, [tournament])
-  // The days covered by the configured range.
-  const days = useMemo<Dayjs[]>(() => {
-    const list: Dayjs[] = []
-    const last = endDate.isBefore(startDate) ? startDate : endDate
-    let cursor = startDate.startOf('day')
-
-    while (!cursor.isAfter(last, 'day') && list.length < MAX_PLANNING_DAYS) {
-      list.push(cursor)
-      cursor = cursor.add(1, 'day')
-    }
-
-    return list
-  }, [startDate, endDate])
-
-  // Keeps the visible placements in sync with localStorage every time the day range or
-  // court count changes (including on mount):
-  //  - matches localStorage says are scheduled within the current range/courts get
-  //    pulled into view;
-  //  - a match already placed in this view keeps its current slot even if localStorage
-  //    disagrees (e.g. it was scheduled differently in another tab) — the in-view slot
-  //    wins, and localStorage is corrected to match it;
-  //  - placements that fall outside the current range/courts are dropped from view only
-  //    (they stay safely persisted in localStorage; they just aren't shown right now).
-  // Explicit removals (dragging a match back to the pool) are persisted immediately from
-  // removePlacement itself, not here — this effect only ever adds to or corrects
-  // localStorage, so it can never resurrect something the user just removed.
-  useEffect(() => {
-    const stored = loadStoredPlacements(tournamentId)
-    const validDates = new Set(days.map((day) => day.format('YYYY-MM-DD')))
-    const current = placementsRef.current
-    const next: Record<number, Placement> = {}
-    const winners: Record<number, Placement> = {}
-    let changed = false
-
-    for (const [key, placement] of Object.entries(current)) {
-      if (validDates.has(placement.dateIso) && placement.court <= courts) {
-        next[Number(key)] = placement
-      } else {
-        changed = true
-      }
-    }
-
-    for (const [key, storedPlacement] of Object.entries(stored)) {
-      if (!validDates.has(storedPlacement.dateIso)) {
-        continue
-      }
-
-      const matchId = Number(key)
-      const existing = next[matchId]
-
-      if (!existing) {
-        next[matchId] = storedPlacement
-        changed = true
-      } else if (
-        existing.dateIso !== storedPlacement.dateIso ||
-        existing.court !== storedPlacement.court ||
-        existing.startMin !== storedPlacement.startMin
-      ) {
-        winners[matchId] = existing
-      }
-    }
-
-    if (changed) {
-      setPlacements(next)
-    }
-
-    if (Object.keys(winners).length > 0) {
-      patchStoredPlacements(tournamentId, (stored2) => ({ ...stored2, ...winners }))
-    }
-  }, [days, courts, tournamentId])
-
   const competitorLabel = useCallback(
     (id: number): string => {
       const competitor = competitorsById[id]
@@ -666,7 +440,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     },
     [competitorLabel]
   )
-  // Normalize a real tournament match into the shared planner view model.
+  // Normalize a tournament match into the shared planner view model.
   const entryFromMatch = useCallback(
     (match: MatchDto): PlannerEntry => ({
       id: match.id,
@@ -674,79 +448,130 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       round: roundLabelByMatchId.get(match.id) ?? null,
       home: sideName(match.homeCompetitorIds),
       away: sideName(match.awayCompetitorIds),
-      custom: false,
-      consolation: consolationMatchIds.has(match.id)
+      consolation: consolationMatchIds.has(match.id),
+      locked: match.status !== MatchStatus.PENDING || match.score != null
     }),
     [categoryNameById, roundLabelByMatchId, sideName, consolationMatchIds]
   )
-  // Real matches plus organizer-typed custom matches, all as PlannerEntry.
-  const allEntries = useMemo<PlannerEntry[]>(
-    () => [
-      ...pendingMatches.map(entryFromMatch),
-      ...customMatches.map((custom) => ({
-        id: custom.id,
-        category: custom.category?.trim() || 'Partido personalizado',
-        round: custom.round?.trim() || null,
-        home: custom.home,
-        away: custom.away,
-        custom: true,
-        consolation: custom.consolation === true
-      }))
-    ],
-    [pendingMatches, entryFromMatch, customMatches]
-  )
-  const unplannedEntries = useMemo(
-    () => allEntries.filter((entry) => placements[entry.id] == null),
-    [allEntries, placements]
-  )
-
-  // Adds a custom match to the pool (ready to drag onto the grid) and persists it.
-  const addCustomMatch = (fields: {
-    home: string
-    away: string
-    category: string
-    round: string
-    consolation: boolean
-  }) => {
-    const home = fields.home.trim()
-    const away = fields.away.trim()
-
-    if (home === '' || away === '') {
-      return
+  /**
+   * Every match the planner cares about: the ones ready to be scheduled, plus
+   * the ones already scheduled — including those that have since been played, so
+   * a day's grid keeps showing what actually took place on each court.
+   */
+  const allEntries = useMemo<PlannerEntry[]>(() => {
+    if (!tournament) {
+      return []
     }
 
-    setCustomMatches((prev) => {
-      // Negative, strictly-decreasing ids never collide with real match ids.
-      const nextId = Math.min(0, ...prev.map((custom) => custom.id)) - 1
-      const next = [
-        ...prev,
-        {
-          id: nextId,
-          home,
-          away,
-          category: fields.category.trim() || undefined,
-          round: fields.round.trim() || undefined,
-          consolation: fields.consolation || undefined
+    const matches = tournament.matches ?? []
+    const matchesByCategory = new Map<number, MatchDto[]>()
+
+    for (const match of matches) {
+      if (!matchesByCategory.has(match.tournamentCategoryId)) {
+        matchesByCategory.set(match.tournamentCategoryId, [])
+      }
+
+      matchesByCategory.get(match.tournamentCategoryId)!.push(match)
+    }
+
+    // Ready to be scheduled: currently editable (the frontier of their lane), not
+    // yet played (still pending and without a loaded result) and with both sides
+    // already known (excludes byes and not-yet-defined bracket matches).
+    const isSchedulable = (match: MatchDto) =>
+      match.status === MatchStatus.PENDING &&
+      match.score == null &&
+      match.winner == null &&
+      isMatchEditable(
+        match,
+        matchesByCategory.get(match.tournamentCategoryId) ?? [],
+        tournament.type,
+        tournament.status
+      )
+
+    return matches.filter((match) => isSchedulable(match) || match.date != null).map(entryFromMatch)
+  }, [tournament, entryFromMatch])
+  /**
+   * Where each match sits right now: what the server stored for the selected
+   * venue, with any in-flight drag applied on top.
+   */
+  const placements = useMemo<Record<number, Placement>>(() => {
+    const result: Record<number, Placement> = {}
+
+    for (const match of tournament?.matches ?? []) {
+      const startMin = match.hour != null ? labelToMin(match.hour) : null
+
+      if (match.siteId !== siteId || match.date == null || match.courtNumber == null || startMin == null) {
+        continue
+      }
+
+      result[match.id] = { dateIso: match.date, court: match.courtNumber, startMin }
+    }
+
+    for (const [key, placement] of Object.entries(pendingPlacements)) {
+      if (placement === null) {
+        delete result[Number(key)]
+      } else {
+        result[Number(key)] = placement
+      }
+    }
+
+    return result
+  }, [tournament, siteId, pendingPlacements])
+  const unplannedEntries = useMemo(
+    () => allEntries.filter((entry) => !entry.locked && placements[entry.id] == null),
+    [allEntries, placements]
+  )
+  // The days covered by the configured range.
+  const days = useMemo<Dayjs[]>(() => {
+    const list: Dayjs[] = []
+    const last = endDate.isBefore(startDate) ? startDate : endDate
+    let cursor = startDate.startOf('day')
+
+    while (!cursor.isAfter(last, 'day') && list.length < MAX_PLANNING_DAYS) {
+      list.push(cursor)
+      cursor = cursor.add(1, 'day')
+    }
+
+    return list
+  }, [startDate, endDate])
+  // --- Persistence --------------------------------------------------------
+  /**
+   * Applies a placement optimistically, persists it, and rolls back if the
+   * server rejects it. The optimistic entry is only dropped after the refetch,
+   * so the card never flickers back to its old slot in between.
+   */
+  const persistPlacement = useCallback(
+    async (matchId: number, placement: Placement | null) => {
+      setPendingPlacements((prev) => ({ ...prev, [matchId]: placement }))
+
+      try {
+        if (placement === null) {
+          await clearMatchSchedule(matchId)
+        } else {
+          await saveMatchSchedule(matchId, {
+            siteId: siteId!,
+            date: placement.dateIso,
+            hour: minToLabel(placement.startMin),
+            courtNumber: placement.court
+          })
         }
-      ]
 
-      persistCustomMatches(tournamentId, next)
+        await refreshTournament()
+      } catch {
+        // The error toast is raised by the request layer; here we only make sure
+        // the grid goes back to showing what the server actually holds.
+      } finally {
+        setPendingPlacements((prev) => {
+          const next = { ...prev }
 
-      return next
-    })
-  }
+          delete next[matchId]
 
-  // Deletes a custom match entirely (and any placement it had).
-  const deleteCustomMatch = (id: number) => {
-    setCustomMatches((prev) => {
-      const next = prev.filter((custom) => custom.id !== id)
-
-      persistCustomMatches(tournamentId, next)
-
-      return next
-    })
-    removePlacement(id)
-  }
+          return next
+        })
+      }
+    },
+    [clearMatchSchedule, saveMatchSchedule, refreshTournament, siteId]
+  )
 
   // --- Drag & drop --------------------------------------------------------
   // Populate the persistent, already-painted ghost element so it mimics a placed
@@ -802,7 +627,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
         const consolationSpan = document.createElement('span')
 
         consolationSpan.className = 'consolation-badge'
-        consolationSpan.textContent = 'Consuelo'
+        consolationSpan.textContent = 'C'
         metadata.appendChild(consolationSpan)
       }
 
@@ -941,38 +766,24 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       return
     }
 
+    if (siteId == null) {
+      showWarningMessage('Elegí una sede antes de planificar')
+
+      return
+    }
+
     if (hasCollision(drag.matchId, dateIso, court, startMin)) {
       showWarningMessage('Ya hay un partido en ese horario y cancha')
 
       return
     }
 
-    const placement: Placement = { dateIso, court, startMin }
-
-    setPlacements((prev) => ({ ...prev, [drag.matchId]: placement }))
-    // Persisted immediately (not left to the range-sync effect) so it survives a
-    // refresh right away, and so storage never depends on the range staying put.
-    patchStoredPlacements(tournamentId, (stored) => ({ ...stored, [drag.matchId]: placement }))
+    void persistPlacement(drag.matchId, { dateIso, court, startMin })
     dragRef.current = null
   }
 
   const removePlacement = (matchId: number) => {
-    setPlacements((prev) => {
-      const next = { ...prev }
-
-      delete next[matchId]
-
-      return next
-    })
-    // Persisted immediately so the range-sync effect never re-adopts a stale copy of
-    // a match the user just unscheduled.
-    patchStoredPlacements(tournamentId, (stored) => {
-      const next = { ...stored }
-
-      delete next[matchId]
-
-      return next
-    })
+    void persistPlacement(matchId, null)
   }
 
   // Placements grouped by day + court for quick lookup when rendering.
@@ -1009,6 +820,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
           <Paper className="planner-section config-section">
             <Skeleton variant="text" width={140} height={28} />
             <div className="config-fields">
+              <Skeleton variant="rounded" height={40} className="field" />
               <Skeleton variant="rounded" height={40} className="field" />
               <Skeleton variant="rounded" height={40} className="field" />
               <Skeleton variant="rounded" height={40} className="field" />
@@ -1085,21 +897,24 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
   }
 
   const renderMatchChip = (entry: PlannerEntry, variant: 'pool' | 'grid') => {
+    // A played match keeps its slot in the grid as a record of what happened, but
+    // it is no longer part of the planning: it cannot be moved or removed.
+    const draggable = !entry.locked
+
     return (
       <div
         key={entry.id}
-        className={`planner-match ${variant} ${entry.custom ? 'custom' : ''} ${entry.id === draggingId ? 'dragging' : ''}`}
-        draggable
-        onDragStart={handleDragStart(entry, variant)}
-        onDragEnd={handleDragEnd}
+        className={`planner-match ${variant} ${entry.locked ? 'locked' : ''} ${entry.id === draggingId ? 'dragging' : ''}`}
+        draggable={draggable}
+        onDragStart={draggable ? handleDragStart(entry, variant) : undefined}
+        onDragEnd={draggable ? handleDragEnd : undefined}
         style={variant === 'grid' ? { height: (duration / SLOT_MIN) * ROW_HEIGHT - 4 } : undefined}
       >
         <div className="planner-match-header">
           <div className="planner-match-title">
             <span className="category">{entry.category}</span>
-            {entry.custom && <span className="custom-badge">Personalizado</span>}
           </div>
-          {variant === 'grid' ? (
+          {variant === 'grid' && !entry.locked && (
             <IconButton
               size="small"
               className="planner-match-remove"
@@ -1108,17 +923,6 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
             >
               <CloseIcon fontSize="inherit" />
             </IconButton>
-          ) : (
-            entry.custom && (
-              <IconButton
-                size="small"
-                className="planner-match-remove"
-                onClick={() => deleteCustomMatch(entry.id)}
-                aria-label="Eliminar partido personalizado"
-              >
-                <DeleteOutlineIcon fontSize="inherit" />
-              </IconButton>
-            )
           )}
         </div>
         {(entry.round || entry.consolation) && (
@@ -1173,6 +977,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               Configuración
             </Typography>
             <div className="config-fields">
+              <SiteSelector className="field" size="small" label="Sede" value={siteId} onChange={setSiteId} required />
               <TextField
                 className="field"
                 size="small"
@@ -1185,22 +990,6 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
                   setCourts(Math.max(1, Math.min(MAX_COURTS, Number.isNaN(value) ? 1 : value)))
                 }}
               />
-              <TextField
-                className="field"
-                size="small"
-                label="Duración por partido"
-                select
-                value={duration}
-                onChange={(event) => setDuration(Number(event.target.value))}
-              >
-                {DURATION_OPTIONS.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option >= 60
-                      ? `${Math.floor(option / 60)}h${option % 60 ? ` ${option % 60}m` : ''}`
-                      : `${option}m`}
-                  </MenuItem>
-                ))}
-              </TextField>
               <DatePicker
                 className="field"
                 label="Desde"
@@ -1231,6 +1020,22 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
                 slotProps={{ textField: { size: 'small' } }}
                 onChange={(value) => value && setEndDate(value)}
               />
+              <TextField
+                className="field"
+                size="small"
+                label="Duración por partido"
+                select
+                value={duration}
+                onChange={(event) => setDuration(Number(event.target.value))}
+              >
+                {DURATION_OPTIONS.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option >= 60
+                      ? `${Math.floor(option / 60)}h${option % 60 ? ` ${option % 60}m` : ''}`
+                      : `${option}m`}
+                  </MenuItem>
+                ))}
+              </TextField>
             </div>
           </Paper>
 
@@ -1240,23 +1045,9 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               <Typography variant="subtitle1" className="section-title">
                 Partidos pendientes ({unplannedEntries.length})
               </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                className="pool-add-button"
-                startIcon={<AddIcon fontSize="small" />}
-                onClick={() => {
-                  setCustomForm({ home: '', away: '', category: '', round: '', consolation: false })
-                  setCustomDialogOpen(true)
-                }}
-              >
-                Personalizado
-              </Button>
             </div>
             {allEntries.length === 0 ? (
-              <Alert severity="info">
-                No hay partidos para planificar. Creá uno personalizado o activá rondas del torneo.
-              </Alert>
+              <Alert severity="info">No hay partidos para planificar. Activá rondas del torneo.</Alert>
             ) : unplannedEntries.length === 0 ? (
               <Typography variant="body2" color="text.secondary" className="pool-empty">
                 Todos los partidos están planificados. Arrastrá un partido acá para quitarlo de la planificación.
@@ -1275,6 +1066,11 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               Arrastrá los partidos a un día, cancha y horario. Podés moverlos entre celdas o devolverlos a la lista de
               pendientes.
             </Typography>
+            {siteId == null && (
+              <Alert severity="warning" className="grid-no-site">
+                Elegí una sede para empezar a planificar.
+              </Alert>
+            )}
             <div className="planner-days">
               {days.map((day) => {
                 const dateIso = day.format('YYYY-MM-DD')
@@ -1351,79 +1147,6 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
           </Paper>
         </div>
       </div>
-
-      <Dialog open={customDialogOpen} onClose={() => setCustomDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Nuevo partido personalizado</DialogTitle>
-        <DialogContent className="custom-match-dialog">
-          <Typography variant="body2" color="text.secondary" className="custom-match-hint">
-            Cargá un partido con texto libre para planificar cruces que todavía no están definidos.
-          </Typography>
-          <div className="custom-match-row">
-            <TextField
-              className="custom-match-field"
-              size="small"
-              label="Categoría (opcional)"
-              placeholder="Primera Damas"
-              value={customForm.category}
-              onChange={(event) => setCustomForm((prev) => ({ ...prev, category: event.target.value }))}
-              fullWidth
-            />
-            <TextField
-              className="custom-match-field"
-              size="small"
-              label="Ronda (opcional)"
-              placeholder="Final"
-              value={customForm.round}
-              onChange={(event) => setCustomForm((prev) => ({ ...prev, round: event.target.value }))}
-              fullWidth
-            />
-          </div>
-          <TextField
-            className="custom-match-field"
-            size="small"
-            label="Competidor 1"
-            placeholder="Ganador Ramirez / Suarez"
-            value={customForm.home}
-            onChange={(event) => setCustomForm((prev) => ({ ...prev, home: event.target.value }))}
-            autoFocus
-            fullWidth
-          />
-          <TextField
-            className="custom-match-field"
-            size="small"
-            label="Competidor 2"
-            placeholder="Ganador Pérez / González"
-            value={customForm.away}
-            onChange={(event) => setCustomForm((prev) => ({ ...prev, away: event.target.value }))}
-            fullWidth
-          />
-          {consolationMatchIds.size > 0 && (
-            <FormControlLabel
-              className="custom-match-switch"
-              control={
-                <Switch
-                  checked={customForm.consolation}
-                  onChange={(event) => setCustomForm((prev) => ({ ...prev, consolation: event.target.checked }))}
-                />
-              }
-              label="Partido del cuadro consuelo"
-            />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCustomDialogOpen(false)}>Cancelar</Button>
-          <Button
-            variant="contained"
-            disabled={customForm.home.trim() === '' || customForm.away.trim() === ''}
-            onClick={() => {
-              addCustomMatch(customForm)
-              setCustomDialogOpen(false)
-            }}
-          >
-            Agregar
-          </Button>
-        </DialogActions>
-      </Dialog>
     </LocalizationProvider>
   )
 }

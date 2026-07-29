@@ -48,10 +48,12 @@
         .config-fields {
           display: flex;
           flex-wrap: wrap;
+          grid-template-columns: 1fr 1fr;
+          display: grid;
           gap: 16px;
 
           .field {
-            width: 200px;
+            
           }
         }
       }
@@ -73,11 +75,6 @@
           align-items: flex-start;
           gap: 8px;
           margin-bottom: 8px;
-
-          .pool-add-button {
-            flex-shrink: 0;
-            text-transform: none;
-          }
         }
 
         .pool-list {
@@ -106,6 +103,12 @@
 
         .grid-hint {
           margin-top: -4px;
+        }
+
+        // Shown while no venue is selected: the grid is inert until there is one,
+        // since a match is always scheduled at a site.
+        .grid-no-site {
+          margin-bottom: 4px;
         }
 
         .planner-days {
@@ -296,18 +299,6 @@
         text-overflow: ellipsis;
       }
 
-      .custom-badge {
-        flex-shrink: 0;
-        font-size: 8px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--color-secondary, #f59e0b);
-        background-color: rgba(245, 158, 11, 0.12);
-        border-radius: var(--radius-sm, 6px);
-        padding: 1px 5px;
-        white-space: nowrap;
-      }
     }
 
     .planner-match-metadata {
@@ -393,10 +384,14 @@
       margin: -2px -4px 0 0;
     }
 
-    // Custom (free-text) matches get an amber left accent to set them apart from
-    // real tournament matches.
-    &.custom {
-      border-left: 3px solid var(--color-secondary, #f59e0b);
+    // A match that has already been played keeps its slot as a record of what
+    // happened on that court, but it is out of the planning: not draggable, and
+    // visually receded so the still-movable matches stand out.
+    &.locked {
+      cursor: default;
+      opacity: 0.65;
+      border-left: 3px solid var(--color-divider, #e5e7eb);
+      background-color: var(--color-background, #f9fafb);
     }
   }
 
@@ -414,23 +409,5 @@
       position: static;
       max-height: none;
     }
-  }
-}
-
-// The custom-match dialog renders through a MUI portal at document.body, i.e.
-// OUTSIDE .tournament-planner, so its styles must live at the top level to apply.
-.custom-match-dialog {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding-top: 12px !important;
-
-  .custom-match-hint {
-    margin: 0;
-  }
-
-  .custom-match-row {
-    display: flex;
-    gap: 16px;
   }
 }

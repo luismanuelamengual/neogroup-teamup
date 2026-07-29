@@ -1,4 +1,5 @@
 import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity } from '@neogroup/neorm'
+import { Site } from '@/app/(protected)/(sites)/models/Site'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -59,6 +60,25 @@ export class Match extends BaseEntity {
   @Column()
   winner!: MatchSide | null
 
+  /**
+   * Venue the match is (or was) played at. Null means the match is played at the
+   * tournament's own site, so only a match that deviates from it stores a value.
+   */
+  @Column({ cast: 'number' })
+  siteId!: number | null
+
+  /** Calendar day of the match, 'YYYY-MM-DD'. Null until it is scheduled. */
+  @Column()
+  date!: string | null
+
+  /** Start time of the match, 'HH:mm'. Null until it is scheduled. */
+  @Column()
+  hour!: string | null
+
+  /** 1-based court inside the venue. Null until it is scheduled. */
+  @Column({ cast: 'number' })
+  courtNumber!: number | null
+
   @Column({ cast: 'date' })
   createdAt!: Date
 
@@ -67,6 +87,10 @@ export class Match extends BaseEntity {
 
   @BelongsTo(() => TournamentCategory, 'tournamentCategoryId')
   tournamentCategory?: TournamentCategory
+
+  /** Resolved venue, eager-loaded alongside the tournament's matches. */
+  @BelongsTo(() => Site, 'siteId')
+  site?: Site
 
   @BelongsToThrough(() => Tournament, () => TournamentCategory, 'tournamentCategoryId', 'tournamentId')
   tournament?: Tournament

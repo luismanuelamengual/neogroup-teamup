@@ -8,6 +8,7 @@ import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
+import { MatchScheduleInput } from '@/app/(protected)/(tournaments)/models/MatchScheduleInput'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
@@ -73,7 +74,14 @@ export async function getTournaments({
     .when(withCompetitors, (query) =>
       query.with({ competitors: (query) => query.orderBy('seedNumber').orderBy('id') }).with('competitors.players')
     )
-    .when(withMatches, (query) => query.with({ matches: (query) => query.orderBy('roundNumber').orderBy('position') }))
+    .when(withMatches, (query) =>
+      query
+        .with({ matches: (query) => query.orderBy('roundNumber').orderBy('position') })
+        // The venue is eager-loaded so a match card can name it without an extra
+        // round-trip. Only matches scheduled somewhere other than the tournament's
+        // own site carry one, so this resolves to null for most rows.
+        .with('matches.site')
+    )
     .when(withImage, (query) => query.with('image'))
     .orderBy('status')
     .orderByDesc('id')
@@ -525,4 +533,110 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
   // Automatically drive the tournament forward: update pairings/standings and
   // create the next round without any organizer action.
   await progressTournamentAfterResult(tournament, match, wasAlreadyResolved)
+}
+
+/**
+ * Loads a match for a scheduling operation, enforcing that the caller may
+ * perform it. Scheduling is an organizer-only action: unlike setMatchResult,
+ * there is no opt-in that lets a player move their own match around. The match
+ * must also belong to a tournament of the caller's own organization, so a
+ * crafted id from another club is rejected rather than silently scheduled.
+ */
+async function loadMatchForScheduling(matchId: number, userId: number, organizationId: number): Promise<Match> {
+  const match = await Match.where('id', matchId).with('tournamentCategory.tournament').first()
+  const tournament = match?.tournamentCategory?.tournament ?? null
+
+  if (!match || !tournament || tournament.organizationId !== organizationId) {
+    throw new ApiException('notFound', 404)
+  }
+
+  const caller = await User.where('id', userId).first()
+
+  if (caller?.roleId !== Role.ORGANIZER) {
+    throw new ApiException('unauthorized', 403)
+  }
+
+  return match
+}
+
+/** True for a 'YYYY-MM-DD' string that also denotes a real calendar day. */
+function isValidScheduleDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false
+  }
+
+  // Rejects well-formed but non-existent days such as '2026-02-31', which the
+  // Date constructor would silently roll over into the next month.
+  const parsed = new Date(`${value}T00:00:00Z`)
+
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
+/**
+ * Schedules a match: the venue, day, start time and court it is (or was) played
+ * at. Organizer-only, and the only writer of these fields — the planner is
+ * currently the single place they are loaded from.
+ *
+ * `date` and `hour` are stored verbatim as 'YYYY-MM-DD' / 'HH:mm' strings: they
+ * are wall-clock values at the venue, not instants, so they must not be pulled
+ * through a timezone conversion on the way in or out (see migration 013).
+ *
+ * Unlike setMatchResult this never touches the match status/score and never
+ * drives the tournament forward — a scheduled match is still pending until a
+ * result is loaded, and a played match can still be corrected afterwards
+ * (e.g. recording the court a finished match was actually played on).
+ */
+export async function setMatchSchedule(
+  matchId: number,
+  schedule: MatchScheduleInput,
+  userId: number,
+  organizationId: number
+): Promise<void> {
+  const match = await loadMatchForScheduling(matchId, userId, organizationId)
+
+  if (!isValidScheduleDate(schedule.date)) {
+    throw new ApiException('invalidDate')
+  }
+
+  if (typeof schedule.hour !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(schedule.hour)) {
+    throw new ApiException('invalidHour')
+  }
+
+  const courtNumber = Number(schedule.courtNumber)
+
+  if (!Number.isInteger(courtNumber) || courtNumber < 1) {
+    throw new ApiException('invalidCourtNumber')
+  }
+
+  // A match is always planned somewhere, so unlike the tournament's own site
+  // this one cannot be left empty. resolveSiteId additionally rejects an id
+  // that is not part of this organization's catalogue.
+  const siteId = await resolveSiteId(organizationId, schedule.siteId)
+
+  if (siteId === null) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  match.siteId = siteId
+  match.date = schedule.date
+  match.hour = schedule.hour
+  match.courtNumber = courtNumber
+  match.updatedAt = new Date()
+  await match.save()
+}
+
+/**
+ * Removes a match from the planning, leaving all four scheduling fields empty
+ * (its state before it was ever planned). Organizer-only, same as
+ * setMatchSchedule.
+ */
+export async function clearMatchSchedule(matchId: number, userId: number, organizationId: number): Promise<void> {
+  const match = await loadMatchForScheduling(matchId, userId, organizationId)
+
+  match.siteId = null
+  match.date = null
+  match.hour = null
+  match.courtNumber = null
+  match.updatedAt = new Date()
+  await match.save()
 }

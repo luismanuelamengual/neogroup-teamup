@@ -1,6 +1,7 @@
 'use client'
 
 import './index.scss'
+import 'dayjs/locale/es'
 import CloseIcon from '@mui/icons-material/Close'
 import Chip from '@mui/material/Chip'
 import Dialog from '@mui/material/Dialog'
@@ -9,6 +10,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
+import dayjs from 'dayjs'
 import { useState } from 'react'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
@@ -89,6 +91,22 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
   const openCompetitor = (competitor: CompetitorDto | undefined) => competitor && setModalCompetitors([competitor])
   const series = isSeriesScore(match.score) ? (match.score?.matches ?? []) : []
   const seriesResult = getSeriesMatchesWon(match.score ?? {})
+  /**
+   * When and where the match is played, as set in the planner. Unlike the match
+   * card — which only surfaces a venue that deviates from the tournament's — the
+   * detail names the venue outright, resolving the "null means the tournament's
+   * own site" convention so the reader never has to know about it.
+   */
+  const scheduleRows: { label: string; value: string }[] = [
+    {
+      label: 'Fecha',
+      value: match.date ? dayjs(match.date).locale('es').format('dddd D [de] MMMM [de] YYYY') : 'A definir'
+    },
+    { label: 'Hora', value: match.hour ?? 'A definir' },
+    { label: 'Sede', value: (match.siteId != null ? match.site?.name : tournament.site?.name) ?? 'A definir' },
+    { label: 'Cancha', value: match.courtNumber != null ? `Cancha ${match.courtNumber}` : 'A definir' }
+  ]
+  const isScheduled = match.date != null || match.hour != null || match.courtNumber != null || match.siteId != null
 
   return (
     <>
@@ -124,6 +142,27 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
               <span className="side-label">{isInterclubs ? 'Visitante' : 'Lado B'}</span>
               <span className="side-name">{sideName(match.awayCompetitorIds)}</span>
             </div>
+          </div>
+
+          <Divider />
+          <div className="schedule">
+            <Typography variant="subtitle2" className="schedule-title">
+              Cuándo y dónde
+            </Typography>
+            {isScheduled ? (
+              <dl className="schedule-list">
+                {scheduleRows.map(({ label, value }) => (
+                  <div key={label} className="schedule-row">
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                El partido todavía no tiene día ni horario asignado.
+              </Typography>
+            )}
           </div>
 
           {isInterclubs && series.length > 0 && (
