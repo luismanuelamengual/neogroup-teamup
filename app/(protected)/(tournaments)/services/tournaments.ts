@@ -146,6 +146,12 @@ export async function createTournament(
     throw new ApiException('missingFields')
   }
 
+  const startInscriptionsDate = input.startInscriptionsDate?.trim() || null
+
+  if (startInscriptionsDate && startInscriptionsDate > input.startDate) {
+    throw new ApiException('La fecha de inicio de inscripciones no puede ser posterior a la fecha de inicio del torneo')
+  }
+
   const enabledDisciplines = await getEnabledDisciplines(organizationId)
 
   if (!enabledDisciplines.includes(input.discipline)) {
@@ -229,6 +235,7 @@ export async function createTournament(
   tournament.scoreFormat = input.scoreFormat
   tournament.startDate = input.startDate
   tournament.startTime = startTime
+  tournament.startInscriptionsDate = startInscriptionsDate
   tournament.siteId = siteId
   tournament.paid = Boolean(input.paid)
   tournament.entryFee = input.paid && input.entryFee && input.entryFee > 0 ? input.entryFee : null

@@ -41,7 +41,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         <div className="card-content">
           <div className="header">
             <span className="name">{tournament.name}</span>
-            <StatusChip status={tournament.status} />
+            <StatusChip tournament={tournament} />
           </div>
           <div className="tags">
             <span className="tag">{DisciplineNames[tournament.discipline]}</span>

@@ -52,6 +52,13 @@ export class Tournament extends BaseEntity {
   @Column()
   startTime!: string | null
 
+  /**
+   * Optional "YYYY-MM-DD" date from which the tournament accepts registrations.
+   * Null means registrations are open since the tournament was created.
+   */
+  @Column()
+  startInscriptionsDate!: string | null
+
   /** Venue where the tournament is played (catalogue managed by the administrator). */
   @Column()
   siteId!: number | null

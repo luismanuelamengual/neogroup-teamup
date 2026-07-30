@@ -25,6 +25,8 @@ export interface TournamentDto {
   scoreFormat: ScoreFormat
   startDate: string
   startTime: string | null
+  /** Optional "YYYY-MM-DD" date from which the tournament accepts registrations. Null: open since creation. */
+  startInscriptionsDate: string | null
   siteId: number | null
   /** Resolved venue (eager-loaded with the tournament). */
   site?: SiteDto | null

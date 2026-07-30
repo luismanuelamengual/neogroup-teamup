@@ -66,6 +66,7 @@ export default function TournamentForm() {
   const isInterclubs = type === TournamentType.INTERCLUBS
   const [startDate, setStartDate] = useState<Dayjs | null>(null)
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
+  const [startInscriptionsDate, setStartInscriptionsDate] = useState<Dayjs | null>(null)
   const [siteId, setSiteId] = useState<number | null>(null)
   // Categories added to the tournament, in the order the organizer picked them,
   // plus the catalogue they come from (the selector reports it) so the added
@@ -167,6 +168,7 @@ export default function TournamentForm() {
         scoreFormat: isAmericano ? ScoreFormat.BASIC_COUNT : scoreFormat,
         startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
         startTime: startTime ? startTime.format('HH:mm') : null,
+        startInscriptionsDate: startInscriptionsDate ? startInscriptionsDate.format('YYYY-MM-DD') : null,
         siteId,
         categoryIds,
         maxCompetitors,
@@ -252,6 +254,20 @@ export default function TournamentForm() {
           />
           <SiteSelector value={siteId} onChange={setSiteId} />
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
+            <div className="row">
+              <DatePicker
+                label="Fecha de apertura de inscripciones"
+                value={startInscriptionsDate}
+                onChange={(value) => setStartInscriptionsDate(value)}
+                format="YYYY/MM/DD"
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    helperText: 'Opcional. Si no se completa, las inscripciones quedan abiertas desde la creación'
+                  }
+                }}
+              />
+            </div>
             <div className="row">
               <DatePicker
                 label="Fecha de inicio"

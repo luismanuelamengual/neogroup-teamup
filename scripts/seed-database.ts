@@ -1311,6 +1311,7 @@ async function buildTournament(
   tournament.scoreFormat = spec.scoreFormat
   tournament.startDate = startDateFor(spec.status)
   tournament.startTime = randomItem(['09:00', '10:30', '14:00', '18:30', '20:00', null])
+  tournament.startInscriptionsDate = null
   tournament.siteId = await resolveSiteId(organizationId, randomItem(VENUES))
   tournament.settings = spec.settings
   // Ranking points only count for tournaments that define categories.

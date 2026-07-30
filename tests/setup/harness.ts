@@ -44,6 +44,7 @@ import migration010 from '@/database/migrations/010-categories-drop-subdisciplin
 import migration011 from '@/database/migrations/011-organizations-enabled-disciplines'
 import migration012 from '@/database/migrations/012-tournaments-allow-player-set-score'
 import migration013 from '@/database/migrations/013-matches-schedule'
+import migration014 from '@/database/migrations/014-tournaments-start-inscriptions-date'
 
 const TABLES = [
   'tournament_payments',
@@ -133,6 +134,9 @@ export async function resetDatabase(): Promise<void> {
   // 013 adds the scheduling fields to matches (siteId / date / hour /
   // courtNumber), all nullable and empty until a match is planned.
   await migration013.up()
+  // 014 adds tournaments.startInscriptionsDate (nullable; null = registrations
+  // open since creation).
+  await migration014.up()
 
   const organization = new Organization()
 
@@ -240,6 +244,8 @@ export interface CreateTournamentOptions {
   seeds?: (number | null)[]
   organizationId?: number
   startDate?: string
+  /** Optional "YYYY-MM-DD" date from which registrations open. Defaults to null (open since creation). */
+  startInscriptionsDate?: string | null
   /** Whether participants (not just the owner) may submit their own match results. Defaults to false. */
   allowPlayerSetScore?: boolean
 }
@@ -273,6 +279,7 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
     scoreFormat: options.scoreFormat ?? ScoreFormat.BASIC_COUNT,
     startDate: options.startDate ?? '2026-01-01',
     startTime: null,
+    startInscriptionsDate: options.startInscriptionsDate ?? null,
     siteId: null,
     settings: options.settings ?? {},
     rankingSettings: null,

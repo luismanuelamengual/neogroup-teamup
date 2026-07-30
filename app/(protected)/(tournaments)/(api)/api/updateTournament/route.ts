@@ -36,8 +36,15 @@ export const POST = withAuth(async (request, _context, _userId, organizationId) 
   tournament.name = name
   tournament.description = input.description?.trim() || null
   tournament.siteId = await resolveSiteId(organizationId, input.siteId)
+  const startInscriptionsDate = input.startInscriptionsDate?.trim() || null
+
+  if (startInscriptionsDate && startInscriptionsDate > input.startDate) {
+    throw new ApiException('La fecha de inicio de inscripciones no puede ser posterior a la fecha de inicio del torneo')
+  }
+
   tournament.startDate = input.startDate
   tournament.startTime = startTime
+  tournament.startInscriptionsDate = startInscriptionsDate
 
   // Registration pricing can only be changed while registrations are open.
   if (input.paid !== undefined && tournament.status === TournamentStatus.STAND_BY) {

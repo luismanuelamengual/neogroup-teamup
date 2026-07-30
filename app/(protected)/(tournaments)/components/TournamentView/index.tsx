@@ -29,6 +29,7 @@ import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import dayjs from 'dayjs'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -55,6 +56,7 @@ import { dataUrlToFile } from '@/app/(protected)/(tournaments)/utils/image'
 import { describeInterclubsFormat } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
+import { isRegistrationOpen } from '@/app/(protected)/(tournaments)/utils/registrations'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { useUserStore } from '@/app/stores/users'
 
@@ -103,6 +105,8 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
     () => competitors.find((c) => userId != null && c.playerIds.includes(userId)) ?? null,
     [competitors, userId]
   )
+  // Registrations are open unless the tournament sets a future startInscriptionsDate.
+  const registrationOpen = useMemo(() => isRegistrationOpen(tournament?.startInscriptionsDate), [tournament])
   const myMatches = useMemo(() => {
     if (isOrganizer || !userEntry || !tournament || !tournament.allowPlayerSetScore) {
       return []
@@ -438,7 +442,7 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
                 </Typography>
               )}
               <div className="title-actions">
-                <StatusChip status={tournament.status} />
+                <StatusChip tournament={tournament} />
               </div>
             </div>
             {tournament.description && (
@@ -536,7 +540,16 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
               tournament.status === TournamentStatus.STAND_BY && (
                 <div className="footer">
                   <div className="info-area">
-                    {userEntry ? <Chip icon={<CheckCircleIcon />} color="success" label="Inscripto" /> : <></>}
+                    {userEntry ? (
+                      <Chip icon={<CheckCircleIcon />} color="success" label="Inscripto" />
+                    ) : !registrationOpen ? (
+                      <Chip
+                        color="info"
+                        label={`Las inscripciones abren el ${dayjs(tournament.startInscriptionsDate).format('DD/MM/YYYY')}`}
+                      />
+                    ) : (
+                      <></>
+                    )}
                   </div>
                   <div className="actions-area">
                     {userEntry ? (
@@ -549,11 +562,11 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
                       >
                         Darme de baja
                       </Button>
-                    ) : (
+                    ) : registrationOpen ? (
                       <Button variant="contained" startIcon={<HowToRegIcon />} onClick={() => setJoinOpen(true)}>
                         Inscribirme
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               )
