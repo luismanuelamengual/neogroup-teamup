@@ -26,6 +26,7 @@ export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: 
   const [phoneNumber, setPhoneNumber] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [roleId, setRoleId] = useState<Role>(Role.PLAYER)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -34,6 +35,13 @@ export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setError(null)
+
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.')
+
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -113,6 +121,17 @@ export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: 
           required
           fullWidth
           autoComplete="new-password"
+        />
+        <TextField
+          label="Repetir contraseña"
+          type="password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          required
+          fullWidth
+          autoComplete="new-password"
+          error={confirmPassword.length > 0 && password !== confirmPassword}
+          helperText={confirmPassword.length > 0 && password !== confirmPassword ? 'Las contraseñas no coinciden' : ' '}
         />
         {!!allowedRegistrationRoles && allowedRegistrationRoles.length > 1 && (
           <div className="role">
