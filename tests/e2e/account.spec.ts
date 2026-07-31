@@ -27,30 +27,39 @@ test.describe('Account', () => {
     await expect(page.getByLabel('Apodo')).toHaveValue('ElCrack')
   })
 
-  test('an organizer sees Mercado Pago as unavailable when the platform has no credentials configured', async ({
-    page
-  }) => {
-    // The e2e server never sets MP_CLIENT_ID / MP_CLIENT_SECRET (see tests/e2e/env.ts),
-    // so payments stay "not configured" — this exercises that (very real, since a
-    // fresh deployment starts this way) state without ever hitting the real
-    // Mercado Pago OAuth flow.
-    const organizer = buildTestUser(Role.ORGANIZER, 'account-mp')
+  test('the account page no longer offers a payment platform to connect', async ({ page }) => {
+    // Organizers do not collect through TeamUp any more: players settle the
+    // entry fee with them off-platform, so there is nothing to connect here.
+    const organizer = buildTestUser(Role.ORGANIZER, 'account-no-mp')
 
     await signUpAndLogIn(page, organizer)
     await page.goto('/account')
 
-    await expect(page.getByText('Cobros (Mercado Pago)')).toBeVisible()
-    await expect(page.getByText('Los pagos no están habilitados en esta plataforma todavía.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Mi cuenta' })).toBeVisible()
+    await expect(page.getByText('Cobros (Mercado Pago)')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Conectar Mercado Pago' })).toHaveCount(0)
   })
 
-  test('the Mercado Pago connect endpoint safely redirects back when unconfigured', async ({ page }) => {
-    const organizer = buildTestUser(Role.ORGANIZER, 'account-mp-connect')
+  test('an organizer reaches the payments page from the user menu', async ({ page }) => {
+    const organizer = buildTestUser(Role.ORGANIZER, 'account-payments')
 
     await signUpAndLogIn(page, organizer)
-    await page.goto('/api/mercadopago/connect')
+    await page.goto('/home')
+    await page.getByRole('button', { name: new RegExp(organizer.firstName, 'i') }).click()
+    await page.getByRole('menuitem', { name: 'Pagos' }).click()
 
-    await expect(page).toHaveURL(/\/account\?mp=unavailable/)
-    await expect(page.getByText('Los pagos no están disponibles en esta plataforma')).toBeVisible()
+    await expect(page).toHaveURL(/\/payments/)
+    await expect(page.getByRole('heading', { name: 'Pagos' })).toBeVisible()
+    // A brand-new organizer owes nothing.
+    await expect(page.getByText('No tenés pagos pendientes')).toBeVisible()
+  })
+
+  test('a player cannot reach the payments page', async ({ page }) => {
+    const player = buildTestUser(Role.PLAYER, 'account-payments-player')
+
+    await signUpAndLogIn(page, player)
+    await page.goto('/payments')
+
+    await expect(page).toHaveURL(/\/home/)
   })
 })

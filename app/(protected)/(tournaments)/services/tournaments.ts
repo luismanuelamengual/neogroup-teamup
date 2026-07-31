@@ -1,4 +1,5 @@
 import { DB } from '@neogroup/neorm'
+import { hasOverdueDebt } from '@/app/(protected)/(payments)/services/payments'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
 import { Site } from '@/app/(protected)/(sites)/models/Site'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
@@ -146,14 +147,28 @@ export async function createTournament(
     throw new ApiException('missingFields')
   }
 
+  const startInscriptionsDate = input.startInscriptionsDate?.trim() || null
+
+  if (startInscriptionsDate && startInscriptionsDate > input.startDate) {
+    throw new ApiException('La fecha de inicio de inscripciones no puede ser posterior a la fecha de inicio del torneo')
+  }
+
   const enabledDisciplines = await getEnabledDisciplines(organizationId)
 
   if (!enabledDisciplines.includes(input.discipline)) {
     throw new ApiException('La disciplina seleccionada no está habilitada para esta organización')
   }
 
-  if (input.paid && (!input.entryFee || input.entryFee <= 0)) {
+  if (input.entryFee !== undefined && input.entryFee !== null && input.entryFee <= 0) {
     throw new ApiException('El monto de inscripción debe ser mayor a cero')
+  }
+
+  // A tournament cannot be created while the organization owes TeamUp for
+  // tournaments that finished more than a month ago.
+  if (await hasOverdueDebt(organizationId)) {
+    throw new ApiException(
+      'Tenés torneos con más de un mes sin abonar. Regularizá los pagos pendientes para poder crear nuevos torneos'
+    )
   }
 
   // Interclubes is tennis-only, and its encounters mix singles and doubles, so
@@ -229,10 +244,15 @@ export async function createTournament(
   tournament.scoreFormat = input.scoreFormat
   tournament.startDate = input.startDate
   tournament.startTime = startTime
+  tournament.startInscriptionsDate = startInscriptionsDate
   tournament.siteId = siteId
-  tournament.paid = Boolean(input.paid)
-  tournament.entryFee = input.paid && input.entryFee && input.entryFee > 0 ? input.entryFee : null
-  tournament.currency = input.currency?.trim() || 'ARS'
+  // `paid` is the settlement flag of TeamUp's service fee: a brand-new
+  // tournament owes nothing yet, and a free one never will.
+  tournament.paid = false
+  tournament.paidAt = null
+  tournament.servicePaymentId = null
+  tournament.entryFee = input.entryFee && input.entryFee > 0 ? input.entryFee : null
+  tournament.currency = 'ARS'
   tournament.allowPlayerSetScore = Boolean(input.allowPlayerSetScore)
   tournament.settings = settings
   // Ranking points only apply to tournaments that define categories.

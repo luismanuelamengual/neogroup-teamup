@@ -8,6 +8,7 @@ import GroupIcon from '@mui/icons-material/Group'
 import HomeIcon from '@mui/icons-material/Home'
 import LeaderboardIcon from '@mui/icons-material/Leaderboard'
 import LogoutIcon from '@mui/icons-material/Logout'
+import PaymentsIcon from '@mui/icons-material/Payments'
 import PersonIcon from '@mui/icons-material/Person'
 import PlaceIcon from '@mui/icons-material/Place'
 import AppBar from '@mui/material/AppBar'
@@ -85,6 +86,9 @@ export default function AppShell({
   }, [router])
   const isAdministrator = user?.roleId === Role.ADMINISTRATOR
   const navItems: NavItem[] = isAdministrator ? ADMINISTRATOR_NAV_ITEMS : DEFAULT_NAV_ITEMS
+  // Settling TeamUp's service fee is an organization matter: both profiles that
+  // manage it see the same debt and can pay it.
+  const canManagePayments = isAdministrator || user?.roleId === Role.ORGANIZER
 
   const isActive = (href: string) => {
     if (href === '/home') {
@@ -156,6 +160,14 @@ export default function AppShell({
               </ListItemIcon>
               Mi cuenta
             </MenuItem>
+            {canManagePayments && (
+              <MenuItem component={Link} href="/payments" onClick={closeMenu}>
+                <ListItemIcon>
+                  <PaymentsIcon fontSize="small" />
+                </ListItemIcon>
+                Pagos
+              </MenuItem>
+            )}
             {canInstall && (
               <>
                 <Divider />

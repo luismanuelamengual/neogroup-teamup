@@ -1,35 +1,22 @@
 import { randomUUID } from 'crypto'
-import { MercadoPagoConfig, OAuth, Payment, PaymentRefund, Preference } from 'mercadopago'
-import { MercadoPagoAccount } from '@/app/models/MercadoPagoAccount'
+import { MercadoPagoConfig, Payment, Preference } from 'mercadopago'
 
 /**
- * Mercado Pago "Split payments (marketplace)" client, built on the official
- * `mercadopago` SDK. Implements the OAuth Authorization Code flow used to
- * connect an organizer account, and the Checkout Pro preference + payment APIs
- * used to charge a registration with a `marketplace_fee` that is settled to the
- * TeamUp (marketplace) account while the remainder goes to the organizer.
+ * Mercado Pago Checkout Pro client, built on the official `mercadopago` SDK.
  *
- * The public surface of this module is SDK-agnostic (plain types below), so the
- * rest of the app and the tests don't depend on the SDK internals.
+ * There is a single collector in the platform: **TeamUp itself**. Organizers do
+ * not connect anything — players settle the entry fee with them off-platform,
+ * and what goes through Mercado Pago is the organization paying TeamUp's
+ * service fee for the tournaments that took place (see
+ * `app/(protected)/(payments)/services/payments.ts`). That is why this module
+ * authenticates with a single `MP_ACCESS_TOKEN` and creates plain preferences:
+ * no OAuth, no `marketplace_fee`, no split.
  *
- * Docs:
- * - OAuth:        https://www.mercadopago.com.ar/developers/en/docs/split-payments/additional-content/security/oauth/creation
- * - Marketplace:  https://www.mercadopago.com.ar/developers/en/docs/split-payments/integration-configuration/integrate-marketplace
+ * The public surface is SDK-agnostic (plain types below), so the rest of the app
+ * and the tests don't depend on the SDK internals.
+ *
+ * Docs: https://www.mercadopago.com.ar/developers/en/docs/checkout-pro/landing
  */
-
-/** Refresh the access token when it is within this window of expiring. */
-const TOKEN_REFRESH_BUFFER_MS = 24 * 60 * 60 * 1000
-
-export interface MpTokenResponse {
-  access_token: string
-  token_type: string
-  expires_in: number
-  scope: string
-  user_id: number
-  refresh_token: string
-  public_key: string
-  live_mode: boolean
-}
 
 export interface MpPreferenceItem {
   title: string
@@ -40,7 +27,6 @@ export interface MpPreferenceItem {
 
 export interface MpPreferenceInput {
   items: MpPreferenceItem[]
-  marketplaceFee: number
   externalReference: string
   notificationUrl: string
   backUrls: { success: string; failure: string; pending: string }
@@ -62,137 +48,38 @@ export interface MpPaymentResponse {
   currency_id: string
 }
 
-function getCredentials(): { clientId: string; clientSecret: string } {
-  const clientId = process.env.MP_CLIENT_ID
-  const clientSecret = process.env.MP_CLIENT_SECRET
+/** TeamUp's own access token — the only credential the payment flow needs. */
+function getAccessToken(): string {
+  const accessToken = process.env.MP_ACCESS_TOKEN
 
-  if (!clientId || !clientSecret) {
-    throw new Error('Mercado Pago credentials are not configured (MP_CLIENT_ID / MP_CLIENT_SECRET)')
+  if (!accessToken) {
+    throw new Error('Mercado Pago is not configured (MP_ACCESS_TOKEN)')
   }
 
-  return { clientId, clientSecret }
+  return accessToken
 }
 
-/** Builds an SDK config bound to a given access token. */
-function configFor(accessToken: string): MercadoPagoConfig {
-  return new MercadoPagoConfig({ accessToken, options: { timeout: 8000 } })
+/** Builds an SDK config bound to TeamUp's access token. */
+function config(): MercadoPagoConfig {
+  return new MercadoPagoConfig({ accessToken: getAccessToken(), options: { timeout: 8000 } })
 }
 
-/**
- * Config used for OAuth token/refresh calls. Those authenticate via
- * client_id/client_secret in the body, so the bearer token is irrelevant;
- * MP_ACCESS_TOKEN (the marketplace app token) is used when present.
- */
-function oauthConfig(): MercadoPagoConfig {
-  return configFor(process.env.MP_ACCESS_TOKEN ?? '')
-}
-
-/** Whether Mercado Pago integration is configured on this deployment. */
+/** Whether Mercado Pago is configured on this deployment. */
 export function isMercadoPagoConfigured(): boolean {
-  return Boolean(process.env.MP_CLIENT_ID && process.env.MP_CLIENT_SECRET)
-}
-
-/** Normalizes the SDK OAuth response into our token shape. */
-function toToken(response: {
-  access_token?: string
-  token_type?: string
-  expires_in?: number
-  scope?: string
-  user_id?: number
-  refresh_token?: string
-  public_key?: string
-  live_mode?: boolean
-}): MpTokenResponse {
-  return {
-    access_token: response.access_token ?? '',
-    token_type: response.token_type ?? 'bearer',
-    expires_in: response.expires_in ?? 0,
-    scope: response.scope ?? '',
-    user_id: response.user_id ?? 0,
-    refresh_token: response.refresh_token ?? '',
-    public_key: response.public_key ?? '',
-    live_mode: response.live_mode ?? false
-  }
-}
-
-/** Builds the URL the organizer is redirected to in order to authorize TeamUp. */
-export function getAuthorizationUrl(redirectUri: string, state: string): string {
-  const { clientId } = getCredentials()
-  const oauth = new OAuth(oauthConfig())
-
-  return oauth.getAuthorizationURL({
-    options: { client_id: clientId, redirect_uri: redirectUri, state }
-  })
-}
-
-/** Exchanges an authorization code for an access/refresh token pair. */
-export async function exchangeCodeForToken(code: string, redirectUri: string): Promise<MpTokenResponse> {
-  const { clientId, clientSecret } = getCredentials()
-  const oauth = new OAuth(oauthConfig())
-  const response = await oauth.create({
-    body: { client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri }
-  })
-
-  return toToken(response)
-}
-
-/** Exchanges a refresh token for a new access token. */
-export async function refreshAccessToken(refreshToken: string): Promise<MpTokenResponse> {
-  const { clientId, clientSecret } = getCredentials()
-  const oauth = new OAuth(oauthConfig())
-  const response = await oauth.refresh({
-    body: { client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken }
-  })
-
-  return toToken(response)
-}
-
-/** Persists (creates or updates) the organizer's Mercado Pago account from a token response. */
-export async function saveMercadoPagoAccount(userId: number, token: MpTokenResponse): Promise<MercadoPagoAccount> {
-  const existing = await MercadoPagoAccount.where('userId', userId).first()
-  const account = existing ?? new MercadoPagoAccount()
-  const now = new Date()
-
-  if (!existing) {
-    account.userId = userId
-    account.createdAt = now
-  }
-
-  account.mpUserId = String(token.user_id)
-  account.accessToken = token.access_token
-  account.refreshToken = token.refresh_token || account.refreshToken || null
-  account.publicKey = token.public_key || null
-  account.liveMode = token.live_mode ?? null
-  account.scope = token.scope || null
-  account.expiresAt = token.expires_in ? new Date(now.getTime() + token.expires_in * 1000) : null
-  account.updatedAt = now
-  await account.save()
-
-  return account
+  return Boolean(process.env.MP_ACCESS_TOKEN)
 }
 
 /**
- * Returns a valid access token for the given account, refreshing and persisting
- * it when it is expired or about to expire.
+ * Whether the configured credential is a test one. Test credentials are issued
+ * as `TEST-…`, and their checkouts must be opened through `sandbox_init_point`.
  */
-export async function getValidAccessToken(account: MercadoPagoAccount): Promise<string> {
-  const expiresAt = account.expiresAt ? new Date(account.expiresAt).getTime() : 0
-  const needsRefresh = expiresAt > 0 && expiresAt - Date.now() < TOKEN_REFRESH_BUFFER_MS
-
-  if (needsRefresh && account.refreshToken) {
-    const token = await refreshAccessToken(account.refreshToken)
-    const updated = await saveMercadoPagoAccount(account.userId, token)
-
-    return updated.accessToken
-  }
-
-  return account.accessToken
+export function isSandbox(): boolean {
+  return (process.env.MP_ACCESS_TOKEN ?? '').startsWith('TEST-')
 }
 
-/** Creates a Checkout Pro preference (using the organizer token) with a marketplace fee. */
-export async function createPreference(accessToken: string, input: MpPreferenceInput): Promise<MpPreferenceResponse> {
-  const { clientId } = getCredentials()
-  const preference = new Preference(configFor(accessToken))
+/** Creates a Checkout Pro preference collected by the TeamUp account. */
+export async function createPreference(input: MpPreferenceInput): Promise<MpPreferenceResponse> {
+  const preference = new Preference(config())
   const response = await preference.create({
     body: {
       items: input.items.map((item, index) => ({
@@ -202,8 +89,6 @@ export async function createPreference(accessToken: string, input: MpPreferenceI
         unit_price: item.unit_price,
         currency_id: item.currency_id
       })),
-      marketplace: clientId,
-      marketplace_fee: input.marketplaceFee,
       external_reference: input.externalReference,
       notification_url: input.notificationUrl,
       back_urls: input.backUrls,
@@ -220,9 +105,9 @@ export async function createPreference(accessToken: string, input: MpPreferenceI
   }
 }
 
-/** Fetches a payment by id using the organizer (collector) access token. */
-export async function getPaymentInfo(accessToken: string, paymentId: string): Promise<MpPaymentResponse> {
-  const payment = new Payment(configFor(accessToken))
+/** Fetches a payment by id. */
+export async function getPaymentInfo(paymentId: string): Promise<MpPaymentResponse> {
+  const payment = new Payment(config())
   const response = await payment.get({ id: paymentId })
 
   return {
@@ -233,11 +118,4 @@ export async function getPaymentInfo(accessToken: string, paymentId: string): Pr
     transaction_amount: response.transaction_amount ?? 0,
     currency_id: response.currency_id ?? ''
   }
-}
-
-/** Fully refunds a payment (used when an approved registration cannot be honoured). */
-export async function refundPayment(accessToken: string, paymentId: string): Promise<void> {
-  const refunds = new PaymentRefund(configFor(accessToken))
-
-  await refunds.total({ payment_id: paymentId })
 }

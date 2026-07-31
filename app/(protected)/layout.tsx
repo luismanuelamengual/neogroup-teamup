@@ -59,7 +59,8 @@ export default async function Layout({ children }: { children: ReactNode }) {
     id: organization.id,
     name: organization.name,
     domainName: organization.domainName,
-    enabledDisciplines: organization.enabledDisciplines
+    enabledDisciplines: organization.enabledDisciplines,
+    serviceFeePercentage: Number(organization.serviceFeePercentage ?? 0)
   }
 
   return (

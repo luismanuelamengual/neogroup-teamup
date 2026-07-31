@@ -2,7 +2,7 @@
 /**
  * Deletes an organization and everything that hangs off it — tournaments and
  * everything under them (categories, competitors, rounds, matches, payments),
- * users and everything under them (mercadopago accounts, statistics, tokens),
+ * users and everything under them (statistics, tokens),
  * catalogue categories, sites, rankings, cached org statistics — then the
  * organization row itself.
  *
@@ -95,13 +95,12 @@ async function resolveScope(organizationId: number): Promise<Scope> {
       ? await countWhereIn('rounds', 'tournamentCategoryId', tournamentCategoryIds)
       : 0,
     competitors: await countWhereIn('competitors', 'tournamentCategoryId', tournamentCategoryIds),
-    tournament_payments: await countWhere('tournament_payments', 'organizationId', organizationId),
+    service_payments: await countWhere('service_payments', 'organizationId', organizationId),
     rankings: await countWhere('rankings', 'organizationId', organizationId),
     organization_statistics: await countWhere('organization_statistics', 'organizationId', organizationId),
     categories: await countWhere('categories', 'organizationId', organizationId),
     sites: await countWhere('sites', 'organizationId', organizationId),
     users: userIds.length,
-    mercadopago_accounts: await countWhereIn('mercadopago_accounts', 'userId', userIds),
     player_statistics: await countWhereIn('player_statistics', 'playerId', userIds),
     email_verification_tokens: await countWhereIn('email_verification_tokens', 'userId', userIds),
     password_reset_tokens: await countWhereIn('password_reset_tokens', 'userId', userIds)
@@ -126,7 +125,7 @@ async function deleteScope(scope: Scope): Promise<void> {
       await DB.table('competitors').whereIn('tournamentCategoryId', tournamentCategoryIds).delete()
     }
 
-    await DB.table('tournament_payments').where('organizationId', organizationId).delete()
+    await DB.table('service_payments').where('organizationId', organizationId).delete()
 
     if (tournamentCategoryIds.length > 0) {
       await DB.table('tournament_categories').whereIn('id', tournamentCategoryIds).delete()
@@ -137,7 +136,6 @@ async function deleteScope(scope: Scope): Promise<void> {
     await DB.table('organization_statistics').where('organizationId', organizationId).delete()
 
     if (userIds.length > 0) {
-      await DB.table('mercadopago_accounts').whereIn('userId', userIds).delete()
       await DB.table('player_statistics').whereIn('playerId', userIds).delete()
       await DB.table('email_verification_tokens').whereIn('userId', userIds).delete()
       await DB.table('password_reset_tokens').whereIn('userId', userIds).delete()

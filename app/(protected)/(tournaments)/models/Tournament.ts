@@ -52,6 +52,13 @@ export class Tournament extends BaseEntity {
   @Column()
   startTime!: string | null
 
+  /**
+   * Optional "YYYY-MM-DD" date from which the tournament accepts registrations.
+   * Null means registrations are open since the tournament was created.
+   */
+  @Column()
+  startInscriptionsDate!: string | null
+
   /** Venue where the tournament is played (catalogue managed by the administrator). */
   @Column()
   siteId!: number | null
@@ -62,11 +69,29 @@ export class Tournament extends BaseEntity {
   @Column({ cast: 'json' })
   rankingSettings!: RankingSettings | null
 
-  /** When true, players must pay `entryFee` to register; otherwise the tournament is free. */
+  /**
+   * Whether TeamUp's service fee for this tournament has already been settled by
+   * the organization (see the "Pagos" module). It says nothing about whether the
+   * tournament has a cost for players — that is `entryFee > 0`. Free tournaments
+   * are never billed, so they stay `false` forever.
+   */
   @Column({ cast: 'boolean' })
   paid!: boolean
 
-  /** Entry fee amount (in `currency`) required to register. Null/0 when the tournament is free. */
+  /** When the service fee was settled. Null while `paid` is false. */
+  @Column({ cast: 'date' })
+  paidAt!: Date | null
+
+  /** Settlement that paid this tournament's service fee. Null while unpaid. */
+  @Column({ cast: 'number' })
+  servicePaymentId!: number | null
+
+  /**
+   * Entry fee players pay to take part, settled directly with the organizer
+   * (cash at the venue, transfer, …) — never through the platform. Null/0 means
+   * the tournament is free, and it is also the base TeamUp's service fee is
+   * computed on.
+   */
   @Column({ cast: 'number' })
   entryFee!: number | null
 

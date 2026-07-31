@@ -41,13 +41,13 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         <div className="card-content">
           <div className="header">
             <span className="name">{tournament.name}</span>
-            <StatusChip status={tournament.status} />
+            <StatusChip tournament={tournament} />
           </div>
           <div className="tags">
             <span className="tag">{DisciplineNames[tournament.discipline]}</span>
             {tournament.subDiscipline && <span className="tag">{SubDisciplineNames[tournament.subDiscipline]}</span>}
             <span className="tag">{TournamentTypeNames[tournament.type]}</span>
-            {tournament.paid && tournament.entryFee ? (
+            {tournament.entryFee ? (
               <span className="tag paid">
                 <PaidIcon fontSize="inherit" /> {formatMoney(tournament.entryFee, tournament.currency)}
               </span>

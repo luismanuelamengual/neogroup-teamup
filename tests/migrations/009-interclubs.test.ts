@@ -14,10 +14,12 @@ describe('migration 009 — interclubs columns', () => {
     await resetDatabase()
   })
 
-  it('adds data + label to competitors and data to tournament_payments', async () => {
+  it('adds data + label to competitors', async () => {
     expect(await Schema.hasColumn('competitors', 'data')).toBe(true)
     expect(await Schema.hasColumn('competitors', 'label')).toBe(true)
-    expect(await Schema.hasColumn('tournament_payments', 'data')).toBe(true)
+    // It also added tournament_payments.data, but migration 015 drops that table
+    // altogether, so there is nothing left to assert about it here.
+    expect(await Schema.hasTable('tournament_payments')).toBe(false)
   })
 
   it('is idempotent (a second and third run change nothing)', async () => {

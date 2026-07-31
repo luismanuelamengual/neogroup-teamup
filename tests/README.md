@@ -6,7 +6,7 @@ services and engine (`startTournament`, `setMatchResult` logic,
 throwaway **in-memory SQLite** database — no HTTP layer, no external Postgres.
 
 For real browser end-to-end tests of the app's main flows (register/login, the
-organizer + player tournament lifecycle, account/Mercado Pago) — driving an
+organizer + player tournament lifecycle, account, payments) — driving an
 actual Next.js server and a real browser instead — see **`tests/e2e/README.md`**
 (`yarn test:e2e`). That suite is Playwright-based and lives in `tests/e2e/`,
 kept separate from everything below since it exercises the HTTP + UI layers

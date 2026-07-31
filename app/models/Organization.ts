@@ -38,10 +38,11 @@ export class Organization extends BaseEntity {
   timezone!: string
 
   /**
-   * Platform service fee, as a percentage of the entry fee, that TeamUp collects
-   * on each paid registration of this organization (e.g. 4 = 4%). The remainder
-   * is settled to the tournament organizer's connected Mercado Pago account.
-   * Configured per organization (not editable by organizers — it is TeamUp's cut).
+   * Platform service fee, as a percentage of the entry fees a tournament
+   * collected, that this organization owes TeamUp (e.g. 4 = 4%). It is billed
+   * per tournament over the competitors that played at least one match, and
+   * settled from the "Pagos" page. Configured per organization (not editable by
+   * organizers — it is TeamUp's cut).
    */
   @Column({ cast: 'number' })
   serviceFeePercentage!: number

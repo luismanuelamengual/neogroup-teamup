@@ -51,9 +51,14 @@ import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { isDoublesDiscipline } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { useOrganizationStore } from '@/app/stores/organization'
 
 export default function TournamentForm() {
   const { createTournament } = useTournaments()
+  // TeamUp's cut, as a percentage of what the tournament collects. Comes from
+  // the organization store (hydrated by the protected layout) so the form states
+  // the organization's real fee instead of a hard-coded one.
+  const serviceFeePercentage = useOrganizationStore((state) => state.organization?.serviceFeePercentage ?? 0)
   const router = useRouter()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -66,6 +71,7 @@ export default function TournamentForm() {
   const isInterclubs = type === TournamentType.INTERCLUBS
   const [startDate, setStartDate] = useState<Dayjs | null>(null)
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
+  const [startInscriptionsDate, setStartInscriptionsDate] = useState<Dayjs | null>(null)
   const [siteId, setSiteId] = useState<number | null>(null)
   // Categories added to the tournament, in the order the organizer picked them,
   // plus the catalogue they come from (the selector reports it) so the added
@@ -167,10 +173,10 @@ export default function TournamentForm() {
         scoreFormat: isAmericano ? ScoreFormat.BASIC_COUNT : scoreFormat,
         startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
         startTime: startTime ? startTime.format('HH:mm') : null,
+        startInscriptionsDate: startInscriptionsDate ? startInscriptionsDate.format('YYYY-MM-DD') : null,
         siteId,
         categoryIds,
         maxCompetitors,
-        paid,
         entryFee: paid ? (entryFee ?? 0) : null,
         currency: 'ARS',
         allowPlayerSetScore,
@@ -252,6 +258,20 @@ export default function TournamentForm() {
           />
           <SiteSelector value={siteId} onChange={setSiteId} />
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
+            <div className="row">
+              <DatePicker
+                label="Fecha de apertura de inscripciones"
+                value={startInscriptionsDate}
+                onChange={(value) => setStartInscriptionsDate(value)}
+                format="YYYY/MM/DD"
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    helperText: 'Opcional. Si no se completa, las inscripciones quedan abiertas desde la creación'
+                  }
+                }}
+              />
+            </div>
             <div className="row">
               <DatePicker
                 label="Fecha de inicio"
@@ -604,8 +624,8 @@ export default function TournamentForm() {
         </AccordionSummary>
         <AccordionDetails className="section-content">
           <Alert severity="info">
-            Elegí si la inscripción al torneo es gratuita o tiene un costo. En los torneos de pago, los jugadores abonan
-            el monto con Mercado Pago al inscribirse y la inscripción se confirma cuando se acredita el pago.
+            Elegí si la inscripción al torneo es gratuita o tiene un costo. Los jugadores se inscriben sin pagar nada
+            por la plataforma: el monto lo cobrás vos directamente, en la cancha o por el medio que acuerden.
           </Alert>
           <RadioGroup value={paid ? 'paid' : 'free'} onChange={(event) => setPaid(event.target.value === 'paid')}>
             <FormControlLabel value="free" control={<Radio />} label="Gratuito" />
@@ -628,22 +648,12 @@ export default function TournamentForm() {
                   htmlInput: { min: 0, step: '0.01' },
                   input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }
                 }}
-                helperText="Monto en pesos argentinos (ARS) que paga cada jugador al inscribirse."
+                helperText="Monto en pesos argentinos (ARS) que le cobrás a cada inscripción."
               />
               <Alert severity="info">
-                <strong>¿Cómo se cobra este monto?</strong> El jugador paga el monto de inscripción completo con Mercado
-                Pago. De ese monto se descuentan dos comisiones antes de que el resto se acredite en tu cuenta:
-                <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
-                  <li>
-                    <strong>TeamUp:</strong> retiene una tasa de servicio de 4% por el uso de la plataforma.
-                  </li>
-                  <li>
-                    <strong>Mercado Pago:</strong> cobra además su propia comisión por procesar el pago (aprox 4%),
-                    según las tarifas vigentes de Mercado Pago para tu cuenta.
-                  </li>
-                </ul>
-                El resto del monto, una vez descontadas ambas comisiones, se acredita directamente en tu cuenta de
-                Mercado Pago vinculada.
+                <strong>¿Qué le pagás a TeamUp?</strong> Una tasa de servicio del {serviceFeePercentage}% sobre lo
+                recaudado (inscriptos × monto de inscripción). Cuando el torneo comienza, el monto aparece en la sección{' '}
+                <strong>Pagos</strong> de tu menú de usuario, donde lo abonás con Mercado Pago.
               </Alert>
             </>
           )}

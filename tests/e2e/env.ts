@@ -30,10 +30,10 @@ export const E2E_ORGANIZATION_DOMAIN = 'club-aleman'
 
 /**
  * Env vars for the Next.js server under test. Deliberately leaves
- * RESEND_API_KEY and MP_CLIENT_ID/MP_CLIENT_SECRET unset: emails are skipped
- * (see app/utils/email.ts) and tests read tokens straight from the database
- * instead, and Mercado Pago stays "not configured" so no real OAuth/payment
- * flow is ever hit.
+ * RESEND_API_KEY and MP_ACCESS_TOKEN unset: emails are skipped (see
+ * app/utils/email.ts) and tests read tokens straight from the database
+ * instead, and Mercado Pago stays "not configured" so no real payment flow is
+ * ever hit.
  */
 export const E2E_SERVER_ENV: Record<string, string> = {
   NODE_ENV: 'development',
@@ -46,7 +46,6 @@ export const E2E_SERVER_ENV: Record<string, string> = {
   DB_URL: `sqlite://${E2E_DB_PATH}`,
   RESEND_FROM_EMAIL: 'TeamUp <noreply@teamup.ar>',
   RESEND_API_KEY: '',
-  MP_CLIENT_ID: '',
-  MP_CLIENT_SECRET: '',
+  MP_ACCESS_TOKEN: '',
   NEXT_PUBLIC_GTM_ID: ''
 }

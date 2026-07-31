@@ -36,21 +36,25 @@ export const POST = withAuth(async (request, _context, _userId, organizationId) 
   tournament.name = name
   tournament.description = input.description?.trim() || null
   tournament.siteId = await resolveSiteId(organizationId, input.siteId)
+  const startInscriptionsDate = input.startInscriptionsDate?.trim() || null
+
+  if (startInscriptionsDate && startInscriptionsDate > input.startDate) {
+    throw new ApiException('La fecha de inicio de inscripciones no puede ser posterior a la fecha de inicio del torneo')
+  }
+
   tournament.startDate = input.startDate
   tournament.startTime = startTime
+  tournament.startInscriptionsDate = startInscriptionsDate
 
-  // Registration pricing can only be changed while registrations are open.
-  if (input.paid !== undefined && tournament.status === TournamentStatus.STAND_BY) {
-    if (input.paid && (!input.entryFee || input.entryFee <= 0)) {
+  // Registration pricing can only be changed while registrations are open: once
+  // the tournament is under way the entry fee is also the base of TeamUp's
+  // service fee, so it must stop moving.
+  if (input.entryFee !== undefined && tournament.status === TournamentStatus.STAND_BY) {
+    if (input.entryFee !== null && input.entryFee <= 0) {
       throw new ApiException('El monto de inscripción debe ser mayor a cero')
     }
 
-    tournament.paid = Boolean(input.paid)
-    tournament.entryFee = input.paid && input.entryFee && input.entryFee > 0 ? input.entryFee : null
-
-    if (input.currency) {
-      tournament.currency = input.currency.trim() || tournament.currency
-    }
+    tournament.entryFee = input.entryFee && input.entryFee > 0 ? input.entryFee : null
   }
 
   if (input.allowPlayerSetScore !== undefined) {

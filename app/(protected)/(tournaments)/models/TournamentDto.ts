@@ -25,10 +25,17 @@ export interface TournamentDto {
   scoreFormat: ScoreFormat
   startDate: string
   startTime: string | null
+  /** Optional "YYYY-MM-DD" date from which the tournament accepts registrations. Null: open since creation. */
+  startInscriptionsDate: string | null
   siteId: number | null
   /** Resolved venue (eager-loaded with the tournament). */
   site?: SiteDto | null
+  /**
+   * Whether TeamUp's service fee for this tournament was already settled by the
+   * organization. Whether the tournament has a cost for players is `entryFee > 0`.
+   */
   paid: boolean
+  /** Entry fee players settle directly with the organizer. Null/0 means free. */
   entryFee: number | null
   currency: string
   /** When true, a player taking part in a match may submit its result themselves. Otherwise only the organizer can. */

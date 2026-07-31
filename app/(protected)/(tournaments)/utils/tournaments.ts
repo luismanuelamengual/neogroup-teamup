@@ -2500,6 +2500,33 @@ export function isTournamentStartDue(tournament: Tournament, timeZone = 'UTC', n
   return startAt.getTime() <= now.getTime()
 }
 
+/**
+ * Whether a tournament is currently accepting registrations, evaluated in the
+ * organization's `timeZone`.
+ *
+ * - No `startInscriptionsDate` set → always open (registrations are open since
+ *   the tournament was created).
+ * - Set → open from the start of that day (00:00) in the org's timezone, same
+ *   convention as a start-of-day `startDate` in `isTournamentStartDue`.
+ *
+ * `timeZone` is an IANA name (e.g. "America/Argentina/Buenos_Aires"); an
+ * unknown/empty value is treated as UTC.
+ */
+export function isRegistrationOpen(tournament: Tournament, timeZone = 'UTC', now: Date = new Date()): boolean {
+  if (!tournament.startInscriptionsDate) {
+    return true
+  }
+
+  const opensAt = zonedWallTimeToInstant(tournament.startInscriptionsDate, '00:00', timeZone || 'UTC')
+
+  // Unparseable startInscriptionsDate → don't block registration.
+  if (Number.isNaN(opensAt.getTime())) {
+    return true
+  }
+
+  return opensAt.getTime() <= now.getTime()
+}
+
 /** Maps each organization id to its configured IANA timezone (UTC when unset). */
 export async function loadOrganizationTimezones(): Promise<Map<number, string>> {
   const organizations = await Organization.get()

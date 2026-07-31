@@ -11,7 +11,9 @@ import {
   INTERCLUBS_MIN_TEAM_PLAYERS,
   LabelableTeam
 } from '@/app/(protected)/(tournaments)/utils/interclubs'
+import { isRegistrationOpen } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
+import { Organization } from '@/app/models/Organization'
 import { User } from '@/app/models/User'
 
 export interface ResolvedRegistration {
@@ -39,6 +41,14 @@ export async function resolveRegistration(
 ): Promise<ResolvedRegistration> {
   if (tournament.status !== TournamentStatus.STAND_BY) {
     throw new ApiException('Torneo ya iniciado. Inscripciones cerradas')
+  }
+
+  if (tournament.startInscriptionsDate) {
+    const organization = await Organization.find(tournament.organizationId)
+
+    if (!isRegistrationOpen(tournament, organization?.timezone || 'UTC')) {
+      throw new ApiException('Las inscripciones a este torneo todavía no están abiertas')
+    }
   }
 
   const competitors = tournament.competitors ?? []

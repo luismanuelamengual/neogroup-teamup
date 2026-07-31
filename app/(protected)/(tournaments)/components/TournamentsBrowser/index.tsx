@@ -7,8 +7,10 @@ import Button from '@mui/material/Button'
 import InputAdornment from '@mui/material/InputAdornment'
 import Pagination from '@mui/material/Pagination'
 import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ReactNode, useEffect, useRef, useState } from 'react'
+import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverduePayments'
 import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -39,6 +41,9 @@ export default function TournamentsBrowser({
   ownedByPlayer = false
 }: TournamentsBrowserProps) {
   const { getTournaments } = useTournaments()
+  // Only asked for when the creation action is on screen (organizers).
+  const { overdueCount } = useOverduePayments(showCreationButton)
+  const creationBlocked = overdueCount > 0
   const router = useRouter()
   const searchParams = useSearchParams()
   const urlName = searchParams.get('name') ?? ''
@@ -137,9 +142,19 @@ export default function TournamentsBrowser({
           </div>
           {showCreationButton && (
             <div className="actions">
-              <Button href="/tournaments/new" className="create-button" variant="contained" startIcon={<AddIcon />}>
-                Crear torneo
-              </Button>
+              <Tooltip title={creationBlocked ? 'Regularizá los pagos pendientes para crear nuevos torneos' : ''}>
+                {/* Wrapped in a span so the tooltip still fires while the button is disabled. */}
+                <span className="create-button">
+                  <Button
+                    href={creationBlocked ? undefined : '/tournaments/new'}
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    disabled={creationBlocked}
+                  >
+                    Crear torneo
+                  </Button>
+                </span>
+              </Tooltip>
             </div>
           )}
         </div>

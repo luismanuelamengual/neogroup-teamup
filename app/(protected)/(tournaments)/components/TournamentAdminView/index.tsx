@@ -173,7 +173,6 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const isStandBy = tournament?.status === TournamentStatus.STAND_BY
   const categories = useMemo<TournamentCategoryDto[]>(() => tournament?.categories ?? [], [tournament])
   const competitors = useMemo<CompetitorDto[]>(() => tournament?.competitors ?? [], [tournament])
-  const isPaid = !!tournament?.paid && !!tournament?.entryFee && tournament.entryFee > 0
   const needsPartner = tournament
     ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
     : false
@@ -524,19 +523,11 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
             />
           )}
         </div>
-
-        {isPaid ? (
-          <Alert severity="info">
-            Este es un torneo de pago: la inscripción de competidores se realiza a través del flujo de pago de Mercado
-            Pago. Desde acá podés mover o desinscribir competidores.
-          </Alert>
-        ) : (
-          <div className="register-actions">
-            <Button variant="contained" startIcon={<PersonAddAlt1Icon />} onClick={openRegister} disabled={working}>
-              Inscribir competidor
-            </Button>
-          </div>
-        )}
+        <div className="register-actions">
+          <Button variant="contained" startIcon={<PersonAddAlt1Icon />} onClick={openRegister} disabled={working}>
+            Inscribir competidor
+          </Button>
+        </div>
 
         <Divider />
 

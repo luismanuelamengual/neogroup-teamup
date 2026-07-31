@@ -2,10 +2,10 @@ import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 
 /**
- * Picture for a tournament, kept in its own table (like
- * `MercadoPagoAccount`) so the base64 payload is never fetched by a plain
- * `Tournament` query — only the code paths that actually render the picture
- * opt in with `.with('image')` (see TournamentOptions.withImage).
+ * Picture for a tournament, kept in its own table so the base64 payload is
+ * never fetched by a plain `Tournament` query — only the code paths that
+ * actually render the picture opt in with `.with('image')` (see
+ * TournamentOptions.withImage).
  */
 @Entity({ table: 'tournament_images' })
 export class TournamentImage extends BaseEntity {

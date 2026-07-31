@@ -12,9 +12,9 @@ an actual Chromium browser against a real running Next.js server.
   way they actually happen: an organizer creates a free tournament, two players
   find it and join, the organizer starts it, a player reports their own match
   result, the organizer finishes it.
-- **`account.spec.ts`** — editing account details, and the Mercado Pago card's
-  "not configured" state (the suite never sets real Mercado Pago credentials, so
-  no real OAuth/payment flow is ever hit).
+- **`account.spec.ts`** — editing account details, that the account page offers
+  no payment platform to connect any more, and that "Pagos" is reachable from the
+  user menu for an organizer (showing an empty debt) but not for a player.
 
 ## One-time setup
 
@@ -56,8 +56,9 @@ suite never touches it:
 - No real emails are ever sent (`RESEND_API_KEY` is left unset — see
   `app/utils/email.ts`); tests read verification/password-reset tokens
   straight out of the SQLite file instead (`tests/e2e/helpers/db.ts`).
-- No real Mercado Pago credentials are set, so `account.spec.ts` only exercises
-  the "not configured" guard paths, never a real OAuth or payment redirect.
+- No real Mercado Pago credentials are set (`MP_ACCESS_TOKEN` is left unset), so
+  no checkout is ever created: the payments spec only covers the empty-debt state
+  and the role guard, never a real payment redirect.
 
 ## Notes
 

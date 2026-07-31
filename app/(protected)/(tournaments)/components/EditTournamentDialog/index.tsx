@@ -46,6 +46,9 @@ export default function EditTournamentDialog({
   const [startTime, setStartTime] = useState<Dayjs | null>(
     tournament.startTime ? dayjs(`2000-01-01T${tournament.startTime}`) : null
   )
+  const [startInscriptionsDate, setStartInscriptionsDate] = useState<Dayjs | null>(
+    tournament.startInscriptionsDate ? dayjs(tournament.startInscriptionsDate) : null
+  )
   const [allowPlayerSetScore, setAllowPlayerSetScore] = useState(tournament.allowPlayerSetScore)
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -59,6 +62,7 @@ export default function EditTournamentDialog({
       setSiteId(tournament.siteId ?? null)
       setStartDate(tournament.startDate ? dayjs(tournament.startDate) : null)
       setStartTime(tournament.startTime ? dayjs(`2000-01-01T${tournament.startTime}`) : null)
+      setStartInscriptionsDate(tournament.startInscriptionsDate ? dayjs(tournament.startInscriptionsDate) : null)
       setAllowPlayerSetScore(tournament.allowPlayerSetScore)
     }
   }, [open, tournament])
@@ -74,6 +78,7 @@ export default function EditTournamentDialog({
         siteId,
         startDate: startDate ? startDate.format('YYYY-MM-DD') : '',
         startTime: startTime ? startTime.format('HH:mm') : null,
+        startInscriptionsDate: startInscriptionsDate ? startInscriptionsDate.format('YYYY-MM-DD') : null,
         allowPlayerSetScore
       })
       onSaved()
@@ -110,6 +115,13 @@ export default function EditTournamentDialog({
         />
         <SiteSelector value={siteId} onChange={setSiteId} />
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
+          <DatePicker
+            label="Fecha de apertura de inscripciones"
+            value={startInscriptionsDate}
+            onChange={(value) => setStartInscriptionsDate(value)}
+            format="YYYY/MM/DD"
+            slotProps={{ textField: { fullWidth: true, helperText: 'Opcional. Vacío: abiertas desde la creación' } }}
+          />
           <DatePicker
             label="Fecha de inicio"
             value={startDate}

@@ -1,0 +1,88 @@
+.payments-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 40px 24px;
+    border-radius: 18px;
+    background: #f1f4f3;
+    border: 1px solid #a6b7ac;
+
+    .empty-icon {
+      font-size: 44px;
+      color: #4a7c62;
+    }
+  }
+
+  .detail {
+    padding: 8px 4px 12px;
+    border-radius: 18px;
+    border: 1px solid #dfe5e2;
+    overflow-x: auto;
+
+    .detail-table {
+      min-width: 560px;
+
+      th {
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .amount {
+        font-weight: 700;
+        white-space: nowrap;
+      }
+    }
+
+    .tournament-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .tournament-name {
+        font-weight: 600;
+      }
+
+      .tournament-date {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        opacity: 0.7;
+      }
+    }
+
+    .note {
+      display: block;
+      padding: 10px 14px 2px;
+    }
+  }
+
+  .total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 20px 24px;
+    border-radius: 18px;
+    color: #405650;
+    background: #f1f4f3;
+    border: 1px solid #a6b7ac;
+
+    .total-amount {
+      font-weight: 800;
+    }
+
+    .total-action {
+      flex-shrink: 0;
+      box-shadow: none;
+    }
+  }
+}
