@@ -24,12 +24,13 @@ import { Schema } from '@neogroup/neorm'
  *      rather than derived because it depends on the other teams registered at
  *      that moment, and it must stay stable for a match/score already played.
  *
- * **`tournament_payments.data` (JSONB)** mirrors `competitors.data` for the
- * paid-registration flow: the competitor of a paid tournament is only created
- * when Mercado Pago confirms the payment, so the webhook re-runs the
- * registration from the snapshot stored in the payment row. `playerIds` already
- * carries the whole roster there, but the chosen venue had nowhere to live —
- * without this column a paid interclubes registration would lose its site.
+ * **`tournament_payments.data` (JSONB)** mirrored `competitors.data` for the
+ * paid-registration flow of the time: the competitor of a paid tournament was
+ * only created when Mercado Pago confirmed the payment, so the webhook re-ran
+ * the registration from the snapshot stored in the payment row, and the chosen
+ * venue had nowhere else to live. That flow — and the whole table — is gone as
+ * of migration 015; the column is still added here for databases that have not
+ * reached it yet.
  *
  * All three columns are nullable and only ever populated for interclubes, so
  * every existing row (and every other tournament type) is unaffected: no
@@ -59,7 +60,11 @@ export default {
       })
     }
 
-    if (!(await Schema.hasColumn('tournament_payments', 'data'))) {
+    // `tournament_payments` is dropped by migration 015 (registrations are no
+    // longer charged through the platform), so the table only exists on
+    // databases that have not reached it yet — hence the table probe on top of
+    // the column one, which keeps this migration re-runnable afterwards.
+    if ((await Schema.hasTable('tournament_payments')) && !(await Schema.hasColumn('tournament_payments', 'data'))) {
       await Schema.table('tournament_payments', (table) => {
         table.jsonb('data').nullable()
       })

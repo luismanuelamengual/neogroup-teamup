@@ -5,6 +5,6 @@ import { TournamentDto } from './TournamentDto'
  * to remove the tournament's picture — unlike `TournamentDto.image`, which is
  * the nested `TournamentImageDto` returned when reading a tournament back.
  */
-export type UpdateTournamentInput = Omit<Partial<TournamentDto>, 'image'> & {
+export type UpdateTournamentInput = Omit<Partial<TournamentDto>, 'image' | 'paid'> & {
   image?: string | null
 }

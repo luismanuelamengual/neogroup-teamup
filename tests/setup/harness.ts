@@ -35,6 +35,7 @@ import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
 import migration from '@/database/migrations/001-create-base-tables'
 import migration002 from '@/database/migrations/002-competitors-player-ids'
+import migration003 from '@/database/migrations/003-tournament-images'
 import migration004 from '@/database/migrations/004-drop-rounds-denormalize-matches'
 import migration005 from '@/database/migrations/005-reconcile-matches-position-instance'
 import migration006 from '@/database/migrations/006-matches-score-jsonb'
@@ -45,9 +46,12 @@ import migration011 from '@/database/migrations/011-organizations-enabled-discip
 import migration012 from '@/database/migrations/012-tournaments-allow-player-set-score'
 import migration013 from '@/database/migrations/013-matches-schedule'
 import migration014 from '@/database/migrations/014-tournaments-start-inscriptions-date'
+import migration015 from '@/database/migrations/015-payments-refactor'
 
 const TABLES = [
+  'service_payments',
   'tournament_payments',
+  'tournament_images',
   'matches',
   'rounds',
   'competitors',
@@ -108,9 +112,11 @@ export async function resetDatabase(): Promise<void> {
 
   await migration.up()
   // Apply the incremental migrations too, so the harness schema matches
-  // production: 002 moves competitors/tournament_payments to playerIds; 004
+  // production: 002 moves competitors to a playerIds roster; 004
   // removes the rounds table and denormalises its fields onto matches.
   await migration002.up()
+  // 003 creates tournament_images, the side table holding a tournament's poster.
+  await migration003.up()
   await migration004.up()
   // No-op on the final schema, but keeps the harness aligned with production
   // (which will have 005 applied to heal any interim 004 build).
@@ -122,8 +128,7 @@ export async function resetDatabase(): Promise<void> {
   // 008 creates the sites catalogue and swaps tournaments.location for a
   // tournaments.siteId pointing at it.
   await migration008.up()
-  // 009 adds competitors.data / competitors.label (interclubes teams) and
-  // tournament_payments.data.
+  // 009 adds competitors.data / competitors.label (interclubes teams).
   await migration009.up()
   // 010 drops categories.subDiscipline: categories are scoped by discipline only.
   await migration010.up()
@@ -137,6 +142,10 @@ export async function resetDatabase(): Promise<void> {
   // 014 adds tournaments.startInscriptionsDate (nullable; null = registrations
   // open since creation).
   await migration014.up()
+  // 015 rebuilds payments: tournaments.paid becomes the service-fee settlement
+  // flag (+ paidAt / servicePaymentId), service_payments is created and the old
+  // per-registration tables are dropped.
+  await migration015.up()
 
   const organization = new Organization()
 
@@ -248,6 +257,14 @@ export interface CreateTournamentOptions {
   startInscriptionsDate?: string | null
   /** Whether participants (not just the owner) may submit their own match results. Defaults to false. */
   allowPlayerSetScore?: boolean
+  /**
+   * Entry fee each competitor pays the organizer. Null (the default) builds a
+   * free tournament, which TeamUp never bills. Any value > 0 makes the
+   * tournament billable once matches are played.
+   */
+  entryFee?: number | null
+  /** Whether the service fee of this tournament was already settled. Defaults to false. */
+  paid?: boolean
 }
 
 export interface BuiltTournament {
@@ -284,6 +301,11 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
     settings: options.settings ?? {},
     rankingSettings: null,
     allowPlayerSetScore: options.allowPlayerSetScore ?? false,
+    entryFee: options.entryFee ?? null,
+    currency: 'ARS',
+    paid: options.paid ?? false,
+    paidAt: null,
+    servicePaymentId: null,
     createdAt: new Date(),
     updatedAt: new Date()
   })

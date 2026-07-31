@@ -122,8 +122,9 @@ export async function removeTournamentCategory(tournament: Tournament, tournamen
 /**
  * Registers a competitor into a specific category on behalf of the organizer:
  * a single player, a pair, or a whole interclubes team (with the venue it
- * represents). Only free tournaments are supported — paid tournaments must go
- * through the Mercado Pago checkout flow.
+ * represents). Works the same for free and paid tournaments — the entry fee is
+ * settled between player and organizer off-platform, so nothing about the
+ * registration depends on it.
  *
  * `playerIds` follows the same convention as the player-facing join: index 0 is
  * the main player (team captain in interclubes) and the rest are their partner
@@ -135,10 +136,6 @@ export async function registerCompetitor(
   playerIds: number[],
   siteId: number | null = null
 ): Promise<Competitor> {
-  if (tournament.paid && tournament.entryFee && tournament.entryFee > 0) {
-    throw new ApiException('Los torneos pagos se inscriben mediante el flujo de pago')
-  }
-
   const categories = tournament.categories ?? []
   const targetCategory = categories.find((category) => category.id === Number(tournamentCategoryId))
 

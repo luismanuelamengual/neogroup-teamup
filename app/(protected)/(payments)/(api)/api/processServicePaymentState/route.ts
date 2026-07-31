@@ -1,14 +1,15 @@
 import { createHmac } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { confirmPaymentFromWebhook } from '@/app/(protected)/(tournaments)/services/payments'
+import { confirmServicePaymentFromWebhook } from '@/app/(protected)/(payments)/services/payments'
 
 /**
- * POST /api/processTournamentPaymentState — Mercado Pago payment notifications (IPN/Webhooks).
+ * POST /api/processServicePaymentState — Mercado Pago payment notifications (IPN/Webhooks).
  *
  * Public endpoint. The preference's notification_url carries `?ref=<paymentId>`
- * (our payment row id) so we can resolve the organizer/token without knowing the
- * collector up front. We then fetch the real payment from Mercado Pago, verify
- * its external_reference and confirm (register the competitor) or refund.
+ * (our settlement row id), so the notification can be resolved without an
+ * organization/subdomain context. We then fetch the real payment from Mercado
+ * Pago, verify its external_reference and confirm the settlement — marking every
+ * tournament it covers as paid.
  *
  * Always returns 200 for handled/ignored notifications; returns 500 only on
  * transient failures so Mercado Pago retries.
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    await confirmPaymentFromWebhook(paymentRowId, mpPaymentId)
+    await confirmServicePaymentFromWebhook(paymentRowId, mpPaymentId)
 
     return NextResponse.json({ received: true }, { status: 200 })
   } catch (error) {

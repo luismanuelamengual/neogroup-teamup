@@ -33,7 +33,6 @@ import dayjs from 'dayjs'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useMercadoPago } from '@/app/(protected)/(account)/hooks/useMercadoPago'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import EditTournamentDialog from '@/app/(protected)/(tournaments)/components/EditTournamentDialog'
 import JoinTournamentDialog from '@/app/(protected)/(tournaments)/components/JoinTournamentDialog'
@@ -46,7 +45,6 @@ import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipli
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { PaymentStatus } from '@/app/(protected)/(tournaments)/models/PaymentStatus'
 import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -57,7 +55,6 @@ import { describeInterclubsFormat } from '@/app/(protected)/(tournaments)/utils/
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { isRegistrationOpen } from '@/app/(protected)/(tournaments)/utils/registrations'
-import { useNotifications } from '@/app/hooks/useNotifications'
 import { useUserStore } from '@/app/stores/users'
 
 interface TournamentViewProps {
@@ -70,13 +67,9 @@ interface TournamentViewProps {
 }
 
 export default function TournamentView({ tournamentId, appUrl, isOrganizer }: TournamentViewProps) {
-  const { finishTournament, getPaymentStatus, getTournament, leaveTournament, saveMatchResult, startTournament } =
-    useTournaments()
-  const { getStatus } = useMercadoPago()
-  const { showSuccessMessage, showWarningMessage, showErrorMessage } = useNotifications()
+  const { finishTournament, getTournament, leaveTournament, saveMatchResult, startTournament } = useTournaments()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const paymentHandled = useRef(false)
   const joinLinkHandled = useRef(false)
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
@@ -87,7 +80,6 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
   const [confirmStartOpen, setConfirmStartOpen] = useState(false)
   const [confirmFinishOpen, setConfirmFinishOpen] = useState(false)
   const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false)
-  const [mpConnected, setMpConnected] = useState<boolean | null>(null)
   const userId = useUserStore((state) => state.user?.id ?? null)
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
   const matches = useMemo(() => tournament?.matches ?? [], [tournament])
@@ -157,93 +149,6 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
   useEffect(() => {
     loadTournament()
   }, [loadTournament])
-
-  // Check the organizer's Mercado Pago connection so we can warn them if a paid
-  // tournament has no account to collect into.
-  useEffect(() => {
-    if (!isOrganizer || !tournament?.paid) {
-      return
-    }
-
-    getStatus()
-      .then((status) => setMpConnected(status.connected))
-      .catch(() => setMpConnected(null))
-  }, [getStatus, isOrganizer, tournament?.paid])
-
-  // Handle the return from Mercado Pago checkout (?payment=success|failure|pending):
-  // notify the player and, on success, poll the payment status until the
-  // registration is confirmed by the webhook, then refresh the tournament.
-  useEffect(() => {
-    if (isOrganizer) {
-      return
-    }
-
-    const result = searchParams.get('payment')
-
-    if (!result || paymentHandled.current) {
-      return
-    }
-
-    paymentHandled.current = true
-    router.replace(`/tournaments/${tournamentId}`)
-
-    if (result === 'failure') {
-      showErrorMessage('El pago no se completó. No se realizó la inscripción')
-
-      return
-    }
-
-    if (result === 'pending') {
-      showWarningMessage('Tu pago está pendiente de acreditación. Te inscribiremos cuando se confirme')
-
-      return
-    }
-
-    if (result !== 'success') {
-      return
-    }
-
-    showSuccessMessage('Pago recibido. Confirmando tu inscripción...')
-
-    let attempts = 0
-
-    const poll = async () => {
-      attempts += 1
-
-      const status = await getPaymentStatus(tournamentId)
-
-      if (status?.status === PaymentStatus.APPROVED) {
-        showSuccessMessage('¡Inscripción confirmada!')
-        await loadTournament()
-
-        return
-      }
-
-      if (status?.status === PaymentStatus.REFUNDED) {
-        showErrorMessage('Tu pago fue reembolsado porque no se pudo completar la inscripción')
-
-        return
-      }
-
-      if (attempts < 6) {
-        setTimeout(poll, 2500)
-      } else {
-        showWarningMessage('Estamos confirmando tu pago. La inscripción aparecerá en unos instantes')
-      }
-    }
-
-    poll()
-  }, [
-    isOrganizer,
-    searchParams,
-    router,
-    tournamentId,
-    getPaymentStatus,
-    loadTournament,
-    showSuccessMessage,
-    showWarningMessage,
-    showErrorMessage
-  ])
 
   // Handle arrival from an invite link (/tournaments/[id]/join redirects here
   // with ?join=1): auto-open the join dialog once the tournament has loaded,
@@ -458,12 +363,8 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
               <Chip
                 size="small"
                 color={tournament.paid && tournament.entryFee ? 'success' : 'default'}
-                icon={tournament.paid && tournament.entryFee ? <PaidIcon /> : undefined}
-                label={
-                  tournament.paid && tournament.entryFee
-                    ? formatMoney(tournament.entryFee, tournament.currency)
-                    : 'Gratuito'
-                }
+                icon={tournament.entryFee ? <PaidIcon /> : undefined}
+                label={tournament.entryFee ? formatMoney(tournament.entryFee, tournament.currency) : 'Gratuito'}
               />
               {tournament.site?.name && (
                 <span className="meta-item">
@@ -475,12 +376,6 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
                 {tournament.startTime ? ` · ${tournament.startTime}` : ''}
               </span>
             </div>
-            {isOrganizer && tournament.paid && mpConnected === false && (
-              <Alert severity="warning" className="mp-warning">
-                Este torneo tiene inscripción de pago, pero todavía no vinculaste tu cuenta de Mercado Pago. Los
-                jugadores no podrán inscribirse hasta que la conectes desde <strong>Mi cuenta</strong>.
-              </Alert>
-            )}
             {isOrganizer ? (
               <div className="footer">
                 <div className="info-area">

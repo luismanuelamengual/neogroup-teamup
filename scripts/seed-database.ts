@@ -1468,7 +1468,7 @@ async function clearDemoOrganizationData(organizationId: number): Promise<void> 
     }
 
     // Payments, category instances, then the tournaments themselves.
-    await DB.table('tournament_payments').where('organizationId', organizationId).delete()
+    await DB.table('service_payments').where('organizationId', organizationId).delete()
 
     if (tournamentCategoryIds.length > 0) {
       await DB.table('tournament_categories').whereIn('id', tournamentCategoryIds).delete()
@@ -1482,7 +1482,6 @@ async function clearDemoOrganizationData(organizationId: number): Promise<void> 
 
     // Users and everything that hangs off a user.
     if (userIds.length > 0) {
-      await DB.table('mercadopago_accounts').whereIn('userId', userIds).delete()
       await DB.table('player_statistics').whereIn('playerId', userIds).delete()
       await DB.table('email_verification_tokens').whereIn('userId', userIds).delete()
       await DB.table('password_reset_tokens').whereIn('userId', userIds).delete()

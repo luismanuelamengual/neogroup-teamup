@@ -142,28 +142,18 @@ describe('tournament administration', () => {
       expect(await countInCategory(built.categoryIds[0])).toBe(1)
     })
 
-    it('rejects registration on paid tournaments and when the category is full', async () => {
+    it('registers into a tournament with an entry fee, and rejects when the category is full', async () => {
+      // The entry fee is settled with the organizer off-platform, so it does not
+      // stand in the way of an organizer-side registration.
       const built = await buildTournament({
         type: TournamentType.LEAGUE,
         discipline: Discipline.TENNIS,
         subDiscipline: SubDiscipline.SINGLES,
-        competitors: 0
+        competitors: 0,
+        entryFee: 1000
       })
-
-      // Force a paid tournament.
-      built.tournament.paid = true
-      built.tournament.entryFee = 1000
-      await built.tournament.save()
-
       let tournament = await manageable(built.tournament.id, built.ownerId)
       const player = await createUser(built.tournament.organizationId)
-
-      await expect(registerCompetitor(tournament, built.categoryIds[0], [player])).rejects.toThrow('flujo de pago')
-
-      // Back to free, but with a capacity of exactly 1.
-      built.tournament.paid = false
-      built.tournament.entryFee = null
-      await built.tournament.save()
       const category = await TournamentCategory.find(built.categoryIds[0])
 
       category!.maxCompetitors = 1

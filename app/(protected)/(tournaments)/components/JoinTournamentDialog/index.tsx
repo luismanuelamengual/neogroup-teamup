@@ -103,7 +103,9 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
   // is resolved automatically by the server.
   const categories = (tournament.categories ?? []).filter((category) => category.categoryId != null)
   const hasCategories = categories.length > 0
-  const isPaid = tournament.paid && !!tournament.entryFee && tournament.entryFee > 0
+  // A tournament has a cost when it defines an entry fee. That fee is settled
+  // with the organizer off-platform, so it is informed here, not charged.
+  const isPaid = !!tournament.entryFee && tournament.entryFee > 0
   // Rendered in a different place depending on the type (see below), so it is
   // built once here instead of being duplicated in both branches.
   const categoryField = hasCategories ? (
@@ -132,17 +134,11 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
     setLoading(true)
 
     try {
-      const result = await joinTournament(tournament.id, {
+      await joinTournament(tournament.id, {
         playerIds: isTeam ? teamMates.map((player) => player.id) : needsPartner && partnerUser ? [partnerUser.id] : [],
         siteId: isTeam ? siteId : null,
         tournamentCategoryId: hasCategories && categoryId !== '' ? categoryId : null
       })
-
-      // Paid tournaments redirect to Mercado Pago; keep the dialog in its loading
-      // state until the browser navigates away.
-      if (result.paid) {
-        return
-      }
 
       onSuccess()
     } catch (requestError) {
@@ -181,7 +177,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
                 <PaidIcon fontSize="inherit" />{' '}
                 <strong>{formatMoney(tournament.entryFee!, tournament.currency)}</strong>
               </div>
-              . El pago se realiza de forma segura con Mercado Pago.
+              . Se abona directamente al organizador, en la cancha o por el medio que acuerden.
             </Alert>
           )}
           {error && <Alert severity="error">{error}</Alert>}
@@ -249,7 +245,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
             }
             loading={loading}
           >
-            {isPaid ? 'Pagar e inscribirme' : isTeam ? 'Inscribir equipo' : 'Confirmar inscripción'}
+            {isTeam ? 'Inscribir equipo' : 'Confirmar inscripción'}
           </Button>
         </div>
       </DialogContent>

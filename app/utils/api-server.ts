@@ -100,6 +100,37 @@ export function withAuth<P = Record<string, string>>(handler: AuthenticatedApiHa
 }
 
 /**
+ * Same as withAuth, but additionally requires the signed-in user to manage the
+ * organization — an organizer or the administrator (403 otherwise). Used by the
+ * payments module: settling TeamUp's service fee is an organization matter, and
+ * both profiles see and can pay the whole debt.
+ */
+export function withOrganizerOrAdmin<P = Record<string, string>>(handler: AuthenticatedApiHandler<P>) {
+  return async (request: NextRequest, context: RouteContext<P>): Promise<NextResponse> => {
+    const session = await auth()
+    const userId = session?.user?.id ? Number(session.user.id) : null
+
+    if (!userId) {
+      return errorResponse(new ApiException('Usuario no autenticado', 401))
+    }
+
+    const roleId = session?.user?.roleId
+
+    if (roleId !== Role.ADMINISTRATOR && roleId !== Role.ORGANIZER) {
+      return errorResponse(new ApiException('Operación no autorizada', 403))
+    }
+
+    try {
+      const organizationId = await resolveOrganizationId(request)
+
+      return successResponse(await handler(request, context, userId, organizationId))
+    } catch (error) {
+      return errorResponse(error)
+    }
+  }
+}
+
+/**
  * Same as withAuth, but additionally requires the signed-in user to be the
  * organization administrator (403 otherwise). Used by every endpoint of the
  * users management module.

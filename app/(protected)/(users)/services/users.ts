@@ -181,18 +181,18 @@ export async function updateUser(organizationId: number, userId: number, input: 
  * Number of rows that reference a user and would either break a foreign key or
  * silently corrupt historical data if the row disappeared.
  *
- * `password_reset_tokens`, `email_verification_tokens`, `mercadopago_accounts`
- * and `player_statistics` are not counted: they all cascade on delete.
+ * `password_reset_tokens`, `email_verification_tokens` and `player_statistics`
+ * are not counted: they all cascade on delete.
  */
 async function countUserReferences(userId: number): Promise<number> {
-  const [tournaments, competitors, rankings, payments] = await Promise.all([
+  const [tournaments, competitors, rankings, servicePayments] = await Promise.all([
     DB.table('tournaments').where('ownerId', userId).count(),
     DB.table('competitors').whereArrayContains('playerIds', userId).count(),
     DB.table('rankings').where('userId', userId).count(),
-    DB.table('tournament_payments').whereArrayContains('playerIds', userId).count()
+    DB.table('service_payments').where('userId', userId).count()
   ])
 
-  return Number(tournaments) + Number(competitors) + Number(rankings) + Number(payments)
+  return Number(tournaments) + Number(competitors) + Number(rankings) + Number(servicePayments)
 }
 
 /**
