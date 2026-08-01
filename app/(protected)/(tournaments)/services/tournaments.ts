@@ -224,11 +224,40 @@ export async function createTournament(
       input.settings?.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
     )
 
+    /** Optional positive integer setting; anything empty or ≤ 0 means "unset". */
+    const optionalCount = (value: number | null | undefined): number | undefined => {
+      if (value == null || !Number.isFinite(Number(value)) || Number(value) <= 0) {
+        return undefined
+      }
+
+      return Math.floor(Number(value))
+    }
+
+    // Floor on the total knockout field. Deliberately unbounded above: a huge
+    // value is how an organizer says "everybody advances".
+    const minPlayoffQualifiers = optionalCount(input.settings?.minPlayoffQualifiers)
+    const maxRounds = optionalCount(input.settings?.maxRounds)
+
     if (competitorsPerGroup < 2 || qualifiersPerGroup < 1 || qualifiersPerGroup >= competitorsPerGroup) {
       throw new ApiException('invalidGroupsSettings')
     }
 
-    settings = { competitorsPerGroup, qualifiersPerGroup }
+    settings = {
+      competitorsPerGroup,
+      qualifiersPerGroup,
+      pointsPerPresent: input.settings?.pointsPerPresent ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.pointsPerPresent,
+      pointsPerSetWon: input.settings?.pointsPerSetWon ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.pointsPerSetWon,
+      pointsPerMatchWon: input.settings?.pointsPerMatchWon ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.pointsPerMatchWon
+    }
+
+    // Optional settings are omitted rather than stored as an explicit null.
+    if (minPlayoffQualifiers != null) {
+      settings.minPlayoffQualifiers = minPlayoffQualifiers
+    }
+
+    if (maxRounds != null) {
+      settings.maxRounds = maxRounds
+    }
   }
 
   const tournament = new Tournament()

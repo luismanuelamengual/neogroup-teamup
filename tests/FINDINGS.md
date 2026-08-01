@@ -100,7 +100,7 @@ path uses the same fair-bye rule. Five players now each play four matches.
 
 ---
 
-## BUG #4 — Single-group groups+playoff replayed the same pair (LOW) ✅ fixed
+## BUG #4 — Single-group groups+playoff replayed the same pair (LOW) ↩️ reverted by design
 
 **Where:** the groups → knockout join (`maybeStartGroupsKnockout` /
 `materializeCategoryRound`) and `utils/champion.ts`.
@@ -110,13 +110,22 @@ competitors, or `competitorsPerGroup ≥ field`), both qualified and met **again
 in a knockout final — a redundant rematch of a pairing the group had already
 decided.
 
-**Now:** with only one non-empty group the knockout is skipped (it could only
-replay the group); the group standings decide the result, and
-`getPodiumCompetitorIds()` falls back to those standings for the
-champion/podium. Multi-group tournaments (including the `[2, 1]` degenerate split)
-still build the knockout and cross-seed as before.
+**Was fixed as:** with only one non-empty group the knockout was skipped, and the
+group standings decided the result.
 
-**Guard:** `tests/bugs/known-bugs.test.ts → REGRESSION #4`.
+**Now (reverted on purpose):** a groups+playoff **always** builds its bracket,
+single group included. Two reasons. First, `minPlayoffQualifiers` only makes
+sense that way — "the top 6 of the group advance to the knockout" is exactly the
+case a lone group describes, and skipping the bracket would silently ignore the
+setting. Second, an organizer who picks groups+playoff is asking for a knockout;
+deciding the title on a standings table is not what they configured. Replaying a
+pairing the group already played is accepted as the cost.
+
+`getPodiumCompetitorIds()` keeps the standings fallback, but it is now only
+reachable when no bracket could be built at all (fewer than 2 qualifiers).
+
+**Guard:** `tests/bugs/known-bugs.test.ts → BEHAVIOR — a single-group
+groups+playoff still plays its knockout`, which now asserts the rematch happens.
 
 ---
 

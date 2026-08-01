@@ -36,8 +36,9 @@ export function getPodiumCompetitorIds(tournament: Tournament, category: number 
   )
 
   if (bracketMatches.length === 0) {
-    // A single-group groups+playoff has no knockout (it would only replay the
-    // group); its podium comes from that group's standings.
+    // Groups+playoff always builds a bracket, single group included, so getting
+    // here means it could not be built at all (fewer than 2 qualifiers). Fall
+    // back to the first group's standings rather than reporting no podium.
     if (tournament.type === TournamentType.GROUPS_PLAYOFF) {
       return computeStandings(tournament, category, 0)
         .slice(0, 3)

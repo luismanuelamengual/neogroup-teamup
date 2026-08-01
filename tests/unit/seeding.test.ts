@@ -7,9 +7,15 @@ import {
   getBracketSize,
   getKnockoutRounds,
   getTotalRounds,
+  repairSameGroupPairings,
+  resolveGroupQualifiers,
   seedFromGroups,
   seedPlayoffPairings
 } from '@/app/(protected)/(tournaments)/utils/tournaments'
+
+/** Builds a group's ranked rows; `points` descend with the position by default. */
+const ranked = (ids: number[], points?: number[]) =>
+  ids.map((competitorId, index) => ({ competitorId, points: points ? points[index] : ids.length - index }))
 
 describe('bracket math', () => {
   it('computes the next power-of-two bracket size', () => {
@@ -61,14 +67,136 @@ describe('group sizing', () => {
   })
 
   it('cross-seeds qualifiers so group winners come first', () => {
-    // groups -> ranked qualifiers; winners then runners-up.
-    const seeded = seedFromGroups([
-      [10, 11],
-      [20, 21],
-      [30, 31]
-    ])
+    // groups -> ranked qualifiers; winners then runners-up. Equal points across
+    // groups, so the competitor id breaks the tie and the classic order holds.
+    const seeded = seedFromGroups([ranked([10, 11], [6, 3]), ranked([20, 21], [6, 3]), ranked([30, 31], [6, 3])])
 
     expect(seeded).toEqual([10, 20, 30, 11, 21, 31])
+  })
+})
+
+describe('minimum playoff qualifiers', () => {
+  it('keeps qualifiersPerGroup when no minimum is set', () => {
+    expect(resolveGroupQualifiers([4, 4, 4, 4], 2)).toEqual([2, 2, 2, 2])
+    expect(resolveGroupQualifiers([4, 3], 2, null)).toEqual([2, 2])
+  })
+
+  it('raises the cut-off evenly to reach the minimum (examples 1 and 2)', () => {
+    // One group of 8, top 2 by default, minimum 6 → the top 6 advance.
+    expect(resolveGroupQualifiers([8], 2, 6)).toEqual([6])
+    // Two groups of 4, minimum 6 → top 3 of each, not "top 2 plus best thirds".
+    expect(resolveGroupQualifiers([4, 4], 2, 6)).toEqual([3, 3])
+  })
+
+  it('sends everybody when the minimum exceeds the field (example 3)', () => {
+    expect(resolveGroupQualifiers([10], 4, 9000)).toEqual([10])
+    expect(resolveGroupQualifiers([4, 4, 3], 2, 9000)).toEqual([4, 4, 3])
+  })
+
+  it('does nothing when the baseline already meets the minimum (example 4)', () => {
+    expect(resolveGroupQualifiers([4, 4, 4, 4], 2, 4)).toEqual([2, 2, 2, 2])
+    expect(resolveGroupQualifiers([4, 4, 4, 4], 2, 8)).toEqual([2, 2, 2, 2])
+  })
+
+  it('handles uneven groups, overshooting rather than falling short', () => {
+    // The small group runs out of competitors, so the big one carries the rest.
+    expect(resolveGroupQualifiers([6, 2], 2, 7)).toEqual([5, 2])
+    // A shared level can overshoot the minimum — it is a floor, not a target.
+    expect(resolveGroupQualifiers([5, 4, 4], 2, 10)).toEqual([4, 4, 4])
+  })
+
+  it('never returns fewer than one qualifier per group', () => {
+    expect(resolveGroupQualifiers([4, 4], 0, undefined)).toEqual([1, 1])
+  })
+})
+
+describe('seeding within a rank tier', () => {
+  it('orders each tier by group points, best first', () => {
+    const seeded = seedFromGroups([ranked([10, 11], [9, 2]), ranked([20, 21], [4, 5]), ranked([30, 31], [7, 8])])
+
+    // Winners tier ordered 10 (9 pts) > 30 (7) > 20 (4); runners-up 31 (8) > 21 (5) > 11 (2).
+    expect(seeded).toEqual([10, 30, 20, 31, 21, 11])
+  })
+
+  it('keeps group winners ahead of runners-up even with fewer points', () => {
+    // 20 wins a small group with 4 points; 11 is a runner-up with 8. The tier
+    // still comes first, because points are not comparable across group sizes.
+    const seeded = seedFromGroups([ranked([10, 11], [9, 8]), ranked([20, 21], [4, 1])])
+
+    expect(seeded).toEqual([10, 20, 11, 21])
+  })
+
+  it('breaks equal points by ranking seed, then by competitor id', () => {
+    const tieBreakers = new Map([
+      [10, { seedNumber: 3 }],
+      [20, { seedNumber: 1 }],
+      [30, { seedNumber: null }]
+    ])
+    const seeded = seedFromGroups([ranked([10], [5]), ranked([20], [5]), ranked([30], [5])], tieBreakers)
+
+    // Seeds 1 and 3 first in order; the unseeded competitor goes last.
+    expect(seeded).toEqual([20, 10, 30])
+  })
+
+  it('is deterministic — two calls on the same input agree', () => {
+    const build = () => seedFromGroups([ranked([10, 11], [5, 5]), ranked([20, 21], [5, 5])])
+
+    expect(build()).toEqual(build())
+  })
+
+  it('falls back to plain standings order for a single group', () => {
+    const seeded = seedFromGroups([ranked([10, 11, 12, 13, 14, 15], [9, 8, 7, 6, 5, 4])])
+
+    expect(seeded).toEqual([10, 11, 12, 13, 14, 15])
+  })
+})
+
+describe('same-group pairing repair', () => {
+  /** group index of every competitor, using the tens digit (10,11 → group 1). */
+  const groupsOf = (...entries: [number, number][]) => new Map(entries)
+
+  it('swaps rivals so nobody replays a group opponent', () => {
+    // 3 groups sending 2 each: the plain bracket pairs C1 vs C2 (30 vs 31).
+    const seeded = seedFromGroups([ranked([10, 11]), ranked([20, 21]), ranked([30, 31])])
+    const groupOf = groupsOf([10, 0], [11, 0], [20, 1], [21, 1], [30, 2], [31, 2])
+    const pairings = repairSameGroupPairings(seedPlayoffPairings(seeded), groupOf)
+
+    for (const pairing of pairings) {
+      if (pairing.away?.length === 1) {
+        expect(groupOf.get(pairing.home[0])).not.toBe(groupOf.get(pairing.away[0]))
+      }
+    }
+  })
+
+  it('leaves byes and the competitors facing them untouched', () => {
+    const seeded = seedFromGroups([ranked([10, 11]), ranked([20, 21]), ranked([30, 31])])
+    const groupOf = groupsOf([10, 0], [11, 0], [20, 1], [21, 1], [30, 2], [31, 2])
+    const before = seedPlayoffPairings(seeded)
+      .filter((pairing) => pairing.away === null)
+      .map((pairing) => pairing.home[0])
+    const after = repairSameGroupPairings(seedPlayoffPairings(seeded), groupOf)
+      .filter((pairing) => pairing.away === null)
+      .map((pairing) => pairing.home[0])
+
+    expect(after).toEqual(before)
+  })
+
+  it('is a no-op when every competitor comes from the same group', () => {
+    const seeded = [10, 11, 12, 13]
+    const groupOf = groupsOf([10, 0], [11, 0], [12, 0], [13, 0])
+    const before = seedPlayoffPairings(seeded)
+    const after = repairSameGroupPairings(seedPlayoffPairings(seeded), groupOf)
+
+    expect(after).toEqual(before)
+  })
+
+  it('does not drop or duplicate anyone', () => {
+    const seeded = seedFromGroups([ranked([10, 11]), ranked([20, 21]), ranked([30, 31])])
+    const groupOf = groupsOf([10, 0], [11, 0], [20, 1], [21, 1], [30, 2], [31, 2])
+    const pairings = repairSameGroupPairings(seedPlayoffPairings(seeded), groupOf)
+    const placed = pairings.flatMap((pairing) => [...pairing.home, ...(pairing.away ?? [])])
+
+    expect(placed.sort((a, b) => a - b)).toEqual([10, 11, 20, 21, 30, 31])
   })
 })
 

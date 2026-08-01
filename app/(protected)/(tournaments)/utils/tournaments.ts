@@ -75,6 +75,50 @@ export function computeGroupSizes(competitorsCount: number, groupSize: number): 
 }
 
 /**
+ * How many competitors each group sends to the knockout phase.
+ *
+ * The baseline is `qualifiersPerGroup` (clamped to the group size). When
+ * `minPlayoffQualifiers` is set it takes precedence, but only upwards: the
+ * cut-off level is raised **evenly across every group** until the total reaches
+ * the minimum, or until the largest group is exhausted (nobody can be invented).
+ *
+ * Raising a single level for everyone — rather than handing extra slots to
+ * individual groups — is what keeps the knockout fair: with 2 groups of 4 and a
+ * minimum of 6, the top 3 of each group advance instead of "the top 2 plus the
+ * two best runners-up". Because the level is shared, uneven group sizes may
+ * overshoot the minimum, which is fine: it is a floor, not a target.
+ *
+ * Examples (sizes / qualifiers / minimum → result):
+ *   [8]           2  6    → [6]            a lone group sends its top 6
+ *   [4, 4]        2  6    → [3, 3]         top 3 of each
+ *   [10]          4  9000 → [10]           minimum beyond the field: everybody
+ *   [4, 4, 4, 4]  2  4    → [2, 2, 2, 2]   already 8 ≥ 4, nothing changes
+ *   [6, 2]        2  7    → [5, 2]         the small group runs out first
+ */
+export function resolveGroupQualifiers(
+  groupSizes: number[],
+  qualifiersPerGroup: number,
+  minPlayoffQualifiers?: number | null
+): number[] {
+  const cutAt = (level: number) => groupSizes.map((size) => Math.min(level, size))
+  const total = (quotas: number[]) => quotas.reduce((sum, quota) => sum + quota, 0)
+  const largest = groupSizes.reduce((max, size) => Math.max(max, size), 0)
+  let level = Math.max(1, Math.floor(qualifiersPerGroup) || 1)
+  let quotas = cutAt(level)
+
+  if (minPlayoffQualifiers == null || minPlayoffQualifiers <= 0) {
+    return quotas
+  }
+
+  while (total(quotas) < minPlayoffQualifiers && level < largest) {
+    level++
+    quotas = cutAt(level)
+  }
+
+  return quotas
+}
+
+/**
  * Distributes competitor ids into balanced groups (round-robin assignment, so
  * groups end up as even as possible). Deterministic: the same ordered input
  * always yields the same groups.
@@ -90,27 +134,134 @@ export function assignGroups(competitorIds: number[], groupSize: number): number
   return groups
 }
 
+/** A competitor's finishing position in its group, with the points it earned there. */
+export interface GroupRankRow {
+  competitorId: number
+  points: number
+}
+
+/** Seeding weight of a competitor, used to break ties on equal group points. */
+export interface SeedTieBreaker {
+  /** Ranking seed assigned before the tournament started, if any. */
+  seedNumber?: number | null
+}
+
 /**
  * Cross-seeds the knockout phase of a groups+playoff tournament. `qualifiers`
  * is ordered per group (index 0 is the group winner). Returns a flat seeded
- * lineup where every rank tier is grouped together (all winners first, then all
- * runners-up, ...). Fed to the standard bracket seeding this makes group
- * winners earn the byes and keeps competitors from the same group apart in the
- * first round.
+ * lineup where every rank **tier** is grouped together (all group winners first,
+ * then all runners-up, ...). Fed to the standard bracket seeding this makes
+ * group winners earn the byes and keeps competitors from different tiers apart.
+ *
+ * The tier is the primary key on purpose: raw points are not comparable across
+ * groups, because `computeGroupSizes` allows uneven sizes (11 competitors in
+ * groups of 4 → [4, 4, 3]) and a bigger group simply plays more matches. Winning
+ * a group of 3 undefeated must not rank below finishing second in a group of 4.
+ *
+ * Within a tier, though, points DO decide: the best runner-up is seeded above
+ * the worst one. Ties fall back to the pre-tournament ranking seed and finally
+ * to the competitor id, so the result is fully deterministic — this function is
+ * recomputed from scratch on every advance and two calls must always agree.
+ *
+ * With a single group the tiers hold one competitor each, so the result is
+ * simply that group's standings, which is exactly what a one-group knockout
+ * wants.
  */
-export function seedFromGroups(qualifiers: number[][]): number[] {
+export function seedFromGroups(qualifiers: GroupRankRow[][], tieBreakers?: Map<number, SeedTieBreaker>): number[] {
   const maxRank = qualifiers.reduce((max, group) => Math.max(max, group.length), 0)
   const seeded: number[] = []
 
-  for (let rank = 0; rank < maxRank; rank++) {
-    for (const group of qualifiers) {
-      if (group[rank] !== undefined) {
-        seeded.push(group[rank])
-      }
+  const byStrength = (a: GroupRankRow, b: GroupRankRow): number => {
+    if (b.points !== a.points) {
+      return b.points - a.points
     }
+
+    const seedA = tieBreakers?.get(a.competitorId)?.seedNumber ?? Infinity
+    const seedB = tieBreakers?.get(b.competitorId)?.seedNumber ?? Infinity
+
+    if (seedA !== seedB) {
+      return seedA - seedB
+    }
+
+    return a.competitorId - b.competitorId
+  }
+
+  for (let rank = 0; rank < maxRank; rank++) {
+    const tier = qualifiers.map((group) => group[rank]).filter((row): row is GroupRankRow => row !== undefined)
+
+    seeded.push(...[...tier].sort(byStrength).map((row) => row.competitorId))
   }
 
   return seeded
+}
+
+/**
+ * Rearranges first-round pairings so two competitors coming out of the same
+ * group do not meet again straight away.
+ *
+ * Ordering each tier by points (see `seedFromGroups`) means the tier no longer
+ * aligns with the group index, so the bracket can pit a group's runner-up
+ * against its own third place. The same clash already happens without any
+ * reordering whenever the qualifier count does not fit the bracket neatly — 3
+ * groups sending 2 each fills a bracket of 8 and pairs C1 against C2.
+ *
+ * The fix is a swap pass over the pairings, deliberately conservative:
+ *   - only the "away" slots move, so byes and the top seeds' path never change;
+ *   - the swap partner is the one closest in seed order, to perturb the bracket
+ *     as little as possible;
+ *   - a swap is applied only when it does not create a new clash;
+ *   - positions are visited in order and the first valid partner wins, so the
+ *     outcome is deterministic — no randomness anywhere.
+ *
+ * It is best-effort: some line-ups have no valid swap (in the extreme, a single
+ * group, where every pairing is an intra-group one and nothing can be done).
+ * Those are left untouched rather than shuffled pointlessly.
+ */
+export function repairSameGroupPairings(pairings: Pairing[], groupOf: Map<number, number>): Pairing[] {
+  const groupIdOf = (pairing: Pairing, side: 'home' | 'away'): number | undefined => {
+    const ids = side === 'home' ? pairing.home : pairing.away
+
+    return ids && ids.length === 1 ? groupOf.get(ids[0]) : undefined
+  }
+
+  const clashes = (pairing: Pairing): boolean => {
+    const home = groupIdOf(pairing, 'home')
+    const away = groupIdOf(pairing, 'away')
+
+    return home !== undefined && away !== undefined && home === away
+  }
+
+  // Only pairings with two real sides can be swapped; byes have nothing to move.
+  const swappable = pairings.filter((pairing) => pairing.away?.length === 1 && pairing.home.length === 1)
+
+  for (const pairing of swappable) {
+    if (!clashes(pairing)) {
+      continue
+    }
+
+    // Closest position first: adjacent bracket slots hold competitors of
+    // comparable strength, so swapping there barely moves the seeding.
+    const candidates = swappable
+      .filter((other) => other !== pairing)
+      .sort((a, b) => Math.abs(a.position - pairing.position) - Math.abs(b.position - pairing.position))
+
+    for (const candidate of candidates) {
+      const mine = pairing.away!
+      const theirs = candidate.away!
+
+      pairing.away = theirs
+      candidate.away = mine
+
+      if (!clashes(pairing) && !clashes(candidate)) {
+        break
+      }
+
+      pairing.away = mine
+      candidate.away = theirs
+    }
+  }
+
+  return pairings
 }
 
 /**
@@ -168,7 +319,10 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
       const qualifiers = settings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
       const sizes = computeGroupSizes(competitorsCount, groupSize)
       const groupRounds = getGroupPhaseRounds(settings, competitorsCount, type)
-      const totalQualifiers = sizes.reduce((sum, size) => sum + Math.min(Math.max(1, qualifiers), size), 0)
+      const totalQualifiers = resolveGroupQualifiers(sizes, qualifiers, settings.minPlayoffQualifiers).reduce(
+        (sum, quota) => sum + quota,
+        0
+      )
 
       return groupRounds + getKnockoutRounds(totalQualifiers)
     }
@@ -887,6 +1041,8 @@ async function syncKnockoutNextRound(
  * as empty "to be defined" matches. Each round is tagged with its bracket instance
  * (Final = 1, Semifinal = 2, …) and known winners (byes) are propagated forward so
  * the bracket is coherent from the start.
+ * When the entrants come out of a groups phase, `groupOf` lets the first round be
+ * repaired so nobody faces a rival from their own group straight away.
  * Returns 1 when a bracket was created, 0 when there were not enough competitors.
  */
 async function createKnockoutBracket(
@@ -894,7 +1050,8 @@ async function createKnockoutBracket(
   lane: RoundLane,
   seededIds: number[],
   startRound: number,
-  applyLocality = false
+  applyLocality = false,
+  groupOf?: Map<number, number>
 ): Promise<number> {
   if (seededIds.length < 2) {
     return 0
@@ -902,7 +1059,9 @@ async function createKnockoutBracket(
 
   const bracketSize = getBracketSize(seededIds.length)
   const totalRounds = getKnockoutRounds(seededIds.length)
-  const firstRoundPairings = seedPlayoffPairings(seededIds)
+  const firstRoundPairings = groupOf
+    ? repairSameGroupPairings(seedPlayoffPairings(seededIds), groupOf)
+    : seedPlayoffPairings(seededIds)
 
   // Interclubes: seeding says who meets whom, the localía rule says who hosts.
   if (applyLocality) {
@@ -1272,17 +1431,25 @@ async function syncConsolationNextRound(
   return changed
 }
 
-/** Ranks the competitors of a round-robin group from its resolved matches. */
+/**
+ * Ranks the competitors of a round-robin group from its resolved matches.
+ * Returns them best-first along with the points each one earned, which the
+ * knockout seeding needs to order competitors that finished on the same rank in
+ * different groups.
+ */
 function rankGroup(
   competitorIds: number[],
   matches: Match[],
   settings?: Tournament['settings'],
   type: TournamentType = TournamentType.GROUPS_PLAYOFF
-): number[] {
+): GroupRankRow[] {
   // Interclubes zones rank by encounters won → individual matches → sets, with
   // the very same function that feeds the standings table the players see.
   if (type === TournamentType.INTERCLUBS) {
-    return rankInterclubs(competitorIds, matches).map((row) => row.competitorId)
+    return rankInterclubs(competitorIds, matches).map((row) => ({
+      competitorId: row.competitorId,
+      points: row.points
+    }))
   }
 
   const groupsDefaults = DEFAULT_GROUPS_PLAYOFF_SETTINGS
@@ -1380,35 +1547,50 @@ function rankGroup(
     return 0
   }
 
-  return [...competitorIds].sort((a, b) => {
-    const rowA = stats.get(a)!
-    const rowB = stats.get(b)!
+  return [...competitorIds]
+    .sort((a, b) => {
+      const rowA = stats.get(a)!
+      const rowB = stats.get(b)!
 
-    if (rowB.points !== rowA.points) {
-      return rowB.points - rowA.points
-    }
+      if (rowB.points !== rowA.points) {
+        return rowB.points - rowA.points
+      }
 
-    const setDiffA = rowA.setsWon - rowA.setsLost
-    const setDiffB = rowB.setsWon - rowB.setsLost
+      const setDiffA = rowA.setsWon - rowA.setsLost
+      const setDiffB = rowB.setsWon - rowB.setsLost
 
-    if (setDiffB !== setDiffA) {
-      return setDiffB - setDiffA
-    }
+      if (setDiffB !== setDiffA) {
+        return setDiffB - setDiffA
+      }
 
-    const gameDiffA = rowA.gamesWon - rowA.gamesLost
-    const gameDiffB = rowB.gamesWon - rowB.gamesLost
+      const gameDiffA = rowA.gamesWon - rowA.gamesLost
+      const gameDiffB = rowB.gamesWon - rowB.gamesLost
 
-    if (gameDiffB !== gameDiffA) {
-      return gameDiffB - gameDiffA
-    }
+      if (gameDiffB !== gameDiffA) {
+        return gameDiffB - gameDiffA
+      }
 
-    return headToHead(b, a)
-  })
+      return headToHead(b, a)
+    })
+    .map((competitorId) => ({ competitorId, points: stats.get(competitorId)!.points }))
+}
+
+/** Knockout lineup of a groups phase: who plays, and which group each one came from. */
+interface GroupsKnockoutSeeds {
+  /** Competitor ids best-seeded first. */
+  seeded: number[]
+  /** Group index every qualifier came from, so the bracket can keep them apart. */
+  groupOf: Map<number, number>
 }
 
 /**
  * Computes the cross-seeded knockout lineup from the final group standings of a
  * groups+playoff category.
+ *
+ * How many competitors each group sends is `resolveGroupQualifiers`: normally
+ * `qualifiersPerGroup`, raised evenly across the groups when
+ * `minPlayoffQualifiers` demands a bigger knockout. Interclubes zones keep their
+ * own fixed format.
  */
 async function computeGroupsKnockoutSeeds(
   tournamentCategoryId: number,
@@ -1416,17 +1598,28 @@ async function computeGroupsKnockoutSeeds(
   settings: Tournament['settings'],
   cache?: AdvanceCache,
   type: TournamentType = TournamentType.GROUPS_PLAYOFF
-): Promise<number[]> {
+): Promise<GroupsKnockoutSeeds> {
   const safeSettings = settings ?? {}
-  const qualifiersPerGroup =
-    type === TournamentType.INTERCLUBS
-      ? resolveInterclubsFormat(competitorIds.length).qualifiersPerGroup
-      : Math.max(1, safeSettings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup)
   // Reconstruct the very same groups that were played (snake-seeded when there
   // are seeds) so the ranking is computed over the right competitors.
   const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache, type)
+  const quotas =
+    type === TournamentType.INTERCLUBS
+      ? groups.map((group) => Math.min(resolveInterclubsFormat(competitorIds.length).qualifiersPerGroup, group.length))
+      : resolveGroupQualifiers(
+          groups.map((group) => group.length),
+          safeSettings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup,
+          safeSettings.minPlayoffQualifiers
+        )
   const all = await loadCategoryMatches(tournamentCategoryId, cache)
-  const qualifiers: number[][] = []
+  const competitors = cache
+    ? await cache.competitors(tournamentCategoryId)
+    : await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
+  // Pre-tournament ranking seeds break ties between competitors that finished
+  // their groups on the same rank with the same points.
+  const tieBreakers = new Map(competitors.map((competitor) => [competitor.id, { seedNumber: competitor.seedNumber }]))
+  const qualifiers: GroupRankRow[][] = []
+  const groupOf = new Map<number, number>()
 
   for (let index = 0; index < groups.length; index++) {
     const group = groups[index]
@@ -1437,11 +1630,16 @@ async function computeGroupsKnockoutSeeds(
 
     const groupMatches = all.filter((match) => match.type === MatchType.LEAGUE && (match.groupNumber ?? null) === index)
     const ranked = rankGroup(group, groupMatches, settings, type)
+    const advancing = ranked.slice(0, Math.min(quotas[index] ?? 0, group.length))
 
-    qualifiers.push(ranked.slice(0, Math.min(qualifiersPerGroup, group.length)))
+    for (const row of advancing) {
+      groupOf.set(row.competitorId, index)
+    }
+
+    qualifiers.push(advancing)
   }
 
-  return seedFromGroups(qualifiers)
+  return { seeded: seedFromGroups(qualifiers, tieBreakers), groupOf }
 }
 
 /**
@@ -1818,7 +2016,7 @@ async function materializeCategoryRound(
           return 0
         }
 
-        const seeded = await computeGroupsKnockoutSeeds(
+        const { seeded, groupOf } = await computeGroupsKnockoutSeeds(
           tournamentCategoryId,
           competitorIds,
           settings,
@@ -1826,7 +2024,7 @@ async function materializeCategoryRound(
           tournament.type
         )
 
-        return createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, groupPhaseRounds + 1, true)
+        return createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, groupPhaseRounds + 1, true, groupOf)
       }
 
       return 0
@@ -1874,17 +2072,12 @@ async function materializeCategoryRound(
           return 0
         }
 
-        // A single group is just a league — skip the knockout (it would only
-        // replay the group). Its standings decide the result.
-        const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+        // A single group also gets a bracket: its standings seed a knockout that
+        // decides the title, even when that replays a pairing the group already
+        // played. `createKnockoutBracket` bails on its own below 2 qualifiers.
+        const { seeded, groupOf } = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings)
 
-        if (groups.filter((group) => group.length > 0).length <= 1) {
-          return 0
-        }
-
-        const seeded = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings)
-
-        return createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, groupPhaseRounds + 1)
+        return createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, groupPhaseRounds + 1, false, groupOf)
       }
 
       return 0
@@ -2136,14 +2329,6 @@ async function maybeStartGroupsKnockout(
 
   const settings = tournament.settings ?? {}
   const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache, tournament.type)
-
-  // Groups+playoff with a single group is just a league: there is nothing to
-  // cross-seed, so no knockout is built. Interclubes is the opposite — a single
-  // zone still sends its top 4 to a knockout, which is what decides the title.
-  if (!isInterclubs && groups.filter((group) => group.length > 0).length <= 1) {
-    return false
-  }
-
   // Rounds actually owed by each group: its natural round-robin length, or
   // fewer when the group phase is capped short (groups+playoff's `maxRounds`).
   const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length, tournament.type)
@@ -2169,14 +2354,21 @@ async function maybeStartGroupsKnockout(
     }
   }
 
-  const seeded = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings, cache, tournament.type)
+  const { seeded, groupOf } = await computeGroupsKnockoutSeeds(
+    tournamentCategoryId,
+    competitorIds,
+    settings,
+    cache,
+    tournament.type
+  )
   const startNumber = groupPhaseRounds + 1
   const created = await createKnockoutBracket(
     tournamentCategoryId,
     knockoutLane,
     seeded,
     startNumber,
-    tournament.type === TournamentType.INTERCLUBS
+    tournament.type === TournamentType.INTERCLUBS,
+    groupOf
   )
 
   if (created === 0) {

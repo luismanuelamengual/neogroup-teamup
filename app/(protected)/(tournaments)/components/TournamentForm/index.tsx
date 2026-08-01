@@ -498,6 +498,24 @@ export default function TournamentForm() {
               </div>
               <div className="row">
                 <TextField
+                  label="Mínima cantidad de competidores que avancen a eliminatoria"
+                  type="number"
+                  value={groupsSettings.minPlayoffQualifiers ?? ''}
+                  onChange={(event) => {
+                    const val = event.target.value
+
+                    setGroupsSettings({
+                      ...groupsSettings,
+                      minPlayoffQualifiers: val === '' ? undefined : Math.max(1, Number(val))
+                    })
+                  }}
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  helperText="Dejar vacío para que clasifiquen solo los indicados por grupo. Si se completa, tiene prioridad: el corte sube parejo en todos los grupos hasta alcanzar ese mínimo. Un número muy grande hace que avancen todos."
+                />
+              </div>
+              <div className="row">
+                <TextField
                   label="Máxima cantidad de rondas de grupos"
                   type="number"
                   value={groupsSettings.maxRounds ?? ''}
