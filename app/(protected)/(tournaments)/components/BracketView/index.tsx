@@ -193,7 +193,7 @@ export default function BracketView({
       (m) => category == null || m.tournamentCategoryId === category
     )
     const editable = bracketMatches.filter((m) =>
-      isMatchEditable(m, categoryMatches, tournament.type, tournament.status)
+      isMatchEditable(m, categoryMatches, tournament.type, tournament.status, tournament.settings)
     )
 
     if (organizerMode) {

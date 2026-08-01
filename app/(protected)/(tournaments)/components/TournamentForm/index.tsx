@@ -371,8 +371,24 @@ export default function TournamentForm() {
           {type === TournamentType.LEAGUE && (
             <>
               <div className="row">
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={leagueSettings.allowUnorderedResults ?? false}
+                      onChange={(event) =>
+                        setLeagueSettings({
+                          ...leagueSettings,
+                          allowUnorderedResults: event.target.checked || undefined
+                        })
+                      }
+                    />
+                  }
+                  label="Permitir carga de resultados no ordenada"
+                />
+              </div>
+              <div className="row">
                 <TextField
-                  label="Máxima cantidad de rondas"
+                  label={leagueSettings.allowUnorderedResults ? 'Partidos por competidor' : 'Máxima cantidad de rondas'}
                   type="number"
                   value={leagueSettings.maxRounds ?? ''}
                   onChange={(event) => {
@@ -385,7 +401,11 @@ export default function TournamentForm() {
                   }}
                   fullWidth
                   slotProps={{ htmlInput: { min: 1 } }}
-                  helperText="Dejar vacío para que se jueguen todas las rondas (todos contra todos). Si se completa, la liga finaliza al alcanzar esa cantidad de rondas."
+                  helperText={
+                    leagueSettings.allowUnorderedResults
+                      ? 'Se crean todas las fechas al iniciar el torneo y se puede cargar cualquier partido, en cualquier orden. Dejar vacío para que se juegue el todos contra todos completo. Si se completa, cada competidor juega esa cantidad de partidos: al alcanzarla, los que le queden pendientes se anulan.'
+                      : 'Dejar vacío para que se jueguen todas las rondas (todos contra todos). Si se completa, la liga finaliza al alcanzar esa cantidad de rondas.'
+                  }
                 />
               </div>
               <div className="row">
@@ -515,8 +535,28 @@ export default function TournamentForm() {
                 />
               </div>
               <div className="row">
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={groupsSettings.allowUnorderedResults ?? false}
+                      onChange={(event) =>
+                        setGroupsSettings({
+                          ...groupsSettings,
+                          allowUnorderedResults: event.target.checked || undefined
+                        })
+                      }
+                    />
+                  }
+                  label="Permitir carga de resultados no ordenada"
+                />
+              </div>
+              <div className="row">
                 <TextField
-                  label="Máxima cantidad de rondas de grupos"
+                  label={
+                    groupsSettings.allowUnorderedResults
+                      ? 'Partidos por competidor en su grupo'
+                      : 'Máxima cantidad de rondas de grupos'
+                  }
                   type="number"
                   value={groupsSettings.maxRounds ?? ''}
                   onChange={(event) => {
@@ -529,7 +569,11 @@ export default function TournamentForm() {
                   }}
                   fullWidth
                   slotProps={{ htmlInput: { min: 1 } }}
-                  helperText="Dejar vacío para que cada grupo juegue todas sus rondas. Si se completa, los grupos cierran al alcanzar esa cantidad de rondas y arranca la eliminatoria."
+                  helperText={
+                    groupsSettings.allowUnorderedResults
+                      ? 'Se crean todos los partidos de cada grupo al iniciar el torneo y se puede cargar cualquiera, en cualquier orden. Dejar vacío para que cada grupo juegue su todos contra todos completo. Si se completa, cada competidor juega esa cantidad de partidos dentro de su grupo. La eliminatoria arranca igual que siempre, cuando los grupos ya no tienen partidos por jugar.'
+                      : 'Dejar vacío para que cada grupo juegue todas sus rondas. Si se completa, los grupos cierran al alcanzar esa cantidad de rondas y arranca la eliminatoria.'
+                  }
                 />
               </div>
               <div className="row">

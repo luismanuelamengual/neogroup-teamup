@@ -25,8 +25,22 @@ export interface GroupsPlayoffSettings {
    * Optional cap on the number of group-phase rounds. Once every competitor has
    * played this many rounds, the groups close and the knockout phase starts,
    * even if the round-robin within a group had not finished naturally.
+   *
+   * Its meaning flips when `allowUnorderedResults` is on: there are no
+   * sequential rounds to cut short, so it is read as the number of MATCHES EACH
+   * COMPETITOR PLAYS inside its group instead. See `matchesPerCompetitor`.
    */
   maxRounds?: number
+  /**
+   * When true, every group's whole round robin is materialised up front and any
+   * group match can receive its result at any time, in any order — there is no
+   * "active" round. The knockout phase is unaffected: it is still seeded once
+   * every group is done.
+   *
+   * Unset (the default) keeps the classic behaviour: one round is created at a
+   * time and only the frontier round accepts results.
+   */
+  allowUnorderedResults?: boolean
 }
 
 export const DEFAULT_GROUPS_PLAYOFF_SETTINGS: GroupsPlayoffSettings = {

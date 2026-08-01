@@ -485,7 +485,8 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
         match,
         matchesByCategory.get(match.tournamentCategoryId) ?? [],
         tournament.type,
-        tournament.status
+        tournament.status,
+        tournament.settings
       )
 
     return matches.filter((match) => isSchedulable(match) || match.date != null).map(entryFromMatch)

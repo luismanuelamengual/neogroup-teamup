@@ -17,8 +17,10 @@ import {
   orderKnockoutSides,
   resolveInterclubsFormat
 } from '@/app/(protected)/(tournaments)/utils/interclubs'
+import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
 import { snakeSeedGroups, supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
+import { allowsUnorderedResults, matchesPerCompetitor } from '@/app/(protected)/(tournaments)/utils/settings'
 import { rankInterclubs } from '@/app/(protected)/(tournaments)/utils/standings'
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
@@ -48,6 +50,16 @@ function roundRobinRoundsFor(size: number): number {
 /** Caps `rounds` at `maxRounds` when it is set to a positive number, else returns it unchanged. */
 function capRounds(rounds: number, maxRounds: number | null | undefined): number {
   return maxRounds != null && maxRounds > 0 ? Math.min(rounds, maxRounds) : rounds
+}
+
+/**
+ * The `maxRounds` cap as it applies to the SCHEDULE. Unordered tournaments
+ * reinterpret `maxRounds` as a per-competitor match quota (enforced by voiding
+ * fixtures, not by generating fewer rounds), so the schedule itself is never
+ * cut short: the complete round robin is always laid out.
+ */
+function scheduleRoundCap(type: TournamentType, settings: TournamentSettings): number | null | undefined {
+  return allowsUnorderedResults(type, settings) ? null : settings.maxRounds
 }
 
 /** Knockout rounds (to the final) needed for `entrants` competitors. */
@@ -283,7 +295,7 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
 
   switch (type) {
     case TournamentType.LEAGUE:
-      return capRounds(roundRobinRoundsFor(competitorsCount), settings.maxRounds)
+      return capRounds(roundRobinRoundsFor(competitorsCount), scheduleRoundCap(type, settings))
 
     case TournamentType.INTERCLUBS: {
       const format = resolveInterclubsFormat(competitorsCount)
@@ -361,7 +373,9 @@ export function getGroupPhaseRounds(
 
   // The round cap only applies to groups+playoff — interclubes zones do not
   // support this setting.
-  return type === TournamentType.GROUPS_PLAYOFF ? capRounds(naturalRounds, settings.maxRounds) : naturalRounds
+  return type === TournamentType.GROUPS_PLAYOFF
+    ? capRounds(naturalRounds, scheduleRoundCap(type, settings))
+    : naturalRounds
 }
 
 /**
@@ -768,6 +782,42 @@ export async function isTournamentComplete(tournament: Tournament): Promise<bool
   }
 
   return !matches.some((match) => match.status === MatchStatus.PENDING)
+}
+
+/**
+ * Drops the fixtures that an unordered round robin voided along the way (see
+ * `syncUnorderedVoids`), called once the tournament is over.
+ *
+ * They are kept for the whole run because a corrected result can bring them
+ * back (and because they hold the venue/day/time the planner assigned them),
+ * but a finished tournament will never revisit any of that: nobody can edit a
+ * result once the tournament stops being ONGOING, and there is no path back
+ * from FINISHED to ONGOING. Should one ever be added, it would have to
+ * regenerate the round robin — the deleted fixtures are gone for good.
+ *
+ * Purely a clean-up: voided fixtures are already excluded from points,
+ * standings and statistics (see `countsForStandings`), so removing them changes
+ * no number anywhere. Returns how many were deleted.
+ */
+export async function deleteVoidedFixtures(tournament: Tournament): Promise<number> {
+  if (!allowsUnorderedResults(tournament.type, tournament.settings)) {
+    return 0
+  }
+
+  const categoryIds = await getTournamentCategoryIds(tournament)
+
+  if (categoryIds.length === 0) {
+    return 0
+  }
+
+  const all = await Match.whereIn('tournamentCategoryId', categoryIds).get()
+  // Round-robin lanes only. Knockout lanes use VOID for their own purpose (an
+  // empty consolation slot), and those matches are part of the bracket's shape.
+  const voided = all.filter((match) => match.status === MatchStatus.VOID && match.type === MatchType.LEAGUE)
+
+  await deleteMatches(voided)
+
+  return voided.length
 }
 
 /**
@@ -1483,7 +1533,7 @@ function rankGroup(
   }
 
   for (const match of matches) {
-    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+    if (!countsForStandings(match)) {
       continue
     }
 
@@ -1524,7 +1574,7 @@ function rankGroup(
   /** Returns 1 if idA beat idB, -1 if idB beat idA, 0 otherwise. */
   const headToHead = (idA: number, idB: number): number => {
     for (const match of matches) {
-      if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      if (!countsForStandings(match)) {
         continue
       }
 
@@ -1656,7 +1706,7 @@ function computeAmericanoPoints(
   const pts = new Map(competitorIds.map((id) => [id, 0]))
 
   for (const match of matches) {
-    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+    if (!countsForStandings(match)) {
       continue
     }
 
@@ -1855,8 +1905,9 @@ async function materializeCategoryRound(
   switch (tournament.type) {
     case TournamentType.LEAGUE: {
       const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: null }
+      const totalRounds = getTotalRounds(tournament.type, settings, competitorIds.length)
 
-      if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
+      if (roundNumber > totalRounds) {
         return 0
       }
 
@@ -1864,15 +1915,29 @@ async function materializeCategoryRound(
         return 0
       }
 
-      const pairings = generateRoundPairings(tournament.type, settings, competitorIds, roundNumber, [])
+      // Unordered leagues lay the WHOLE round robin out in one go, so every
+      // match exists — and accepts a result — from the moment the tournament
+      // starts. Ordered leagues create exactly the one round they were asked
+      // for, exactly as before.
+      const lastRound = allowsUnorderedResults(tournament.type, settings) ? totalRounds : roundNumber
+      let created = 0
 
-      if (pairings.length === 0) {
-        return 0
+      for (let number = roundNumber; number <= lastRound; number++) {
+        if (roundExistsIn(all, lane, number)) {
+          continue
+        }
+
+        const pairings = generateRoundPairings(tournament.type, settings, competitorIds, number, [])
+
+        if (pairings.length === 0) {
+          continue
+        }
+
+        await persistRoundMatches(tournamentCategoryId, number, lane, pairings)
+        created = 1
       }
 
-      await persistRoundMatches(tournamentCategoryId, roundNumber, lane, pairings)
-
-      return 1
+      return created
     }
 
     case TournamentType.AMERICANO:
@@ -2035,6 +2100,10 @@ async function materializeCategoryRound(
 
       if (roundNumber <= groupPhaseRounds) {
         const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+        // Same deal as an unordered league, one round robin per group. The
+        // knockout phase is untouched: it is still seeded once every group has
+        // played itself out.
+        const unordered = allowsUnorderedResults(tournament.type, settings)
         let created = 0
 
         for (let index = 0; index < groups.length; index++) {
@@ -2046,19 +2115,27 @@ async function materializeCategoryRound(
           }
 
           const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: index }
+          const lastRound = unordered ? groupRounds : roundNumber
+          let groupCreated = false
 
-          if (roundExistsIn(all, lane, roundNumber)) {
-            continue
+          for (let number = roundNumber; number <= lastRound; number++) {
+            if (roundExistsIn(all, lane, number)) {
+              continue
+            }
+
+            const pairings = generateRoundRobinRound(group, number)
+
+            if (pairings.length === 0) {
+              continue
+            }
+
+            await persistRoundMatches(tournamentCategoryId, number, lane, pairings)
+            groupCreated = true
           }
 
-          const pairings = generateRoundRobinRound(group, roundNumber)
-
-          if (pairings.length === 0) {
-            continue
+          if (groupCreated) {
+            created++
           }
-
-          await persistRoundMatches(tournamentCategoryId, roundNumber, lane, pairings)
-          created++
         }
 
         return created
@@ -2264,6 +2341,13 @@ async function advanceLane(
     return false
   }
 
+  // So are unordered round-robin lanes: the whole schedule already exists, so
+  // there is no next round to build. They progress by voiding the fixtures of
+  // competitors that reached their quota (see syncUnorderedVoids).
+  if (allowsUnorderedResults(tournament.type, tournament.settings)) {
+    return false
+  }
+
   const all = await loadCategoryMatches(tournamentCategoryId, cache)
   const roundNumbers = laneRoundNumbers(all, lane)
 
@@ -2295,6 +2379,94 @@ async function advanceLane(
   }
 
   return false
+}
+
+/**
+ * Enforces the per-competitor match quota of an unordered round-robin lane by
+ * voiding the fixtures that can no longer be played.
+ *
+ * With no active round it is the organizer who decides which matches actually
+ * happen, so the quota (`matchesPerCompetitor`) cannot be imposed by scheduling
+ * fewer rounds — the complete round robin is on the table from the start.
+ * Instead, every fixture is re-checked against the quota on each pass:
+ *
+ *  - a PENDING fixture with a side that already reached the quota can never be
+ *    played, so it becomes VOID;
+ *  - a VOID fixture whose two sides are back under the quota becomes PENDING
+ *    again, so correcting a result gives back the fixtures it had consumed.
+ *
+ * This is pure derived state — recomputed from the lane's resolved matches
+ * every time, never accumulated — so it is idempotent and independent of the
+ * order results came in.
+ *
+ * A competitor CAN run out of opponents before reaching the quota, when
+ * everybody else filled up first. That is deliberate rather than a case to
+ * prevent: having nobody left to play against is treated exactly like having
+ * completed the quota — the competitor just finishes with fewer points — and
+ * the lane still closes, because nothing is left PENDING.
+ *
+ * Returns true when it changed something.
+ */
+async function syncUnorderedVoids(
+  tournament: Tournament,
+  tournamentCategoryId: number,
+  lane: RoundLane,
+  cache?: AdvanceCache
+): Promise<boolean> {
+  if (isKnockoutType(lane.type) || !allowsUnorderedResults(tournament.type, tournament.settings)) {
+    return false
+  }
+
+  const quota = matchesPerCompetitor(tournament.settings)
+
+  // No quota means the whole round robin is played: nothing is ever voided.
+  if (quota == null) {
+    return false
+  }
+
+  const all = await loadCategoryMatches(tournamentCategoryId, cache)
+  const matches = laneMatches(all, lane)
+  const played = new Map<number, number>()
+
+  for (const match of matches) {
+    // Only resolved, real matchups consume quota — a VOID one never happened.
+    if (match.status === MatchStatus.PENDING || match.status === MatchStatus.VOID || !match.awayCompetitorIds) {
+      continue
+    }
+
+    for (const competitorId of [...match.homeCompetitorIds, ...match.awayCompetitorIds]) {
+      played.set(competitorId, (played.get(competitorId) ?? 0) + 1)
+    }
+  }
+
+  const isFull = (ids: number[] | null): boolean =>
+    (ids ?? []).some((competitorId) => (played.get(competitorId) ?? 0) >= quota)
+  let changed = false
+
+  for (const match of matches) {
+    // Anything already resolved is history and is never revisited.
+    if (match.status !== MatchStatus.PENDING && match.status !== MatchStatus.VOID) {
+      continue
+    }
+
+    const status =
+      isFull(match.homeCompetitorIds) || isFull(match.awayCompetitorIds) ? MatchStatus.VOID : MatchStatus.PENDING
+
+    if (match.status === status) {
+      continue
+    }
+
+    match.status = status
+    match.updatedAt = new Date()
+    await match.save()
+    changed = true
+  }
+
+  if (changed) {
+    cache?.invalidate(tournamentCategoryId)
+  }
+
+  return changed
 }
 
 /**
@@ -2406,10 +2578,17 @@ async function advanceTournament(tournament: Tournament, scopeCategoryId?: numbe
         continue
       }
 
-      // 1. Advance every existing round-robin lane independently.
+      // 1. Advance every existing round-robin lane independently. An unordered
+      // lane has no round to advance: it moves by voiding the fixtures of the
+      // competitors that already played their quota, which must happen before
+      // the joins below read "is this lane done?".
       const lanes = getCategoryLanes(await loadCategoryMatches(category.id, cache))
 
       for (const lane of lanes) {
+        if (await syncUnorderedVoids(tournament, category.id, lane, cache)) {
+          progressed = true
+        }
+
         if (await advanceLane(tournament, category.id, lane, competitorIds, cache)) {
           progressed = true
         }

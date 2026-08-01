@@ -7,6 +7,7 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/StandingsRowDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
 import { getGamesWon, getSeriesMatchesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { Tournament } from '../models/Tournament'
 import { TournamentDto } from '../models/TournamentDto'
@@ -68,7 +69,7 @@ export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]
   }
 
   for (const match of matches) {
-    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+    if (!countsForStandings(match)) {
       continue
     }
 
@@ -106,7 +107,7 @@ export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]
   /** 1 when idA beat idB in a direct encounter, -1 when idB won, 0 otherwise. */
   const headToHead = (idA: number, idB: number): number => {
     for (const match of matches) {
-      if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      if (!countsForStandings(match)) {
         continue
       }
 
@@ -273,7 +274,7 @@ export function computeStandings(
   }
 
   for (const match of matches) {
-    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+    if (!countsForStandings(match)) {
       continue
     }
 
@@ -352,7 +353,7 @@ export function computeStandings(
    */
   const headToHead = (idA: number, idB: number): number => {
     for (const match of matches) {
-      if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      if (!countsForStandings(match)) {
         continue
       }
 

@@ -125,7 +125,8 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
           match,
           matchesByCategory.get(match.tournamentCategoryId) ?? [],
           tournament.type,
-          tournament.status
+          tournament.status,
+          tournament.settings
         )
     )
   }, [isOrganizer, matches, userEntry, tournament])

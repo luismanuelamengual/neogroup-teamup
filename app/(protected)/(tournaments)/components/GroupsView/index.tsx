@@ -56,6 +56,24 @@ export default function GroupsView({
   }
 
   const activeGroup = groups[Math.min(active, groups.length - 1)]
+  const panel = (
+    <div className="group-panel">
+      <StandingsTable tournament={tournament} category={category} groupNumber={activeGroup} />
+      <FixtureView
+        tournament={tournament}
+        category={category}
+        groupNumber={activeGroup}
+        organizerMode={organizerMode}
+        onEditMatch={onEditMatch}
+      />
+    </div>
+  )
+
+  // A lone group has nothing to switch between, so the tab strip would just be
+  // a single button sitting above the only content there is.
+  if (groups.length === 1) {
+    return <div className="groups-view">{panel}</div>
+  }
 
   return (
     <div className="groups-view">
@@ -71,16 +89,7 @@ export default function GroupsView({
           <Tab key={groupNumber} label={`${groupLabel} ${index + 1}`} />
         ))}
       </Tabs>
-      <div className="group-panel">
-        <StandingsTable tournament={tournament} category={category} groupNumber={activeGroup} />
-        <FixtureView
-          tournament={tournament}
-          category={category}
-          groupNumber={activeGroup}
-          organizerMode={organizerMode}
-          onEditMatch={onEditMatch}
-        />
-      </div>
+      {panel}
     </div>
   )
 }

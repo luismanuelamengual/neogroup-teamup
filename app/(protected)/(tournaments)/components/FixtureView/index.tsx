@@ -3,8 +3,11 @@
 import './index.scss'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import SearchIcon from '@mui/icons-material/Search'
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
+import TextField from '@mui/material/TextField'
 import { useMemo, useState } from 'react'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -12,7 +15,21 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { allowsUnorderedResults } from '@/app/(protected)/(tournaments)/utils/settings'
+import MessagePanel from '@/app/components/MessagePanel'
 import { useUserStore } from '@/app/stores/users'
+
+/**
+ * Folds a name into its comparable form: lower-cased and stripped of accents,
+ * so "perez" matches "Pérez" and "munoz" matches "Muñoz". Searching by name is
+ * near useless in Spanish if the accent has to be typed exactly.
+ */
+function foldForSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+}
 
 interface FixtureViewProps {
   tournament: TournamentDto
@@ -38,14 +55,21 @@ export default function FixtureView({
   onEditMatch
 }: FixtureViewProps) {
   const userId = useUserStore((state) => state.user?.id ?? null)
+  // With unordered results the rounds are just how the schedule was laid out:
+  // every fixture exists from the start and none is more current than another.
+  // The view drops the round navigation entirely and lists the whole schedule.
+  const unordered = allowsUnorderedResults(tournament.type, tournament.settings)
   // Matches of the round-robin (LEAGUE) lane for the requested category/group.
+  // Voided fixtures are dropped: they will never be played, so showing them
+  // would just be noise.
   const laneMatches = useMemo(
     () =>
       (tournament.matches ?? []).filter(
         (m) =>
           (category == null || m.tournamentCategoryId === category) &&
           (m.groupNumber ?? null) === (groupNumber ?? null) &&
-          m.type === MatchType.LEAGUE
+          m.type === MatchType.LEAGUE &&
+          m.status !== MatchStatus.VOID
       ),
     [tournament.matches, category, groupNumber]
   )
@@ -89,7 +113,9 @@ export default function FixtureView({
     const categoryMatches = (tournament.matches ?? []).filter(
       (m) => category == null || m.tournamentCategoryId === category
     )
-    const editable = laneMatches.filter((m) => isMatchEditable(m, categoryMatches, tournament.type, tournament.status))
+    const editable = laneMatches.filter((m) =>
+      isMatchEditable(m, categoryMatches, tournament.type, tournament.status, tournament.settings)
+    )
 
     if (organizerMode) {
       return { editableMatchIds: editable.map((m) => m.id), highlightedMatchIds: [] as number[] }
@@ -117,8 +143,87 @@ export default function FixtureView({
       highlightedMatchIds: userMatchIds
     }
   }, [tournament, laneMatches, category, organizerMode, userId])
+  const [search, setSearch] = useState('')
+  // Every name a competitor can be found by, folded once per competitor rather
+  // than on each keystroke. Both the long and the short name are indexed: the
+  // cards show the short one, but people type what they know.
+  const searchIndex = useMemo(() => {
+    const index = new Map<number, string>()
 
-  if (rounds.length === 0 || activeRoundNumber === null) {
+    for (const competitor of tournament.competitors ?? []) {
+      index.set(competitor.id, foldForSearch(`${competitor.displayName} ${competitor.shortName}`))
+    }
+
+    return index
+  }, [tournament.competitors])
+  const searchedMatches = useMemo(() => {
+    const all = rounds.flatMap((round) => round.matches)
+    // Every whitespace-separated word must appear somewhere in the match, but
+    // not necessarily in the same competitor: "agui contre" is how you look for
+    // Aguilar vs Contreras, and a single "agui" still finds every Aguilar match.
+    const terms = foldForSearch(search).split(/\s+/).filter(Boolean)
+
+    if (terms.length === 0) {
+      return all
+    }
+
+    return all.filter((match) => {
+      const names = [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]
+        .map((id) => searchIndex.get(id) ?? '')
+        .join(' ')
+
+      return terms.every((term) => names.includes(term))
+    })
+  }, [rounds, search, searchIndex])
+
+  if (laneMatches.length === 0) {
+    return null
+  }
+
+  const renderMatch = (match: MatchDto) => (
+    <MatchCard
+      key={match.id}
+      match={match}
+      tournament={tournament}
+      highlighted={highlightedMatchIds.includes(match.id)}
+      editable={editableMatchIds.includes(match.id)}
+      onEdit={onEditMatch}
+    />
+  )
+
+  // No round selector and no "En juego" chip: with nothing in play there is
+  // nothing to navigate between, so the whole schedule is one list and any card
+  // can take its result. That list can get long (a 10-competitor league is 45
+  // matches), hence the search box.
+  if (unordered) {
+    return (
+      <div className="fixture-view">
+        <TextField
+          size="small"
+          placeholder="Buscar por competidor"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="match-search"
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              )
+            }
+          }}
+        />
+        {searchedMatches.length === 0 ? (
+          <MessagePanel>No hay partidos de un competidor con ese nombre.</MessagePanel>
+        ) : (
+          <div className="matches">{searchedMatches.map(renderMatch)}</div>
+        )}
+      </div>
+    )
+  }
+
+  if (activeRoundNumber === null) {
     return null
   }
 
@@ -147,18 +252,7 @@ export default function FixtureView({
         <header className="round-header">
           {activeRound.open && <Chip size="small" color="success" variant="outlined" label="En juego" />}
         </header>
-        <div className="matches">
-          {activeRound.matches.map((match) => (
-            <MatchCard
-              key={match.id}
-              match={match}
-              tournament={tournament}
-              highlighted={highlightedMatchIds.includes(match.id)}
-              editable={editableMatchIds.includes(match.id)}
-              onEdit={onEditMatch}
-            />
-          ))}
-        </div>
+        <div className="matches">{activeRound.matches.map(renderMatch)}</div>
       </section>
     </div>
   )

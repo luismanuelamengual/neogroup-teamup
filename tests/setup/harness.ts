@@ -472,7 +472,7 @@ export async function setResult(matchId: number, score: MatchScore): Promise<voi
     .where('tournamentCategoryId', match.tournamentCategoryId)
     .get()
 
-  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status)) {
+  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status, tournament.settings)) {
     throw Object.assign(new Error('roundClosed'), { apiCode: 'roundClosed' })
   }
 
@@ -631,7 +631,7 @@ export async function getPendingActiveMatches(categoryIds: number[]): Promise<Ma
 
     const categoryMatches = matchesByCategory.get(match.tournamentCategoryId) ?? []
 
-    return isMatchEditable(match, categoryMatches, tournament.type, tournament.status)
+    return isMatchEditable(match, categoryMatches, tournament.type, tournament.status, tournament.settings)
   })
 }
 
@@ -801,6 +801,17 @@ export async function playToCompletion(
     }
 
     for (const match of pending) {
+      // `pending` is a snapshot, and resolving one match can make another one
+      // of the batch unplayable: an unordered round robin voids the remaining
+      // fixtures of whoever just reached their match quota. Re-read the status
+      // and skip those instead of failing on them — the next iteration picks up
+      // whatever is genuinely left.
+      const current = await Match.withoutGlobalScopes().where('id', match.id).first()
+
+      if (!current || current.status !== MatchStatus.PENDING) {
+        continue
+      }
+
       const side = decide(match)
       const score = isInterclubs
         ? seriesScore(

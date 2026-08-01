@@ -15,6 +15,7 @@ import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { allowsUnorderedResults, matchesPerCompetitor } from '@/app/(protected)/(tournaments)/utils/settings'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
 
 function formatPoints(value: number, label: string): string | null {
@@ -45,6 +46,12 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
   // Interclubes: points ARE encounters won, so PG would just repeat Pts. What
   // actually separates two teams on the same points are the two differentials.
   const showInterclubsColumns = tournament.type === TournamentType.INTERCLUBS
+  // Unordered tournaments can cap how many matches each competitor plays, and
+  // whoever runs out of available rivals stops short of it, so PJ is shown
+  // against the target to make an unequal amount of matches played obvious.
+  const matchQuota = allowsUnorderedResults(tournament.type, tournament.settings)
+    ? matchesPerCompetitor(tournament.settings)
+    : null
   const pointsLegend = useMemo(() => {
     const settings = tournament.settings
 
@@ -120,7 +127,7 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
                     ? `[${competitorsById[row.competitorId].seedNumber}] ${row.shortName}`
                     : row.shortName}
                 </TableCell>
-                <TableCell align="center">{row.played}</TableCell>
+                <TableCell align="center">{matchQuota != null ? `${row.played}/${matchQuota}` : row.played}</TableCell>
                 {!showInterclubsColumns && <TableCell align="center">{row.won}</TableCell>}
                 {showInterclubsColumns && (
                   <TableCell align="center">{(row.subMatchesWon ?? 0) - (row.subMatchesLost ?? 0)}</TableCell>

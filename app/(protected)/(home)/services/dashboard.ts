@@ -137,6 +137,9 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
         .where('tournaments.organizationId', organizationId)
         .whereNotNull('m.awayCompetitorIds')
         .where('m.status', '!=', MatchStatus.PENDING)
+        // A voided fixture keeps both its sides (see MatchStatus.VOID), so it
+        // would otherwise count here as a match played and lost.
+        .where('m.status', '!=', MatchStatus.VOID)
         .where({ exists: playerInMatchCategorySubquery })
         .get(),
 
@@ -338,6 +341,9 @@ async function computeOrganizationStats(organizationId: number): Promise<Organiz
       .select('COUNT(*) AS total', `SUM(CASE WHEN m.status = ${MatchStatus.PENDING} THEN 1 ELSE 0 END) AS pending`)
       .where('tournaments.organizationId', organizationId)
       .whereNotNull('m.awayCompetitorIds')
+      // A voided fixture keeps both its sides (see MatchStatus.VOID), so it
+      // would otherwise inflate both the total and the played count.
+      .where('m.status', '!=', MatchStatus.VOID)
       .first(),
 
     // Q4: ranking aggregates — mirrors Ranking model's OrganizationScope + expirationScope

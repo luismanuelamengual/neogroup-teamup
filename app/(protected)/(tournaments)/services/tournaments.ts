@@ -28,6 +28,7 @@ import { getScoreWinner, isValidScore, normalizeScore } from '@/app/(protected)/
 import {
   createRound,
   createTournamentCategories,
+  deleteVoidedFixtures,
   isTournamentComplete,
   isTournamentStartDue,
   loadOrganizationTimezones,
@@ -212,6 +213,14 @@ export async function createTournament(
 
   if (input.type === TournamentType.LEAGUE) {
     settings = { ...DEFAULT_LEAGUE_SETTINGS, ...input.settings }
+
+    // Stored only when enabled, so an untouched league keeps the exact settings
+    // payload it had before this setting existed.
+    if (input.settings?.allowUnorderedResults) {
+      settings.allowUnorderedResults = true
+    } else {
+      delete settings.allowUnorderedResults
+    }
   } else if (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) {
     settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
   } else if (input.type === TournamentType.PLAYOFF || input.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
@@ -257,6 +266,10 @@ export async function createTournament(
 
     if (maxRounds != null) {
       settings.maxRounds = maxRounds
+    }
+
+    if (input.settings?.allowUnorderedResults) {
+      settings.allowUnorderedResults = true
     }
   }
 
@@ -348,10 +361,11 @@ export async function startTournament(tournament: Tournament): Promise<void> {
 }
 
 /**
- * Finalises a tournament: marks it as finished and awards ranking points.
- * Analogous to startTournament but for the ONGOING → FINISHED transition. Once
- * finished the tournament is no longer ONGOING, so every match becomes read-only
- * (match editability is derived and requires an ONGOING tournament).
+ * Finalises a tournament: marks it as finished, awards ranking points and
+ * clears the fixtures an unordered round robin had voided. Analogous to
+ * startTournament but for the ONGOING → FINISHED transition. Once finished the
+ * tournament is no longer ONGOING, so every match becomes read-only (match
+ * editability is derived and requires an ONGOING tournament).
  *
  * The whole operation runs in a single transaction so it is atomic: status
  * change and ranking awards are committed together or not at
@@ -371,6 +385,10 @@ export async function finishTournament(tournament: Tournament): Promise<void> {
     tournament.updatedAt = new Date()
     await tournament.save()
     await awardRankingPoints(tournament.id)
+    // After the awards, which read the tournament's matches back. Voided
+    // fixtures never counted towards anything, so this changes no placement —
+    // it only stops them from lingering as rows nobody will ever look at.
+    await deleteVoidedFixtures(tournament)
   })
 }
 
@@ -523,7 +541,7 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
   // (derived) grace window. This replaces the former rounds.active flag.
   const categoryMatches = await Match.where('tournamentCategoryId', match.tournamentCategoryId).get()
 
-  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status)) {
+  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status, tournament.settings)) {
     throw new ApiException('roundClosed')
   }
 
