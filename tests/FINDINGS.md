@@ -129,6 +129,46 @@ groups+playoff still plays its knockout`, which now asserts the rematch happens.
 
 ---
 
+## BUG #5 — The group table hid one competitor (the top seed) on round 1 (MEDIUM) ✅ fixed
+
+**Reported as:** a GROUPS_PLAYOFF with `competitorsPerGroup: 40` and
+`minPlayoffQualifiers: 40` and **7** registered competitors. Everybody fits in a
+single group, but after starting, that group listed only **6** competitors — the
+missing one being **preclassified #1**.
+
+**Where:** `utils/standings.ts → computeStandings`.
+
+**Root cause — a display bug, not an assignment bug.** The engine put all 7
+competitors in the group correctly (`computeCategoryGroups` → `snakeSeedGroups`);
+what was wrong is how the table figured out *who is in the group*: it collected
+the competitor ids found in the group's **materialised matches**.
+
+Two things conspire:
+
+1. Unless `allowUnorderedResults` is on, only **one round is materialised at a
+   time**, so right after the start the group has just round 1.
+2. A group of **odd** size rests one competitor per round (the circle method
+   pushes a `null` bye slot), and in round 1 the rester is `ids[0]` — the fixed
+   point of the rotation. After the pre-classification sort, `ids[0]` is exactly
+   **seed #1**.
+
+So the top seed appeared in no round-1 match, and a table derived from matches
+could not see them. Any odd group hits this (11 competitors in groups of 4 →
+`[4, 4, 3]` → the third group's table shows 2 of 3); a lone odd group just makes
+it obvious. Ranking and qualification were never affected — `rankGroup` ranks the
+real group — and the competitor reappeared once round 2 was created.
+
+**Fixed** by making membership a **computed** property instead of an inferred
+one. The pure, model-free `utils/groups.ts` now owns `computeGroupSizes`,
+`assignGroups` and the seeding split (`buildGroups` / `computeGroupMembership`);
+both the engine (`computeCategoryGroups`) and the views call it, so what is
+played and what is displayed cannot diverge. Matches are still unioned in as a
+defensive fallback. The same fix covers interclubes zones.
+
+**Guard:** `tests/bugs/group-membership.test.ts → REGRESSION #7`.
+
+---
+
 ## Observations (intended behavior, documented — not bugs)
 
 - **O1 — Swap americano needs ≥4 individuals.** `AMERICANO_WITH_SWAP` cannot form
@@ -154,4 +194,4 @@ groups+playoff still plays its knockout`, which now asserts the rematch happens.
   grace-window result edits + downstream rebuilds, locking of past rounds,
   standings math.
 - **`tests/unit/`** — pure score validation/serialization and bracket/seeding math.
-- **`tests/bugs/`** — the four regression tests above.
+- **`tests/bugs/`** — the regression tests above.

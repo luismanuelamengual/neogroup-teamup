@@ -11,6 +11,13 @@ import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import {
+  assignGroups,
+  buildGroups,
+  computeGroupSizes,
+  interclubsGroupSizes,
+  sortCompetitorIds
+} from '@/app/(protected)/(tournaments)/utils/groups'
+import {
   assignLocality,
   InterclubsMode,
   LocalityPair,
@@ -18,7 +25,7 @@ import {
   resolveInterclubsFormat
 } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
-import { snakeSeedGroups, supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
+import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { allowsUnorderedResults, matchesPerCompetitor } from '@/app/(protected)/(tournaments)/utils/settings'
 import { rankInterclubs } from '@/app/(protected)/(tournaments)/utils/standings'
@@ -72,19 +79,10 @@ export function getBracketSize(entrants: number): number {
   return Math.pow(2, Math.ceil(Math.log2(Math.max(entrants, 2))))
 }
 
-/**
- * Balanced group sizes for `competitorsCount` competitors targeting
- * `groupSize` per group. The number of groups is derived from the registered
- * competitors (ceil division); the remainder is spread across the first groups.
- */
-export function computeGroupSizes(competitorsCount: number, groupSize: number): number[] {
-  const safeGroupSize = Math.max(2, Math.floor(groupSize) || 2)
-  const groupCount = Math.max(1, Math.ceil(competitorsCount / safeGroupSize))
-  const base = Math.floor(competitorsCount / groupCount)
-  const remainder = competitorsCount % groupCount
-
-  return Array.from({ length: groupCount }, (_, index) => base + (index < remainder ? 1 : 0))
-}
+// Group sizing and membership are model-free and shared with the client-side
+// views (standings tables), so they live in utils/groups.ts; they stay exported
+// from here for the engine's callers and tests.
+export { assignGroups, computeGroupSizes }
 
 /**
  * How many competitors each group sends to the knockout phase.
@@ -128,22 +126,6 @@ export function resolveGroupQualifiers(
   }
 
   return quotas
-}
-
-/**
- * Distributes competitor ids into balanced groups (round-robin assignment, so
- * groups end up as even as possible). Deterministic: the same ordered input
- * always yields the same groups.
- */
-export function assignGroups(competitorIds: number[], groupSize: number): number[][] {
-  const groupCount = computeGroupSizes(competitorIds.length, groupSize).length
-  const groups: number[][] = Array.from({ length: groupCount }, () => [])
-
-  competitorIds.forEach((id, index) => {
-    groups[index % groupCount].push(id)
-  })
-
-  return groups
 }
 
 /** A competitor's finishing position in its group, with the points it earned there. */
@@ -274,17 +256,6 @@ export function repairSameGroupPairings(pairings: Pairing[], groupOf: Map<number
   }
 
   return pairings
-}
-
-/**
- * Zone sizes of an interclubes category. Unlike groups+playoff (which targets a
- * configurable group size and derives the COUNT with a ceil division), the
- * number of interclubes zones is `floor(count / 4)` and the leftovers are
- * spread over them, so zones grow instead of multiplying — see
- * `resolveInterclubsFormat`.
- */
-function interclubsGroupSizes(competitorsCount: number): number[] {
-  return resolveInterclubsFormat(competitorsCount).groupSizes
 }
 
 /** Total number of rounds for a tournament given its competitors count. */
@@ -884,16 +855,8 @@ async function getSortedCompetitorIds(
   const competitors = cache
     ? await cache.competitors(tournamentCategoryId)
     : await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
-  const sorted = supportsPreclassification(tournament.type)
-    ? [...competitors].sort((a, b) => {
-        const sa = a.seedNumber ?? Infinity
-        const sb = b.seedNumber ?? Infinity
 
-        return sa !== sb ? sa - sb : a.id - b.id
-      })
-    : competitors
-
-  return sorted.map((competitor) => competitor.id)
+  return sortCompetitorIds(competitors, tournament.type)
 }
 
 /**
@@ -910,39 +873,14 @@ async function computeCategoryGroups(
   cache?: AdvanceCache,
   type: TournamentType = TournamentType.GROUPS_PLAYOFF
 ): Promise<number[][]> {
-  const safeSettings = settings ?? {}
-  const groupSize = safeSettings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
   const allCategoryCompetitors = cache
     ? await cache.competitors(tournamentCategoryId)
     : await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
   const seededCount = allCategoryCompetitors.filter((competitor) => competitor.seedNumber != null).length
-  const seededIds = competitorIds.slice(0, seededCount)
-  const unseededIds = competitorIds.slice(seededCount)
-  const groupSizes =
-    type === TournamentType.INTERCLUBS
-      ? interclubsGroupSizes(competitorIds.length)
-      : computeGroupSizes(competitorIds.length, groupSize)
 
-  if (seededCount > 0) {
-    return snakeSeedGroups(seededIds, unseededIds, groupSizes)
-  }
-
-  if (type === TournamentType.INTERCLUBS) {
-    // Zones are filled in registration order. `assignGroups` cannot be reused
-    // here: it re-derives the zone COUNT with the groups+playoff ceil rule,
-    // which is not how interclubes zones are sized.
-    const groups: number[][] = []
-    let cursor = 0
-
-    for (const size of groupSizes) {
-      groups.push(competitorIds.slice(cursor, cursor + size))
-      cursor += size
-    }
-
-    return groups
-  }
-
-  return assignGroups(competitorIds, groupSize)
+  // Same pure split the views use (see utils/groups.ts), so what is played and
+  // what is displayed can never diverge.
+  return buildGroups(competitorIds, seededCount, settings, type)
 }
 
 /**
