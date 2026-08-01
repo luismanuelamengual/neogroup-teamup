@@ -369,38 +369,58 @@ export default function TournamentForm() {
           )}
 
           {type === TournamentType.LEAGUE && (
-            <div className="row">
-              <TextField
-                label="Puntos por presencia"
-                type="number"
-                value={leagueSettings.pointsPerPresent}
-                onChange={(event) =>
-                  setLeagueSettings({ ...leagueSettings, pointsPerPresent: Number(event.target.value) })
-                }
-                fullWidth
-                slotProps={{ htmlInput: { min: 0 } }}
-              />
-              <TextField
-                label="Puntos por set ganado"
-                type="number"
-                value={leagueSettings.pointsPerSetWon}
-                onChange={(event) =>
-                  setLeagueSettings({ ...leagueSettings, pointsPerSetWon: Number(event.target.value) })
-                }
-                fullWidth
-                slotProps={{ htmlInput: { min: 0 } }}
-              />
-              <TextField
-                label="Puntos por partido ganado"
-                type="number"
-                value={leagueSettings.pointsPerMatchWon}
-                onChange={(event) =>
-                  setLeagueSettings({ ...leagueSettings, pointsPerMatchWon: Number(event.target.value) })
-                }
-                fullWidth
-                slotProps={{ htmlInput: { min: 0 } }}
-              />
-            </div>
+            <>
+              <div className="row">
+                <TextField
+                  label="Máxima cantidad de rondas"
+                  type="number"
+                  value={leagueSettings.maxRounds ?? ''}
+                  onChange={(event) => {
+                    const val = event.target.value
+
+                    setLeagueSettings({
+                      ...leagueSettings,
+                      maxRounds: val === '' ? undefined : Math.max(1, Number(val))
+                    })
+                  }}
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  helperText="Dejar vacío para que se jueguen todas las rondas (todos contra todos). Si se completa, la liga finaliza al alcanzar esa cantidad de rondas."
+                />
+              </div>
+              <div className="row">
+                <TextField
+                  label="Puntos por presencia"
+                  type="number"
+                  value={leagueSettings.pointsPerPresent}
+                  onChange={(event) =>
+                    setLeagueSettings({ ...leagueSettings, pointsPerPresent: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+                <TextField
+                  label="Puntos por set ganado"
+                  type="number"
+                  value={leagueSettings.pointsPerSetWon}
+                  onChange={(event) =>
+                    setLeagueSettings({ ...leagueSettings, pointsPerSetWon: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+                <TextField
+                  label="Puntos por partido ganado"
+                  type="number"
+                  value={leagueSettings.pointsPerMatchWon}
+                  onChange={(event) =>
+                    setLeagueSettings({ ...leagueSettings, pointsPerMatchWon: Number(event.target.value) })
+                  }
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+              </div>
+            </>
           )}
           {isAmericano && (
             <>
@@ -474,6 +494,24 @@ export default function TournamentForm() {
                   }
                   fullWidth
                   slotProps={{ htmlInput: { min: 1 } }}
+                />
+              </div>
+              <div className="row">
+                <TextField
+                  label="Máxima cantidad de rondas de grupos"
+                  type="number"
+                  value={groupsSettings.maxRounds ?? ''}
+                  onChange={(event) => {
+                    const val = event.target.value
+
+                    setGroupsSettings({
+                      ...groupsSettings,
+                      maxRounds: val === '' ? undefined : Math.max(1, Number(val))
+                    })
+                  }}
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  helperText="Dejar vacío para que cada grupo juegue todas sus rondas. Si se completa, los grupos cierran al alcanzar esa cantidad de rondas y arranca la eliminatoria."
                 />
               </div>
               <div className="row">

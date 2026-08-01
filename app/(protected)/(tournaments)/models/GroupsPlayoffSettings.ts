@@ -10,6 +10,12 @@ export interface GroupsPlayoffSettings {
   pointsPerSetWon: number
   /** Points awarded for winning a match (groups phase). */
   pointsPerMatchWon: number
+  /**
+   * Optional cap on the number of group-phase rounds. Once every competitor has
+   * played this many rounds, the groups close and the knockout phase starts,
+   * even if the round-robin within a group had not finished naturally.
+   */
+  maxRounds?: number
 }
 
 export const DEFAULT_GROUPS_PLAYOFF_SETTINGS: GroupsPlayoffSettings = {

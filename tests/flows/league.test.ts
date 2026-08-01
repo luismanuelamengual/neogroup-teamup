@@ -94,6 +94,40 @@ describe('LEAGUE — full flows', () => {
     }
   })
 
+  it('caps the league at maxRounds', async () => {
+    const built = await buildTournament({
+      type: TournamentType.LEAGUE,
+      competitors: 8, // would naturally be 7 rounds
+      scoreFormat: ScoreFormat.BASIC_COUNT,
+      settings: { pointsPerPresent: 0, pointsPerSetWon: 1, pointsPerMatchWon: 1, maxRounds: 3 }
+    })
+
+    await start(built)
+    await playToCompletion(built)
+
+    const rounds = (await getRounds(built.categoryIds[0])).filter((r) => r.type === MatchType.LEAGUE)
+
+    expect(rounds.length).toBe(3)
+    expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
+  })
+
+  it('ignores maxRounds when it is at or beyond the natural round-robin length', async () => {
+    const built = await buildTournament({
+      type: TournamentType.LEAGUE,
+      competitors: 4, // naturally 3 rounds
+      scoreFormat: ScoreFormat.BASIC_COUNT,
+      settings: { pointsPerPresent: 0, pointsPerSetWon: 1, pointsPerMatchWon: 1, maxRounds: 10 }
+    })
+
+    await start(built)
+    await playToCompletion(built)
+
+    const rounds = (await getRounds(built.categoryIds[0])).filter((r) => r.type === MatchType.LEAGUE)
+
+    expect(rounds.length).toBe(roundRobinRounds(4))
+    expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
+  })
+
   it('runs multiple categories in parallel to completion', async () => {
     const built = await buildTournament({
       type: TournamentType.LEAGUE,

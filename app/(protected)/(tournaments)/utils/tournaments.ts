@@ -45,6 +45,11 @@ function roundRobinRoundsFor(size: number): number {
   return size % 2 === 0 ? size - 1 : size
 }
 
+/** Caps `rounds` at `maxRounds` when it is set to a positive number, else returns it unchanged. */
+function capRounds(rounds: number, maxRounds: number | null | undefined): number {
+  return maxRounds != null && maxRounds > 0 ? Math.min(rounds, maxRounds) : rounds
+}
+
 /** Knockout rounds (to the final) needed for `entrants` competitors. */
 export function getKnockoutRounds(entrants: number): number {
   return entrants < 2 ? 0 : Math.ceil(Math.log2(entrants))
@@ -127,7 +132,7 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
 
   switch (type) {
     case TournamentType.LEAGUE:
-      return roundRobinRoundsFor(competitorsCount)
+      return capRounds(roundRobinRoundsFor(competitorsCount), settings.maxRounds)
 
     case TournamentType.INTERCLUBS: {
       const format = resolveInterclubsFormat(competitorsCount)
@@ -142,20 +147,14 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
       return groupRounds + getKnockoutRounds(format.totalQualifiers)
     }
 
-    case TournamentType.AMERICANO: {
-      const totalRounds = roundRobinRoundsFor(competitorsCount)
-      const maxRounds = settings.maxRounds
-
-      return maxRounds != null && maxRounds > 0 ? Math.min(totalRounds, maxRounds) : totalRounds
-    }
+    case TournamentType.AMERICANO:
+      return capRounds(roundRobinRoundsFor(competitorsCount), settings.maxRounds)
 
     case TournamentType.AMERICANO_WITH_SWAP: {
       // Individuals rotate partners: one round per circle-method rotation.
       const slots = competitorsCount % 2 === 0 ? competitorsCount : competitorsCount + 1
-      const totalRounds = slots - 1
-      const maxRounds = settings.maxRounds
 
-      return maxRounds != null && maxRounds > 0 ? Math.min(totalRounds, maxRounds) : totalRounds
+      return capRounds(slots - 1, settings.maxRounds)
     }
 
     case TournamentType.PLAYOFF:
@@ -168,7 +167,7 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
       const groupSize = settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
       const qualifiers = settings.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
       const sizes = computeGroupSizes(competitorsCount, groupSize)
-      const groupRounds = sizes.reduce((max, size) => Math.max(max, roundRobinRoundsFor(size)), 0)
+      const groupRounds = getGroupPhaseRounds(settings, competitorsCount, type)
       const totalQualifiers = sizes.reduce((sum, size) => sum + Math.min(Math.max(1, qualifiers), size), 0)
 
       return groupRounds + getKnockoutRounds(totalQualifiers)
@@ -188,7 +187,9 @@ export function getMaxTotalRounds(type: TournamentType, settings: TournamentSett
 /**
  * Group-phase rounds of a category that plays groups before a knockout
  * (groups+playoff, or an interclubes tournament that outgrew the single-zone
- * league), taken from its largest group.
+ * league), taken from its largest group. For groups+playoff this is further
+ * capped by the optional `maxRounds` setting, closing the groups early and
+ * kicking off the knockout sooner.
  */
 export function getGroupPhaseRounds(
   settings: TournamentSettings,
@@ -202,8 +203,11 @@ export function getGroupPhaseRounds(
           competitorsCount,
           settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
         )
+  const naturalRounds = sizes.reduce((max, size) => Math.max(max, roundRobinRoundsFor(size)), 0)
 
-  return sizes.reduce((max, size) => Math.max(max, roundRobinRoundsFor(size)), 0)
+  // The round cap only applies to groups+playoff — interclubes zones do not
+  // support this setting.
+  return type === TournamentType.GROUPS_PLAYOFF ? capRounds(naturalRounds, settings.maxRounds) : naturalRounds
 }
 
 /**
@@ -1837,8 +1841,9 @@ async function materializeCategoryRound(
 
         for (let index = 0; index < groups.length; index++) {
           const group = groups[index]
+          const groupRounds = Math.min(roundRobinRoundsFor(group.length), groupPhaseRounds)
 
-          if (group.length < 2 || roundNumber > roundRobinRoundsFor(group.length)) {
+          if (group.length < 2 || roundNumber > groupRounds) {
             continue
           }
 
@@ -1991,8 +1996,13 @@ async function buildLaneNextRound(
   if (lane.groupNumber != null) {
     const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache, tournament.type)
     const group = groups[lane.groupNumber] ?? []
+    // The group phase can be capped short of its natural round-robin length
+    // (groups+playoff's `maxRounds`), in which case every group's lane stops at
+    // the same round regardless of its own size.
+    const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length, tournament.type)
+    const groupRounds = Math.min(roundRobinRoundsFor(group.length), groupPhaseRounds)
 
-    if (group.length < 2 || nextNumber > roundRobinRoundsFor(group.length)) {
+    if (group.length < 2 || nextNumber > groupRounds) {
       return null
     }
 
@@ -2134,6 +2144,10 @@ async function maybeStartGroupsKnockout(
     return false
   }
 
+  // Rounds actually owed by each group: its natural round-robin length, or
+  // fewer when the group phase is capped short (groups+playoff's `maxRounds`).
+  const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length, tournament.type)
+
   for (let index = 0; index < groups.length; index++) {
     const group = groups[index]
 
@@ -2143,9 +2157,10 @@ async function maybeStartGroupsKnockout(
 
     const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: index }
     const groupRoundNumbers = laneRoundNumbers(all, lane)
+    const groupRounds = Math.min(roundRobinRoundsFor(group.length), groupPhaseRounds)
 
     // The group must have materialised all of its rounds and resolved them all.
-    if (groupRoundNumbers.length < roundRobinRoundsFor(group.length)) {
+    if (groupRoundNumbers.length < groupRounds) {
       return false
     }
 
@@ -2155,7 +2170,7 @@ async function maybeStartGroupsKnockout(
   }
 
   const seeded = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings, cache, tournament.type)
-  const startNumber = getGroupPhaseRounds(settings, competitorIds.length, tournament.type) + 1
+  const startNumber = groupPhaseRounds + 1
   const created = await createKnockoutBracket(
     tournamentCategoryId,
     knockoutLane,

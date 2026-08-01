@@ -93,6 +93,39 @@ describe('GROUPS_PLAYOFF — full flows', () => {
     })
   }
 
+  it('closes the groups early and starts the knockout once maxRounds is reached', async () => {
+    const built = await buildTournament({
+      type: TournamentType.GROUPS_PLAYOFF,
+      competitors: 8,
+      scoreFormat: ScoreFormat.BASIC_COUNT,
+      // Groups of 4 would naturally play 3 rounds; cap them at 2.
+      settings: { competitorsPerGroup: 4, qualifiersPerGroup: 2, maxRounds: 2 }
+    })
+
+    await start(built)
+    await playToCompletion(built)
+
+    expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
+
+    const categoryId = built.categoryIds[0]
+    const groupRounds = new Set(
+      (await getRounds(categoryId)).filter((r) => r.type === MatchType.LEAGUE).map((r) => r.number)
+    )
+
+    // Every group lane stopped at round 2, never reaching the natural 3rd round.
+    expect(Math.max(...groupRounds)).toBe(2)
+
+    const knockoutRounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
+
+    expect(knockoutRounds.length).toBeGreaterThan(0)
+    // The knockout starts right after the capped group phase (round 3).
+    expect(Math.min(...knockoutRounds.map((r) => r.number))).toBe(3)
+
+    const all = await getAllMatches(categoryId)
+
+    expect(all.every((m) => m.status !== MatchStatus.PENDING)).toBe(true)
+  })
+
   it('only starts the knockout once every group has finished', async () => {
     const built = await buildTournament({
       type: TournamentType.GROUPS_PLAYOFF,
