@@ -546,18 +546,12 @@ async function editablePendingMatches(tournament: Tournament): Promise<Match[]> 
   )
 }
 
-/** Number of the tournament's current frontier round (0 when none is editable). */
-async function activeRoundNumber(tournament: Tournament): Promise<number> {
-  const pending = await editablePendingMatches(tournament)
-
-  return pending.length > 0 ? Math.max(...pending.map((match) => match.roundNumber)) : 0
-}
-
 /**
  * Plays the matches of the tournament's frontier rounds. `fraction` < 1 leaves
- * the rest pending (used to model a tournament caught mid-round).
+ * the rest pending (used to model a tournament caught mid-round). Returns how
+ * many matches were actually played.
  */
-async function playCurrentRound(tournament: Tournament, fraction: number): Promise<void> {
+async function playCurrentRound(tournament: Tournament, fraction: number): Promise<number> {
   const pending = await editablePendingMatches(tournament)
   // Group the frontier's pending matches by their lane-round slice.
   const groups = new Map<string, Match[]>()
@@ -572,28 +566,50 @@ async function playCurrentRound(tournament: Tournament, fraction: number): Promi
     groups.get(key)!.push(match)
   }
 
+  let playedCount = 0
+
   for (const list of groups.values()) {
     const count = fraction >= 1 ? list.length : Math.ceil(list.length * fraction)
 
     for (let i = 0; i < count; i++) {
       await playMatch(tournament, list[i])
+      playedCount++
     }
   }
+
+  return playedCount
 }
 
-/** Completes up to `maxRounds` full rounds (or until the tournament finishes). */
+/**
+ * Completes up to `maxRounds` full rounds (or until the tournament finishes).
+ *
+ * The stall guard used to compare the tournament's aggregate frontier round
+ * number (the max `roundNumber` across every editable pending match, over
+ * every category AND lane) before/after each pass, bailing out when it held
+ * steady. That aggregate is shared by every category of the tournament, and
+ * categories can have different bracket depths (a smaller field needs fewer
+ * knockout rounds) — so a category with many first-round byes can already
+ * have a fully-known round 2 match sitting at the SAME round number as a
+ * bigger category's still-unplayed round 2, right from the start. When that
+ * happens the aggregate can read as unchanged even though an entire round was
+ * genuinely just played everywhere, and the loop stopped one pass early —
+ * leaving every other category's round 2 (and anything derived from it, like
+ * a PLAYOFF's consolation bracket first round) stuck PENDING instead of
+ * played. Comparing "did this pass play anything at all" instead is immune to
+ * that cross-category aliasing: it only stops once a pass genuinely plays
+ * zero matches.
+ */
 async function playFullRounds(tournament: Tournament, maxRounds: number): Promise<void> {
   let completed = 0
   let guard = 0
 
   while (tournament.status === TournamentStatus.ONGOING && completed < maxRounds && guard++ < 60) {
-    const before = await activeRoundNumber(tournament)
+    const playedCount = await playCurrentRound(tournament, 1)
 
-    await playCurrentRound(tournament, 1)
     completed++
 
-    // Safety: bail out if the round could not be completed/advanced.
-    if (tournament.status === TournamentStatus.ONGOING && (await activeRoundNumber(tournament)) === before) {
+    // Safety: bail out if nothing at all could be played this pass.
+    if (tournament.status === TournamentStatus.ONGOING && playedCount === 0) {
       break
     }
   }
@@ -1086,10 +1102,10 @@ const SPECS: TournamentSpec[] = [
     description: 'Eliminación directa de 8 parejas con cuadro de consuelo para los que pierden su primer partido.',
     discipline: Discipline.PADEL,
     subDiscipline: null,
-    type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+    type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
     categories: [{ category: null, competitorsCount: 8 }],
-    settings: {},
+    settings: { consolationBracket: true },
     status: TournamentStatus.FINISHED
   },
 
@@ -1100,10 +1116,10 @@ const SPECS: TournamentSpec[] = [
       'Llave de 20 competidores con byes y cuadro de consuelo. Los que pasan con bye esperan a su primer partido.',
     discipline: Discipline.TENNIS,
     subDiscipline: null,
-    type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+    type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.THREE_SETS,
     categories: [{ category: null, competitorsCount: 20 }],
-    settings: {},
+    settings: { consolationBracket: true },
     status: TournamentStatus.ONGOING,
     phase: 'mid',
     completedRounds: 2
@@ -1115,7 +1131,7 @@ const SPECS: TournamentSpec[] = [
     description: 'Cuadro de 16 jugadores con cuadro de consuelo. Inscripción abierta.',
     discipline: Discipline.TENNIS,
     subDiscipline: SubDiscipline.SINGLES,
-    type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+    type: TournamentType.PLAYOFF,
     scoreFormat: ScoreFormat.TWO_SETS_SUPER_TIEBREAK,
     categories: [
       { category: '2da Caballeros', competitorsCount: 31 },
@@ -1124,7 +1140,7 @@ const SPECS: TournamentSpec[] = [
       { category: '5ta Caballeros', competitorsCount: 30 }
     ],
     maxCompetitors: 32,
-    settings: {},
+    settings: { consolationBracket: true },
     status: TournamentStatus.ONGOING,
     phase: 'mid'
   },
@@ -1315,7 +1331,8 @@ async function buildTournament(
   tournament.siteId = await resolveSiteId(organizationId, randomItem(VENUES))
   tournament.settings = spec.settings
   // Ranking points only count for tournaments that define categories.
-  tournament.rankingSettings = categoryIds && categoryIds.length > 0 ? getDefaultRankingSettings(spec.type) : null
+  tournament.rankingSettings =
+    categoryIds && categoryIds.length > 0 ? getDefaultRankingSettings(spec.type, spec.settings) : null
   tournament.createdAt = new Date()
   tournament.updatedAt = new Date()
   await tournament.save()

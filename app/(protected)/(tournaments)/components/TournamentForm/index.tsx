@@ -46,7 +46,7 @@ import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
-import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
+import { DEFAULT_PLAYOFF_SETTINGS, PlayoffSettings } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -85,11 +85,13 @@ export default function TournamentForm() {
   const [allowPlayerSetScore, setAllowPlayerSetScore] = useState(false)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
   const [americanoSettings, setAmericanoSettings] = useState(DEFAULT_AMERICANO_SETTINGS)
-  const [playoffSettings] = useState(DEFAULT_PLAYOFF_SETTINGS)
+  const [playoffSettings, setPlayoffSettings] = useState<PlayoffSettings>(DEFAULT_PLAYOFF_SETTINGS)
   const [groupsSettings, setGroupsSettings] = useState(DEFAULT_GROUPS_PLAYOFF_SETTINGS)
-  const [rankingSettings, setRankingSettings] = useState<RankingSettings>(() => getDefaultRankingSettings(type))
+  const [rankingSettings, setRankingSettings] = useState<RankingSettings>(() =>
+    getDefaultRankingSettings(type, playoffSettings)
+  )
   const [error, setError] = useState<string | null>(null)
-  const rankingScheme = getRankingScheme(type)
+  const rankingScheme = getRankingScheme(type, playoffSettings)
   const [loading, setLoading] = useState(false)
   const availableTypes: TournamentType[] =
     discipline === Discipline.PADEL
@@ -98,13 +100,11 @@ export default function TournamentForm() {
           TournamentType.AMERICANO,
           TournamentType.AMERICANO_WITH_SWAP,
           TournamentType.PLAYOFF,
-          TournamentType.PLAYOFF_WITH_CONSOLATION,
           TournamentType.GROUPS_PLAYOFF
         ]
       : [
           TournamentType.LEAGUE,
           TournamentType.PLAYOFF,
-          TournamentType.PLAYOFF_WITH_CONSOLATION,
           TournamentType.GROUPS_PLAYOFF,
           // Interclubes is a tennis-only format.
           TournamentType.INTERCLUBS
@@ -121,10 +121,12 @@ export default function TournamentForm() {
   }, [discipline])
 
   // Reset the ranking points to the defaults of the selected tournament type
-  // whenever the type (and therefore the ranking scheme) changes.
+  // whenever the type or its consolation-bracket setting (and therefore the
+  // ranking scheme) changes.
   useEffect(() => {
-    setRankingSettings(getDefaultRankingSettings(type))
-  }, [type])
+    setRankingSettings(getDefaultRankingSettings(type, playoffSettings))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, playoffSettings.consolationBracket])
 
   const setRankingPoints = (key: string, value: number) =>
     setRankingSettings((prev) => ({ points: { ...prev.points, [key]: Math.max(0, value) } }))
@@ -186,7 +188,7 @@ export default function TournamentForm() {
             ? leagueSettings
             : type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
               ? americanoSettings
-              : type === TournamentType.PLAYOFF || type === TournamentType.PLAYOFF_WITH_CONSOLATION
+              : type === TournamentType.PLAYOFF
                 ? playoffSettings
                 : type === TournamentType.GROUPS_PLAYOFF
                   ? groupsSettings
@@ -485,6 +487,24 @@ export default function TournamentForm() {
                 />
               </div>
             </>
+          )}
+          {type === TournamentType.PLAYOFF && (
+            <div className="row">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={playoffSettings.consolationBracket ?? false}
+                    onChange={(event) =>
+                      setPlayoffSettings({
+                        ...playoffSettings,
+                        consolationBracket: event.target.checked || undefined
+                      })
+                    }
+                  />
+                }
+                label="Incluir ronda de consuelo"
+              />
+            </div>
           )}
           {type === TournamentType.GROUPS_PLAYOFF && (
             <>

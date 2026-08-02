@@ -47,3 +47,14 @@ export function matchesPerCompetitor(settings: TournamentSettings | null | undef
 
   return quota != null && quota > 0 ? quota : null
 }
+
+/**
+ * Whether a tournament runs its playoff with a consolation bracket (see
+ * `PlayoffSettings.consolationBracket`). This used to be encoded as a separate
+ * tournament type (`PLAYOFF_WITH_CONSOLATION`); it is now a setting of
+ * `PLAYOFF` instead — see migration 016 for the one-time conversion of
+ * existing rows.
+ */
+export function hasConsolationBracket(type: TournamentType, settings: TournamentSettings | null | undefined): boolean {
+  return type === TournamentType.PLAYOFF && settings?.consolationBracket === true
+}

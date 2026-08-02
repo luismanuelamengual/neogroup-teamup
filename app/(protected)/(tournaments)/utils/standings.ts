@@ -169,7 +169,7 @@ export function computeStandings(
   category?: number | null,
   groupNumber?: number | null
 ): StandingsRowDto[] {
-  if (tournament.type === TournamentType.PLAYOFF || tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+  if (tournament.type === TournamentType.PLAYOFF) {
     return []
   }
 

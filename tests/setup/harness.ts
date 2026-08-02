@@ -47,6 +47,7 @@ import migration012 from '@/database/migrations/012-tournaments-allow-player-set
 import migration013 from '@/database/migrations/013-matches-schedule'
 import migration014 from '@/database/migrations/014-tournaments-start-inscriptions-date'
 import migration015 from '@/database/migrations/015-payments-refactor'
+import migration016 from '@/database/migrations/016-fold-playoff-consolation-into-playoff'
 
 const TABLES = [
   'service_payments',
@@ -146,6 +147,10 @@ export async function resetDatabase(): Promise<void> {
   // flag (+ paidAt / servicePaymentId), service_payments is created and the old
   // per-registration tables are dropped.
   await migration015.up()
+  // 016 folds the old PLAYOFF_WITH_CONSOLATION type (5) into PLAYOFF (3) +
+  // settings.consolationBracket — a no-op here since the table is freshly
+  // created and empty.
+  await migration016.up()
 
   const organization = new Organization()
 

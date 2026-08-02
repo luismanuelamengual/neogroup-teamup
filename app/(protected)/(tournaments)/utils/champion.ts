@@ -6,7 +6,6 @@ import { Tournament } from '../models/Tournament'
 
 const KNOCKOUT_TYPES = new Set<TournamentType>([
   TournamentType.PLAYOFF,
-  TournamentType.PLAYOFF_WITH_CONSOLATION,
   TournamentType.GROUPS_PLAYOFF,
   // Interclubes ends in a bracket whenever it has more than 4 teams; the small
   // home-and-away variant produces no bracket and is handled below.

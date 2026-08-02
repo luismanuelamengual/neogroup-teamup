@@ -12,6 +12,7 @@ import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { hasConsolationBracket } from '@/app/(protected)/(tournaments)/utils/settings'
 import MessagePanel from '@/app/components/MessagePanel'
 
 interface TournamentRoundsViewProps {
@@ -124,7 +125,9 @@ export default function TournamentRoundsView({
     )
   }
 
-  if (tournament.type === TournamentType.PLAYOFF || tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+  if (tournament.type === TournamentType.PLAYOFF) {
+    const consolationEnabled = hasConsolationBracket(tournament.type, tournament.settings)
+
     return (
       <div className="rounds-view">
         <div className="rounds-section">
@@ -136,7 +139,7 @@ export default function TournamentRoundsView({
             onEditMatch={onEditMatch}
           />
         </div>
-        {tournament.type == TournamentType.PLAYOFF_WITH_CONSOLATION && (
+        {consolationEnabled && (
           <>
             <Divider />
             <div className="rounds-section">

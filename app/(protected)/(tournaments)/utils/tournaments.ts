@@ -27,7 +27,11 @@ import {
 import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
-import { allowsUnorderedResults, matchesPerCompetitor } from '@/app/(protected)/(tournaments)/utils/settings'
+import {
+  allowsUnorderedResults,
+  hasConsolationBracket,
+  matchesPerCompetitor
+} from '@/app/(protected)/(tournaments)/utils/settings'
 import { rankInterclubs } from '@/app/(protected)/(tournaments)/utils/standings'
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
@@ -292,9 +296,8 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
     }
 
     case TournamentType.PLAYOFF:
-    case TournamentType.PLAYOFF_WITH_CONSOLATION:
-      // A consolation bracket runs in parallel with the main one and finishes
-      // on the same round, so it does not add rounds.
+      // When settings.consolationBracket is on, it runs in parallel with the
+      // main one and finishes on the same round, so it does not add rounds.
       return getKnockoutRounds(competitorsCount)
 
     case TournamentType.GROUPS_PLAYOFF: {
@@ -579,7 +582,6 @@ export function generateRoundPairings(
       return generateAmericanoSwapRoundRobin(competitorIds, roundNumber)
 
     case TournamentType.PLAYOFF:
-    case TournamentType.PLAYOFF_WITH_CONSOLATION:
       return generatePlayoffRound(competitorIds, roundNumber, previousRoundMatches)
 
     case TournamentType.GROUPS_PLAYOFF:
@@ -1922,9 +1924,7 @@ async function materializeCategoryRound(
       return 1
     }
 
-    case TournamentType.PLAYOFF:
-
-    case TournamentType.PLAYOFF_WITH_CONSOLATION: {
+    case TournamentType.PLAYOFF: {
       const mainLane: RoundLane = { type: MatchType.BRACKET, groupNumber: null }
       let created = 0
 
@@ -1934,7 +1934,7 @@ async function materializeCategoryRound(
         // Built alongside the main bracket, right from "Iniciar torneo": every
         // slot starts as "to be defined" and fills in progressively as the main
         // bracket produces its first-round losers (see advanceConsolationBracket).
-        if (tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION && created > 0) {
+        if (hasConsolationBracket(tournament.type, tournament.settings) && created > 0) {
           await createConsolationSkeleton(tournamentCategoryId, getBracketSize(competitorIds.length))
         }
       }
@@ -2537,7 +2537,7 @@ async function advanceTournament(tournament: Tournament, scopeCategoryId?: numbe
         progressed = true
       }
 
-      if (tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+      if (hasConsolationBracket(tournament.type, tournament.settings)) {
         if (await advanceConsolationBracket(category.id, cache)) {
           progressed = true
         }
@@ -2606,12 +2606,13 @@ async function regenerateDownstreamRounds(tournament: Tournament, editedMatch: M
       break
     }
 
-    case TournamentType.PLAYOFF_WITH_CONSOLATION: {
-      // A main-bracket edit can change who drops to the consolation bracket. Only
-      // rebuild it when it holds no results yet (never clobber a played match) —
-      // the skeleton is cheap to recreate since nothing has happened in it yet;
-      // advanceConsolationBracket re-resolves whatever slots are already known.
-      if (editedMatch.type === MatchType.BRACKET) {
+    case TournamentType.PLAYOFF: {
+      // A main-bracket edit can change who drops to the consolation bracket
+      // (when settings.consolationBracket is on). Only rebuild it when it holds
+      // no results yet (never clobber a played match) — the skeleton is cheap to
+      // recreate since nothing has happened in it yet; advanceConsolationBracket
+      // re-resolves whatever slots are already known.
+      if (hasConsolationBracket(tournament.type, tournament.settings) && editedMatch.type === MatchType.BRACKET) {
         const consolationLane: RoundLane = { type: MatchType.CONSOLATION_BRACKET, groupNumber: null }
         const all = await loadCategoryMatches(tournamentCategoryId)
 
@@ -2628,7 +2629,7 @@ async function regenerateDownstreamRounds(tournament: Tournament, editedMatch: M
     }
 
     default:
-      // LEAGUE / PLAYOFF: nothing extra; syncKnockoutNextRound handles brackets.
+      // LEAGUE: nothing extra; syncKnockoutNextRound handles brackets.
       break
   }
 }

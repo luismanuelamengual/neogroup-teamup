@@ -223,8 +223,13 @@ export async function createTournament(
     }
   } else if (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) {
     settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
-  } else if (input.type === TournamentType.PLAYOFF || input.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+  } else if (input.type === TournamentType.PLAYOFF) {
     settings = { ...DEFAULT_PLAYOFF_SETTINGS }
+
+    // Stored only when enabled, same convention as league's allowUnorderedResults.
+    if (input.settings?.consolationBracket) {
+      settings.consolationBracket = true
+    }
   } else if (input.type === TournamentType.GROUPS_PLAYOFF) {
     const competitorsPerGroup = Math.floor(
       input.settings?.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup

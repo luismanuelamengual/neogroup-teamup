@@ -4,7 +4,10 @@ export enum TournamentType {
   AMERICANO = 2,
   PLAYOFF = 3,
   GROUPS_PLAYOFF = 4,
-  PLAYOFF_WITH_CONSOLATION = 5,
+  // 5 used to be PLAYOFF_WITH_CONSOLATION, now folded into PLAYOFF as the
+  // `consolationBracket` setting (see PlayoffSettings.ts and migration 016).
+  // Left unassigned rather than reused, since production rows may still be
+  // mid-migration.
   AMERICANO_WITH_SWAP = 6,
   /**
    * Teams of a venue ("sede") facing each other in series of 3 matches. Unlike
@@ -23,7 +26,6 @@ export const TournamentTypeNames: Record<TournamentType, string> = {
   [TournamentType.AMERICANO]: 'Americana',
   [TournamentType.AMERICANO_WITH_SWAP]: 'Americana con intercambio',
   [TournamentType.PLAYOFF]: 'Eliminatoria',
-  [TournamentType.PLAYOFF_WITH_CONSOLATION]: 'Eliminatoria con cuadro consuelo',
   [TournamentType.GROUPS_PLAYOFF]: 'Grupos + Eliminatoria',
   [TournamentType.INTERCLUBS]: 'Interclubes'
 }

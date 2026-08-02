@@ -29,9 +29,17 @@ describe('REGRESSION #1 — starting a seeded tournament must not duplicate comp
     await resetDatabase()
   })
 
-  for (const type of [TournamentType.PLAYOFF, TournamentType.GROUPS_PLAYOFF, TournamentType.PLAYOFF_WITH_CONSOLATION]) {
-    it(`keeps the competitor count stable when starting ${TournamentType[type]}`, async () => {
-      const built = await buildTournament({ type, competitors: 8, scoreFormat: ScoreFormat.BASIC_COUNT })
+  for (const [type, settings] of [
+    [TournamentType.PLAYOFF, undefined],
+    [TournamentType.GROUPS_PLAYOFF, undefined],
+    [TournamentType.PLAYOFF, { consolationBracket: true }]
+  ] as const) {
+    const label = settings?.consolationBracket
+      ? `${TournamentType[type]} with consolationBracket`
+      : TournamentType[type]
+
+    it(`keeps the competitor count stable when starting ${label}`, async () => {
+      const built = await buildTournament({ type, competitors: 8, scoreFormat: ScoreFormat.BASIC_COUNT, settings })
 
       await start(built)
 

@@ -12,11 +12,7 @@ import { TournamentType } from '@/app/(protected)/(tournaments)/models/Tournamen
  * Elimination-style tournaments only — leagues and americanos are excluded.
  */
 export function supportsPreclassification(type: TournamentType): boolean {
-  return (
-    type === TournamentType.PLAYOFF ||
-    type === TournamentType.GROUPS_PLAYOFF ||
-    type === TournamentType.PLAYOFF_WITH_CONSOLATION
-  )
+  return type === TournamentType.PLAYOFF || type === TournamentType.GROUPS_PLAYOFF
 }
 
 /**

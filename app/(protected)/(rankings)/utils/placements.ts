@@ -40,7 +40,7 @@ export interface CompetitorPlacement {
  *    final standings onto the same stage keys.
  */
 export function computeCategoryPlacements(tournament: Tournament, tournamentCategoryId: number): CompetitorPlacement[] {
-  const scheme = getRankingScheme(tournament.type)
+  const scheme = getRankingScheme(tournament.type, tournament.settings)
 
   if (scheme === RankingScheme.POSITION) {
     return computeStandings(tournament, tournamentCategoryId).map((row, index) => ({
