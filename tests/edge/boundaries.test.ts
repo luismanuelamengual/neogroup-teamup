@@ -16,13 +16,19 @@ import {
   start
 } from '@/tests/setup/harness'
 
-const ALL_TYPES = [
-  TournamentType.LEAGUE,
-  TournamentType.AMERICANO,
-  TournamentType.AMERICANO_WITH_SWAP,
-  TournamentType.PLAYOFF,
-  TournamentType.PLAYOFF_WITH_CONSOLATION,
-  TournamentType.GROUPS_PLAYOFF
+interface TypeConfig {
+  type: TournamentType
+  settings?: Record<string, unknown>
+  label: string
+}
+
+const ALL_TYPES: TypeConfig[] = [
+  { type: TournamentType.LEAGUE, label: 'LEAGUE' },
+  { type: TournamentType.AMERICANO, label: 'AMERICANO' },
+  { type: TournamentType.AMERICANO_WITH_SWAP, label: 'AMERICANO_WITH_SWAP' },
+  { type: TournamentType.PLAYOFF, label: 'PLAYOFF' },
+  { type: TournamentType.PLAYOFF, settings: { consolationBracket: true }, label: 'PLAYOFF (consolationBracket)' },
+  { type: TournamentType.GROUPS_PLAYOFF, label: 'GROUPS_PLAYOFF' }
 ]
 
 describe('boundaries — minimum field', () => {
@@ -30,9 +36,9 @@ describe('boundaries — minimum field', () => {
     await resetDatabase()
   })
 
-  for (const type of ALL_TYPES) {
-    it(`refuses to start ${TournamentType[type]} with a single competitor`, async () => {
-      const built = await buildTournament({ type, competitors: 1, scoreFormat: ScoreFormat.BASIC_COUNT })
+  for (const { type, settings, label } of ALL_TYPES) {
+    it(`refuses to start ${label} with a single competitor`, async () => {
+      const built = await buildTournament({ type, competitors: 1, scoreFormat: ScoreFormat.BASIC_COUNT, settings })
 
       await expect(start(built)).rejects.toThrow('notEnoughCompetitors')
     })
@@ -40,9 +46,9 @@ describe('boundaries — minimum field', () => {
 
   // AMERICANO_WITH_SWAP needs at least four individuals to form two teams, so it
   // is excluded from the two-competitor case (covered separately below).
-  for (const type of ALL_TYPES.filter((t) => t !== TournamentType.AMERICANO_WITH_SWAP)) {
-    it(`completes ${TournamentType[type]} with exactly two competitors`, async () => {
-      const built = await buildTournament({ type, competitors: 2, scoreFormat: ScoreFormat.BASIC_COUNT })
+  for (const { type, settings, label } of ALL_TYPES.filter((t) => t.type !== TournamentType.AMERICANO_WITH_SWAP)) {
+    it(`completes ${label} with exactly two competitors`, async () => {
+      const built = await buildTournament({ type, competitors: 2, scoreFormat: ScoreFormat.BASIC_COUNT, settings })
 
       await start(built)
       await playToCompletion(built)

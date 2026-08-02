@@ -1,4 +1,5 @@
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { hasConsolationBracket } from '@/app/(protected)/(tournaments)/utils/settings'
 
 /**
  * Configuration (stored as JSONB in tournaments.rankingSettings) describing how
@@ -9,8 +10,8 @@ import { TournamentType } from '@/app/(protected)/(tournaments)/models/Tournamen
  *  - League / Americano  → numeric positions: `position_1`, `position_2`, ...
  *  - Knockout (playoff / groups+playoff main bracket) → bracket stages:
  *      `winner`, `finalist`, `semifinalist`, `quarterfinalist`, `round_16`, `round_32`
- *  - Playoff with consolation → the knockout stages above PLUS the consolation
- *      bracket stages, prefixed with `consolation_`.
+ *  - Playoff with its `consolationBracket` setting on → the knockout stages
+ *      above PLUS the consolation bracket stages, prefixed with `consolation_`.
  */
 export interface RankingSettings {
   /** Points granted per placement key. Missing / non-positive values grant nothing. */
@@ -44,17 +45,19 @@ export const CONSOLATION_PREFIX = 'consolation_'
 export const POSITION_COUNT = 8
 
 /** Resolves the ranking configuration scheme for a tournament type. */
-export function getRankingScheme(type: TournamentType): RankingScheme {
+export function getRankingScheme(
+  type: TournamentType,
+  settings?: { consolationBracket?: boolean } | null
+): RankingScheme {
   switch (type) {
     case TournamentType.PLAYOFF:
+      return hasConsolationBracket(type, settings) ? RankingScheme.KNOCKOUT_WITH_CONSOLATION : RankingScheme.KNOCKOUT
     case TournamentType.GROUPS_PLAYOFF:
     // Interclubes ends in a knockout for any realistic size. The small (2–4
     // teams) home-and-away variant has no bracket, so its final standings are
     // mapped onto the same stage keys instead — see computeCategoryPlacements.
     case TournamentType.INTERCLUBS:
       return RankingScheme.KNOCKOUT
-    case TournamentType.PLAYOFF_WITH_CONSOLATION:
-      return RankingScheme.KNOCKOUT_WITH_CONSOLATION
     default:
       return RankingScheme.POSITION
   }
@@ -71,8 +74,11 @@ export function knockoutStageKey(stage: string, consolation = false): string {
 }
 
 /** Default points per placement for a freshly selected tournament type. */
-export function getDefaultRankingSettings(type: TournamentType): RankingSettings {
-  const scheme = getRankingScheme(type)
+export function getDefaultRankingSettings(
+  type: TournamentType,
+  settings?: { consolationBracket?: boolean } | null
+): RankingSettings {
+  const scheme = getRankingScheme(type, settings)
   const points: Record<string, number> = {}
 
   if (scheme === RankingScheme.POSITION) {

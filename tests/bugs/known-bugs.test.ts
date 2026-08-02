@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -28,9 +29,17 @@ describe('REGRESSION #1 — starting a seeded tournament must not duplicate comp
     await resetDatabase()
   })
 
-  for (const type of [TournamentType.PLAYOFF, TournamentType.GROUPS_PLAYOFF, TournamentType.PLAYOFF_WITH_CONSOLATION]) {
-    it(`keeps the competitor count stable when starting ${TournamentType[type]}`, async () => {
-      const built = await buildTournament({ type, competitors: 8, scoreFormat: ScoreFormat.BASIC_COUNT })
+  for (const [type, settings] of [
+    [TournamentType.PLAYOFF, undefined],
+    [TournamentType.GROUPS_PLAYOFF, undefined],
+    [TournamentType.PLAYOFF, { consolationBracket: true }]
+  ] as const) {
+    const label = settings?.consolationBracket
+      ? `${TournamentType[type]} with consolationBracket`
+      : TournamentType[type]
+
+    it(`keeps the competitor count stable when starting ${label}`, async () => {
+      const built = await buildTournament({ type, competitors: 8, scoreFormat: ScoreFormat.BASIC_COUNT, settings })
 
       await start(built)
 
@@ -133,12 +142,20 @@ describe('REGRESSION #3 — odd-field americano must distribute byes fairly', ()
   })
 })
 
-describe('REGRESSION #4 — single-group groups+playoff must not replay the same pair', () => {
+/**
+ * Superseded on purpose. This used to be REGRESSION #4, guarding that a
+ * single-group groups+playoff produced no knockout because it could only replay
+ * the group. A groups+playoff now ALWAYS ends in a bracket — that is what makes
+ * `minPlayoffQualifiers` work on a lone group ("the top 6 of the group advance"),
+ * and an organizer who configures groups+playoff is asking for a knockout.
+ * Replaying a pairing the group already decided is accepted as part of the deal.
+ */
+describe('BEHAVIOR — a single-group groups+playoff still plays its knockout', () => {
   beforeEach(async () => {
     await resetDatabase()
   })
 
-  it('does not make the same two competitors meet twice (group + final)', async () => {
+  it('lets the top two meet again in the final that decides the title', async () => {
     const built = await buildTournament({
       type: TournamentType.GROUPS_PLAYOFF,
       competitors: 2,
@@ -166,19 +183,25 @@ describe('REGRESSION #4 — single-group groups+playoff must not replay the same
       }
     }
 
-    // A single group is decided by its standings; no redundant knockout final.
+    // The group match, then the final between the same two: 2 real matches.
     const rounds = await getRounds(categoryId)
     let realMatches = 0
+    let bracketMatches = 0
 
     for (const round of rounds) {
       for (const match of await getMatches(round.id)) {
         if (match.awayCompetitorIds && match.awayCompetitorIds.length > 0) {
           realMatches++
+
+          if (round.type === MatchType.BRACKET) {
+            bracketMatches++
+          }
         }
       }
     }
 
-    expect(realMatches).toBe(1)
+    expect(realMatches).toBe(2)
+    expect(bracketMatches).toBe(1)
 
     // Loading the last match no longer finishes the tournament; the cron does.
     await finalizeIfComplete(built.tournament.id)

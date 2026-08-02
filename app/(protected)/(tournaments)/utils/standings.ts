@@ -7,6 +7,8 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/StandingsRowDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { computeGroupMembership } from '@/app/(protected)/(tournaments)/utils/groups'
+import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
 import { getGamesWon, getSeriesMatchesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import { Tournament } from '../models/Tournament'
 import { TournamentDto } from '../models/TournamentDto'
@@ -68,7 +70,7 @@ export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]
   }
 
   for (const match of matches) {
-    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+    if (!countsForStandings(match)) {
       continue
     }
 
@@ -106,7 +108,7 @@ export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]
   /** 1 when idA beat idB in a direct encounter, -1 when idB won, 0 otherwise. */
   const headToHead = (idA: number, idB: number): number => {
     for (const match of matches) {
-      if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      if (!countsForStandings(match)) {
         continue
       }
 
@@ -167,7 +169,7 @@ export function computeStandings(
   category?: number | null,
   groupNumber?: number | null
 ): StandingsRowDto[] {
-  if (tournament.type === TournamentType.PLAYOFF || tournament.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+  if (tournament.type === TournamentType.PLAYOFF) {
     return []
   }
 
@@ -190,33 +192,44 @@ export function computeStandings(
       (m.groupNumber ?? null) === (groupNumber ?? null) &&
       m.type === MatchType.LEAGUE
   )
-  // League/americano rank every category competitor; groups rank only the ones
-  // that actually play in the group (derived from the group matches).
+  // League/americano rank every category competitor; a group (or an interclubes
+  // zone) ranks only its own members.
+  //
+  // Membership is recomputed from the competitors with the very same rule the
+  // engine used to build the groups — NOT read off the materialised matches.
+  // A group of odd size rests one competitor per round, so while the round robin
+  // is still being materialised the resting competitor appears in no match yet;
+  // deriving membership from the matches dropped them from the table (on round 1
+  // that is always the top seed, the fixed point of the circle method).
   const allCompetitors = tournament.competitors ?? []
+  const byGroup = isGroups || (isInterclubs && groupNumber != null)
   const groupCompetitorIds = new Set<number>()
 
-  if (isGroups) {
+  if (byGroup) {
+    // Groups are per category instance, so membership can only be recomputed
+    // when the table is scoped to one; without it the matches are all there is.
+    if (category != null) {
+      const categoryCompetitors = allCompetitors.filter((c) => c.tournamentCategoryId === category)
+      const membership = computeGroupMembership(categoryCompetitors, tournament.settings, tournament.type)
+
+      for (const id of membership[groupNumber as number] ?? []) {
+        groupCompetitorIds.add(id)
+      }
+    }
+
+    // Defensive: a competitor added to a group after it was materialised (or any
+    // future divergence) still shows up if it plays there.
     for (const match of matches) {
       match.homeCompetitorIds.forEach((id) => groupCompetitorIds.add(id))
       match.awayCompetitorIds?.forEach((id) => groupCompetitorIds.add(id))
     }
   }
 
-  // An interclubes zone ranks only the teams that play in it, exactly like a
-  // groups+playoff group.
-  if (isInterclubs && groupNumber != null) {
-    for (const match of matches) {
-      match.homeCompetitorIds.forEach((id) => groupCompetitorIds.add(id))
-      match.awayCompetitorIds?.forEach((id) => groupCompetitorIds.add(id))
-    }
-  }
-
-  const competitors =
-    isGroups || (isInterclubs && groupNumber != null)
-      ? allCompetitors.filter((c) => groupCompetitorIds.has(c.id))
-      : category != null
-        ? allCompetitors.filter((c) => c.tournamentCategoryId === category)
-        : allCompetitors
+  const competitors = byGroup
+    ? allCompetitors.filter((c) => groupCompetitorIds.has(c.id))
+    : category != null
+      ? allCompetitors.filter((c) => c.tournamentCategoryId === category)
+      : allCompetitors
 
   // Interclubes has its own ladder (encounters won → individual matches → sets),
   // with no configurable points at all.
@@ -273,7 +286,7 @@ export function computeStandings(
   }
 
   for (const match of matches) {
-    if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+    if (!countsForStandings(match)) {
       continue
     }
 
@@ -352,7 +365,7 @@ export function computeStandings(
    */
   const headToHead = (idA: number, idB: number): number => {
     for (const match of matches) {
-      if (match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      if (!countsForStandings(match)) {
         continue
       }
 

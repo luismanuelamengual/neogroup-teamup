@@ -47,6 +47,7 @@ import migration012 from '@/database/migrations/012-tournaments-allow-player-set
 import migration013 from '@/database/migrations/013-matches-schedule'
 import migration014 from '@/database/migrations/014-tournaments-start-inscriptions-date'
 import migration015 from '@/database/migrations/015-payments-refactor'
+import migration016 from '@/database/migrations/016-fold-playoff-consolation-into-playoff'
 
 const TABLES = [
   'service_payments',
@@ -146,6 +147,10 @@ export async function resetDatabase(): Promise<void> {
   // flag (+ paidAt / servicePaymentId), service_payments is created and the old
   // per-registration tables are dropped.
   await migration015.up()
+  // 016 folds the old PLAYOFF_WITH_CONSOLATION type (5) into PLAYOFF (3) +
+  // settings.consolationBracket — a no-op here since the table is freshly
+  // created and empty.
+  await migration016.up()
 
   const organization = new Organization()
 
@@ -472,7 +477,7 @@ export async function setResult(matchId: number, score: MatchScore): Promise<voi
     .where('tournamentCategoryId', match.tournamentCategoryId)
     .get()
 
-  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status)) {
+  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status, tournament.settings)) {
     throw Object.assign(new Error('roundClosed'), { apiCode: 'roundClosed' })
   }
 
@@ -631,7 +636,7 @@ export async function getPendingActiveMatches(categoryIds: number[]): Promise<Ma
 
     const categoryMatches = matchesByCategory.get(match.tournamentCategoryId) ?? []
 
-    return isMatchEditable(match, categoryMatches, tournament.type, tournament.status)
+    return isMatchEditable(match, categoryMatches, tournament.type, tournament.status, tournament.settings)
   })
 }
 
@@ -801,6 +806,17 @@ export async function playToCompletion(
     }
 
     for (const match of pending) {
+      // `pending` is a snapshot, and resolving one match can make another one
+      // of the batch unplayable: an unordered round robin voids the remaining
+      // fixtures of whoever just reached their match quota. Re-read the status
+      // and skip those instead of failing on them — the next iteration picks up
+      // whatever is genuinely left.
+      const current = await Match.withoutGlobalScopes().where('id', match.id).first()
+
+      if (!current || current.status !== MatchStatus.PENDING) {
+        continue
+      }
+
       const side = decide(match)
       const score = isInterclubs
         ? seriesScore(

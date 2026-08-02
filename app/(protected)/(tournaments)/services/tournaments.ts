@@ -28,6 +28,7 @@ import { getScoreWinner, isValidScore, normalizeScore } from '@/app/(protected)/
 import {
   createRound,
   createTournamentCategories,
+  deleteVoidedFixtures,
   isTournamentComplete,
   isTournamentStartDue,
   loadOrganizationTimezones,
@@ -212,10 +213,23 @@ export async function createTournament(
 
   if (input.type === TournamentType.LEAGUE) {
     settings = { ...DEFAULT_LEAGUE_SETTINGS, ...input.settings }
+
+    // Stored only when enabled, so an untouched league keeps the exact settings
+    // payload it had before this setting existed.
+    if (input.settings?.allowUnorderedResults) {
+      settings.allowUnorderedResults = true
+    } else {
+      delete settings.allowUnorderedResults
+    }
   } else if (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) {
     settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
-  } else if (input.type === TournamentType.PLAYOFF || input.type === TournamentType.PLAYOFF_WITH_CONSOLATION) {
+  } else if (input.type === TournamentType.PLAYOFF) {
     settings = { ...DEFAULT_PLAYOFF_SETTINGS }
+
+    // Stored only when enabled, same convention as league's allowUnorderedResults.
+    if (input.settings?.consolationBracket) {
+      settings.consolationBracket = true
+    }
   } else if (input.type === TournamentType.GROUPS_PLAYOFF) {
     const competitorsPerGroup = Math.floor(
       input.settings?.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
@@ -224,11 +238,44 @@ export async function createTournament(
       input.settings?.qualifiersPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.qualifiersPerGroup
     )
 
+    /** Optional positive integer setting; anything empty or ≤ 0 means "unset". */
+    const optionalCount = (value: number | null | undefined): number | undefined => {
+      if (value == null || !Number.isFinite(Number(value)) || Number(value) <= 0) {
+        return undefined
+      }
+
+      return Math.floor(Number(value))
+    }
+
+    // Floor on the total knockout field. Deliberately unbounded above: a huge
+    // value is how an organizer says "everybody advances".
+    const minPlayoffQualifiers = optionalCount(input.settings?.minPlayoffQualifiers)
+    const maxRounds = optionalCount(input.settings?.maxRounds)
+
     if (competitorsPerGroup < 2 || qualifiersPerGroup < 1 || qualifiersPerGroup >= competitorsPerGroup) {
       throw new ApiException('invalidGroupsSettings')
     }
 
-    settings = { competitorsPerGroup, qualifiersPerGroup }
+    settings = {
+      competitorsPerGroup,
+      qualifiersPerGroup,
+      pointsPerPresent: input.settings?.pointsPerPresent ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.pointsPerPresent,
+      pointsPerSetWon: input.settings?.pointsPerSetWon ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.pointsPerSetWon,
+      pointsPerMatchWon: input.settings?.pointsPerMatchWon ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.pointsPerMatchWon
+    }
+
+    // Optional settings are omitted rather than stored as an explicit null.
+    if (minPlayoffQualifiers != null) {
+      settings.minPlayoffQualifiers = minPlayoffQualifiers
+    }
+
+    if (maxRounds != null) {
+      settings.maxRounds = maxRounds
+    }
+
+    if (input.settings?.allowUnorderedResults) {
+      settings.allowUnorderedResults = true
+    }
   }
 
   const tournament = new Tournament()
@@ -319,10 +366,11 @@ export async function startTournament(tournament: Tournament): Promise<void> {
 }
 
 /**
- * Finalises a tournament: marks it as finished and awards ranking points.
- * Analogous to startTournament but for the ONGOING → FINISHED transition. Once
- * finished the tournament is no longer ONGOING, so every match becomes read-only
- * (match editability is derived and requires an ONGOING tournament).
+ * Finalises a tournament: marks it as finished, awards ranking points and
+ * clears the fixtures an unordered round robin had voided. Analogous to
+ * startTournament but for the ONGOING → FINISHED transition. Once finished the
+ * tournament is no longer ONGOING, so every match becomes read-only (match
+ * editability is derived and requires an ONGOING tournament).
  *
  * The whole operation runs in a single transaction so it is atomic: status
  * change and ranking awards are committed together or not at
@@ -342,6 +390,10 @@ export async function finishTournament(tournament: Tournament): Promise<void> {
     tournament.updatedAt = new Date()
     await tournament.save()
     await awardRankingPoints(tournament.id)
+    // After the awards, which read the tournament's matches back. Voided
+    // fixtures never counted towards anything, so this changes no placement —
+    // it only stops them from lingering as rows nobody will ever look at.
+    await deleteVoidedFixtures(tournament)
   })
 }
 
@@ -494,7 +546,7 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
   // (derived) grace window. This replaces the former rounds.active flag.
   const categoryMatches = await Match.where('tournamentCategoryId', match.tournamentCategoryId).get()
 
-  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status)) {
+  if (!isMatchEditable(match, categoryMatches, tournament.type, tournament.status, tournament.settings)) {
     throw new ApiException('roundClosed')
   }
 

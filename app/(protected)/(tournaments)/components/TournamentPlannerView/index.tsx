@@ -5,9 +5,11 @@ import './index.scss'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CloseIcon from '@mui/icons-material/Close'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+import SearchIcon from '@mui/icons-material/Search'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
@@ -20,7 +22,7 @@ import dayjs, { Dayjs } from 'dayjs'
 import Link from 'next/link'
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
-import { roundLabel } from '@/app/(protected)/(tournaments)/components/BracketView'
+import { useSites } from '@/app/(protected)/(sites)/hooks/useSites'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -28,8 +30,9 @@ import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/model
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { isKnockoutType, MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { resolveSlotLabels, roundLabel } from '@/app/(protected)/(tournaments)/utils/bracket'
 import { useNotifications } from '@/app/hooks/useNotifications'
+import { foldForSearch, searchTerms } from '@/app/utils/text'
 import { downloadPlannerPdf, PlannerPdfDay, PlannerPdfSlot } from './exportPdf'
 
 /** First selectable start time: 8:00 (in minutes from midnight). */
@@ -170,10 +173,20 @@ interface Placement {
  */
 interface PlannerEntry {
   id: number
+  /** Tournament category the match belongs to, for the pool's category filter. */
+  categoryId: number
   category: string
   round: string | null
   home: string
   away: string
+  /**
+   * True when a side holds a derived description ("Ganador de A vs B") rather
+   * than a real competitor, so it can be rendered as the placeholder it is.
+   */
+  homePlaceholder: boolean
+  awayPlaceholder: boolean
+  /** Everything this match can be searched by, pre-folded (see foldForSearch). */
+  searchText: string
   /** True when the match belongs to the consolation knockout bracket. */
   consolation: boolean
   /**
@@ -228,9 +241,13 @@ interface TournamentPlannerViewProps {
 
 export default function TournamentPlannerView({ tournamentId, logoSrc }: TournamentPlannerViewProps) {
   const { getTournament, saveMatchSchedule, clearMatchSchedule } = useTournaments()
+  const { getAllSites } = useSites()
   const { showWarningMessage } = useNotifications()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
+  // Venue catalogue, kept only to name the selected site on the exported PDF.
+  // The selector loads its own copy; both hit the same cached endpoint.
+  const [siteNames, setSiteNames] = useState<Record<number, string>>({})
   // --- Configuration state ------------------------------------------------
   // The venue being planned. Every match dropped on the grid is scheduled here,
   // and the grid only shows the matches of this site — otherwise "Cancha 1" of
@@ -265,6 +282,24 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     pruneLegacyPlannerStorage()
     setDuration(loadDuration())
   }, [])
+
+  // The venue name is only needed for the PDF header; a failure here must not
+  // block the planner, so it silently falls back to no venue line.
+  useEffect(() => {
+    let cancelled = false
+
+    getAllSites()
+      .then((sites) => {
+        if (!cancelled) {
+          setSiteNames(Object.fromEntries(sites.map((site) => [site.id, site.name])))
+        }
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [getAllSites])
 
   const refreshTournament = useCallback(
     () =>
@@ -440,55 +475,115 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     },
     [competitorLabel]
   )
+  /**
+   * Names for the derived slot descriptions. The seed prefix is dropped here on
+   * purpose: "Ganador de [1] Amengual vs [4] Gutierrez" is already a long string
+   * for a 260px column, and the seeds add nothing once the sentence itself says
+   * which match it refers to.
+   */
+  const plainSideName = useCallback(
+    (ids: number[]): string => ids.map((id) => competitorsById[id]?.shortName ?? `#${id}`).join(' / '),
+    [competitorsById]
+  )
+  // Matches grouped by category: deriving a bracket slot's description needs the
+  // whole category, since a match is described by the ones that feed it.
+  const matchesByCategory = useMemo(() => {
+    const map = new Map<number, MatchDto[]>()
+
+    for (const match of tournament?.matches ?? []) {
+      if (!map.has(match.tournamentCategoryId)) {
+        map.set(match.tournamentCategoryId, [])
+      }
+
+      map.get(match.tournamentCategoryId)!.push(match)
+    }
+
+    return map
+  }, [tournament])
+  // Every name a competitor can be found by, folded once per competitor rather
+  // than on each keystroke. Both the long and the short name are indexed: the
+  // cards show the short one, but people type what they know.
+  const searchIndex = useMemo(() => {
+    const index = new Map<number, string>()
+
+    for (const competitor of tournament?.competitors ?? []) {
+      index.set(competitor.id, foldForSearch(`${competitor.displayName} ${competitor.shortName}`))
+    }
+
+    return index
+  }, [tournament])
   // Normalize a tournament match into the shared planner view model.
   const entryFromMatch = useCallback(
-    (match: MatchDto): PlannerEntry => ({
-      id: match.id,
-      category: categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única',
-      round: roundLabelByMatchId.get(match.id) ?? null,
-      home: sideName(match.homeCompetitorIds),
-      away: sideName(match.awayCompetitorIds),
-      consolation: consolationMatchIds.has(match.id),
-      locked: match.status !== MatchStatus.PENDING || match.score != null
-    }),
-    [categoryNameById, roundLabelByMatchId, sideName, consolationMatchIds]
+    (match: MatchDto): PlannerEntry => {
+      // A future bracket match has empty sides. Rather than two dashes, describe
+      // where each side will come from ("Ganador de Amengual vs Gutierrez").
+      const slots = resolveSlotLabels(match, matchesByCategory.get(match.tournamentCategoryId) ?? [], plainSideName)
+      const homePlaceholder = match.homeCompetitorIds.length === 0 && slots.home != null
+      const awayPlaceholder = (match.awayCompetitorIds?.length ?? 0) === 0 && slots.away != null
+      const home = homePlaceholder ? slots.home! : sideName(match.homeCompetitorIds)
+      const away = awayPlaceholder ? slots.away! : sideName(match.awayCompetitorIds)
+      // Searchable by the real competitors AND by the derived descriptions, so
+      // typing "amengual" also surfaces the "Ganador de Amengual vs …" slot.
+      const searchText = foldForSearch(
+        [
+          ...[...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])].map((id) => searchIndex.get(id) ?? ''),
+          homePlaceholder ? home : '',
+          awayPlaceholder ? away : ''
+        ].join(' ')
+      )
+
+      return {
+        id: match.id,
+        categoryId: match.tournamentCategoryId,
+        category: categoryNameById.get(match.tournamentCategoryId) ?? 'Categoría única',
+        round: roundLabelByMatchId.get(match.id) ?? null,
+        home,
+        away,
+        homePlaceholder,
+        awayPlaceholder,
+        searchText,
+        consolation: consolationMatchIds.has(match.id),
+        locked: match.status !== MatchStatus.PENDING || match.score != null
+      }
+    },
+    [
+      categoryNameById,
+      roundLabelByMatchId,
+      sideName,
+      plainSideName,
+      consolationMatchIds,
+      matchesByCategory,
+      searchIndex
+    ]
   )
   /**
-   * Every match the planner cares about: the ones ready to be scheduled, plus
-   * the ones already scheduled — including those that have since been played, so
-   * a day's grid keeps showing what actually took place on each court.
+   * Every match the planner cares about: every one still waiting for a result,
+   * plus the ones already scheduled — including those that have since been
+   * played, so a day's grid keeps showing what actually took place on each court.
+   *
+   * "Waiting for a result" is deliberately the only condition: no editability
+   * check, no requirement that both sides be known. The organizer books courts
+   * for the whole tournament at once, not lane frontier by lane frontier, and a
+   * not-yet-defined bracket match still needs a slot reserved for it — the names
+   * drop in on their own once the feeders resolve (the server never touches the
+   * schedule when it propagates winners).
    */
   const allEntries = useMemo<PlannerEntry[]>(() => {
     if (!tournament) {
       return []
     }
 
-    const matches = tournament.matches ?? []
-    const matchesByCategory = new Map<number, MatchDto[]>()
+    // Byes and walkovers are not PENDING, so they never reach the pool.
+    const awaitsResult = (match: MatchDto) =>
+      match.status === MatchStatus.PENDING && match.score == null && match.winner == null
 
-    for (const match of matches) {
-      if (!matchesByCategory.has(match.tournamentCategoryId)) {
-        matchesByCategory.set(match.tournamentCategoryId, [])
-      }
-
-      matchesByCategory.get(match.tournamentCategoryId)!.push(match)
-    }
-
-    // Ready to be scheduled: currently editable (the frontier of their lane), not
-    // yet played (still pending and without a loaded result) and with both sides
-    // already known (excludes byes and not-yet-defined bracket matches).
-    const isSchedulable = (match: MatchDto) =>
-      match.status === MatchStatus.PENDING &&
-      match.score == null &&
-      match.winner == null &&
-      isMatchEditable(
-        match,
-        matchesByCategory.get(match.tournamentCategoryId) ?? [],
-        tournament.type,
-        tournament.status
-      )
-
-    return matches.filter((match) => isSchedulable(match) || match.date != null).map(entryFromMatch)
+    return (
+      (tournament.matches ?? [])
+        // A voided fixture will never be played: it is dropped even if it was
+        // scheduled before being voided, so it leaves no ghost behind in the grid.
+        .filter((match) => match.status !== MatchStatus.VOID && (awaitsResult(match) || match.date != null))
+        .map(entryFromMatch)
+    )
   }, [tournament, entryFromMatch])
   /**
    * Where each match sits right now: what the server stored for the selected
@@ -521,6 +616,44 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     () => allEntries.filter((entry) => !entry.locked && placements[entry.id] == null),
     [allEntries, placements]
   )
+  /**
+   * Pool filters. They narrow the list of matches waiting to be placed and
+   * nothing else: the grid always shows the full planning, otherwise filtering
+   * would look like matches had been unscheduled.
+   */
+  const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all')
+  const [search, setSearch] = useState('')
+  // Categories are only worth filtering by when there is more than one.
+  const filterableCategories = useMemo(() => {
+    const categories = tournament?.categories ?? []
+
+    return categories.length > 1 ? categories : []
+  }, [tournament])
+  const filteredEntries = useMemo(() => {
+    // Every whitespace-separated word must appear somewhere in the match, but
+    // not necessarily in the same competitor: "agui contre" is how you look for
+    // Aguilar vs Contreras, and a single "agui" still finds every Aguilar match.
+    const terms = searchTerms(search)
+
+    return unplannedEntries.filter(
+      (entry) =>
+        (categoryFilter === 'all' || entry.categoryId === categoryFilter) &&
+        terms.every((term) => entry.searchText.includes(term))
+    )
+  }, [unplannedEntries, categoryFilter, search])
+  const filtersActive = categoryFilter !== 'all' || search.trim() !== ''
+  const clearFilters = useCallback(() => {
+    setCategoryFilter('all')
+    setSearch('')
+  }, [])
+
+  // A category can disappear from the tournament while it is selected; fall back
+  // to showing everything instead of an empty pool with no way to tell why.
+  useEffect(() => {
+    if (categoryFilter !== 'all' && !filterableCategories.some((category) => category.id === categoryFilter)) {
+      setCategoryFilter('all')
+    }
+  }, [filterableCategories, categoryFilter])
   // The days covered by the configured range.
   const days = useMemo<Dayjs[]>(() => {
     const list: Dayjs[] = []
@@ -638,9 +771,9 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
 
     body.className = 'planner-match-body'
 
-    for (const [homeSide, name] of [
-      [true, entry.home],
-      [false, entry.away]
+    for (const [homeSide, name, placeholder] of [
+      [true, entry.home, entry.homePlaceholder],
+      [false, entry.away, entry.awayPlaceholder]
     ] as const) {
       const side = document.createElement('div')
 
@@ -653,7 +786,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
 
       const nameSpan = document.createElement('span')
 
-      nameSpan.className = 'side-name'
+      nameSpan.className = `side-name ${placeholder ? 'placeholder' : ''}`
       nameSpan.textContent = name
       side.appendChild(nameSpan)
 
@@ -893,7 +1026,13 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       })
       .filter((day) => day.slots.length > 0)
 
-    void downloadPlannerPdf(tournament.name, courtLabels, plannerDays, logoSrc)
+    void downloadPlannerPdf(
+      tournament.name,
+      siteId != null ? (siteNames[siteId] ?? null) : null,
+      courtLabels,
+      plannerDays,
+      logoSrc
+    )
   }
 
   const renderMatchChip = (entry: PlannerEntry, variant: 'pool' | 'grid') => {
@@ -932,13 +1071,20 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
           </div>
         )}
         <div className="planner-match-body">
+          {/* The names are ellipsised in a narrow column, and a derived slot
+              description is long by nature, so the full text stays reachable
+              on hover. */}
           <div className="side">
             <span className={`side-dot ${MatchSideNames[MatchSide.HOME]}`} />
-            <span className="side-name">{entry.home}</span>
+            <span className={`side-name ${entry.homePlaceholder ? 'placeholder' : ''}`} title={entry.home}>
+              {entry.home}
+            </span>
           </div>
           <div className="side">
             <span className={`side-dot ${MatchSideNames[MatchSide.AWAY]}`} />
-            <span className="side-name">{entry.away}</span>
+            <span className={`side-name ${entry.awayPlaceholder ? 'placeholder' : ''}`} title={entry.away}>
+              {entry.away}
+            </span>
           </div>
         </div>
       </div>
@@ -1043,8 +1189,48 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
           <Paper className="planner-section pool-section">
             <div className="pool-header">
               <Typography variant="subtitle1" className="section-title">
-                Partidos pendientes ({unplannedEntries.length})
+                Partidos pendientes{' '}
+                {filtersActive
+                  ? `(${filteredEntries.length} de ${unplannedEntries.length})`
+                  : `(${unplannedEntries.length})`}
               </Typography>
+              {unplannedEntries.length > 0 && (
+                <div className="pool-filters">
+                  {filterableCategories.length > 0 && (
+                    <TextField
+                      size="small"
+                      select
+                      label="Categoría"
+                      value={categoryFilter}
+                      onChange={(event) =>
+                        setCategoryFilter(event.target.value === 'all' ? 'all' : Number(event.target.value))
+                      }
+                    >
+                      <MenuItem value="all">Todas las categorías</MenuItem>
+                      {filterableCategories.map((category) => (
+                        <MenuItem key={category.id} value={category.id}>
+                          {category.category?.name ?? 'Categoría única'}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                  <TextField
+                    size="small"
+                    placeholder="Buscar por competidor"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        )
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </div>
             {allEntries.length === 0 ? (
               <Alert severity="info">No hay partidos para planificar. Activá rondas del torneo.</Alert>
@@ -1052,8 +1238,17 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               <Typography variant="body2" color="text.secondary" className="pool-empty">
                 Todos los partidos están planificados. Arrastrá un partido acá para quitarlo de la planificación.
               </Typography>
+            ) : filteredEntries.length === 0 ? (
+              <div className="pool-empty-filtered">
+                <Typography variant="body2" color="text.secondary" className="pool-empty">
+                  Ningún partido pendiente coincide con el filtro.
+                </Typography>
+                <Button size="small" onClick={clearFilters}>
+                  Limpiar filtros
+                </Button>
+              </div>
             ) : (
-              <div className="pool-list">{unplannedEntries.map((entry) => renderMatchChip(entry, 'pool'))}</div>
+              <div className="pool-list">{filteredEntries.map((entry) => renderMatchChip(entry, 'pool'))}</div>
             )}
           </Paper>
 

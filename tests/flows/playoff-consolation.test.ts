@@ -23,7 +23,7 @@ import {
   start
 } from '@/tests/setup/harness'
 
-describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
+describe('PLAYOFF with consolationBracket — full flows', () => {
   beforeEach(async () => {
     await resetDatabase()
   })
@@ -31,7 +31,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
   for (const n of [4, 8, 16]) {
     it(`builds and completes both brackets for ${n} competitors`, async () => {
       const built = await buildTournament({
-        type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+        type: TournamentType.PLAYOFF,
+        settings: { consolationBracket: true },
         competitors: n,
         scoreFormat: ScoreFormat.BASIC_COUNT
       })
@@ -68,7 +69,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
   for (const n of [3, 5, 6, 7, 9, 11]) {
     it(`builds and completes both brackets for ${n} competitors (byes + upsets)`, async () => {
       const built = await buildTournament({
-        type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+        type: TournamentType.PLAYOFF,
+        settings: { consolationBracket: true },
         competitors: n,
         scoreFormat: ScoreFormat.BASIC_COUNT
       })
@@ -101,7 +103,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
 
   it('seeds the consolation bracket from the first-round losers', async () => {
     const built = await buildTournament({
-      type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+      type: TournamentType.PLAYOFF,
+      settings: { consolationBracket: true },
       competitors: 8,
       scoreFormat: ScoreFormat.BASIC_COUNT
     })
@@ -145,7 +148,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
 
   it('shows the consolation bracket right from "Iniciar torneo", before any result is loaded', async () => {
     const built = await buildTournament({
-      type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+      type: TournamentType.PLAYOFF,
+      settings: { consolationBracket: true },
       competitors: 8,
       scoreFormat: ScoreFormat.BASIC_COUNT
     })
@@ -170,7 +174,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
 
   it('fills a consolation slot as soon as its own first-round match is resolved, independently of the rest of the round', async () => {
     const built = await buildTournament({
-      type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+      type: TournamentType.PLAYOFF,
+      settings: { consolationBracket: true },
       competitors: 8,
       scoreFormat: ScoreFormat.BASIC_COUNT
     })
@@ -204,7 +209,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
     // 3 competitors, bracket size 4 → round 1 has one bye and one real match, and
     // the consolation bracket has a single match fed by both.
     const built = await buildTournament({
-      type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+      type: TournamentType.PLAYOFF,
+      settings: { consolationBracket: true },
       competitors: 3,
       scoreFormat: ScoreFormat.BASIC_COUNT
     })
@@ -250,7 +256,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
 
   it('turns into a real playable consolation match when the bye player loses instead', async () => {
     const built = await buildTournament({
-      type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+      type: TournamentType.PLAYOFF,
+      settings: { consolationBracket: true },
       competitors: 3,
       scoreFormat: ScoreFormat.BASIC_COUNT
     })
@@ -285,7 +292,8 @@ describe('PLAYOFF_WITH_CONSOLATION — full flows', () => {
 
   it('re-resolves the affected consolation slot when a still-unconsumed main-bracket result is corrected', async () => {
     const built = await buildTournament({
-      type: TournamentType.PLAYOFF_WITH_CONSOLATION,
+      type: TournamentType.PLAYOFF,
+      settings: { consolationBracket: true },
       competitors: 8,
       scoreFormat: ScoreFormat.BASIC_COUNT
     })

@@ -1,7 +1,9 @@
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { isKnockoutType, MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
+import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { allowsUnorderedResults } from '@/app/(protected)/(tournaments)/utils/settings'
 
 /**
  * Minimal match shape needed to decide editability. Both the `Match` entity and
@@ -23,6 +25,22 @@ export interface EditableMatch {
 /** A real, fully-defined matchup (not a bye or a "to be defined" placeholder). */
 export function isPlayableMatch(match: EditableMatch): boolean {
   return match.homeCompetitorIds.length > 0 && match.awayCompetitorIds != null && match.awayCompetitorIds.length > 0
+}
+
+/**
+ * Whether a match carries an outcome that counts towards points, standings and
+ * statistics. Three kinds of match do not:
+ *  - PENDING: the result has not been loaded yet.
+ *  - VOID: it will never be played, so it never happened. Careful — a voided
+ *    fixture of an unordered round robin keeps BOTH its sides (unlike an empty
+ *    consolation slot, which has no rival), so checking `awayCompetitorIds`
+ *    alone is not enough to filter it out.
+ *  - placeholders with no rival yet (`awayCompetitorIds` null/empty).
+ */
+export function countsForStandings<T extends { status: MatchStatus; awayCompetitorIds: number[] | null }>(
+  match: T
+): match is T & { awayCompetitorIds: number[] } {
+  return match.status !== MatchStatus.PENDING && match.status !== MatchStatus.VOID && match.awayCompetitorIds != null
 }
 
 /** Minimal shape needed to decide whether a match displays a schedule. */
@@ -58,21 +76,34 @@ export function hasMatchSchedule(match: SchedulableMatch, tournamentSiteId: numb
  *    one in the same lane at bracketInstance − 1 and position floor(b / 2).
  *  - League / americano / group: editable while no later round of the SAME lane
  *    already holds a result (this is the grace window: a closed round stays
- *    editable until its successor receives a result).
+ *    editable until its successor receives a result). This is exactly the rule
+ *    that `allowUnorderedResults` lifts: with no active round every fixture of
+ *    the lane stays editable for as long as the tournament runs.
  *  - Cross-lane: in a groups+playoff, a group result is locked once the knockout
- *    bracket holds any result, since editing it would change the seeding.
+ *    bracket holds any result, since editing it would change the seeding. This
+ *    one holds regardless of `allowUnorderedResults`.
+ *
+ * `settings` is optional: omitting it evaluates the classic ordered rules,
+ * which is what every tournament without the setting gets anyway.
  */
 export function isMatchEditable(
   match: EditableMatch,
   categoryMatches: EditableMatch[],
   tournamentType: TournamentType,
-  tournamentStatus: TournamentStatus
+  tournamentStatus: TournamentStatus,
+  settings?: TournamentSettings | null
 ): boolean {
   if (tournamentStatus !== TournamentStatus.ONGOING) {
     return false
   }
 
   if (!isPlayableMatch(match)) {
+    return false
+  }
+
+  // A voided fixture keeps both its sides, so isPlayableMatch lets it through:
+  // it is a matchup that will never be played, and never accepts a result.
+  if (match.status === MatchStatus.VOID) {
     return false
   }
 
@@ -93,16 +124,21 @@ export function isMatchEditable(
     return !next || next.status === MatchStatus.PENDING
   }
 
-  const laneHasLaterResult = categoryMatches.some(
-    (candidate) =>
-      candidate.type === match.type &&
-      (candidate.groupNumber ?? null) === (match.groupNumber ?? null) &&
-      candidate.roundNumber > match.roundNumber &&
-      candidate.status !== MatchStatus.PENDING
-  )
+  // With unordered results there is no frontier round to protect: rounds are a
+  // pure layout of a schedule that exists in full, so a later one holding a
+  // result says nothing about this one.
+  if (!allowsUnorderedResults(tournamentType, settings)) {
+    const laneHasLaterResult = categoryMatches.some(
+      (candidate) =>
+        candidate.type === match.type &&
+        (candidate.groupNumber ?? null) === (match.groupNumber ?? null) &&
+        candidate.roundNumber > match.roundNumber &&
+        candidate.status !== MatchStatus.PENDING
+    )
 
-  if (laneHasLaterResult) {
-    return false
+    if (laneHasLaterResult) {
+      return false
+    }
   }
 
   if (

@@ -55,6 +55,7 @@ import { describeInterclubsFormat } from '@/app/(protected)/(tournaments)/utils/
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { isRegistrationOpen } from '@/app/(protected)/(tournaments)/utils/registrations'
+import { hasConsolationBracket } from '@/app/(protected)/(tournaments)/utils/settings'
 import { useUserStore } from '@/app/stores/users'
 
 interface TournamentViewProps {
@@ -125,7 +126,8 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
           match,
           matchesByCategory.get(match.tournamentCategoryId) ?? [],
           tournament.type,
-          tournament.status
+          tournament.status,
+          tournament.settings
         )
     )
   }, [isOrganizer, matches, userEntry, tournament])
@@ -359,6 +361,9 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
               <Chip size="small" label={DisciplineNames[tournament.discipline]} />
               {tournament.subDiscipline && <Chip size="small" label={SubDisciplineNames[tournament.subDiscipline]} />}
               <Chip size="small" label={TournamentTypeNames[tournament.type]} />
+              {hasConsolationBracket(tournament.type, tournament.settings) && (
+                <Chip size="small" label="Con ronda consuelo" />
+              )}
               <Chip size="small" label={ScoreFormatNames[tournament.scoreFormat]} />
               <Chip
                 size="small"

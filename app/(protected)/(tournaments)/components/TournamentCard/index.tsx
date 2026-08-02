@@ -14,6 +14,7 @@ import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipli
 import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
+import { hasConsolationBracket } from '@/app/(protected)/(tournaments)/utils/settings'
 import { TournamentDto } from '../../models/TournamentDto'
 
 interface TournamentCardProps {
@@ -47,6 +48,9 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
             <span className="tag">{DisciplineNames[tournament.discipline]}</span>
             {tournament.subDiscipline && <span className="tag">{SubDisciplineNames[tournament.subDiscipline]}</span>}
             <span className="tag">{TournamentTypeNames[tournament.type]}</span>
+            {hasConsolationBracket(tournament.type, tournament.settings) && (
+              <span className="tag">Con ronda consuelo</span>
+            )}
             {tournament.entryFee ? (
               <span className="tag paid">
                 <PaidIcon fontSize="inherit" /> {formatMoney(tournament.entryFee, tournament.currency)}

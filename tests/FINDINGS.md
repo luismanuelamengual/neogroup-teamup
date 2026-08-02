@@ -100,7 +100,7 @@ path uses the same fair-bye rule. Five players now each play four matches.
 
 ---
 
-## BUG #4 — Single-group groups+playoff replayed the same pair (LOW) ✅ fixed
+## BUG #4 — Single-group groups+playoff replayed the same pair (LOW) ↩️ reverted by design
 
 **Where:** the groups → knockout join (`maybeStartGroupsKnockout` /
 `materializeCategoryRound`) and `utils/champion.ts`.
@@ -110,13 +110,62 @@ competitors, or `competitorsPerGroup ≥ field`), both qualified and met **again
 in a knockout final — a redundant rematch of a pairing the group had already
 decided.
 
-**Now:** with only one non-empty group the knockout is skipped (it could only
-replay the group); the group standings decide the result, and
-`getPodiumCompetitorIds()` falls back to those standings for the
-champion/podium. Multi-group tournaments (including the `[2, 1]` degenerate split)
-still build the knockout and cross-seed as before.
+**Was fixed as:** with only one non-empty group the knockout was skipped, and the
+group standings decided the result.
 
-**Guard:** `tests/bugs/known-bugs.test.ts → REGRESSION #4`.
+**Now (reverted on purpose):** a groups+playoff **always** builds its bracket,
+single group included. Two reasons. First, `minPlayoffQualifiers` only makes
+sense that way — "the top 6 of the group advance to the knockout" is exactly the
+case a lone group describes, and skipping the bracket would silently ignore the
+setting. Second, an organizer who picks groups+playoff is asking for a knockout;
+deciding the title on a standings table is not what they configured. Replaying a
+pairing the group already played is accepted as the cost.
+
+`getPodiumCompetitorIds()` keeps the standings fallback, but it is now only
+reachable when no bracket could be built at all (fewer than 2 qualifiers).
+
+**Guard:** `tests/bugs/known-bugs.test.ts → BEHAVIOR — a single-group
+groups+playoff still plays its knockout`, which now asserts the rematch happens.
+
+---
+
+## BUG #5 — The group table hid one competitor (the top seed) on round 1 (MEDIUM) ✅ fixed
+
+**Reported as:** a GROUPS_PLAYOFF with `competitorsPerGroup: 40` and
+`minPlayoffQualifiers: 40` and **7** registered competitors. Everybody fits in a
+single group, but after starting, that group listed only **6** competitors — the
+missing one being **preclassified #1**.
+
+**Where:** `utils/standings.ts → computeStandings`.
+
+**Root cause — a display bug, not an assignment bug.** The engine put all 7
+competitors in the group correctly (`computeCategoryGroups` → `snakeSeedGroups`);
+what was wrong is how the table figured out *who is in the group*: it collected
+the competitor ids found in the group's **materialised matches**.
+
+Two things conspire:
+
+1. Unless `allowUnorderedResults` is on, only **one round is materialised at a
+   time**, so right after the start the group has just round 1.
+2. A group of **odd** size rests one competitor per round (the circle method
+   pushes a `null` bye slot), and in round 1 the rester is `ids[0]` — the fixed
+   point of the rotation. After the pre-classification sort, `ids[0]` is exactly
+   **seed #1**.
+
+So the top seed appeared in no round-1 match, and a table derived from matches
+could not see them. Any odd group hits this (11 competitors in groups of 4 →
+`[4, 4, 3]` → the third group's table shows 2 of 3); a lone odd group just makes
+it obvious. Ranking and qualification were never affected — `rankGroup` ranks the
+real group — and the competitor reappeared once round 2 was created.
+
+**Fixed** by making membership a **computed** property instead of an inferred
+one. The pure, model-free `utils/groups.ts` now owns `computeGroupSizes`,
+`assignGroups` and the seeding split (`buildGroups` / `computeGroupMembership`);
+both the engine (`computeCategoryGroups`) and the views call it, so what is
+played and what is displayed cannot diverge. Matches are still unioned in as a
+defensive fallback. The same fix covers interclubes zones.
+
+**Guard:** `tests/bugs/group-membership.test.ts → REGRESSION #7`.
 
 ---
 
@@ -145,4 +194,4 @@ still build the knockout and cross-seed as before.
   grace-window result edits + downstream rebuilds, locking of past rounds,
   standings math.
 - **`tests/unit/`** — pure score validation/serialization and bracket/seeding math.
-- **`tests/bugs/`** — the four regression tests above.
+- **`tests/bugs/`** — the regression tests above.

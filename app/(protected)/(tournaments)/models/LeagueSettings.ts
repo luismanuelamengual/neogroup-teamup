@@ -3,6 +3,22 @@ export interface LeagueSettings {
   pointsPerPresent: number
   pointsPerSetWon: number
   pointsPerMatchWon: number
+  /**
+   * Optional cap on the number of rounds (the league ends after this many rounds).
+   *
+   * Its meaning flips when `allowUnorderedResults` is on: there are no
+   * sequential rounds to cut short, so it is read as the number of MATCHES EACH
+   * COMPETITOR PLAYS instead. See `matchesPerCompetitor`.
+   */
+  maxRounds?: number
+  /**
+   * When true, the whole round robin is materialised up front and any match can
+   * receive its result at any time, in any order — there is no "active" round.
+   *
+   * Unset (the default) keeps the classic behaviour: one round is created at a
+   * time and only the frontier round accepts results.
+   */
+  allowUnorderedResults?: boolean
 }
 
 export const DEFAULT_LEAGUE_SETTINGS: LeagueSettings = {
