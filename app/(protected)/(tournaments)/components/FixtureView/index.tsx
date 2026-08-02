@@ -18,18 +18,7 @@ import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { allowsUnorderedResults } from '@/app/(protected)/(tournaments)/utils/settings'
 import MessagePanel from '@/app/components/MessagePanel'
 import { useUserStore } from '@/app/stores/users'
-
-/**
- * Folds a name into its comparable form: lower-cased and stripped of accents,
- * so "perez" matches "Pérez" and "munoz" matches "Muñoz". Searching by name is
- * near useless in Spanish if the accent has to be typed exactly.
- */
-function foldForSearch(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-}
+import { foldForSearch, searchTerms } from '@/app/utils/text'
 
 interface FixtureViewProps {
   tournament: TournamentDto
@@ -161,7 +150,7 @@ export default function FixtureView({
     // Every whitespace-separated word must appear somewhere in the match, but
     // not necessarily in the same competitor: "agui contre" is how you look for
     // Aguilar vs Contreras, and a single "agui" still finds every Aguilar match.
-    const terms = foldForSearch(search).split(/\s+/).filter(Boolean)
+    const terms = searchTerms(search)
 
     if (terms.length === 0) {
       return all

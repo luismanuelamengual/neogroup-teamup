@@ -10,6 +10,7 @@ import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { roundLabel } from '@/app/(protected)/(tournaments)/utils/bracket'
 import { hasMatchSchedule, isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import Avatar from '@/app/components/Avatar'
 import { useUserStore } from '@/app/stores/users'
@@ -87,29 +88,6 @@ interface TitleLayout {
 interface ChampionLayout {
   x: number
   y: number
-}
-
-/** Stage label for a round, counting Final/Semifinal/4tos/8vos from the end. */
-export function roundLabel(roundIndex: number, totalRounds: number, matchCount: number): string {
-  const fromEnd = totalRounds - 1 - roundIndex
-
-  if (fromEnd === 0 && matchCount <= 1) {
-    return 'Final'
-  }
-
-  if (fromEnd === 1) {
-    return 'Semifinal'
-  }
-
-  if (fromEnd === 2) {
-    return 'Cuartos de final'
-  }
-
-  if (fromEnd === 3) {
-    return 'Octavos de final'
-  }
-
-  return `Ronda ${roundIndex + 1}`
 }
 
 /** Horizontal knockout bracket: one column per round, with bent connectors. */

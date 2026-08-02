@@ -75,6 +75,26 @@
           align-items: flex-start;
           gap: 8px;
           margin-bottom: 8px;
+
+          // Category + name filters, only useful once the pool holds enough
+          // matches to be worth narrowing down.
+          .pool-filters {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+
+            .MuiTextField-root {
+              width: 100%;
+            }
+          }
+        }
+
+        .pool-empty-filtered {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
         }
 
         .pool-list {
@@ -375,6 +395,14 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+
+      // A derived slot ("Ganador de A vs B") is not a competitor yet, so it is
+      // toned down to read as the placeholder it is.
+      &.placeholder {
+        font-weight: 500;
+        font-style: italic;
+        color: var(--color-text-secondary, #6b7280);
+      }
     }
 
     .planner-match-remove {
