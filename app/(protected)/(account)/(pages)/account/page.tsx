@@ -16,8 +16,8 @@ export default async function AccountPage() {
         email={session.user.email ?? ''}
         firstName={session.user.firstName ?? ''}
         lastName={session.user.lastName ?? ''}
-        nickname={session.user.nickname ?? ''}
         phoneNumber={session.user.phoneNumber ?? ''}
+        siteId={session.user.siteId ?? null}
       />
     </div>
   )

@@ -12,6 +12,7 @@ import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { FormEvent, useEffect, useState } from 'react'
+import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import { useUsers } from '@/app/(protected)/(users)/hooks/useUsers'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { ManageableRoles, Role, RoleNames } from '@/app/models/Role'
@@ -32,8 +33,8 @@ export default function UserFormDialog({ open, user, onClose, onSaved }: UserFor
   const [email, setEmail] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [nickname, setNickname] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [siteId, setSiteId] = useState<number | null>(null)
   const [roleId, setRoleId] = useState<Role>(Role.PLAYER)
   const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -44,8 +45,8 @@ export default function UserFormDialog({ open, user, onClose, onSaved }: UserFor
       setEmail(user?.email ?? '')
       setFirstName(user?.firstName ?? '')
       setLastName(user?.lastName ?? '')
-      setNickname(user?.nickname ?? '')
       setPhoneNumber(user?.phoneNumber ?? '')
+      setSiteId(user?.siteId ?? null)
       setRoleId(user?.roleId ?? Role.PLAYER)
       setActive(user?.active ?? true)
       setLoading(false)
@@ -58,10 +59,10 @@ export default function UserFormDialog({ open, user, onClose, onSaved }: UserFor
 
     try {
       if (user) {
-        await updateUser(user.id, { firstName, lastName, nickname, phoneNumber, roleId, active })
+        await updateUser(user.id, { firstName, lastName, phoneNumber, siteId, roleId, active })
         showSuccessMessage('Usuario actualizado')
       } else {
-        await createUser({ email, firstName, lastName, nickname, phoneNumber, roleId })
+        await createUser({ email, firstName, lastName, phoneNumber, siteId, roleId })
         showSuccessMessage('Usuario creado. Le enviamos un email para que defina su contraseña')
       }
 
@@ -106,7 +107,6 @@ export default function UserFormDialog({ open, user, onClose, onSaved }: UserFor
             required
             fullWidth
           />
-          <TextField label="Apodo" value={nickname} onChange={(event) => setNickname(event.target.value)} fullWidth />
           <TextField
             label="Teléfono"
             type="tel"
@@ -114,6 +114,7 @@ export default function UserFormDialog({ open, user, onClose, onSaved }: UserFor
             onChange={(event) => setPhoneNumber(event.target.value)}
             fullWidth
           />
+          <SiteSelector value={siteId} onChange={setSiteId} label="Sede" emptyLabel="Sin sede" />
           <TextField
             select
             label="Rol"

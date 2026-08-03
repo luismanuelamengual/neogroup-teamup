@@ -9,8 +9,8 @@ declare module 'next-auth' {
       roleId: Role | null
       firstName: string | null
       lastName: string | null
-      nickname: string | null
       phoneNumber: string | null
+      siteId: number | null
     } & DefaultSession['user']
   }
 }
@@ -22,8 +22,8 @@ declare module 'next-auth/jwt' {
     roleId?: Role | null
     firstName?: string | null
     lastName?: string | null
-    nickname?: string | null
     phoneNumber?: string | null
+    siteId?: number | null
     userLoaded?: boolean
   }
 }

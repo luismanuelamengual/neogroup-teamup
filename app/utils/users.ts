@@ -19,28 +19,14 @@ export function isAdministrator(roleId: Role | null | undefined): boolean {
   return roleId === Role.ADMINISTRATOR
 }
 
-export function getUserDisplayName(user: {
-  firstName: string | null
-  lastName: string | null
-  nickname: string | null
-  email: string
-}): string {
-  if (user.nickname) {
-    return user.nickname
-  }
-
+export function getUserDisplayName(user: { firstName: string | null; lastName: string | null; email: string }): string {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ')
 
   return fullName || user.email
 }
 
 /** Short name: first initial of the first name + last name (e.g. "Luis Amengual" -> "L. Amengual"). */
-export function getUserShortName(user: {
-  firstName: string | null
-  lastName: string | null
-  nickname: string | null
-  email: string
-}): string {
+export function getUserShortName(user: { firstName: string | null; lastName: string | null; email: string }): string {
   if (user.firstName && user.lastName) {
     const initial = user.firstName.trim().charAt(0).toUpperCase()
 

@@ -261,7 +261,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
   administrator.passwordHash = passwordHash
   administrator.firstName = 'Demo'
   administrator.lastName = 'Admin'
-  administrator.nickname = null
+  administrator.siteId = null
   administrator.phoneNumber = randomPhone()
   administrator.roleId = Role.ADMINISTRATOR
   administrator.emailVerified = true
@@ -275,7 +275,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
   organizer.passwordHash = passwordHash
   organizer.firstName = 'Demo'
   organizer.lastName = 'Organizer'
-  organizer.nickname = null
+  organizer.siteId = null
   organizer.phoneNumber = randomPhone()
   organizer.roleId = Role.ORGANIZER
   organizer.emailVerified = true
@@ -290,7 +290,7 @@ async function createUsers(playerCount: number, organizationId: number): Promise
     player.organizationId = organizationId
     player.firstName = randomItem(FIRST_NAMES)
     player.lastName = randomItem(LAST_NAMES)
-    player.nickname = null
+    player.siteId = null
     player.phoneNumber = randomPhone()
     player.passwordHash = passwordHash
     player.roleId = Role.PLAYER

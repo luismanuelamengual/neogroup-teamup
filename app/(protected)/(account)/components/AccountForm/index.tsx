@@ -9,14 +9,15 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useState } from 'react'
 import { useAccount } from '@/app/(protected)/(account)/hooks/useAccount'
+import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import Avatar from '@/app/components/Avatar'
 
 interface AccountFormProps {
   email: string
   firstName: string
   lastName: string
-  nickname: string
   phoneNumber: string
+  siteId: number | null
 }
 
 export default function AccountForm(props: AccountFormProps) {
@@ -24,8 +25,8 @@ export default function AccountForm(props: AccountFormProps) {
   const router = useRouter()
   const [firstName, setFirstName] = useState(props.firstName)
   const [lastName, setLastName] = useState(props.lastName)
-  const [nickname, setNickname] = useState(props.nickname)
   const [phoneNumber, setPhoneNumber] = useState(props.phoneNumber)
+  const [siteId, setSiteId] = useState<number | null>(props.siteId)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (event: FormEvent) => {
@@ -33,7 +34,7 @@ export default function AccountForm(props: AccountFormProps) {
     setLoading(true)
 
     try {
-      await updateAccount({ firstName, lastName, nickname, phoneNumber })
+      await updateAccount({ firstName, lastName, phoneNumber, siteId })
     } catch (e) {}
 
     setLoading(false)
@@ -78,13 +79,6 @@ export default function AccountForm(props: AccountFormProps) {
           fullWidth
         />
         <TextField
-          label="Apodo"
-          value={nickname}
-          onChange={(event) => setNickname(event.target.value)}
-          helperText="Si lo establecés, se muestra siempre en lugar de tu nombre"
-          fullWidth
-        />
-        <TextField
           label="Teléfono"
           type="tel"
           value={phoneNumber}
@@ -92,6 +86,7 @@ export default function AccountForm(props: AccountFormProps) {
           fullWidth
           autoComplete="tel"
         />
+        <SiteSelector value={siteId} onChange={setSiteId} label="Sede" emptyLabel="Sin sede" />
         <Button type="submit" variant="contained" disabled={loading} loading={loading}>
           Guardar
         </Button>
