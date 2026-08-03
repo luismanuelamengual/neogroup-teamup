@@ -730,6 +730,35 @@ async function deleteLane(tournamentCategoryId: number, lane: RoundLane): Promis
 }
 
 /**
+ * Minimal shape `canDeleteTournament` needs — satisfied by both the `Tournament`
+ * entity and the client-facing `TournamentDto`, so the same check can run on the
+ * server (before deleting) and on the client (to grey out the delete button).
+ */
+interface DeletableTournament {
+  status: TournamentStatus
+  entryFee: number | null
+  paid: boolean
+}
+
+/**
+ * A tournament can always be deleted while it is still STAND_BY (nothing has
+ * been played yet). Once it starts (ONGOING) or ends (FINISHED), a tournament
+ * that charges an entry fee — and therefore owes TeamUp's service fee — can no
+ * longer be deleted until that fee is settled (`paid`). Free tournaments
+ * (`entryFee` null/0) are never billed, so they stay deletable regardless of
+ * status.
+ */
+export function canDeleteTournament(tournament: DeletableTournament): boolean {
+  if (tournament.status === TournamentStatus.STAND_BY) {
+    return true
+  }
+
+  const isBillable = tournament.entryFee != null && tournament.entryFee > 0
+
+  return !isBillable || tournament.paid
+}
+
+/**
  * Returns true when a tournament is considered complete: no match is still
  * pending. A pending match is either a real matchup awaiting a result or a
  * not-yet-reached knockout placeholder, so "nothing pending" means every lane

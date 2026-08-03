@@ -11,6 +11,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -21,6 +22,7 @@ import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import TournamentImageField from '@/app/(protected)/(tournaments)/components/TournamentImageField'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { canDeleteTournament } from '@/app/(protected)/(tournaments)/utils/tournaments'
 
 interface EditTournamentDialogProps {
   open: boolean
@@ -53,6 +55,7 @@ export default function EditTournamentDialog({
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const deletable = canDeleteTournament(tournament)
 
   useEffect(() => {
     if (open) {
@@ -145,15 +148,25 @@ export default function EditTournamentDialog({
         />
       </DialogContent>
       <DialogActions className="actions">
-        <Button
-          variant="outlined"
-          color="error"
-          onClick={() => setConfirmDeleteOpen(true)}
-          disabled={deleting}
-          loading={deleting}
+        <Tooltip
+          title={
+            deletable
+              ? ''
+              : 'No se puede eliminar: el torneo ya inició y es de pago. Esperá a que se abone el servicio.'
+          }
         >
-          Eliminar
-        </Button>
+          <span>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={deleting || !deletable}
+              loading={deleting}
+            >
+              Eliminar
+            </Button>
+          </span>
+        </Tooltip>
         <div style={{ flex: 1 }} />
         <Button onClick={onClose}>Cancelar</Button>
         <Button variant="contained" onClick={handleSave} disabled={loading} loading={loading}>
