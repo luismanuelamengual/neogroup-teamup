@@ -6,8 +6,8 @@ export interface UserDto {
   email: string
   firstName: string | null
   lastName: string | null
-  nickname: string | null
   phoneNumber: string | null
+  siteId: number | null
   roleId: Role | null
   createdAt: string
   displayName: string

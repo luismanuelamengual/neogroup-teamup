@@ -50,7 +50,6 @@ export default async function Layout({ children }: { children: ReactNode }) {
     email: session.user.email ?? '',
     firstName: session.user.firstName,
     lastName: session.user.lastName,
-    nickname: session.user.nickname,
     displayName: session.user.name ?? '',
     avatarUrl: session.user.image ?? '',
     roleId: session.user.roleId as Role

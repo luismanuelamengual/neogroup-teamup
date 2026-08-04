@@ -13,7 +13,7 @@ import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { createTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { createTournament, deleteTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import {
   buildTournament,
   createUser,
@@ -394,5 +394,59 @@ describe('settlement webhook', () => {
 
     expect((await ServicePayment.find(payment.id))!.status).toBe(PaymentStatus.PENDING)
     expect((await Tournament.withoutGlobalScopes().find(tournamentId))!.paid).toBe(false)
+  })
+})
+
+describe('deleting a billable tournament', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+    process.env.MP_ACCESS_TOKEN = 'TEST-token'
+  })
+
+  it('allows deleting a paid tournament while registrations are still open', async () => {
+    const built = await buildTournament({ type: TournamentType.LEAGUE, competitors: 4, entryFee: 1000 })
+
+    await expect(deleteTournament(built.tournament)).resolves.toBe(true)
+    expect(await Tournament.withoutGlobalScopes().find(built.tournament.id)).toBeNull()
+  })
+
+  it('allows deleting a free tournament however far along it is', async () => {
+    const built = await buildTournament({ type: TournamentType.LEAGUE, competitors: 4, entryFee: null })
+
+    await start(built)
+    await playToCompletion(built)
+
+    await expect(deleteTournament(built.tournament)).resolves.toBe(true)
+  })
+
+  it('blocks deleting an unpaid tournament once it started', async () => {
+    const built = await buildTournament({ type: TournamentType.LEAGUE, competitors: 4, entryFee: 1000 })
+
+    await start(built)
+
+    await expect(deleteTournament(built.tournament)).rejects.toThrow(/torneo de pago/)
+    expect(await Tournament.withoutGlobalScopes().find(built.tournament.id)).not.toBeNull()
+  })
+
+  it('blocks deleting an unpaid tournament once it finished', async () => {
+    const tournamentId = await playPaidTournament()
+    const tournament = (await Tournament.withoutGlobalScopes().find(tournamentId))!
+
+    await expect(deleteTournament(tournament)).rejects.toThrow(/torneo de pago/)
+  })
+
+  it('allows deleting a started tournament once its service fee is settled', async () => {
+    const tournamentId = await playPaidTournament()
+    mockMercadoPago({ paymentStatus: 'approved' })
+
+    const userId = await createUser(1)
+    const payment = await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+
+    await notifyWebhook(payment.id)
+
+    const tournament = (await Tournament.withoutGlobalScopes().find(tournamentId))!
+
+    expect(tournament.paid).toBe(true)
+    await expect(deleteTournament(tournament)).resolves.toBe(true)
   })
 })

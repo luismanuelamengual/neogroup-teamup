@@ -13,7 +13,6 @@ test.describe('Account', () => {
     const newLastName = `Updated ${Date.now()}`
 
     await page.getByLabel('Apellido').fill(newLastName)
-    await page.getByLabel('Apodo').fill('ElCrack')
     await page.getByRole('button', { name: 'Guardar' }).click()
 
     await expect(page.getByText('Datos guardados correctamente')).toBeVisible()
@@ -24,7 +23,6 @@ test.describe('Account', () => {
     await page.reload()
 
     await expect(page.getByLabel('Apellido')).toHaveValue(newLastName)
-    await expect(page.getByLabel('Apodo')).toHaveValue('ElCrack')
   })
 
   test('the account page no longer offers a payment platform to connect', async ({ page }) => {

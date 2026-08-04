@@ -66,7 +66,7 @@ export const POST = withApi(async (request, context, organizationId) => {
   user.passwordHash = await bcrypt.hash(password, 10)
   user.firstName = firstName
   user.lastName = lastName
-  user.nickname = null
+  user.siteId = null
   user.phoneNumber = input.phoneNumber?.trim() || null
   user.roleId = roleId
   user.emailVerified = false

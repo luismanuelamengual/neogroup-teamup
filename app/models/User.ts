@@ -25,10 +25,11 @@ export class User extends BaseEntity {
   lastName!: string | null
 
   @Column()
-  nickname!: string | null
-
-  @Column()
   phoneNumber!: string | null
+
+  /** Home venue ("sede") of the user, picked from the organization's sites catalogue. Optional. */
+  @Column()
+  siteId!: number | null
 
   /** Role of the user: 1 = administrator, 2 = organizer, 3 = player. Assigned once, cannot be switched by the user. */
   @Column()

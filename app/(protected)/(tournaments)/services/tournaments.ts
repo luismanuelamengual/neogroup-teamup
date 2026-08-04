@@ -26,6 +26,7 @@ import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getScoreWinner, isValidScore, normalizeScore } from '@/app/(protected)/(tournaments)/utils/score'
 import {
+  canDeleteTournament,
   createRound,
   createTournamentCategories,
   deleteVoidedFixtures,
@@ -398,6 +399,12 @@ export async function finishTournament(tournament: Tournament): Promise<void> {
 }
 
 export async function deleteTournament(tournament: Tournament): Promise<boolean> {
+  if (!canDeleteTournament(tournament)) {
+    throw new ApiException(
+      'No se puede eliminar un torneo de pago que ya inició o finalizó hasta que se abone su servicio'
+    )
+  }
+
   await tournament.delete()
 
   return true

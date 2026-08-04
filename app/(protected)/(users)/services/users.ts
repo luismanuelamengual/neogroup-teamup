@@ -1,5 +1,6 @@
 import { DB } from '@neogroup/neorm'
 import { sendPasswordResetEmail } from '@/app/(auth)/services/passwords'
+import { Site } from '@/app/(protected)/(sites)/models/Site'
 import { UserFilters } from '@/app/(protected)/(users)/models/UserFilters'
 import { CreateUserInput, UpdateUserInput } from '@/app/(protected)/(users)/models/UserInput'
 import { ApiException } from '@/app/models/ApiException'
@@ -68,15 +69,40 @@ function normalizeProfile(input: Partial<CreateUserInput & UpdateUserInput>) {
   return {
     firstName,
     lastName,
-    nickname: (input.nickname ?? '').trim() || null,
     phoneNumber: (input.phoneNumber ?? '').trim() || null,
     roleId: input.roleId as Role
   }
 }
 
 /**
- * Paginated listing of the organization users, searchable by name, nickname or
- * email and filterable by role.
+ * Resolves the user's home venue ("sede"): sites belong to the catalogue the
+ * administrator maintains (/sites ABM), so an id that is not one of the
+ * organization's sites is rejected rather than silently stored. `null` /
+ * undefined means "no site", which stays valid.
+ */
+async function resolveSiteId(organizationId: number, siteId: unknown): Promise<number | null> {
+  if (siteId === undefined || siteId === null || siteId === '') {
+    return null
+  }
+
+  const id = Number(siteId)
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  const site = await Site.where('organizationId', organizationId).where('id', id).first()
+
+  if (!site) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  return site.id
+}
+
+/**
+ * Paginated listing of the organization users, searchable by name or email
+ * and filterable by role.
  */
 export async function getUsers(
   organizationId: number,
@@ -98,7 +124,6 @@ export async function getUsers(
       group
         .where('firstName', 'ILIKE', pattern)
         .orWhere('lastName', 'ILIKE', pattern)
-        .orWhere('nickname', 'ILIKE', pattern)
         .orWhere('email', 'ILIKE', pattern)
     })
   }
@@ -147,8 +172,8 @@ export async function createUser(organizationId: number, input: CreateUserInput,
   user.passwordHash = null
   user.firstName = profile.firstName
   user.lastName = profile.lastName
-  user.nickname = profile.nickname
   user.phoneNumber = profile.phoneNumber
+  user.siteId = await resolveSiteId(organizationId, input.siteId)
   user.roleId = profile.roleId
   user.emailVerified = true
   user.active = true
@@ -166,8 +191,8 @@ export async function updateUser(organizationId: number, userId: number, input: 
 
   user.firstName = profile.firstName
   user.lastName = profile.lastName
-  user.nickname = profile.nickname
   user.phoneNumber = profile.phoneNumber
+  user.siteId = await resolveSiteId(organizationId, input.siteId)
   user.roleId = profile.roleId
   user.active = input.active !== false
   await user.save()

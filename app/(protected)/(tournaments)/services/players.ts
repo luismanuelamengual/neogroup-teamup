@@ -19,7 +19,7 @@ const EMPTY_RESULT = (pageSize: number): PaginatedResponse<User[]> => ({
 })
 
 /**
- * Searches players (roleId = PLAYER) by first/last name, nickname or email. Paginated,
+ * Searches players (roleId = PLAYER) by first/last name or email. Paginated,
  * analogous to `getTournaments` in `services/tournaments.ts`.
  *
  * `excludeIds` is applied in the query itself (not filtered afterwards by the caller): the
@@ -58,7 +58,6 @@ export async function getPlayers({ query, excludeIds, page = 1, pageSize = 10 }:
       group
         .where('firstName', 'ILIKE', pattern)
         .orWhere('lastName', 'ILIKE', pattern)
-        .orWhere('nickname', 'ILIKE', pattern)
         .orWhere('email', 'ILIKE', pattern)
     })
   }

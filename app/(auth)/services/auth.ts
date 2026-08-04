@@ -92,7 +92,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             dbUser.passwordHash = null
             dbUser.firstName = (profile?.given_name as string | undefined) ?? null
             dbUser.lastName = (profile?.family_name as string | undefined) ?? null
-            dbUser.nickname = null
+            dbUser.siteId = null
             // Assign the role directly when only one is allowed; otherwise leave null for select-role.
             dbUser.roleId = allowedRoles.length === 1 ? allowedRoles[0] : null
             dbUser.emailVerified = true
@@ -110,8 +110,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           token.roleId = dbUser.roleId
           token.firstName = dbUser.firstName
           token.lastName = dbUser.lastName
-          token.nickname = dbUser.nickname
           token.phoneNumber = dbUser.phoneNumber
+          token.siteId = dbUser.siteId
         }
       }
 
@@ -124,8 +124,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           token.roleId = dbUser.roleId
           token.firstName = dbUser.firstName
           token.lastName = dbUser.lastName
-          token.nickname = dbUser.nickname
           token.phoneNumber = dbUser.phoneNumber
+          token.siteId = dbUser.siteId
         }
       }
 
@@ -137,8 +137,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           token.roleId = dbUser.roleId
           token.firstName = dbUser.firstName
           token.lastName = dbUser.lastName
-          token.nickname = dbUser.nickname
           token.phoneNumber = dbUser.phoneNumber
+          token.siteId = dbUser.siteId
         }
       }
 
@@ -152,12 +152,11 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         session.user.roleId = (token.roleId as Role | undefined) ?? null
         session.user.firstName = (token.firstName as string | undefined) ?? null
         session.user.lastName = (token.lastName as string | undefined) ?? null
-        session.user.nickname = (token.nickname as string | undefined) ?? null
         session.user.phoneNumber = (token.phoneNumber as string | undefined) ?? null
+        session.user.siteId = (token.siteId as number | undefined) ?? null
         session.user.name = getUserDisplayName({
           firstName: session.user.firstName,
           lastName: session.user.lastName,
-          nickname: session.user.nickname,
           email: session.user.email ?? ''
         })
         session.user.image = getGravatarUrl(session.user.email)

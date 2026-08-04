@@ -38,20 +38,20 @@ const CONFIG_OVERRIDES: Record<string, Partial<PwaConfig>> = {
   'club-aleman': {
     name: 'Club Alemán',
     shortName: 'Club Alemán',
-    themeColor: '#111111',
-    backgroundColor: '#ffffff'
+    themeColor: '#0f766e',
+    backgroundColor: '#f6f8f8'
   },
   fmt: {
     name: 'Federación Mendocina de Tenis',
     shortName: 'FMT',
-    themeColor: '#4a90c2',
-    backgroundColor: '#ffffff'
+    themeColor: '#0f766e',
+    backgroundColor: '#f6f8f8'
   },
   'punto-deporte': {
     name: 'Punto Deporte',
     shortName: 'Punto Deporte',
-    themeColor: '#33479f',
-    backgroundColor: '#ffffff'
+    themeColor: '#0f766e',
+    backgroundColor: '#f6f8f8'
   }
 }
 

@@ -1,5 +1,6 @@
 import { auth, unstable_update } from '@/app/(auth)/services/auth'
 import { AccountInput } from '@/app/(protected)/(account)/models/AccountInput'
+import { Site } from '@/app/(protected)/(sites)/models/Site'
 import { ApiException } from '@/app/models/ApiException'
 import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
@@ -10,11 +11,37 @@ import { isValidRole } from '@/app/utils/users'
 type UpdateAccountBody = Partial<AccountInput & { roleId: Role }>
 
 /**
+ * Resolves the user's home venue ("sede"): sites belong to the catalogue the
+ * administrator maintains (/sites ABM), so an id that is not one of the
+ * organization's sites is rejected rather than silently stored. `null` /
+ * undefined means "no site", which stays valid.
+ */
+async function resolveSiteId(organizationId: number, siteId: unknown): Promise<number | null> {
+  if (siteId === undefined || siteId === null || siteId === '') {
+    return null
+  }
+
+  const id = Number(siteId)
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  const site = await Site.where('organizationId', organizationId).where('id', id).first()
+
+  if (!site) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  return site.id
+}
+
+/**
  * POST /api/updateAccount — unified account update endpoint.
  *
  * Dispatches based on which fields are present in the body:
- * - { roleId }                        → assigns the user role once (auth required)
- * - { firstName, lastName, nickname } → updates personal information (auth required)
+ * - { roleId }                      → assigns the user role once (auth required)
+ * - { firstName, lastName, siteId } → updates personal information (auth required)
  */
 export const POST = withApi(async (request, _context, organizationId) => {
   const body = (await request.json()) as UpdateAccountBody
@@ -74,8 +101,8 @@ export const POST = withApi(async (request, _context, organizationId) => {
 
   user.firstName = firstName
   user.lastName = lastName
-  user.nickname = (body.nickname ?? '').trim() || null
   user.phoneNumber = (body.phoneNumber ?? '').trim() || null
+  user.siteId = await resolveSiteId(organizationId, body.siteId)
   await user.save()
   await unstable_update({})
 })

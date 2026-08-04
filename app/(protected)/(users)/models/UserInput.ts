@@ -5,8 +5,8 @@ export interface CreateUserInput {
   email: string
   firstName: string
   lastName: string
-  nickname?: string | null
   phoneNumber?: string | null
+  siteId?: number | null
   roleId: Role
 }
 
@@ -18,8 +18,8 @@ export interface CreateUserInput {
 export interface UpdateUserInput {
   firstName: string
   lastName: string
-  nickname?: string | null
   phoneNumber?: string | null
+  siteId?: number | null
   roleId: Role
   active: boolean
 }
