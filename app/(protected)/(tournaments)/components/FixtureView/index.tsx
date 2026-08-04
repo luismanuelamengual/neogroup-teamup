@@ -221,26 +221,27 @@ export default function FixtureView({
   return (
     <div className="fixture-view">
       <div className="round-selector">
-        <IconButton
-          size="small"
-          disabled={activeRoundIndex === 0}
-          onClick={() => setSelectedRoundNumber(rounds[activeRoundIndex - 1]!.number)}
-        >
-          <ChevronLeftIcon />
-        </IconButton>
-        <span className="round-selector-label">Fecha {activeRound.number}</span>
-        <IconButton
-          size="small"
-          disabled={activeRoundIndex === rounds.length - 1}
-          onClick={() => setSelectedRoundNumber(rounds[activeRoundIndex + 1]!.number)}
-        >
-          <ChevronRightIcon />
-        </IconButton>
+        <div className="round-selector-controls">
+          <IconButton
+            size="small"
+            disabled={activeRoundIndex === 0}
+            onClick={() => setSelectedRoundNumber(rounds[activeRoundIndex - 1]!.number)}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+          <span className="round-selector-label">Fecha {activeRound.number}</span>
+
+          <IconButton
+            size="small"
+            disabled={activeRoundIndex === rounds.length - 1}
+            onClick={() => setSelectedRoundNumber(rounds[activeRoundIndex + 1]!.number)}
+          >
+            <ChevronRightIcon />
+          </IconButton>
+        </div>
+        {activeRound.open && <Chip size="small" color="success" variant="outlined" label="En juego" />}
       </div>
       <section className="round">
-        <header className="round-header">
-          {activeRound.open && <Chip size="small" color="success" variant="outlined" label="En juego" />}
-        </header>
         <div className="matches">{activeRound.matches.map(renderMatch)}</div>
       </section>
     </div>
