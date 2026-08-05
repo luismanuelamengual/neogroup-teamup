@@ -39,6 +39,7 @@ import {
   progressTournamentAfterResult
 } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
+import { Organization } from '@/app/models/Organization'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
@@ -207,6 +208,20 @@ export async function createTournament(
     ? await validateCategoryIds(organizationId, input.discipline, pickedCategoryIds)
     : null
   const siteId = await resolveSiteId(organizationId, input.siteId)
+  const entryFee = input.entryFee && input.entryFee > 0 ? input.entryFee : null
+  // A paid tournament (entryFee set) whose organization charges no service fee
+  // (serviceFeePercentage === 0) owes TeamUp nothing, ever — so it is created
+  // already settled instead of sitting as a false pending payment.
+  let paid = false
+
+  if (entryFee !== null) {
+    const organization = await Organization.where('id', organizationId).first()
+
+    if ((organization?.serviceFeePercentage ?? 0) === 0) {
+      paid = true
+    }
+  }
+
   let settings: TournamentSettings = {}
 
   if (input.type === TournamentType.LEAGUE) {
@@ -291,12 +306,14 @@ export async function createTournament(
   tournament.startTime = startTime
   tournament.startInscriptionsDate = startInscriptionsDate
   tournament.siteId = siteId
-  // `paid` is the settlement flag of TeamUp's service fee: a brand-new
-  // tournament owes nothing yet, and a free one never will.
-  tournament.paid = false
+  // `paid` is the settlement flag of TeamUp's service fee: a free tournament
+  // never owes one, and neither does a paid one whose organization has no
+  // service fee configured (see `paid` above). Otherwise a brand-new
+  // tournament owes nothing yet.
+  tournament.paid = paid
   tournament.paidAt = null
   tournament.servicePaymentId = null
-  tournament.entryFee = input.entryFee && input.entryFee > 0 ? input.entryFee : null
+  tournament.entryFee = entryFee
   tournament.currency = 'ARS'
   tournament.allowPlayerSetScore = Boolean(input.allowPlayerSetScore)
   tournament.settings = settings
