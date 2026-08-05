@@ -4,13 +4,15 @@ import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
+import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { assignSiteLabels } from '@/app/(protected)/(tournaments)/services/registrations'
+import { assignSiteLabels, updateTeamRoster } from '@/app/(protected)/(tournaments)/services/registrations'
 import { InterclubsMode, resolveInterclubsFormat } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { computeStandings } from '@/app/(protected)/(tournaments)/utils/standings'
 import {
   buildTournament,
   createSite,
+  createUser,
   getAllMatches,
   playToCompletion,
   reloadTournament,
@@ -277,5 +279,104 @@ describe('INTERCLUBS — team labels through the lifecycle', () => {
     expect(reloaded!.label).toBeNull()
     // Falls back to the roster-based name.
     expect(reloaded!.displayName).toBe('')
+  })
+})
+
+describe('INTERCLUBS — captain edits their own team roster', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+  })
+
+  /** Reloads a tournament with its competitors, the same way the API route does. */
+  async function loadWithCompetitors(tournamentId: number): Promise<Tournament> {
+    return (await Tournament.where('id', tournamentId).with('competitors').first())!
+  }
+
+  it('lets the captain add a team mate', async () => {
+    const built = await buildTournament({
+      type: TournamentType.INTERCLUBS,
+      competitors: 2,
+      scoreFormat: ScoreFormat.BASIC_COUNT
+    })
+    const [captainId, ...mates] = built.rosterByCompetitorId.get(built.competitorIds[0])!
+    const newMate = await createUser(built.tournament.organizationId)
+    const tournament = await loadWithCompetitors(built.tournament.id)
+
+    await updateTeamRoster(tournament, captainId, [...mates, newMate])
+
+    const [team] = await Competitor.withoutGlobalScopes().where('id', built.competitorIds[0]).get()
+
+    expect(team.playerIds).toEqual([captainId, ...mates, newMate])
+  })
+
+  it('lets the captain remove a team mate, as long as the minimum roster holds', async () => {
+    const built = await buildTournament({
+      type: TournamentType.INTERCLUBS,
+      competitors: 2,
+      playersPerCompetitor: 5,
+      scoreFormat: ScoreFormat.BASIC_COUNT
+    })
+    const [captainId, ...mates] = built.rosterByCompetitorId.get(built.competitorIds[0])!
+    const tournament = await loadWithCompetitors(built.tournament.id)
+
+    await updateTeamRoster(tournament, captainId, mates.slice(0, 3))
+
+    const [team] = await Competitor.withoutGlobalScopes().where('id', built.competitorIds[0]).get()
+
+    expect(team.playerIds).toEqual([captainId, ...mates.slice(0, 3)])
+  })
+
+  it('rejects dropping the roster below the minimum size', async () => {
+    const built = await buildTournament({
+      type: TournamentType.INTERCLUBS,
+      competitors: 2,
+      scoreFormat: ScoreFormat.BASIC_COUNT
+    })
+    const [captainId, ...mates] = built.rosterByCompetitorId.get(built.competitorIds[0])!
+    const tournament = await loadWithCompetitors(built.tournament.id)
+
+    await expect(updateTeamRoster(tournament, captainId, mates.slice(0, 1))).rejects.toThrow('al menos')
+  })
+
+  it('rejects a non-captain team mate editing the roster', async () => {
+    const built = await buildTournament({
+      type: TournamentType.INTERCLUBS,
+      competitors: 2,
+      scoreFormat: ScoreFormat.BASIC_COUNT
+    })
+    const [, ...mates] = built.rosterByCompetitorId.get(built.competitorIds[0])!
+    const tournament = await loadWithCompetitors(built.tournament.id)
+
+    await expect(updateTeamRoster(tournament, mates[0], mates)).rejects.toThrow('No sos capitán')
+  })
+
+  it('rejects adding a player already registered in another team', async () => {
+    const built = await buildTournament({
+      type: TournamentType.INTERCLUBS,
+      competitors: 2,
+      scoreFormat: ScoreFormat.BASIC_COUNT
+    })
+    const [captainId, ...mates] = built.rosterByCompetitorId.get(built.competitorIds[0])!
+    const [otherCaptainId] = built.rosterByCompetitorId.get(built.competitorIds[1])!
+    const tournament = await loadWithCompetitors(built.tournament.id)
+
+    await expect(updateTeamRoster(tournament, captainId, [...mates, otherCaptainId])).rejects.toThrow(
+      'ya está inscripto'
+    )
+  })
+
+  it('rejects editing the roster once the tournament has started', async () => {
+    const built = await buildTournament({
+      type: TournamentType.INTERCLUBS,
+      competitors: 2,
+      scoreFormat: ScoreFormat.BASIC_COUNT
+    })
+    const [captainId, ...mates] = built.rosterByCompetitorId.get(built.competitorIds[0])!
+
+    await start(built)
+
+    const tournament = await loadWithCompetitors(built.tournament.id)
+
+    await expect(updateTeamRoster(tournament, captainId, mates)).rejects.toThrow('Torneo ya iniciado')
   })
 })

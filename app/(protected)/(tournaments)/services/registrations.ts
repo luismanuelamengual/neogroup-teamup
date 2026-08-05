@@ -185,6 +185,47 @@ export async function resolveTeamData(organizationId: number, siteId: unknown): 
   return { siteId: site.id }
 }
 
+/**
+ * Updates the roster of the caller's own interclubes team (add/remove team
+ * mates) while registrations are still open. Scoped to the team's own
+ * captain — the player who heads the roster (`playerIds[0]`) — editing their
+ * own team; an organizer managing someone else's team goes through
+ * `services/administration.ts` instead. Mirrors `leaveTournament` in only
+ * ever letting a player act on their own registration.
+ *
+ * `mateIds` is the roster minus the captain, exactly like `resolveRegistration`
+ * and `registerCompetitor` expect it. Validation (minimum size, no player
+ * already registered elsewhere) is delegated to `resolveTeamRoster`, checked
+ * against every OTHER competitor of the tournament so the team's own current
+ * members never collide with themselves.
+ */
+export async function updateTeamRoster(tournament: Tournament, userId: number, mateIds: number[]): Promise<Competitor> {
+  if (tournament.status !== TournamentStatus.STAND_BY) {
+    throw new ApiException('Torneo ya iniciado. El equipo no se puede modificar')
+  }
+
+  if (!registersAsTeam(tournament.type)) {
+    throw new ApiException('Esta acción solo está disponible para torneos de Interclubes')
+  }
+
+  const competitors = tournament.competitors ?? []
+  const team = competitors.find((competitor) => competitor.playerIds[0] === userId)
+
+  if (!team) {
+    throw new ApiException('No sos capitán de ningún equipo en este torneo')
+  }
+
+  const normalizedMateIds = [
+    ...new Set(mateIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0 && id !== userId))
+  ]
+  const otherCompetitors = competitors.filter((competitor) => competitor.id !== team.id)
+
+  team.playerIds = await resolveTeamRoster(userId, normalizedMateIds, otherCompetitors)
+  await team.save()
+
+  return team
+}
+
 /** Creates and persists a competitor for a resolved registration. */
 export async function createCompetitor(
   tournamentCategoryId: number,

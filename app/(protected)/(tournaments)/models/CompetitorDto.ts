@@ -2,10 +2,12 @@ import { CompetitorData } from '@/app/(protected)/(tournaments)/models/Competito
 
 /** Minimal user info embedded in a competitor for display purposes. */
 export interface CompetitorUserInfo {
+  id: number
   firstName: string | null
   lastName: string | null
   phoneNumber: string | null
   email: string
+  displayName: string
 }
 
 /** Serializable representation of a Competitor — safe to pass server→client. */
