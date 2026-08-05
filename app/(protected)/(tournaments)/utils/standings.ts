@@ -15,8 +15,8 @@ import { TournamentDto } from '../models/TournamentDto'
 
 /** Minimal match shape the interclubes ranking needs. Both `Match` and `MatchDto` satisfy it. */
 export interface RankableMatch {
-  homeCompetitorIds: number[]
-  awayCompetitorIds: number[] | null
+  homeCompetitorId: number | null
+  awayCompetitorId: number | null
   status: MatchStatus
   winner: MatchSide | null
   score: MatchScore | null
@@ -59,13 +59,11 @@ function emptyInterclubsRow(competitorId: number): StandingsRowDto {
 export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]): StandingsRowDto[] {
   const rows = new Map(competitorIds.map((id) => [id, emptyInterclubsRow(id)]))
 
-  const addTo = (ids: number[] | null, updater: (row: StandingsRowDto) => void) => {
-    for (const id of ids ?? []) {
-      const row = rows.get(id)
+  const addTo = (id: number | null, updater: (row: StandingsRowDto) => void) => {
+    const row = id != null ? rows.get(id) : undefined
 
-      if (row) {
-        updater(row)
-      }
+    if (row) {
+      updater(row)
     }
   }
 
@@ -79,7 +77,7 @@ export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]
     const subMatches = isWalkover ? { home: 0, away: 0 } : getSeriesMatchesWon(score)
     const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
 
-    addTo(match.homeCompetitorIds, (row) => {
+    addTo(match.homeCompetitorId, (row) => {
       row.played++
       row.subMatchesWon = (row.subMatchesWon ?? 0) + subMatches.home
       row.subMatchesLost = (row.subMatchesLost ?? 0) + subMatches.away
@@ -91,7 +89,7 @@ export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]
         row.points++
       }
     })
-    addTo(match.awayCompetitorIds, (row) => {
+    addTo(match.awayCompetitorId, (row) => {
       row.played++
       row.subMatchesWon = (row.subMatchesWon ?? 0) + subMatches.away
       row.subMatchesLost = (row.subMatchesLost ?? 0) + subMatches.home
@@ -112,10 +110,10 @@ export function rankInterclubs(competitorIds: number[], matches: RankableMatch[]
         continue
       }
 
-      const homeHasA = match.homeCompetitorIds.includes(idA)
-      const homeHasB = match.homeCompetitorIds.includes(idB)
-      const awayHasA = match.awayCompetitorIds.includes(idA)
-      const awayHasB = match.awayCompetitorIds.includes(idB)
+      const homeHasA = match.homeCompetitorId === idA
+      const homeHasB = match.homeCompetitorId === idB
+      const awayHasA = match.awayCompetitorId === idA
+      const awayHasB = match.awayCompetitorId === idB
 
       if ((homeHasA && awayHasB) || (homeHasB && awayHasA)) {
         if (match.winner === MatchSide.HOME) {
@@ -220,8 +218,13 @@ export function computeStandings(
     // Defensive: a competitor added to a group after it was materialised (or any
     // future divergence) still shows up if it plays there.
     for (const match of matches) {
-      match.homeCompetitorIds.forEach((id) => groupCompetitorIds.add(id))
-      match.awayCompetitorIds?.forEach((id) => groupCompetitorIds.add(id))
+      if (match.homeCompetitorId != null) {
+        groupCompetitorIds.add(match.homeCompetitorId)
+      }
+
+      if (match.awayCompetitorId != null) {
+        groupCompetitorIds.add(match.awayCompetitorId)
+      }
     }
   }
 
@@ -245,9 +248,7 @@ export function computeStandings(
   }
 
   // Groups score like a league (sets + match wins).
-  // AMERICANO_WITH_SWAP scores the same as AMERICANO.
-  const rawType = isGroups ? TournamentType.LEAGUE : tournament.type
-  const type = rawType === TournamentType.AMERICANO_WITH_SWAP ? TournamentType.AMERICANO : rawType
+  const type = isGroups ? TournamentType.LEAGUE : tournament.type
   const { scoreFormat, settings } = tournament
   const groupsDefaults = DEFAULT_GROUPS_PLAYOFF_SETTINGS
   const leagueSettings = isGroups
@@ -275,13 +276,11 @@ export function computeStandings(
     })
   }
 
-  const addToSide = (ids: number[] | null, updater: (row: StandingsRowDto) => void) => {
-    for (const id of ids ?? []) {
-      const row = rows.get(id)
+  const addToSide = (id: number | null, updater: (row: StandingsRowDto) => void) => {
+    const row = id != null ? rows.get(id) : undefined
 
-      if (row) {
-        updater(row)
-      }
+    if (row) {
+      updater(row)
     }
   }
 
@@ -297,7 +296,7 @@ export function computeStandings(
       const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
       const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
 
-      addToSide(match.homeCompetitorIds, (row) => {
+      addToSide(match.homeCompetitorId, (row) => {
         row.played++
         row.setsWon = (row.setsWon ?? 0) + sets.home
         row.setsLost = (row.setsLost ?? 0) + sets.away
@@ -314,7 +313,7 @@ export function computeStandings(
           row.points += leagueSettings.pointsPerMatchWon
         }
       })
-      addToSide(match.awayCompetitorIds, (row) => {
+      addToSide(match.awayCompetitorId, (row) => {
         row.played++
         row.setsWon = (row.setsWon ?? 0) + sets.away
         row.setsLost = (row.setsLost ?? 0) + sets.home
@@ -334,7 +333,7 @@ export function computeStandings(
     } else if (type === TournamentType.AMERICANO) {
       const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
 
-      addToSide(match.homeCompetitorIds, (row) => {
+      addToSide(match.homeCompetitorId, (row) => {
         row.played++
         row.gamesWon = (row.gamesWon ?? 0) + games.home
         row.gamesLost = (row.gamesLost ?? 0) + games.away
@@ -345,7 +344,7 @@ export function computeStandings(
           row.points += americanoSettings.pointsPerMatchWon
         }
       })
-      addToSide(match.awayCompetitorIds, (row) => {
+      addToSide(match.awayCompetitorId, (row) => {
         row.played++
         row.gamesWon = (row.gamesWon ?? 0) + games.away
         row.gamesLost = (row.gamesLost ?? 0) + games.home
@@ -369,10 +368,10 @@ export function computeStandings(
         continue
       }
 
-      const homeHasA = match.homeCompetitorIds.includes(idA)
-      const homeHasB = match.homeCompetitorIds.includes(idB)
-      const awayHasA = match.awayCompetitorIds.includes(idA)
-      const awayHasB = match.awayCompetitorIds.includes(idB)
+      const homeHasA = match.homeCompetitorId === idA
+      const homeHasB = match.homeCompetitorId === idB
+      const awayHasA = match.awayCompetitorId === idA
+      const awayHasB = match.awayCompetitorId === idB
 
       if ((homeHasA && awayHasB) || (homeHasB && awayHasA)) {
         if (match.winner === MatchSide.HOME) {

@@ -13,8 +13,8 @@ function leagueMatch(overrides: Partial<EditableMatch> & { id: number; roundNumb
     groupNumber: null,
     position: 0,
     bracketInstance: null,
-    homeCompetitorIds: [1],
-    awayCompetitorIds: [2],
+    homeCompetitorId: 1,
+    awayCompetitorId: 2,
     status: MatchStatus.PENDING,
     ...overrides
   }
@@ -35,7 +35,6 @@ describe('allowsUnorderedResults', () => {
     // Americanos pair later rounds from the standings, so those rounds cannot
     // exist up front; interclubes and knockouts are not configurable this way.
     expect(allowsUnorderedResults(TournamentType.AMERICANO, settings)).toBe(false)
-    expect(allowsUnorderedResults(TournamentType.AMERICANO_WITH_SWAP, settings)).toBe(false)
     expect(allowsUnorderedResults(TournamentType.INTERCLUBS, settings)).toBe(false)
     expect(allowsUnorderedResults(TournamentType.PLAYOFF, settings)).toBe(false)
   })
@@ -52,12 +51,12 @@ describe('matchesPerCompetitor', () => {
 
 describe('countsForStandings', () => {
   it('excludes pending, voided and rival-less matches', () => {
-    expect(countsForStandings({ status: MatchStatus.PLAYED, awayCompetitorIds: [2] })).toBe(true)
-    expect(countsForStandings({ status: MatchStatus.WALKOVER, awayCompetitorIds: [2] })).toBe(true)
-    expect(countsForStandings({ status: MatchStatus.PENDING, awayCompetitorIds: [2] })).toBe(false)
+    expect(countsForStandings({ status: MatchStatus.PLAYED, awayCompetitorId: 2 })).toBe(true)
+    expect(countsForStandings({ status: MatchStatus.WALKOVER, awayCompetitorId: 2 })).toBe(true)
+    expect(countsForStandings({ status: MatchStatus.PENDING, awayCompetitorId: 2 })).toBe(false)
     // The case this guard exists for: a voided fixture keeps both its sides.
-    expect(countsForStandings({ status: MatchStatus.VOID, awayCompetitorIds: [2] })).toBe(false)
-    expect(countsForStandings({ status: MatchStatus.WALKOVER, awayCompetitorIds: null })).toBe(false)
+    expect(countsForStandings({ status: MatchStatus.VOID, awayCompetitorId: 2 })).toBe(false)
+    expect(countsForStandings({ status: MatchStatus.WALKOVER, awayCompetitorId: null })).toBe(false)
   })
 })
 
@@ -91,8 +90,8 @@ describe('isMatchEditable — unordered round robins', () => {
       groupNumber: null,
       position: 0,
       bracketInstance: 1,
-      homeCompetitorIds: [1],
-      awayCompetitorIds: [2],
+      homeCompetitorId: 1,
+      awayCompetitorId: 2,
       status: MatchStatus.PLAYED
     }
 

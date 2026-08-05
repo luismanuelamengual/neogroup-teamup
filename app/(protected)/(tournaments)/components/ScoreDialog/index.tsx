@@ -49,8 +49,10 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
   )
   const scoreFormat = tournament.scoreFormat
   const isInterclubs = tournament.type === TournamentType.INTERCLUBS
-  const homeName = match?.homeCompetitorIds.map((id) => competitorsById.get(id)?.displayName ?? '').join(' / ')
-  const awayName = (match?.awayCompetitorIds ?? []).map((id) => competitorsById.get(id)?.displayName ?? '').join(' / ')
+  const homeName =
+    match?.homeCompetitorId != null ? (competitorsById.get(match.homeCompetitorId)?.displayName ?? '') : ''
+  const awayName =
+    match?.awayCompetitorId != null ? (competitorsById.get(match.awayCompetitorId)?.displayName ?? '') : ''
   const initialScore = match?.score ?? null
   const [walkover, setWalkover] = useState(false)
   const [walkoverWinner, setWalkoverWinner] = useState<MatchSide>(MatchSide.HOME)
@@ -61,8 +63,8 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
   const [invalid, setInvalid] = useState(false)
   // Interclubes teams field their players by name, so the pickers need the
   // roster of each side: `playerIds` and `players` are parallel, in roster order.
-  const homeTeam = match ? competitorsById.get(match.homeCompetitorIds[0]) : undefined
-  const awayTeam = match?.awayCompetitorIds ? competitorsById.get(match.awayCompetitorIds[0]) : undefined
+  const homeTeam = match?.homeCompetitorId != null ? competitorsById.get(match.homeCompetitorId) : undefined
+  const awayTeam = match?.awayCompetitorId != null ? competitorsById.get(match.awayCompetitorId) : undefined
   const rosterOf = useCallback(
     (competitor: CompetitorDto | undefined): SeriesPlayer[] =>
       (competitor?.playerIds ?? []).map((id, index) => {

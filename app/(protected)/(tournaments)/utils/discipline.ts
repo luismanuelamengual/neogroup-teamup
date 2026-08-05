@@ -21,8 +21,7 @@ export function registersAsTeam(type: TournamentType): boolean {
 
 /**
  * True when competitors register as pairs (player + partner).
- * Americano with partner swapping (AMERICANO_WITH_SWAP) registers players individually,
- * and interclubes registers whole teams (see `registersAsTeam`).
+ * Interclubes registers whole teams instead (see `registersAsTeam`).
  */
 export function registersAsPairs(
   discipline: Discipline,
@@ -33,13 +32,5 @@ export function registersAsPairs(
     return false
   }
 
-  if (!isDoublesDiscipline(discipline, subDiscipline)) {
-    return false
-  }
-
-  if (type === TournamentType.AMERICANO_WITH_SWAP) {
-    return false
-  }
-
-  return true
+  return isDoublesDiscipline(discipline, subDiscipline)
 }

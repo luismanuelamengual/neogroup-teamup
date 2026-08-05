@@ -56,17 +56,17 @@ export function getPodiumCompetitorIds(tournament: Tournament, category: number 
   }
 
   const finalMatch = bracketMatches.find(
-    (match) => match.bracketInstance === 1 && match.awayCompetitorIds !== null && match.winner !== null
+    (match) => match.bracketInstance === 1 && match.awayCompetitorId !== null && match.winner !== null
   )
 
-  if (!finalMatch || finalMatch.winner === null || !finalMatch.awayCompetitorIds) {
+  if (!finalMatch || finalMatch.winner === null || finalMatch.awayCompetitorId == null) {
     return []
   }
 
-  const winnerIds = finalMatch.winner === MatchSide.HOME ? finalMatch.homeCompetitorIds : finalMatch.awayCompetitorIds
-  const loserIds = finalMatch.winner === MatchSide.HOME ? finalMatch.awayCompetitorIds : finalMatch.homeCompetitorIds
+  const winnerId = finalMatch.winner === MatchSide.HOME ? finalMatch.homeCompetitorId : finalMatch.awayCompetitorId
+  const loserId = finalMatch.winner === MatchSide.HOME ? finalMatch.awayCompetitorId : finalMatch.homeCompetitorId
 
-  return [winnerIds[0], loserIds[0]].filter((id): id is number => id != null)
+  return [winnerId, loserId].filter((id): id is number => id != null)
 }
 
 /** Champion (1st place) competitor id of a tournament category, or null. */

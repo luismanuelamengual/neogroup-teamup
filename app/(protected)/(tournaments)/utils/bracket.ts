@@ -33,8 +33,8 @@ export interface BracketSlotMatch {
   type: MatchType
   groupNumber: number | null
   position: number
-  homeCompetitorIds: number[]
-  awayCompetitorIds: number[] | null
+  homeCompetitorId: number | null
+  awayCompetitorId: number | null
   status: MatchStatus
 }
 
@@ -130,17 +130,17 @@ function describeFeeder(
   feeder: BracketSlotMatch | undefined,
   outcome: 'winner' | 'loser',
   lane: BracketSlotMatch[],
-  nameOf: (competitorIds: number[]) => string
+  nameOf: (competitorId: number) => string
 ): string | null {
   if (!feeder) {
     return null
   }
 
   const verb = outcome === 'winner' ? 'Ganador' : 'Perdedor'
-  const away = feeder.awayCompetitorIds
+  const away = feeder.awayCompetitorId
 
-  if (feeder.homeCompetitorIds.length > 0 && away != null && away.length > 0) {
-    return `${verb} de ${nameOf(feeder.homeCompetitorIds)} vs ${nameOf(away)}`
+  if (feeder.homeCompetitorId != null && away != null) {
+    return `${verb} de ${nameOf(feeder.homeCompetitorId)} vs ${nameOf(away)}`
   }
 
   // A first-round bye has no rival, so it never produces a loser of its own:
@@ -148,8 +148,8 @@ function describeFeeder(
   // first REAL match, one round later. Naming them is both shorter and more
   // accurate than pointing at that later match, whose other side would end up
   // voiding this slot instead of filling it.
-  if (outcome === 'loser' && feeder.status === MatchStatus.WALKOVER && feeder.homeCompetitorIds.length > 0) {
-    return `${nameOf(feeder.homeCompetitorIds)} si pierde`
+  if (outcome === 'loser' && feeder.status === MatchStatus.WALKOVER && feeder.homeCompetitorId != null) {
+    return `${nameOf(feeder.homeCompetitorId)} si pierde`
   }
 
   const stage = stageLabel(feeder, lane)
@@ -170,14 +170,14 @@ function describeFeeder(
 export function resolveSlotLabels<T extends BracketSlotMatch>(
   match: T,
   categoryMatches: T[],
-  nameOf: (competitorIds: number[]) => string
+  nameOf: (competitorId: number) => string
 ): SlotLabels {
   if (!isKnockoutType(match.type) || match.status === MatchStatus.VOID) {
     return NO_LABELS
   }
 
-  const needsHome = match.homeCompetitorIds.length === 0
-  const needsAway = match.awayCompetitorIds == null || match.awayCompetitorIds.length === 0
+  const needsHome = match.homeCompetitorId == null
+  const needsAway = match.awayCompetitorId == null
 
   if (!needsHome && !needsAway) {
     return NO_LABELS

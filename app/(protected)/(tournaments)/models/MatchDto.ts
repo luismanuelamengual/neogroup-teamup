@@ -12,8 +12,8 @@ export interface MatchDto {
   groupNumber: number | null
   position: number
   bracketInstance: number | null
-  homeCompetitorIds: number[]
-  awayCompetitorIds: number[] | null
+  homeCompetitorId: number | null
+  awayCompetitorId: number | null
   score: MatchScore | null
   status: MatchStatus
   winner: MatchSide | null

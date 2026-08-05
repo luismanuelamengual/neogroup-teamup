@@ -25,7 +25,6 @@ interface TypeConfig {
 const ALL_TYPES: TypeConfig[] = [
   { type: TournamentType.LEAGUE, label: 'LEAGUE' },
   { type: TournamentType.AMERICANO, label: 'AMERICANO' },
-  { type: TournamentType.AMERICANO_WITH_SWAP, label: 'AMERICANO_WITH_SWAP' },
   { type: TournamentType.PLAYOFF, label: 'PLAYOFF' },
   { type: TournamentType.PLAYOFF, settings: { consolationBracket: true }, label: 'PLAYOFF (consolationBracket)' },
   { type: TournamentType.GROUPS_PLAYOFF, label: 'GROUPS_PLAYOFF' }
@@ -44,9 +43,7 @@ describe('boundaries — minimum field', () => {
     })
   }
 
-  // AMERICANO_WITH_SWAP needs at least four individuals to form two teams, so it
-  // is excluded from the two-competitor case (covered separately below).
-  for (const { type, settings, label } of ALL_TYPES.filter((t) => t.type !== TournamentType.AMERICANO_WITH_SWAP)) {
+  for (const { type, settings, label } of ALL_TYPES) {
     it(`completes ${label} with exactly two competitors`, async () => {
       const built = await buildTournament({ type, competitors: 2, scoreFormat: ScoreFormat.BASIC_COUNT, settings })
 
@@ -56,35 +53,6 @@ describe('boundaries — minimum field', () => {
       expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
     })
   }
-
-  // Swap americano requires four individuals (two teams). Fewer cannot generate a
-  // single match; the engine currently surfaces a generic 'noMatchesGenerated'
-  // error at START time rather than validating the field size up front
-  // (see FINDINGS.md, observation O1).
-  for (const n of [2, 3]) {
-    it(`cannot start a swap americano with only ${n} individuals`, async () => {
-      const built = await buildTournament({
-        type: TournamentType.AMERICANO_WITH_SWAP,
-        competitors: n,
-        scoreFormat: ScoreFormat.BASIC_COUNT
-      })
-
-      await expect(start(built)).rejects.toThrow('noMatchesGenerated')
-    })
-  }
-
-  it('completes a swap americano with the minimum of four individuals', async () => {
-    const built = await buildTournament({
-      type: TournamentType.AMERICANO_WITH_SWAP,
-      competitors: 4,
-      scoreFormat: ScoreFormat.BASIC_COUNT
-    })
-
-    await start(built)
-    await playToCompletion(built)
-
-    expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
-  })
 })
 
 describe('boundaries — degenerate groups', () => {

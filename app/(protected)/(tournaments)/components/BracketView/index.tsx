@@ -154,15 +154,14 @@ export default function BracketView({
 
     const finalMatch = finalMatches[0]!
 
-    if (finalMatch.winner === null || finalMatch.status === MatchStatus.VOID || finalMatch.awayCompetitorIds === null) {
+    if (finalMatch.winner === null || finalMatch.status === MatchStatus.VOID || finalMatch.awayCompetitorId === null) {
       return null
     }
 
-    const winnerIds = finalMatch.winner === MatchSide.HOME ? finalMatch.homeCompetitorIds : finalMatch.awayCompetitorIds
+    const winnerId = finalMatch.winner === MatchSide.HOME ? finalMatch.homeCompetitorId : finalMatch.awayCompetitorId
     const competitorsById: Record<number, CompetitorDto> = Object.fromEntries(
       (tournament.competitors ?? []).map((c) => [c.id, c])
     )
-    const winnerId = winnerIds[0]
 
     return winnerId != null ? (competitorsById[winnerId] ?? null) : null
   }, [rounds, roundMatchLists, tournament.competitors])
@@ -185,11 +184,7 @@ export default function BracketView({
     }
 
     const userMatchIds = editable
-      .filter(
-        (m) =>
-          m.awayCompetitorIds !== null &&
-          (m.homeCompetitorIds.includes(userEntry.id) || m.awayCompetitorIds.includes(userEntry.id))
-      )
+      .filter((m) => m.homeCompetitorId === userEntry.id || m.awayCompetitorId === userEntry.id)
       .map((m) => m.id)
 
     // The highlight (marking the player's own current match) always shows;

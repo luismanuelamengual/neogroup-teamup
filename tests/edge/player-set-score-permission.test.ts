@@ -38,7 +38,7 @@ describe('setMatchResult — permissions', () => {
 
     const round1 = (await getRounds(built.categoryIds[0])).find((r) => r.number === 1)!
     const match = (await getMatches(round1.id))[0]
-    const participantId = built.rosterByCompetitorId.get(match.homeCompetitorIds[0])![0]
+    const participantId = built.rosterByCompetitorId.get(match.homeCompetitorId!)![0]
 
     await expect(setMatchResult(match.id, homeWinScore(ScoreFormat.BASIC_COUNT), participantId)).rejects.toThrow(
       'unauthorized'
@@ -57,7 +57,7 @@ describe('setMatchResult — permissions', () => {
 
     const round1 = (await getRounds(built.categoryIds[0])).find((r) => r.number === 1)!
     const match = (await getMatches(round1.id))[0]
-    const participantId = built.rosterByCompetitorId.get(match.homeCompetitorIds[0])![0]
+    const participantId = built.rosterByCompetitorId.get(match.homeCompetitorId!)![0]
 
     await expect(
       setMatchResult(match.id, homeWinScore(ScoreFormat.BASIC_COUNT), participantId)

@@ -117,11 +117,7 @@ export default function FixtureView({
     }
 
     const userMatchIds = editable
-      .filter(
-        (m) =>
-          m.awayCompetitorIds !== null &&
-          (m.homeCompetitorIds.includes(userEntry.id) || m.awayCompetitorIds.includes(userEntry.id))
-      )
+      .filter((m) => m.homeCompetitorId === userEntry.id || m.awayCompetitorId === userEntry.id)
       .map((m) => m.id)
 
     // The highlight (marking the player's own current match) always shows;
@@ -157,7 +153,8 @@ export default function FixtureView({
     }
 
     return all.filter((match) => {
-      const names = [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]
+      const names = [match.homeCompetitorId, match.awayCompetitorId]
+        .filter((id): id is number => id != null)
         .map((id) => searchIndex.get(id) ?? '')
         .join(' ')
 

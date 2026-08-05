@@ -91,7 +91,7 @@ function computeBracketPlacements(
   const placements: CompetitorPlacement[] = []
 
   for (const match of bracketMatches) {
-    if (!match.awayCompetitorIds || match.winner === null) {
+    if (match.awayCompetitorId == null || match.winner === null) {
       continue
     }
 
@@ -103,18 +103,18 @@ function computeBracketPlacements(
     }
 
     const loserKey = knockoutStageKey(stage, consolation)
-    const loserIds = match.winner === MatchSide.HOME ? match.awayCompetitorIds : match.homeCompetitorIds
+    const loserId = match.winner === MatchSide.HOME ? match.awayCompetitorId : match.homeCompetitorId
 
-    for (const competitorId of loserIds ?? []) {
-      placements.push({ competitorId, placementKey: loserKey })
+    if (loserId != null) {
+      placements.push({ competitorId: loserId, placementKey: loserKey })
     }
 
     // The winner of the final round is the bracket champion.
     if (match.roundNumber === finalRoundNumber) {
-      const winnerIds = match.winner === MatchSide.HOME ? match.homeCompetitorIds : match.awayCompetitorIds
+      const winnerId = match.winner === MatchSide.HOME ? match.homeCompetitorId : match.awayCompetitorId
 
-      for (const competitorId of winnerIds ?? []) {
-        placements.push({ competitorId, placementKey: knockoutStageKey('winner', consolation) })
+      if (winnerId != null) {
+        placements.push({ competitorId: winnerId, placementKey: knockoutStageKey('winner', consolation) })
       }
     }
   }

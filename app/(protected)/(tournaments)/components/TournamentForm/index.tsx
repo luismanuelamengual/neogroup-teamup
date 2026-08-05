@@ -67,7 +67,7 @@ export default function TournamentForm() {
   const [subDiscipline, setSubDiscipline] = useState<SubDiscipline>(SubDiscipline.SINGLES)
   const [type, setType] = useState<TournamentType>(TournamentType.LEAGUE)
   const [scoreFormat, setScoreFormat] = useState<ScoreFormat>(ScoreFormat.THREE_SETS)
-  const isAmericano = type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
+  const isAmericano = type === TournamentType.AMERICANO
   const isInterclubs = type === TournamentType.INTERCLUBS
   const [startDate, setStartDate] = useState<Dayjs | null>(null)
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
@@ -95,13 +95,7 @@ export default function TournamentForm() {
   const [loading, setLoading] = useState(false)
   const availableTypes: TournamentType[] =
     discipline === Discipline.PADEL
-      ? [
-          TournamentType.LEAGUE,
-          TournamentType.AMERICANO,
-          TournamentType.AMERICANO_WITH_SWAP,
-          TournamentType.PLAYOFF,
-          TournamentType.GROUPS_PLAYOFF
-        ]
+      ? [TournamentType.LEAGUE, TournamentType.AMERICANO, TournamentType.PLAYOFF, TournamentType.GROUPS_PLAYOFF]
       : [
           TournamentType.LEAGUE,
           TournamentType.PLAYOFF,
@@ -149,7 +143,7 @@ export default function TournamentForm() {
     // Each discipline offers its own types; fall back to the league when the
     // selected one is not available in the new discipline (americanos are padel
     // only, interclubes is tennis only).
-    const isPadelOnly = type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
+    const isPadelOnly = type === TournamentType.AMERICANO
     const isTennisOnly = type === TournamentType.INTERCLUBS
 
     if ((value !== Discipline.PADEL && isPadelOnly) || (value !== Discipline.TENNIS && isTennisOnly)) {
@@ -186,7 +180,7 @@ export default function TournamentForm() {
         settings:
           type === TournamentType.LEAGUE
             ? leagueSettings
-            : type === TournamentType.AMERICANO || type === TournamentType.AMERICANO_WITH_SWAP
+            : type === TournamentType.AMERICANO
               ? americanoSettings
               : type === TournamentType.PLAYOFF
                 ? playoffSettings

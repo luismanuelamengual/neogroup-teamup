@@ -45,11 +45,22 @@ export class Match extends BaseEntity {
   @Column({ cast: 'number' })
   bracketInstance!: number | null
 
-  @Column({ cast: 'array' })
-  homeCompetitorIds!: number[]
+  /**
+   * Competitor on the home side. Null while the slot is not yet known (a
+   * "to be defined" knockout placeholder awaiting its feeder match) — never
+   * null once the match itself has been seeded/fed. FK to competitors.
+   */
+  @Column({ cast: 'number' })
+  homeCompetitorId!: number | null
 
-  @Column({ cast: 'array' })
-  awayCompetitorIds!: number[] | null
+  /**
+   * Competitor on the away side. Null both while not yet known (see
+   * `homeCompetitorId`) and for a permanent bye/void slot that will never
+   * have one — `status` (PENDING vs WALKOVER/VOID) tells the two apart. FK to
+   * competitors.
+   */
+  @Column({ cast: 'number' })
+  awayCompetitorId!: number | null
 
   @Column({ cast: 'json' })
   score!: MatchScore | null

@@ -36,10 +36,12 @@ export default function MatchCard({
   )
   const scoreFormat = tournament.scoreFormat
   const isVoid = match.status === MatchStatus.VOID
-  const isBye = match.awayCompetitorIds === null && !isVoid
+  // A bye's away side is structurally absent (never gets an opponent), unlike a
+  // "to be defined" bracket placeholder — which is also null but still PENDING.
+  const isBye = match.awayCompetitorId === null && match.status !== MatchStatus.PENDING && !isVoid
   const winner: MatchSide | null = match.winner
   // A placeholder ("to be defined") slot has nothing worth opening.
-  const hasDetail = !isVoid && match.homeCompetitorIds.length > 0
+  const hasDetail = !isVoid && match.homeCompetitorId != null
   // The venue is only worth naming when the match deviates from the tournament's
   // own site — otherwise it is the default everyone already assumes.
   const otherSite = match.siteId != null && match.siteId !== tournament.siteId ? (match.site ?? null) : null
@@ -56,18 +58,18 @@ export default function MatchCard({
     return seed != null ? `[${seed}] ${competitor.shortName}` : competitor.shortName
   }
 
-  const sideName = (ids: number[] | null): string => {
-    if (!ids || ids.length === 0) {
+  const sideName = (id: number | null): string => {
+    if (id == null) {
       return '—'
     }
 
-    return ids.map((id) => competitorLabel(competitorsById[id], id)).join(' / ')
+    return competitorLabel(competitorsById[id], id)
   }
 
-  const renderSide = (side: MatchSide, ids: number[] | null) => (
+  const renderSide = (side: MatchSide, id: number | null) => (
     <div className={`side ${winner === side ? 'winner' : ''} ${winner && winner !== side ? 'loser' : ''}`}>
       <span className={`side-dot ${MatchSideNames[side]}`} />
-      <span className="side-name">{sideName(ids)}</span>
+      <span className="side-name">{sideName(id)}</span>
     </div>
   )
 
@@ -96,8 +98,8 @@ export default function MatchCard({
             </div>
           ) : (
             <div className="sides">
-              {renderSide(MatchSide.HOME, match.homeCompetitorIds)}
-              {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorIds)}
+              {renderSide(MatchSide.HOME, match.homeCompetitorId)}
+              {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorId)}
             </div>
           )}
           <div className="result">

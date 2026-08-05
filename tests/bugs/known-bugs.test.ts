@@ -83,7 +83,7 @@ describe('REGRESSION #2 — americano must not force avoidable rematches', () =>
       }
 
       for (const match of pending) {
-        const key = [match.homeCompetitorIds[0], match.awayCompetitorIds![0]].sort((a, b) => a - b).join('-')
+        const key = [match.homeCompetitorId!, match.awayCompetitorId!].sort((a, b) => a - b).join('-')
 
         pairCount.set(key, (pairCount.get(key) ?? 0) + 1)
         await setResult(match.id, { home: 16, away: 9 })
@@ -127,7 +127,7 @@ describe('REGRESSION #3 — odd-field americano must distribute byes fairly', ()
       }
 
       for (const match of pending) {
-        for (const id of [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]) {
+        for (const id of [match.homeCompetitorId, match.awayCompetitorId].filter((id): id is number => id != null)) {
           played.set(id, (played.get(id) ?? 0) + 1)
         }
 
@@ -190,7 +190,7 @@ describe('BEHAVIOR — a single-group groups+playoff still plays its knockout', 
 
     for (const round of rounds) {
       for (const match of await getMatches(round.id)) {
-        if (match.awayCompetitorIds && match.awayCompetitorIds.length > 0) {
+        if (match.awayCompetitorId != null) {
           realMatches++
 
           if (round.type === MatchType.BRACKET) {

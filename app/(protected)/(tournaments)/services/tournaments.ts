@@ -185,10 +185,7 @@ export async function createTournament(
     throw new ApiException('missingFields')
   }
 
-  if (
-    (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) &&
-    input.discipline !== Discipline.PADEL
-  ) {
+  if (input.type === TournamentType.AMERICANO && input.discipline !== Discipline.PADEL) {
     throw new ApiException('americanoOnlyPadel')
   }
 
@@ -222,7 +219,7 @@ export async function createTournament(
     } else {
       delete settings.allowUnorderedResults
     }
-  } else if (input.type === TournamentType.AMERICANO || input.type === TournamentType.AMERICANO_WITH_SWAP) {
+  } else if (input.type === TournamentType.AMERICANO) {
     settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
   } else if (input.type === TournamentType.PLAYOFF) {
     settings = { ...DEFAULT_PLAYOFF_SETTINGS }
@@ -538,7 +535,7 @@ export async function processTournaments(now: Date = new Date()): Promise<Proces
 export async function setMatchResult(matchId: number, score: MatchScore, userId: number): Promise<void> {
   const match = await Match.where('id', matchId).with('tournamentCategory.tournament').first()
 
-  if (!match || !match.awayCompetitorIds) {
+  if (!match || match.awayCompetitorId == null) {
     throw new ApiException('notFound')
   }
 
@@ -561,10 +558,10 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
   // tournaments — not just the specific tournament's owner/creator.
   const caller = await User.where('id', userId).first()
   const isOrganizer = caller?.roleId === Role.ORGANIZER
-  const participants = await Competitor.whereIn('id', [
-    ...match.homeCompetitorIds,
-    ...(match.awayCompetitorIds ?? [])
-  ]).get()
+  const participants = await Competitor.whereIn(
+    'id',
+    [match.homeCompetitorId, match.awayCompetitorId].filter((id): id is number => id != null)
+  ).get()
 
   if (!isOrganizer) {
     // Players may only submit their own match result when the tournament opts
@@ -580,8 +577,8 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
   // Interclubes results are series of three individual matches, and each of
   // those names the players who took the court — so validation needs the two
   // rosters to check nobody plays for the wrong team (or twice in the series).
-  const homeRoster = participants.find((competitor) => match.homeCompetitorIds.includes(competitor.id))
-  const awayRoster = participants.find((competitor) => (match.awayCompetitorIds ?? []).includes(competitor.id))
+  const homeRoster = participants.find((competitor) => match.homeCompetitorId === competitor.id)
+  const awayRoster = participants.find((competitor) => match.awayCompetitorId === competitor.id)
 
   if (
     !isValidScore(score, tournament.scoreFormat, {
