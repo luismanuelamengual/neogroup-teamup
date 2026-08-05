@@ -44,7 +44,7 @@ describe('result edits — grace window', () => {
 
     const round2Before = (await getRounds(categoryId)).find((r) => r.number === 2)!
     const pairingsBefore = (await getMatches(round2Before.id))
-      .map((m) => `${m.homeCompetitorIds}-${m.awayCompetitorIds}`)
+      .map((m) => `${m.homeCompetitorId}-${m.awayCompetitorId}`)
       .join('|')
     // Edit round 1 (still active as a grace window): flip the first match.
     const round1Now = await getMatches(round1.id)
@@ -54,7 +54,7 @@ describe('result edits — grace window', () => {
     const round2After = (await getRounds(categoryId)).find((r) => r.number === 2)!
     const round2Rounds = (await getRounds(categoryId)).filter((r) => r.number === 2 && r.type === MatchType.LEAGUE)
     const pairingsAfter = (await getMatches(round2After.id))
-      .map((m) => `${m.homeCompetitorIds}-${m.awayCompetitorIds}`)
+      .map((m) => `${m.homeCompetitorId}-${m.awayCompetitorId}`)
       .join('|')
 
     // The edit must NOT leave duplicate round-2 rows behind...

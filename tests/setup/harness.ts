@@ -48,6 +48,7 @@ import migration013 from '@/database/migrations/013-matches-schedule'
 import migration014 from '@/database/migrations/014-tournaments-start-inscriptions-date'
 import migration015 from '@/database/migrations/015-payments-refactor'
 import migration016 from '@/database/migrations/016-fold-playoff-consolation-into-playoff'
+import migration018 from '@/database/migrations/018-single-competitor-per-side'
 
 const TABLES = [
   'service_payments',
@@ -151,6 +152,11 @@ export async function resetDatabase(): Promise<void> {
   // settings.consolationBracket — a no-op here since the table is freshly
   // created and empty.
   await migration016.up()
+  // 018 replaces matches.homeCompetitorIds/awayCompetitorIds (arrays, needed
+  // only by the removed AMERICANO_WITH_SWAP type) with single nullable
+  // homeCompetitorId/awayCompetitorId FK columns — a no-op deletion step here
+  // since the table is freshly created and empty.
+  await migration018.up()
 
   const organization = new Organization()
 
@@ -463,7 +469,7 @@ export interface SetResultError extends Error {
 export async function setResult(matchId: number, score: MatchScore): Promise<void> {
   const match = await Match.withoutGlobalScopes().where('id', matchId).with('tournamentCategory.tournament').first()
 
-  if (!match || !match.awayCompetitorIds) {
+  if (!match || match.awayCompetitorId == null) {
     throw Object.assign(new Error('notFound'), { apiCode: 'notFound' })
   }
 
@@ -484,10 +490,13 @@ export async function setResult(matchId: number, score: MatchScore): Promise<voi
   // Same validation context the route builds: interclubes series are checked
   // against the two teams' rosters.
   const participants = await Competitor.withoutGlobalScopes()
-    .whereIn('id', [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])])
+    .whereIn(
+      'id',
+      [match.homeCompetitorId, match.awayCompetitorId].filter((id): id is number => id != null)
+    )
     .get()
-  const homeRoster = participants.find((competitor) => match.homeCompetitorIds.includes(competitor.id))
-  const awayRoster = participants.find((competitor) => (match.awayCompetitorIds ?? []).includes(competitor.id))
+  const homeRoster = participants.find((competitor) => match.homeCompetitorId === competitor.id)
+  const awayRoster = participants.find((competitor) => match.awayCompetitorId === competitor.id)
 
   if (
     !isValidScore(score, tournament.scoreFormat, {
@@ -653,10 +662,12 @@ export function competitorsInMatches(matches: Match[]): number[] {
   const ids: number[] = []
 
   for (const match of matches) {
-    ids.push(...match.homeCompetitorIds)
+    if (match.homeCompetitorId != null) {
+      ids.push(match.homeCompetitorId)
+    }
 
-    if (match.awayCompetitorIds) {
-      ids.push(...match.awayCompetitorIds)
+    if (match.awayCompetitorId != null) {
+      ids.push(match.awayCompetitorId)
     }
   }
 
@@ -672,14 +683,11 @@ export function hasNoDoubleBooking(matches: Match[]): boolean {
 
 /** Canonical "a-b" key for an unordered pair of single-competitor sides. */
 export function pairKey(match: Match): string | null {
-  if (!match.awayCompetitorIds) {
+  if (match.awayCompetitorId == null || match.homeCompetitorId == null) {
     return null
   }
 
-  const a = [...match.homeCompetitorIds].sort((x, y) => x - y).join('+')
-  const b = [...match.awayCompetitorIds].sort((x, y) => x - y).join('+')
-
-  return [a, b].sort().join(' vs ')
+  return [match.homeCompetitorId, match.awayCompetitorId].sort((x, y) => x - y).join(' vs ')
 }
 
 // ── scoring helpers ───────────────────────────────────────────────────────────
@@ -821,8 +829,8 @@ export async function playToCompletion(
       const score = isInterclubs
         ? seriesScore(
             format,
-            built.rosterByCompetitorId.get(match.homeCompetitorIds[0]) ?? [],
-            built.rosterByCompetitorId.get((match.awayCompetitorIds ?? [])[0]) ?? [],
+            built.rosterByCompetitorId.get(match.homeCompetitorId ?? -1) ?? [],
+            built.rosterByCompetitorId.get(match.awayCompetitorId ?? -1) ?? [],
             // 3-0 / 0-3: decisive either way, and it keeps the individual-match
             // differential meaningful in the standings.
             side === 'home' ? 3 : 0

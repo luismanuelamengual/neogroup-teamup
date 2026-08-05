@@ -52,7 +52,7 @@ describe('PLAYOFF — full flows', () => {
       const firstMatches = await getMatches(round1.id)
 
       expect(firstMatches.length).toBe(bracketSize(n) / 2)
-      expect(firstMatches.every((m) => m.awayCompetitorIds && m.awayCompetitorIds.length > 0)).toBe(true)
+      expect(firstMatches.every((m) => m.awayCompetitorId != null)).toBe(true)
 
       await playToCompletion(built)
 
@@ -84,7 +84,7 @@ describe('PLAYOFF — full flows', () => {
       // byes (away === null) stored as already-won walkovers for the top seeds.
       const round1 = rounds.find((r) => r.number === 1)!
       const firstMatches = await getMatches(round1.id)
-      const byes = firstMatches.filter((m) => m.awayCompetitorIds === null)
+      const byes = firstMatches.filter((m) => m.awayCompetitorId === null)
 
       expect(byes.length).toBe(bracketSize(n) - n)
       expect(byes.every((m) => m.status === MatchStatus.WALKOVER && m.winner === MatchSide.HOME)).toBe(true)
@@ -95,7 +95,7 @@ describe('PLAYOFF — full flows', () => {
 
       // No competitor appears twice within any single real (non-bye) round.
       for (const round of rounds) {
-        const real = (await getMatches(round.id)).filter((m) => m.awayCompetitorIds && m.awayCompetitorIds.length > 0)
+        const real = (await getMatches(round.id)).filter((m) => m.awayCompetitorId != null)
 
         expect(hasNoDoubleBooking(real)).toBe(true)
       }

@@ -119,8 +119,8 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
     const expectedLosers: number[] = []
 
     for (const match of round1Matches) {
-      if (match.awayCompetitorIds && match.awayCompetitorIds.length > 0) {
-        expectedLosers.push(match.awayCompetitorIds[0])
+      if (match.awayCompetitorId != null) {
+        expectedLosers.push(match.awayCompetitorId)
         await setResult(match.id, homeWinScore(ScoreFormat.BASIC_COUNT))
       }
     }
@@ -135,8 +135,13 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
     const consolationCompetitors = new Set<number>()
 
     for (const match of consolationMatches) {
-      match.homeCompetitorIds.forEach((id) => consolationCompetitors.add(id))
-      match.awayCompetitorIds?.forEach((id) => consolationCompetitors.add(id))
+      if (match.homeCompetitorId != null) {
+        consolationCompetitors.add(match.homeCompetitorId)
+      }
+
+      if (match.awayCompetitorId != null) {
+        consolationCompetitors.add(match.awayCompetitorId)
+      }
     }
 
     for (const loser of expectedLosers) {
@@ -166,8 +171,8 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
 
     // Every slot is still "to be defined": no competitor known on either side.
     for (const match of allConsolationMatches) {
-      expect(match.homeCompetitorIds.length).toBe(0)
-      expect(match.awayCompetitorIds).toEqual([])
+      expect(match.homeCompetitorId).toBeNull()
+      expect(match.awayCompetitorId).toBeNull()
       expect(match.status).toBe(MatchStatus.PENDING)
     }
   })
@@ -195,12 +200,10 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
     const consolationMatches = await getMatches(consolationFirst.id)
     // Exactly one slot got filled (the loser of the single match we resolved) —
     // the rest of the round is still untouched, no need to wait for it.
-    const partiallyKnown = consolationMatches.filter(
-      (m) => m.homeCompetitorIds.length > 0 || (m.awayCompetitorIds?.length ?? 0) > 0
-    )
+    const partiallyKnown = consolationMatches.filter((m) => m.homeCompetitorId != null || m.awayCompetitorId != null)
 
     expect(partiallyKnown.length).toBe(1)
-    expect(competitorsInMatches(partiallyKnown)).toEqual([firstMatch.awayCompetitorIds![0]])
+    expect(competitorsInMatches(partiallyKnown)).toEqual([firstMatch.awayCompetitorId!])
     // Still not a playable match (the other side is unresolved) and not touched status-wise.
     expect(partiallyKnown[0].status).toBe(MatchStatus.PENDING)
   })
@@ -221,8 +224,8 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
     const mainRounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
     const round1 = mainRounds.find((r) => r.number === 1)!
     const round1Matches = await getMatches(round1.id)
-    const byeMatch = round1Matches.find((m) => m.awayCompetitorIds === null)!
-    const realMatch = round1Matches.find((m) => m.awayCompetitorIds !== null)!
+    const byeMatch = round1Matches.find((m) => m.awayCompetitorId === null)!
+    const realMatch = round1Matches.find((m) => m.awayCompetitorId !== null)!
 
     expect(byeMatch).toBeDefined()
     expect(realMatch).toBeDefined()
@@ -233,7 +236,7 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
 
     const consolationRound = (await getRounds(categoryId)).find((r) => r.type === MatchType.CONSOLATION_BRACKET)!
     const [consolationMatch] = await getMatches(consolationRound.id)
-    const realLoserId = realMatch.awayCompetitorIds![0]
+    const realLoserId = realMatch.awayCompetitorId!
 
     expect(competitorsInMatches([consolationMatch])).toEqual([realLoserId])
     expect(consolationMatch.status).toBe(MatchStatus.PENDING)
@@ -250,8 +253,8 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
 
     expect(consolationAfter.status).toBe(MatchStatus.WALKOVER)
     expect(consolationAfter.winner).toBe(MatchSide.HOME)
-    expect(consolationAfter.homeCompetitorIds).toEqual([realLoserId])
-    expect(consolationAfter.awayCompetitorIds).toBeNull()
+    expect(consolationAfter.homeCompetitorId).toBe(realLoserId)
+    expect(consolationAfter.awayCompetitorId).toBeNull()
   })
 
   it('turns into a real playable consolation match when the bye player loses instead', async () => {
@@ -267,7 +270,7 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
     const categoryId = built.categoryIds[0]
     const mainRounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.BRACKET)
     const round1Matches = await getMatches(mainRounds.find((r) => r.number === 1)!.id)
-    const realMatch = round1Matches.find((m) => m.awayCompetitorIds !== null)!
+    const realMatch = round1Matches.find((m) => m.awayCompetitorId !== null)!
 
     await setResult(realMatch.id, homeWinScore(ScoreFormat.BASIC_COUNT))
 
@@ -281,8 +284,8 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
 
     // Both slots are now known and it is a genuine, playable match.
     expect(consolationMatch.status).toBe(MatchStatus.PENDING)
-    expect(consolationMatch.homeCompetitorIds.length).toBe(1)
-    expect(consolationMatch.awayCompetitorIds?.length).toBe(1)
+    expect(consolationMatch.homeCompetitorId).not.toBeNull()
+    expect(consolationMatch.awayCompetitorId).not.toBeNull()
 
     await setResult(consolationMatch.id, homeWinScore(ScoreFormat.BASIC_COUNT))
     await playToCompletion(built)
@@ -303,14 +306,14 @@ describe('PLAYOFF with consolationBracket — full flows', () => {
     const categoryId = built.categoryIds[0]
     const mainRound1 = (await getRounds(categoryId)).find((r) => r.type === MatchType.BRACKET && r.number === 1)!
     const [firstMatch] = await getMatches(mainRound1.id)
-    const originalLoserId = firstMatch.awayCompetitorIds![0]
+    const originalLoserId = firstMatch.awayCompetitorId!
 
     await setResult(firstMatch.id, homeWinScore(ScoreFormat.BASIC_COUNT))
 
     // Correct the result before the main round 2 has consumed it (grace window).
     await setResult(firstMatch.id, awayWinScore(ScoreFormat.BASIC_COUNT))
 
-    const correctedLoserId = firstMatch.homeCompetitorIds[0]
+    const correctedLoserId = firstMatch.homeCompetitorId!
     const consolationRounds = (await getRounds(categoryId)).filter((r) => r.type === MatchType.CONSOLATION_BRACKET)
     // No orphaned/duplicate consolation rounds from the delete+rebuild.
     const roundNumbers = consolationRounds.map((r) => r.number)

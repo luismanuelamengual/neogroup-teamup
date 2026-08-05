@@ -37,14 +37,14 @@ describe('bracket math', () => {
   it('seeds round 1 so the top seed meets the lowest, with byes for the top seeds', () => {
     // 5 entrants → bracket of 8 → 3 byes go to seeds 1,2,3.
     const pairings = seedPlayoffPairings([1, 2, 3, 4, 5])
-    const byes = pairings.filter((p) => p.away === null).map((p) => p.home[0])
+    const byes = pairings.filter((p) => p.away === null).map((p) => p.home!)
 
     expect(byes.sort((a, b) => a - b)).toEqual([1, 2, 3])
     // The single real match pits the two lowest seeds (4 vs 5).
     const real = pairings.filter((p) => p.away !== null)
 
     expect(real.length).toBe(1)
-    expect([real[0].home[0], real[0].away![0]].sort((a, b) => a - b)).toEqual([4, 5])
+    expect([real[0].home!, real[0].away!].sort((a, b) => a - b)).toEqual([4, 5])
   })
 })
 
@@ -162,8 +162,8 @@ describe('same-group pairing repair', () => {
     const pairings = repairSameGroupPairings(seedPlayoffPairings(seeded), groupOf)
 
     for (const pairing of pairings) {
-      if (pairing.away?.length === 1) {
-        expect(groupOf.get(pairing.home[0])).not.toBe(groupOf.get(pairing.away[0]))
+      if (pairing.away != null) {
+        expect(groupOf.get(pairing.home!)).not.toBe(groupOf.get(pairing.away))
       }
     }
   })
@@ -173,10 +173,10 @@ describe('same-group pairing repair', () => {
     const groupOf = groupsOf([10, 0], [11, 0], [20, 1], [21, 1], [30, 2], [31, 2])
     const before = seedPlayoffPairings(seeded)
       .filter((pairing) => pairing.away === null)
-      .map((pairing) => pairing.home[0])
+      .map((pairing) => pairing.home!)
     const after = repairSameGroupPairings(seedPlayoffPairings(seeded), groupOf)
       .filter((pairing) => pairing.away === null)
-      .map((pairing) => pairing.home[0])
+      .map((pairing) => pairing.home!)
 
     expect(after).toEqual(before)
   })
@@ -194,7 +194,7 @@ describe('same-group pairing repair', () => {
     const seeded = seedFromGroups([ranked([10, 11]), ranked([20, 21]), ranked([30, 31])])
     const groupOf = groupsOf([10, 0], [11, 0], [20, 1], [21, 1], [30, 2], [31, 2])
     const pairings = repairSameGroupPairings(seedPlayoffPairings(seeded), groupOf)
-    const placed = pairings.flatMap((pairing) => [...pairing.home, ...(pairing.away ?? [])])
+    const placed = pairings.flatMap((pairing) => [pairing.home, pairing.away].filter((id): id is number => id != null))
 
     expect(placed.sort((a, b) => a - b)).toEqual([10, 11, 20, 21, 30, 31])
   })

@@ -17,14 +17,14 @@ export interface EditableMatch {
   groupNumber: number | null
   position: number
   bracketInstance: number | null
-  homeCompetitorIds: number[]
-  awayCompetitorIds: number[] | null
+  homeCompetitorId: number | null
+  awayCompetitorId: number | null
   status: MatchStatus
 }
 
 /** A real, fully-defined matchup (not a bye or a "to be defined" placeholder). */
 export function isPlayableMatch(match: EditableMatch): boolean {
-  return match.homeCompetitorIds.length > 0 && match.awayCompetitorIds != null && match.awayCompetitorIds.length > 0
+  return match.homeCompetitorId != null && match.awayCompetitorId != null
 }
 
 /**
@@ -33,14 +33,14 @@ export function isPlayableMatch(match: EditableMatch): boolean {
  *  - PENDING: the result has not been loaded yet.
  *  - VOID: it will never be played, so it never happened. Careful — a voided
  *    fixture of an unordered round robin keeps BOTH its sides (unlike an empty
- *    consolation slot, which has no rival), so checking `awayCompetitorIds`
+ *    consolation slot, which has no rival), so checking `awayCompetitorId`
  *    alone is not enough to filter it out.
- *  - placeholders with no rival yet (`awayCompetitorIds` null/empty).
+ *  - placeholders with no rival yet (`awayCompetitorId` null).
  */
-export function countsForStandings<T extends { status: MatchStatus; awayCompetitorIds: number[] | null }>(
+export function countsForStandings<T extends { status: MatchStatus; awayCompetitorId: number | null }>(
   match: T
-): match is T & { awayCompetitorIds: number[] } {
-  return match.status !== MatchStatus.PENDING && match.status !== MatchStatus.VOID && match.awayCompetitorIds != null
+): match is T & { awayCompetitorId: number } {
+  return match.status !== MatchStatus.PENDING && match.status !== MatchStatus.VOID && match.awayCompetitorId != null
 }
 
 /** Minimal shape needed to decide whether a match displays a schedule. */

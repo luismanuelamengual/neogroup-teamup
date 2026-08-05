@@ -122,8 +122,8 @@ describe('INTERCLUBS — walkovers and corrections', () => {
     await start(built)
 
     const match = (await getAllMatches(built.categoryIds[0])).find((entry) => entry.status === MatchStatus.PENDING)!
-    const homeRoster = built.rosterByCompetitorId.get(match.homeCompetitorIds[0])!
-    const awayRoster = built.rosterByCompetitorId.get(match.awayCompetitorIds![0])!
+    const homeRoster = built.rosterByCompetitorId.get(match.homeCompetitorId!)!
+    const awayRoster = built.rosterByCompetitorId.get(match.awayCompetitorId!)!
     const score = seriesScore(ScoreFormat.BASIC_COUNT, homeRoster, awayRoster, 2)
 
     // Swap in a player who belongs to the visiting team.
@@ -164,8 +164,8 @@ describe('INTERCLUBS — walkovers and corrections', () => {
     const lastZoneMatch = (await getAllMatches(categoryId))
       .filter((match) => match.type === MatchType.LEAGUE)
       .sort((a, b) => b.roundNumber - a.roundNumber || b.id - a.id)[0]
-    const homeRoster = built.rosterByCompetitorId.get(lastZoneMatch.homeCompetitorIds[0])!
-    const awayRoster = built.rosterByCompetitorId.get(lastZoneMatch.awayCompetitorIds![0])!
+    const homeRoster = built.rosterByCompetitorId.get(lastZoneMatch.homeCompetitorId!)!
+    const awayRoster = built.rosterByCompetitorId.get(lastZoneMatch.awayCompetitorId!)!
 
     await setResult(lastZoneMatch.id, seriesScore(ScoreFormat.BASIC_COUNT, homeRoster, awayRoster, 0))
 

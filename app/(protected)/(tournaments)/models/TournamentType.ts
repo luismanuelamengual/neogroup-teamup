@@ -6,9 +6,12 @@ export enum TournamentType {
   GROUPS_PLAYOFF = 4,
   // 5 used to be PLAYOFF_WITH_CONSOLATION, now folded into PLAYOFF as the
   // `consolationBracket` setting (see PlayoffSettings.ts and migration 016).
-  // Left unassigned rather than reused, since production rows may still be
-  // mid-migration.
-  AMERICANO_WITH_SWAP = 6,
+  // 6 used to be AMERICANO_WITH_SWAP ("Americana con intercambio de pareja"):
+  // individuals registered alone and rotated partners each round, so
+  // matches.homeCompetitorIds/awayCompetitorIds could hold up to 2 competitor
+  // ids per side. Removed entirely (see migration 018), which is also why
+  // matches now has a single homeCompetitorId/awayCompetitorId instead of
+  // those arrays. Left unassigned rather than reused, same reasoning as 5.
   /**
    * Teams of a venue ("sede") facing each other in series of 3 matches. Unlike
    * every other type its structure is not chosen by the organizer: it is
@@ -24,7 +27,6 @@ export const TournamentTypes = Object.values(TournamentType).filter(
 export const TournamentTypeNames: Record<TournamentType, string> = {
   [TournamentType.LEAGUE]: 'Liga',
   [TournamentType.AMERICANO]: 'Americana',
-  [TournamentType.AMERICANO_WITH_SWAP]: 'Americana con intercambio',
   [TournamentType.PLAYOFF]: 'Eliminatoria',
   [TournamentType.GROUPS_PLAYOFF]: 'Grupos + Eliminatoria',
   [TournamentType.INTERCLUBS]: 'Interclubes'

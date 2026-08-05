@@ -33,23 +33,6 @@ function parseRawScore(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
-/** Parses an INT[] (Postgres) or JSON-encoded TEXT (SQLite) array column value. */
-function toIntArray(value: unknown): number[] {
-  if (Array.isArray(value)) {
-    return (value as unknown[]).map(Number)
-  }
-
-  if (typeof value === 'string') {
-    try {
-      return (JSON.parse(value) as unknown[]).map(Number)
-    } catch {
-      return []
-    }
-  }
-
-  return []
-}
-
 /** Maximum age of a cached statistics row before it is considered stale (24h). */
 const STATS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -130,12 +113,12 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
         .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
         .select(
           'm.tournamentCategoryId AS tcid',
-          'm.homeCompetitorIds AS homeids',
-          'm.awayCompetitorIds AS awayids',
+          'm.homeCompetitorId AS homeid',
+          'm.awayCompetitorId AS awayid',
           'm.winner AS winner'
         )
         .where('tournaments.organizationId', organizationId)
-        .whereNotNull('m.awayCompetitorIds')
+        .whereNotNull('m.awayCompetitorId')
         .where('m.status', '!=', MatchStatus.PENDING)
         // A voided fixture keeps both its sides (see MatchStatus.VOID), so it
         // would otherwise count here as a match played and lost.
@@ -171,8 +154,8 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
           'groupNumber',
           'position',
           'bracketInstance',
-          'homeCompetitorIds',
-          'awayCompetitorIds',
+          'homeCompetitorId',
+          'awayCompetitorId',
           'score',
           'status',
           'winner'
@@ -199,10 +182,10 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
       continue
     }
 
-    const homeIds = toIntArray(row.homeids)
-    const awayIds = toIntArray(row.awayids)
-    const onHome = homeIds.includes(competitorId)
-    const onAway = awayIds.includes(competitorId)
+    const homeId = row.homeid != null ? Number(row.homeid) : null
+    const awayId = row.awayid != null ? Number(row.awayid) : null
+    const onHome = homeId === competitorId
+    const onAway = awayId === competitorId
 
     if (!onHome && !onAway) {
       continue
@@ -236,8 +219,8 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
       groupNumber: row.groupnumber != null ? Number(row.groupnumber) : null,
       position: Number(row.position),
       bracketInstance: row.bracketinstance != null ? Number(row.bracketinstance) : null,
-      homeCompetitorIds: toIntArray(row.homecompetitorids),
-      awayCompetitorIds: row.awaycompetitorids != null ? toIntArray(row.awaycompetitorids) : null,
+      homeCompetitorId: row.homecompetitorid != null ? Number(row.homecompetitorid) : null,
+      awayCompetitorId: row.awaycompetitorid != null ? Number(row.awaycompetitorid) : null,
       score: parseRawScore(row.score),
       status: Number(row.status),
       winner: row.winner != null ? Number(row.winner) : null
@@ -251,9 +234,9 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
     const seen = new Set<number>()
     const competitors: object[] = []
 
-    for (const match of catMatches as Array<{ homeCompetitorIds: number[]; awayCompetitorIds: number[] | null }>) {
-      for (const id of [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]) {
-        if (!seen.has(id)) {
+    for (const match of catMatches as Array<{ homeCompetitorId: number | null; awayCompetitorId: number | null }>) {
+      for (const id of [match.homeCompetitorId, match.awayCompetitorId]) {
+        if (id != null && !seen.has(id)) {
           seen.add(id)
           competitors.push({ id, tournamentCategoryId: catId })
         }
@@ -340,7 +323,7 @@ async function computeOrganizationStats(organizationId: number): Promise<Organiz
       .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
       .select('COUNT(*) AS total', `SUM(CASE WHEN m.status = ${MatchStatus.PENDING} THEN 1 ELSE 0 END) AS pending`)
       .where('tournaments.organizationId', organizationId)
-      .whereNotNull('m.awayCompetitorIds')
+      .whereNotNull('m.awayCompetitorId')
       // A voided fixture keeps both its sides (see MatchStatus.VOID), so it
       // would otherwise inflate both the total and the played count.
       .where('m.status', '!=', MatchStatus.VOID)

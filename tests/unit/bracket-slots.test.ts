@@ -3,8 +3,8 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { BracketSlotMatch, resolveSlotLabels, roundLabel } from '@/app/(protected)/(tournaments)/utils/bracket'
 
-/** Names competitors "C<id>", which is all the labels need to be checked against. */
-const nameOf = (ids: number[]) => ids.map((id) => `C${id}`).join(' / ')
+/** Names a competitor "C<id>", which is all the labels need to be checked against. */
+const nameOf = (id: number) => `C${id}`
 
 /** Builds a match, defaulting to a still-undefined PENDING bracket slot. */
 function match(
@@ -13,8 +13,8 @@ function match(
   return {
     type: MatchType.BRACKET,
     groupNumber: null,
-    homeCompetitorIds: [],
-    awayCompetitorIds: [],
+    homeCompetitorId: null,
+    awayCompetitorId: null,
     status: MatchStatus.PENDING,
     ...overrides
   }
@@ -22,10 +22,10 @@ function match(
 
 /** A real, decided matchup between two competitors. */
 const played = (roundNumber: number, position: number, home: number, away: number): BracketSlotMatch =>
-  match({ roundNumber, position, homeCompetitorIds: [home], awayCompetitorIds: [away], status: MatchStatus.PLAYED })
+  match({ roundNumber, position, homeCompetitorId: home, awayCompetitorId: away, status: MatchStatus.PLAYED })
 /** A real matchup that hasn't been played yet. */
 const pending = (roundNumber: number, position: number, home: number, away: number): BracketSlotMatch =>
-  match({ roundNumber, position, homeCompetitorIds: [home], awayCompetitorIds: [away] })
+  match({ roundNumber, position, homeCompetitorId: home, awayCompetitorId: away })
 
 describe('roundLabel', () => {
   it('counts the stages back from the final', () => {
@@ -48,7 +48,7 @@ describe('resolveSlotLabels — main bracket', () => {
   })
 
   it('only describes the side that is still empty', () => {
-    const semifinal = match({ roundNumber: 2, position: 0, homeCompetitorIds: [1] })
+    const semifinal = match({ roundNumber: 2, position: 0, homeCompetitorId: 1 })
     const all = [played(1, 0, 1, 2), pending(1, 1, 3, 4), semifinal]
 
     expect(resolveSlotLabels(semifinal, all, nameOf)).toEqual({ home: null, away: 'Ganador de C3 vs C4' })
@@ -119,8 +119,8 @@ describe('resolveSlotLabels — consolation bracket', () => {
     const bye = match({
       roundNumber: 1,
       position: 0,
-      homeCompetitorIds: [1],
-      awayCompetitorIds: null,
+      homeCompetitorId: 1,
+      awayCompetitorId: null,
       status: MatchStatus.WALKOVER
     })
     const all = [bye, pending(1, 1, 3, 4), slot]
@@ -136,7 +136,7 @@ describe('resolveSlotLabels — consolation bracket', () => {
     const all = [pending(1, 0, 1, 2), consolation(2, 0), consolation(2, 1), slot]
     const withNames = all.map((entry) =>
       entry.type === MatchType.CONSOLATION_BRACKET && entry.roundNumber === 2
-        ? { ...entry, homeCompetitorIds: [entry.position * 2 + 10], awayCompetitorIds: [entry.position * 2 + 11] }
+        ? { ...entry, homeCompetitorId: entry.position * 2 + 10, awayCompetitorId: entry.position * 2 + 11 }
         : entry
     )
 
@@ -155,7 +155,7 @@ describe('resolveSlotLabels — non-applicable matches', () => {
   })
 
   it('ignores voided fixtures', () => {
-    const void_ = match({ roundNumber: 2, position: 0, awayCompetitorIds: null, status: MatchStatus.VOID })
+    const void_ = match({ roundNumber: 2, position: 0, awayCompetitorId: null, status: MatchStatus.VOID })
     const all = [pending(1, 0, 1, 2), pending(1, 1, 3, 4), void_]
 
     expect(resolveSlotLabels(void_, all, nameOf)).toEqual({ home: null, away: null })

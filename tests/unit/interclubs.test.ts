@@ -145,8 +145,8 @@ describe('interclubs — home advantage (localía)', () => {
   const match = (id: number, roundNumber: number, home: number, away: number): LocalityMatch => ({
     id,
     roundNumber,
-    homeCompetitorIds: [home],
-    awayCompetitorIds: [away]
+    homeCompetitorId: home,
+    awayCompetitorId: away
   })
 
   it('inverts the localía of a rematch', () => {
@@ -171,7 +171,7 @@ describe('interclubs — home advantage (localía)', () => {
   })
 
   it('ignores byes when counting home games', () => {
-    const bye: LocalityMatch = { id: 9, roundNumber: 1, homeCompetitorIds: [20], awayCompetitorIds: null }
+    const bye: LocalityMatch = { id: 9, roundNumber: 1, homeCompetitorId: 20, awayCompetitorId: null }
     const history = [match(1, 1, 10, 30), bye]
 
     // 20's bye is not a home game, so it still hosts fewer than 10.
@@ -348,8 +348,8 @@ describe('interclubs — series score', () => {
 
 describe('interclubs — standings ladder', () => {
   const played = (home: number, away: number, homeWins: number): RankableMatch => ({
-    homeCompetitorIds: [home],
-    awayCompetitorIds: [away],
+    homeCompetitorId: home,
+    awayCompetitorId: away,
     status: MatchStatus.PLAYED,
     winner: homeWins >= 2 ? MatchSide.HOME : MatchSide.AWAY,
     score: series([1, 2, 3, 4], [5, 6, 7, 8], homeWins)
@@ -380,8 +380,8 @@ describe('interclubs — standings ladder', () => {
       [10, 20],
       [
         {
-          homeCompetitorIds: [10],
-          awayCompetitorIds: [20],
+          homeCompetitorId: 10,
+          awayCompetitorId: 20,
           status: MatchStatus.WALKOVER,
           winner: MatchSide.HOME,
           score: { walkover: MatchSide.HOME }
@@ -400,8 +400,8 @@ describe('interclubs — standings ladder', () => {
       [10, 20],
       [
         {
-          homeCompetitorIds: [10],
-          awayCompetitorIds: [20],
+          homeCompetitorId: 10,
+          awayCompetitorId: 20,
           status: MatchStatus.PENDING,
           winner: null,
           score: null

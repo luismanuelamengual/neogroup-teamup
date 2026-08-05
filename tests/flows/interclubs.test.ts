@@ -21,17 +21,15 @@ import {
 } from '@/tests/setup/harness'
 
 /** Home-game count per competitor across every real match of a category. */
-function homeGameCounts(matches: { homeCompetitorIds: number[]; awayCompetitorIds: number[] | null }[]) {
+function homeGameCounts(matches: { homeCompetitorId: number | null; awayCompetitorId: number | null }[]) {
   const counts = new Map<number, number>()
 
   for (const match of matches) {
-    if (!match.awayCompetitorIds || match.awayCompetitorIds.length === 0) {
+    if (match.awayCompetitorId == null || match.homeCompetitorId == null) {
       continue
     }
 
-    for (const id of match.homeCompetitorIds) {
-      counts.set(id, (counts.get(id) ?? 0) + 1)
-    }
+    counts.set(match.homeCompetitorId, (counts.get(match.homeCompetitorId) ?? 0) + 1)
   }
 
   return counts
@@ -81,8 +79,8 @@ describe('INTERCLUBS — home-and-away league (2 to 4 teams)', () => {
         const mirror = matches.find(
           (candidate) =>
             candidate.id !== match.id &&
-            candidate.homeCompetitorIds[0] === match.awayCompetitorIds?.[0] &&
-            candidate.awayCompetitorIds?.[0] === match.homeCompetitorIds[0]
+            candidate.homeCompetitorId === match.awayCompetitorId &&
+            candidate.awayCompetitorId === match.homeCompetitorId
         )
 
         expect(mirror).toBeTruthy()
@@ -251,7 +249,9 @@ describe('INTERCLUBS — zones plus knockout (more than 4 teams)', () => {
     const tournament = await reloadTournament(built.tournament.id)
     const bracket = (await getAllMatches(categoryId)).filter((match) => match.type === MatchType.BRACKET)
     const entrants = new Set(
-      bracket.flatMap((match) => [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])])
+      bracket.flatMap((match) =>
+        [match.homeCompetitorId, match.awayCompetitorId].filter((id): id is number => id != null)
+      )
     )
     const qualifiers = new Set<number>()
 
@@ -280,7 +280,7 @@ describe('INTERCLUBS — zones plus knockout (more than 4 teams)', () => {
     // Nobody hosts every single one of their matches: the rotation applies to
     // the bracket as well as the zones.
     for (const match of matches.filter((entry) => entry.type === MatchType.BRACKET)) {
-      expect(match.homeCompetitorIds.length).toBeGreaterThan(0)
+      expect(match.homeCompetitorId).not.toBeNull()
     }
 
     expect([...counts.values()].every((count) => count >= 1)).toBe(true)

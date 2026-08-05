@@ -138,7 +138,7 @@ describe('GROUPS_PLAYOFF — full flows', () => {
     }
 
     for (const match of await getMatches(first.id)) {
-      for (const id of [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]) {
+      for (const id of [match.homeCompetitorId, match.awayCompetitorId].filter((id): id is number => id != null)) {
         entrants.add(id)
       }
     }
@@ -273,7 +273,7 @@ describe('GROUPS_PLAYOFF — full flows', () => {
 
     for (const round of (await getRounds(categoryId)).filter((r) => r.type === MatchType.LEAGUE)) {
       for (const match of await getMatches(round.id)) {
-        for (const id of [...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])]) {
+        for (const id of [match.homeCompetitorId, match.awayCompetitorId].filter((id): id is number => id != null)) {
           groupOf.set(id, round.groupNumber as number)
         }
       }
@@ -284,8 +284,8 @@ describe('GROUPS_PLAYOFF — full flows', () => {
       .sort((a, b) => a.number - b.number)
 
     for (const match of await getMatches(bracketRounds[0].id)) {
-      if (match.awayCompetitorIds?.length === 1 && match.homeCompetitorIds.length === 1) {
-        expect(groupOf.get(match.homeCompetitorIds[0])).not.toBe(groupOf.get(match.awayCompetitorIds[0]))
+      if (match.awayCompetitorId != null && match.homeCompetitorId != null) {
+        expect(groupOf.get(match.homeCompetitorId)).not.toBe(groupOf.get(match.awayCompetitorId))
       }
     }
   })

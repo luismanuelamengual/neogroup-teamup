@@ -38,14 +38,17 @@ import { Organization } from '@/app/models/Organization'
 
 /**
  * Pure functions that compute the pairings of every tournament round.
- * Competitors are referenced by id. A side holds one competitor id, except in
- * americano tournaments with partner swapping where two individual competitors
- * team up for the round.
+ * Competitors are referenced by id. A side holds one competitor id.
+ *
+ * `home`/`away` are null while that side is not yet known (a knockout
+ * "to be defined" placeholder); `away` is also null for a permanent bye/void
+ * slot — `persistRoundMatches` decides the resulting `status` from context,
+ * so the two null cases never need to be told apart by the id alone.
  */
 
 export interface Pairing {
-  home: number[]
-  away: number[] | null
+  home: number | null
+  away: number | null
   position: number
 }
 
@@ -217,9 +220,9 @@ export function seedFromGroups(qualifiers: GroupRankRow[][], tieBreakers?: Map<n
  */
 export function repairSameGroupPairings(pairings: Pairing[], groupOf: Map<number, number>): Pairing[] {
   const groupIdOf = (pairing: Pairing, side: 'home' | 'away'): number | undefined => {
-    const ids = side === 'home' ? pairing.home : pairing.away
+    const id = side === 'home' ? pairing.home : pairing.away
 
-    return ids && ids.length === 1 ? groupOf.get(ids[0]) : undefined
+    return id != null ? groupOf.get(id) : undefined
   }
 
   const clashes = (pairing: Pairing): boolean => {
@@ -230,7 +233,7 @@ export function repairSameGroupPairings(pairings: Pairing[], groupOf: Map<number
   }
 
   // Only pairings with two real sides can be swapped; byes have nothing to move.
-  const swappable = pairings.filter((pairing) => pairing.away?.length === 1 && pairing.home.length === 1)
+  const swappable = pairings.filter((pairing) => pairing.away != null && pairing.home != null)
 
   for (const pairing of swappable) {
     if (!clashes(pairing)) {
@@ -287,13 +290,6 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
 
     case TournamentType.AMERICANO:
       return capRounds(roundRobinRoundsFor(competitorsCount), settings.maxRounds)
-
-    case TournamentType.AMERICANO_WITH_SWAP: {
-      // Individuals rotate partners: one round per circle-method rotation.
-      const slots = competitorsCount % 2 === 0 ? competitorsCount : competitorsCount + 1
-
-      return capRounds(slots - 1, settings.maxRounds)
-    }
 
     case TournamentType.PLAYOFF:
       // When settings.consolationBracket is on, it runs in parallel with the
@@ -390,7 +386,7 @@ export function generateRoundRobinRound(competitorIds: number[], roundNumber: nu
       continue
     }
 
-    pairings.push({ home: [home], away: [away], position: position++ })
+    pairings.push({ home, away, position: position++ })
   }
 
   return pairings
@@ -435,33 +431,10 @@ function generateInterclubsRoundRobinRound(
   }
 
   return assignLocality(pending, previousMatches, roundNumber).map((sides) => ({
-    home: [sides.home],
-    away: [sides.away],
+    home: sides.home,
+    away: sides.away,
     position: sides.position
   }))
-}
-
-/**
- * Americano with partner swapping: individuals are paired with a different
- * partner each round (circle method) and the resulting teams are matched
- * sequentially. With an odd team count the last team rests.
- */
-export function generateAmericanoSwapRoundRobin(competitorIds: number[], roundNumber: number): Pairing[] {
-  const partnerships = roundRobinPairs(competitorIds, roundNumber).filter(
-    (pair): pair is [number, number] => pair[0] != null && pair[1] != null
-  )
-  const pairings: Pairing[] = []
-  let position = 0
-
-  for (let i = 0; i + 1 < partnerships.length; i += 2) {
-    pairings.push({
-      home: [partnerships[i][0], partnerships[i][1]],
-      away: [partnerships[i + 1][0], partnerships[i + 1][1]],
-      position: position++
-    })
-  }
-
-  return pairings
 }
 
 /**
@@ -489,8 +462,8 @@ export function seedPlayoffPairings(competitorIds: number[]): Pairing[] {
     }
 
     pairings.push({
-      home: [home ?? (away as number)],
-      away: home == null ? null : away == null ? null : [away],
+      home: home ?? away,
+      away: home == null ? null : away,
       position: i
     })
   }
@@ -503,11 +476,11 @@ export function advancePlayoffPairings(previousRoundMatches: Match[]): Pairing[]
   const sorted = [...previousRoundMatches].sort((a, b) => a.position - b.position)
   const winners = sorted.map((match) => {
     if (match.winner === MatchSide.HOME) {
-      return match.homeCompetitorIds[0]
+      return match.homeCompetitorId
     }
 
-    if (match.winner === MatchSide.AWAY && match.awayCompetitorIds) {
-      return match.awayCompetitorIds[0]
+    if (match.winner === MatchSide.AWAY) {
+      return match.awayCompetitorId
     }
 
     return null
@@ -523,8 +496,8 @@ export function advancePlayoffPairings(previousRoundMatches: Match[]): Pairing[]
     }
 
     pairings.push({
-      home: [home ?? (away as number)],
-      away: home == null || away == null ? null : [away],
+      home: home ?? away,
+      away: home == null || away == null ? null : away,
       position: i / 2
     })
   }
@@ -577,9 +550,6 @@ export function generateRoundPairings(
 
     case TournamentType.AMERICANO:
       return generateRoundRobinRound(competitorIds, roundNumber)
-
-    case TournamentType.AMERICANO_WITH_SWAP:
-      return generateAmericanoSwapRoundRobin(competitorIds, roundNumber)
 
     case TournamentType.PLAYOFF:
       return generatePlayoffRound(competitorIds, roundNumber, previousRoundMatches)
@@ -706,7 +676,7 @@ function laneExistsIn(matches: Match[], lane: RoundLane): boolean {
 /** Whether a lane already holds at least one real (non-bye) resolved result. */
 function laneHasResultsIn(matches: Match[], lane: RoundLane): boolean {
   return matches.some(
-    (match) => isLaneMatch(match, lane) && match.awayCompetitorIds != null && match.status !== MatchStatus.PENDING
+    (match) => isLaneMatch(match, lane) && match.awayCompetitorId != null && match.status !== MatchStatus.PENDING
   )
 }
 
@@ -933,7 +903,7 @@ async function persistRoundMatches(
   const now = new Date()
   const rows = pairings.map((pairing) => {
     // Byes (knockout only) are stored as already resolved in favor of "home".
-    const isBye = pairing.away === null && pairing.home.length > 0
+    const isBye = pairing.away === null && pairing.home != null
 
     return {
       tournamentCategoryId,
@@ -942,8 +912,8 @@ async function persistRoundMatches(
       groupNumber: lane.groupNumber,
       position: pairing.position,
       bracketInstance,
-      homeCompetitorIds: pairing.home,
-      awayCompetitorIds: pairing.away,
+      homeCompetitorId: pairing.home,
+      awayCompetitorId: pairing.away,
       score: null,
       status: isBye ? MatchStatus.WALKOVER : MatchStatus.PENDING,
       winner: isBye ? MatchSide.HOME : null,
@@ -959,22 +929,17 @@ async function persistRoundMatches(
   return roundMatchesOf(all, lane, roundNumber)
 }
 
-/** Competitor ids of the winning side of a resolved match (null when unresolved). */
-function matchWinnerIds(match: Match): number[] | null {
+/** Competitor id of the winning side of a resolved match (null when unresolved). */
+function matchWinnerId(match: Match): number | null {
   if (match.winner === MatchSide.HOME) {
-    return match.homeCompetitorIds
+    return match.homeCompetitorId
   }
 
-  if (match.winner === MatchSide.AWAY && match.awayCompetitorIds) {
-    return match.awayCompetitorIds
+  if (match.winner === MatchSide.AWAY) {
+    return match.awayCompetitorId
   }
 
   return null
-}
-
-/** True when two competitor-id lists hold the same ids in the same order. */
-function sameIds(a: number[], b: number[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index])
 }
 
 /**
@@ -1017,31 +982,31 @@ async function syncKnockoutNextRound(
 
     const homeFeeder = currentByBracket.get(target.position * 2) ?? null
     const awayFeeder = currentByBracket.get(target.position * 2 + 1) ?? null
-    let homeIds = homeFeeder ? (matchWinnerIds(homeFeeder) ?? []) : []
-    let awayIds = awayFeeder ? (matchWinnerIds(awayFeeder) ?? []) : []
+    let homeId = homeFeeder ? matchWinnerId(homeFeeder) : null
+    let awayId = awayFeeder ? matchWinnerId(awayFeeder) : null
 
     // Interclubes: the bracket decides WHO meets, the localía rule decides who
     // hosts. The match being filled is excluded from the history it is compared
     // against — otherwise its own (previous) assignment would read as an earlier
     // encounter and the sides would flip on every pass.
-    if (applyLocality && homeIds.length === 1 && awayIds.length === 1) {
+    if (applyLocality && homeId != null && awayId != null) {
       const [home, away] = orderKnockoutSides(
-        homeIds[0],
-        awayIds[0],
+        homeId,
+        awayId,
         all.filter((match) => match.id !== target.id),
         `${target.roundNumber}:${target.position}`
       )
 
-      homeIds = [home]
-      awayIds = [away]
+      homeId = home
+      awayId = away
     }
 
-    if (sameIds(target.homeCompetitorIds, homeIds) && sameIds(target.awayCompetitorIds ?? [], awayIds)) {
+    if (target.homeCompetitorId === homeId && target.awayCompetitorId === awayId) {
       continue
     }
 
-    target.homeCompetitorIds = homeIds
-    target.awayCompetitorIds = awayIds
+    target.homeCompetitorId = homeId
+    target.awayCompetitorId = awayId
     target.updatedAt = new Date()
     await target.save()
     changed = true
@@ -1087,19 +1052,14 @@ async function createKnockoutBracket(
     const played = await loadCategoryMatches(tournamentCategoryId)
 
     for (const pairing of firstRoundPairings) {
-      if (pairing.away?.length !== 1 || pairing.home.length !== 1) {
+      if (pairing.away == null || pairing.home == null) {
         continue
       }
 
-      const [home, away] = orderKnockoutSides(
-        pairing.home[0],
-        pairing.away[0],
-        played,
-        `${startRound}:${pairing.position}`
-      )
+      const [home, away] = orderKnockoutSides(pairing.home, pairing.away, played, `${startRound}:${pairing.position}`)
 
-      pairing.home = [home]
-      pairing.away = [away]
+      pairing.home = home
+      pairing.away = away
     }
   }
 
@@ -1113,7 +1073,7 @@ async function createKnockoutBracket(
     const placeholders: Pairing[] = []
 
     for (let position = 0; position < matchCount; position++) {
-      placeholders.push({ home: [], away: [], position })
+      placeholders.push({ home: null, away: null, position })
     }
 
     await persistRoundMatches(
@@ -1165,23 +1125,23 @@ function resolveFirstLossSlot(mainMatches: Match[], slotPosition: number): SlotR
   }
 
   // Real round-1 match: always produces a loser once resolved.
-  if (round1.awayCompetitorIds && round1.awayCompetitorIds.length > 0) {
+  if (round1.awayCompetitorId != null) {
     if (round1.status === MatchStatus.PENDING) {
       return { state: 'pending' }
     }
 
-    const loserIds = round1.winner === MatchSide.HOME ? round1.awayCompetitorIds : round1.homeCompetitorIds
+    const loserId = round1.winner === MatchSide.HOME ? round1.awayCompetitorId : round1.homeCompetitorId
 
-    return { state: 'filled', competitorId: loserIds[0] }
+    return { state: 'filled', competitorId: loserId! }
   }
 
   // Bye: the occupant's real first match is round 2, at the position/side that
   // mirrors syncKnockoutNextRound's 2p (home) / 2p+1 (away) feeder convention.
-  const occupantId = round1.homeCompetitorIds[0]
+  const occupantId = round1.homeCompetitorId!
   const parentPosition = Math.floor(slotPosition / 2)
   const round2 = mainMatches.find((match) => match.roundNumber === 2 && match.position === parentPosition)
 
-  if (!round2 || round2.status === MatchStatus.PENDING || !round2.awayCompetitorIds?.length) {
+  if (!round2 || round2.status === MatchStatus.PENDING || round2.awayCompetitorId == null) {
     return { state: 'pending' }
   }
 
@@ -1221,7 +1181,7 @@ async function createConsolationSkeleton(tournamentCategoryId: number, mainBrack
     const placeholders: Pairing[] = []
 
     for (let position = 0; position < matchCount; position++) {
-      placeholders.push({ home: [], away: [], position })
+      placeholders.push({ home: null, away: null, position })
     }
 
     await persistRoundMatches(
@@ -1238,8 +1198,8 @@ async function createConsolationSkeleton(tournamentCategoryId: number, mainBrack
 
 /** Desired shape to write into a not-yet-finalised consolation match, or null when nothing is actionable yet. */
 interface ConsolationSlotUpdate {
-  home: number[]
-  away: number[] | null
+  home: number | null
+  away: number | null
   status: MatchStatus
   winner: MatchSide | null
 }
@@ -1252,28 +1212,28 @@ interface ConsolationSlotUpdate {
  */
 function combineConsolationSlot(home: SlotResolution, away: SlotResolution): ConsolationSlotUpdate | null {
   if (home.state === 'filled' && away.state === 'filled') {
-    return { home: [home.competitorId], away: [away.competitorId], status: MatchStatus.PENDING, winner: null }
+    return { home: home.competitorId, away: away.competitorId, status: MatchStatus.PENDING, winner: null }
   }
 
   if (home.state === 'void' && away.state === 'void') {
-    return { home: [], away: null, status: MatchStatus.VOID, winner: null }
+    return { home: null, away: null, status: MatchStatus.VOID, winner: null }
   }
 
   if (home.state === 'filled' && away.state === 'void') {
-    return { home: [home.competitorId], away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
+    return { home: home.competitorId, away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
   }
 
   if (home.state === 'void' && away.state === 'filled') {
     // Mirrors the bye convention: a lone survivor is always stored as "home".
-    return { home: [away.competitorId], away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
+    return { home: away.competitorId, away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
   }
 
   if (home.state === 'filled' && away.state === 'pending') {
-    return { home: [home.competitorId], away: [], status: MatchStatus.PENDING, winner: null }
+    return { home: home.competitorId, away: null, status: MatchStatus.PENDING, winner: null }
   }
 
   if (home.state === 'pending' && away.state === 'filled') {
-    return { home: [], away: [away.competitorId], status: MatchStatus.PENDING, winner: null }
+    return { home: null, away: away.competitorId, status: MatchStatus.PENDING, winner: null }
   }
 
   // (void, pending) / (pending, void) / (pending, pending): nothing actionable yet.
@@ -1303,7 +1263,7 @@ async function advanceConsolationBracket(tournamentCategoryId: number, cache?: A
   for (const match of round1) {
     // Already finalised (walkover/void) or fully known (both sides real,
     // now an ordinary playable match) — never touched again from here.
-    const bothKnown = match.homeCompetitorIds.length > 0 && !!match.awayCompetitorIds?.length
+    const bothKnown = match.homeCompetitorId != null && match.awayCompetitorId != null
 
     if (match.status !== MatchStatus.PENDING || bothKnown) {
       continue
@@ -1317,16 +1277,12 @@ async function advanceConsolationBracket(tournamentCategoryId: number, cache?: A
       continue
     }
 
-    if (
-      sameIds(match.homeCompetitorIds, update.home) &&
-      ((match.awayCompetitorIds == null && update.away == null) ||
-        (match.awayCompetitorIds != null && update.away != null && sameIds(match.awayCompetitorIds, update.away)))
-    ) {
+    if (match.homeCompetitorId === update.home && match.awayCompetitorId === update.away) {
       continue
     }
 
-    match.homeCompetitorIds = update.home
-    match.awayCompetitorIds = update.away
+    match.homeCompetitorId = update.home
+    match.awayCompetitorId = update.away
     match.status = update.status
     match.winner = update.winner
     match.updatedAt = new Date()
@@ -1379,7 +1335,7 @@ async function syncConsolationNextRound(
 
   const feederState = (
     match: Match | undefined
-  ): { state: 'pending' } | { state: 'ids'; ids: number[] } | { state: 'void' } => {
+  ): { state: 'pending' } | { state: 'id'; id: number } | { state: 'void' } => {
     if (!match) {
       return { state: 'pending' }
     }
@@ -1392,9 +1348,9 @@ async function syncConsolationNextRound(
       return { state: 'pending' }
     }
 
-    const ids = matchWinnerIds(match)
+    const id = matchWinnerId(match)
 
-    return ids ? { state: 'ids', ids } : { state: 'pending' }
+    return id != null ? { state: 'id', id } : { state: 'pending' }
   }
 
   let changed = false
@@ -1408,34 +1364,30 @@ async function syncConsolationNextRound(
     const away = feederState(currentByPosition.get(target.position * 2 + 1))
     let update: ConsolationSlotUpdate | null = null
 
-    if (home.state === 'ids' && away.state === 'ids') {
-      update = { home: home.ids, away: away.ids, status: MatchStatus.PENDING, winner: null }
+    if (home.state === 'id' && away.state === 'id') {
+      update = { home: home.id, away: away.id, status: MatchStatus.PENDING, winner: null }
     } else if (home.state === 'void' && away.state === 'void') {
-      update = { home: [], away: null, status: MatchStatus.VOID, winner: null }
-    } else if (home.state === 'ids' && away.state === 'void') {
-      update = { home: home.ids, away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
-    } else if (home.state === 'void' && away.state === 'ids') {
-      update = { home: away.ids, away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
-    } else if (home.state === 'ids' && away.state === 'pending') {
-      update = { home: home.ids, away: [], status: MatchStatus.PENDING, winner: null }
-    } else if (home.state === 'pending' && away.state === 'ids') {
-      update = { home: [], away: away.ids, status: MatchStatus.PENDING, winner: null }
+      update = { home: null, away: null, status: MatchStatus.VOID, winner: null }
+    } else if (home.state === 'id' && away.state === 'void') {
+      update = { home: home.id, away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
+    } else if (home.state === 'void' && away.state === 'id') {
+      update = { home: away.id, away: null, status: MatchStatus.WALKOVER, winner: MatchSide.HOME }
+    } else if (home.state === 'id' && away.state === 'pending') {
+      update = { home: home.id, away: null, status: MatchStatus.PENDING, winner: null }
+    } else if (home.state === 'pending' && away.state === 'id') {
+      update = { home: null, away: away.id, status: MatchStatus.PENDING, winner: null }
     }
 
     if (!update) {
       continue
     }
 
-    if (
-      sameIds(target.homeCompetitorIds, update.home) &&
-      ((target.awayCompetitorIds == null && update.away == null) ||
-        (target.awayCompetitorIds != null && update.away != null && sameIds(target.awayCompetitorIds, update.away)))
-    ) {
+    if (target.homeCompetitorId === update.home && target.awayCompetitorId === update.away) {
       continue
     }
 
-    target.homeCompetitorIds = update.home
-    target.awayCompetitorIds = update.away
+    target.homeCompetitorId = update.home
+    target.awayCompetitorId = update.away
     target.status = update.status
     target.winner = update.winner
     target.updatedAt = new Date()
@@ -1482,7 +1434,7 @@ function rankGroup(
   )
 
   const add = (
-    ids: number[] | null,
+    id: number | null,
     updater: (row: {
       points: number
       won: number
@@ -1492,12 +1444,10 @@ function rankGroup(
       gamesLost: number
     }) => void
   ) => {
-    for (const id of ids ?? []) {
-      const row = stats.get(id)
+    const row = id != null ? stats.get(id) : undefined
 
-      if (row) {
-        updater(row)
-      }
+    if (row) {
+      updater(row)
     }
   }
 
@@ -1510,7 +1460,7 @@ function rankGroup(
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
     const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
 
-    add(match.homeCompetitorIds, (row) => {
+    add(match.homeCompetitorId, (row) => {
       row.setsWon += sets.home
       row.setsLost += sets.away
       row.points += sets.home * league.pointsPerSetWon
@@ -1524,7 +1474,7 @@ function rankGroup(
         row.points += league.pointsPerMatchWon
       }
     })
-    add(match.awayCompetitorIds, (row) => {
+    add(match.awayCompetitorId, (row) => {
       row.setsWon += sets.away
       row.setsLost += sets.home
       row.points += sets.away * league.pointsPerSetWon
@@ -1547,10 +1497,10 @@ function rankGroup(
         continue
       }
 
-      const homeHasA = match.homeCompetitorIds.includes(idA)
-      const homeHasB = match.homeCompetitorIds.includes(idB)
-      const awayHasA = match.awayCompetitorIds.includes(idA)
-      const awayHasB = match.awayCompetitorIds.includes(idB)
+      const homeHasA = match.homeCompetitorId === idA
+      const homeHasB = match.homeCompetitorId === idB
+      const awayHasA = match.awayCompetitorId === idA
+      const awayHasB = match.awayCompetitorId === idB
 
       if ((homeHasA && awayHasB) || (homeHasB && awayHasA)) {
         if (match.winner === MatchSide.HOME) {
@@ -1682,20 +1632,22 @@ function computeAmericanoPoints(
     const score = match.score ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
     const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
+    const homeId = match.homeCompetitorId
+    const awayId = match.awayCompetitorId
 
-    for (const id of match.homeCompetitorIds) {
-      pts.set(id, (pts.get(id) ?? 0) + games.home * americano.pointsPerGameWon)
+    if (homeId != null) {
+      pts.set(homeId, (pts.get(homeId) ?? 0) + games.home * americano.pointsPerGameWon)
 
       if (match.winner === MatchSide.HOME) {
-        pts.set(id, (pts.get(id) ?? 0) + americano.pointsPerMatchWon)
+        pts.set(homeId, (pts.get(homeId) ?? 0) + americano.pointsPerMatchWon)
       }
     }
 
-    for (const id of match.awayCompetitorIds) {
-      pts.set(id, (pts.get(id) ?? 0) + games.away * americano.pointsPerGameWon)
+    if (awayId != null) {
+      pts.set(awayId, (pts.get(awayId) ?? 0) + games.away * americano.pointsPerGameWon)
 
       if (match.winner === MatchSide.AWAY) {
-        pts.set(id, (pts.get(id) ?? 0) + americano.pointsPerMatchWon)
+        pts.set(awayId, (pts.get(awayId) ?? 0) + americano.pointsPerMatchWon)
       }
     }
   }
@@ -1707,9 +1659,9 @@ function computeAmericanoPoints(
 function havePlayedBefore(idA: number, idB: number, matches: Match[]): boolean {
   return matches.some(
     (match) =>
-      match.awayCompetitorIds != null &&
-      ((match.homeCompetitorIds.includes(idA) && match.awayCompetitorIds.includes(idB)) ||
-        (match.homeCompetitorIds.includes(idB) && match.awayCompetitorIds.includes(idA)))
+      match.awayCompetitorId != null &&
+      ((match.homeCompetitorId === idA && match.awayCompetitorId === idB) ||
+        (match.homeCompetitorId === idB && match.awayCompetitorId === idA))
   )
 }
 
@@ -1729,11 +1681,11 @@ function countMatchesPlayed(competitorIds: number[], matches: Match[]): Map<numb
   const played = new Map<number, number>(competitorIds.map((id) => [id, 0]))
 
   for (const match of matches) {
-    if (match.awayCompetitorIds == null) {
+    if (match.awayCompetitorId == null || match.homeCompetitorId == null) {
       continue
     }
 
-    for (const id of [...match.homeCompetitorIds, ...match.awayCompetitorIds]) {
+    for (const id of [match.homeCompetitorId, match.awayCompetitorId]) {
       if (played.has(id)) {
         played.set(id, (played.get(id) ?? 0) + 1)
       }
@@ -1818,43 +1770,7 @@ function generateAmericanoStandingsPairings(
   const ranked = [...pool].sort((a, b) => (pts.get(b) ?? 0) - (pts.get(a) ?? 0) || a - b)
   const pairs = findRematchFreeMatching(ranked, allMatches) ?? greedyMatching(ranked, allMatches)
 
-  return pairs.map(([home, away], index) => ({ home: [home], away: [away], position: index }))
-}
-
-/**
- * Americano-with-swap standings-based pairing. Partners are still assigned via
- * the circle-method (ensuring partner diversity across rounds), but the resulting
- * teams are sorted by combined points before being matched as opponents so that
- * the best teams face each other.
- */
-function generateAmericanoSwapStandingsPairings(
-  competitorIds: number[],
-  roundNumber: number,
-  allMatches: Match[],
-  settings: Tournament['settings'],
-  scoreFormat: number
-): Pairing[] {
-  const swapPairings = generateAmericanoSwapRoundRobin(competitorIds, roundNumber)
-
-  if (swapPairings.length === 0) {
-    return []
-  }
-
-  const pts = computeAmericanoPoints(competitorIds, allMatches, settings, scoreFormat)
-  const teams = swapPairings.flatMap((p) => [p.home, p.away]).filter((t): t is number[] => t != null)
-  const sortedTeams = [...teams].sort((a, b) => {
-    const sumA = a.reduce((s, id) => s + (pts.get(id) ?? 0), 0)
-    const sumB = b.reduce((s, id) => s + (pts.get(id) ?? 0), 0)
-
-    return sumB - sumA
-  })
-  const pairings: Pairing[] = []
-
-  for (let i = 0; i + 1 < sortedTeams.length; i += 2) {
-    pairings.push({ home: sortedTeams[i], away: sortedTeams[i + 1], position: i / 2 })
-  }
-
-  return pairings
+  return pairs.map(([home, away], index) => ({ home, away, position: index }))
 }
 
 /**
@@ -1909,9 +1825,7 @@ async function materializeCategoryRound(
       return created
     }
 
-    case TournamentType.AMERICANO:
-
-    case TournamentType.AMERICANO_WITH_SWAP: {
+    case TournamentType.AMERICANO: {
       const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: null }
 
       if (roundNumber > getTotalRounds(tournament.type, settings, competitorIds.length)) {
@@ -1929,15 +1843,7 @@ async function materializeCategoryRound(
       } else {
         const allMatches = laneMatches(all, lane)
 
-        if (tournament.type === TournamentType.AMERICANO_WITH_SWAP) {
-          pairings = generateAmericanoSwapStandingsPairings(
-            competitorIds,
-            roundNumber,
-            allMatches,
-            settings,
-            tournament.scoreFormat
-          )
-        } else if (isFullAmericanoRoundRobin(settings, competitorIds.length)) {
+        if (isFullAmericanoRoundRobin(settings, competitorIds.length)) {
           pairings = generateRoundRobinRound(competitorIds, roundNumber)
         } else {
           pairings = generateAmericanoStandingsPairings(competitorIds, allMatches, settings, tournament.scoreFormat)
@@ -2265,18 +2171,10 @@ async function buildLaneNextRound(
 
   let pairings: Pairing[]
 
-  if (tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP) {
+  if (tournament.type === TournamentType.AMERICANO) {
     const allMatches = laneMatches(all, lane)
 
-    if (tournament.type === TournamentType.AMERICANO_WITH_SWAP) {
-      pairings = generateAmericanoSwapStandingsPairings(
-        competitorIds,
-        nextNumber,
-        allMatches,
-        settings,
-        tournament.scoreFormat
-      )
-    } else if (isFullAmericanoRoundRobin(settings, competitorIds.length)) {
+    if (isFullAmericanoRoundRobin(settings, competitorIds.length)) {
       pairings = generateRoundRobinRound(competitorIds, nextNumber)
     } else {
       pairings = generateAmericanoStandingsPairings(competitorIds, allMatches, settings, tournament.scoreFormat)
@@ -2397,17 +2295,18 @@ async function syncUnorderedVoids(
 
   for (const match of matches) {
     // Only resolved, real matchups consume quota — a VOID one never happened.
-    if (match.status === MatchStatus.PENDING || match.status === MatchStatus.VOID || !match.awayCompetitorIds) {
+    if (match.status === MatchStatus.PENDING || match.status === MatchStatus.VOID || match.awayCompetitorId == null) {
       continue
     }
 
-    for (const competitorId of [...match.homeCompetitorIds, ...match.awayCompetitorIds]) {
-      played.set(competitorId, (played.get(competitorId) ?? 0) + 1)
+    for (const competitorId of [match.homeCompetitorId, match.awayCompetitorId]) {
+      if (competitorId != null) {
+        played.set(competitorId, (played.get(competitorId) ?? 0) + 1)
+      }
     }
   }
 
-  const isFull = (ids: number[] | null): boolean =>
-    (ids ?? []).some((competitorId) => (played.get(competitorId) ?? 0) >= quota)
+  const isFull = (id: number | null): boolean => id != null && (played.get(id) ?? 0) >= quota
   let changed = false
 
   for (const match of matches) {
@@ -2417,7 +2316,7 @@ async function syncUnorderedVoids(
     }
 
     const status =
-      isFull(match.homeCompetitorIds) || isFull(match.awayCompetitorIds) ? MatchStatus.VOID : MatchStatus.PENDING
+      isFull(match.homeCompetitorId) || isFull(match.awayCompetitorId) ? MatchStatus.VOID : MatchStatus.PENDING
 
     if (match.status === status) {
       continue
@@ -2614,9 +2513,7 @@ async function regenerateDownstreamRounds(tournament: Tournament, editedMatch: M
   const tournamentCategoryId = editedMatch.tournamentCategoryId
 
   switch (tournament.type) {
-    case TournamentType.AMERICANO:
-
-    case TournamentType.AMERICANO_WITH_SWAP: {
+    case TournamentType.AMERICANO: {
       const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: null }
 
       await rebuildLaneFrom(tournament, tournamentCategoryId, lane, editedMatch.roundNumber + 1)

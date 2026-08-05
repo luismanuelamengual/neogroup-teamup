@@ -100,11 +100,7 @@ export default function TournamentRoundsView({
     )
   }
 
-  if (
-    tournament.type === TournamentType.LEAGUE ||
-    tournament.type === TournamentType.AMERICANO ||
-    tournament.type === TournamentType.AMERICANO_WITH_SWAP
-  ) {
+  if (tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.AMERICANO) {
     return (
       <div className="rounds-view">
         <div className="rounds-section">

@@ -41,8 +41,7 @@ export default function StandingsTable({ tournament, category, groupNumber }: St
   )
   const showLeagueColumns =
     tournament.type === TournamentType.LEAGUE || tournament.type === TournamentType.GROUPS_PLAYOFF
-  const showAmericanoColumns =
-    tournament.type === TournamentType.AMERICANO || tournament.type === TournamentType.AMERICANO_WITH_SWAP
+  const showAmericanoColumns = tournament.type === TournamentType.AMERICANO
   // Interclubes: points ARE encounters won, so PG would just repeat Pts. What
   // actually separates two teams on the same points are the two differentials.
   const showInterclubsColumns = tournament.type === TournamentType.INTERCLUBS

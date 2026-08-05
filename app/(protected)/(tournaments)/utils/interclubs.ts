@@ -205,8 +205,8 @@ export function buildSiteLabels(teams: LabelableTeam[]): Map<number, string | nu
 export interface LocalityMatch {
   id: number
   roundNumber: number
-  homeCompetitorIds: number[]
-  awayCompetitorIds: number[] | null
+  homeCompetitorId: number | null
+  awayCompetitorId: number | null
 }
 
 /** A matchup whose home/away sides have not been decided yet. */
@@ -249,15 +249,14 @@ function hashKey(value: string): number {
 function encountersBetween(first: number, second: number, matches: LocalityMatch[]): LocalityMatch[] {
   return matches
     .filter((match) => {
-      const away = match.awayCompetitorIds
+      const away = match.awayCompetitorId
 
-      if (!away || away.length === 0) {
+      if (away == null) {
         return false
       }
 
       return (
-        (match.homeCompetitorIds.includes(first) && away.includes(second)) ||
-        (match.homeCompetitorIds.includes(second) && away.includes(first))
+        (match.homeCompetitorId === first && away === second) || (match.homeCompetitorId === second && away === first)
       )
     })
     .sort((a, b) => a.roundNumber - b.roundNumber || a.id - b.id)
@@ -269,13 +268,11 @@ function countHomeGames(matches: LocalityMatch[]): Map<number, number> {
 
   for (const match of matches) {
     // A bye / placeholder has no away side: nobody was really "home" in it.
-    if (!match.awayCompetitorIds || match.awayCompetitorIds.length === 0) {
+    if (match.awayCompetitorId == null || match.homeCompetitorId == null) {
       continue
     }
 
-    for (const id of match.homeCompetitorIds) {
-      counts.set(id, (counts.get(id) ?? 0) + 1)
-    }
+    counts.set(match.homeCompetitorId, (counts.get(match.homeCompetitorId) ?? 0) + 1)
   }
 
   return counts
@@ -306,7 +303,7 @@ export function resolveLocality(
 
   if (last) {
     // Invert: the previous away side hosts now.
-    const previousHome = last.homeCompetitorIds.includes(first) ? first : second
+    const previousHome = last.homeCompetitorId === first ? first : second
 
     return previousHome === first ? { home: second, away: first } : { home: first, away: second }
   }
@@ -350,8 +347,8 @@ export function assignLocality(
     known.push({
       id: syntheticId++,
       roundNumber,
-      homeCompetitorIds: [sides.home],
-      awayCompetitorIds: [sides.away]
+      homeCompetitorId: sides.home,
+      awayCompetitorId: sides.away
     })
   }
 

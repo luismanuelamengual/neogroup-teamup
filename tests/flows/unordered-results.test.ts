@@ -38,8 +38,8 @@ async function fixtureBetween(categoryId: number, home: number, away: number): P
   const match = matches.find(
     (candidate) =>
       candidate.type === MatchType.LEAGUE &&
-      ((candidate.homeCompetitorIds.includes(home) && (candidate.awayCompetitorIds ?? []).includes(away)) ||
-        (candidate.homeCompetitorIds.includes(away) && (candidate.awayCompetitorIds ?? []).includes(home)))
+      ((candidate.homeCompetitorId === home && candidate.awayCompetitorId === away) ||
+        (candidate.homeCompetitorId === away && candidate.awayCompetitorId === home))
   )
 
   if (!match) {
@@ -62,11 +62,16 @@ async function playedByCompetitor(categoryId: number): Promise<Map<number, numbe
   const played = new Map<number, number>()
 
   for (const match of matches) {
-    if (match.status === MatchStatus.PENDING || match.status === MatchStatus.VOID || !match.awayCompetitorIds) {
+    if (
+      match.status === MatchStatus.PENDING ||
+      match.status === MatchStatus.VOID ||
+      match.awayCompetitorId == null ||
+      match.homeCompetitorId == null
+    ) {
       continue
     }
 
-    for (const id of [...match.homeCompetitorIds, ...match.awayCompetitorIds]) {
+    for (const id of [match.homeCompetitorId, match.awayCompetitorId]) {
       played.set(id, (played.get(id) ?? 0) + 1)
     }
   }
@@ -172,7 +177,7 @@ describe('Unordered results — LEAGUE', () => {
     const voided = matches.filter((m) => m.status === MatchStatus.VOID)
 
     expect(voided.length).toBe(3)
-    expect(voided.every((m) => m.homeCompetitorIds.includes(a) || (m.awayCompetitorIds ?? []).includes(a))).toBe(true)
+    expect(voided.every((m) => m.homeCompetitorId === a || m.awayCompetitorId === a)).toBe(true)
   })
 
   it('refuses to load a result into a voided fixture', async () => {
@@ -394,11 +399,16 @@ describe('Unordered results — GROUPS_PLAYOFF', () => {
     const groupPlayed = new Map<number, number>()
 
     for (const match of matches) {
-      if (match.groupNumber == null || match.status === MatchStatus.PENDING || !match.awayCompetitorIds) {
+      if (
+        match.groupNumber == null ||
+        match.status === MatchStatus.PENDING ||
+        match.awayCompetitorId == null ||
+        match.homeCompetitorId == null
+      ) {
         continue
       }
 
-      for (const id of [...match.homeCompetitorIds, ...match.awayCompetitorIds]) {
+      for (const id of [match.homeCompetitorId, match.awayCompetitorId]) {
         groupPlayed.set(id, (groupPlayed.get(id) ?? 0) + 1)
       }
     }

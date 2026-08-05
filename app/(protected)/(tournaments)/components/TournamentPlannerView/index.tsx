@@ -466,12 +466,12 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     [competitorsById]
   )
   const sideName = useCallback(
-    (ids: number[] | null): string => {
-      if (!ids || ids.length === 0) {
+    (id: number | null): string => {
+      if (id == null) {
         return '—'
       }
 
-      return ids.map(competitorLabel).join(' / ')
+      return competitorLabel(id)
     },
     [competitorLabel]
   )
@@ -482,7 +482,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
    * which match it refers to.
    */
   const plainSideName = useCallback(
-    (ids: number[]): string => ids.map((id) => competitorsById[id]?.shortName ?? `#${id}`).join(' / '),
+    (id: number): string => competitorsById[id]?.shortName ?? `#${id}`,
     [competitorsById]
   )
   // Matches grouped by category: deriving a bracket slot's description needs the
@@ -518,15 +518,17 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       // A future bracket match has empty sides. Rather than two dashes, describe
       // where each side will come from ("Ganador de Amengual vs Gutierrez").
       const slots = resolveSlotLabels(match, matchesByCategory.get(match.tournamentCategoryId) ?? [], plainSideName)
-      const homePlaceholder = match.homeCompetitorIds.length === 0 && slots.home != null
-      const awayPlaceholder = (match.awayCompetitorIds?.length ?? 0) === 0 && slots.away != null
-      const home = homePlaceholder ? slots.home! : sideName(match.homeCompetitorIds)
-      const away = awayPlaceholder ? slots.away! : sideName(match.awayCompetitorIds)
+      const homePlaceholder = match.homeCompetitorId == null && slots.home != null
+      const awayPlaceholder = match.awayCompetitorId == null && slots.away != null
+      const home = homePlaceholder ? slots.home! : sideName(match.homeCompetitorId)
+      const away = awayPlaceholder ? slots.away! : sideName(match.awayCompetitorId)
       // Searchable by the real competitors AND by the derived descriptions, so
       // typing "amengual" also surfaces the "Ganador de Amengual vs …" slot.
       const searchText = foldForSearch(
         [
-          ...[...match.homeCompetitorIds, ...(match.awayCompetitorIds ?? [])].map((id) => searchIndex.get(id) ?? ''),
+          ...[match.homeCompetitorId, match.awayCompetitorId]
+            .filter((id): id is number => id != null)
+            .map((id) => searchIndex.get(id) ?? ''),
           homePlaceholder ? home : '',
           awayPlaceholder ? away : ''
         ].join(' ')

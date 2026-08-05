@@ -54,15 +54,15 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
     return null
   }
 
-  const homeTeam = competitorsById.get(match.homeCompetitorIds[0])
-  const awayTeam = match.awayCompetitorIds ? competitorsById.get(match.awayCompetitorIds[0]) : undefined
+  const homeTeam = match.homeCompetitorId != null ? competitorsById.get(match.homeCompetitorId) : undefined
+  const awayTeam = match.awayCompetitorId != null ? competitorsById.get(match.awayCompetitorId) : undefined
 
-  const sideName = (ids: number[] | null): string => {
-    if (!ids || ids.length === 0) {
+  const sideName = (id: number | null): string => {
+    if (id == null) {
       return 'A definir'
     }
 
-    return ids.map((id) => competitorsById.get(id)?.displayName ?? `#${id}`).join(' / ')
+    return competitorsById.get(id)?.displayName ?? `#${id}`
   }
 
   const playerName = (competitor: CompetitorDto | undefined, playerId: number): string => {
@@ -130,7 +130,7 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
               onClick={() => openCompetitor(homeTeam)}
             >
               <span className="side-label">{isInterclubs ? 'Local' : 'Lado A'}</span>
-              <span className="side-name">{sideName(match.homeCompetitorIds)}</span>
+              <span className="side-name">{sideName(match.homeCompetitorId)}</span>
             </div>
             <div className="score">
               {match.status === MatchStatus.PENDING ? '—' : formatScore(match.score, tournament.scoreFormat)}
@@ -140,7 +140,7 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
               onClick={() => openCompetitor(awayTeam)}
             >
               <span className="side-label">{isInterclubs ? 'Visitante' : 'Lado B'}</span>
-              <span className="side-name">{sideName(match.awayCompetitorIds)}</span>
+              <span className="side-name">{sideName(match.awayCompetitorId)}</span>
             </div>
           </div>
 

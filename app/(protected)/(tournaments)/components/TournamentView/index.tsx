@@ -120,8 +120,7 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
 
     return matches.filter(
       (match) =>
-        match.awayCompetitorIds !== null &&
-        (match.homeCompetitorIds.includes(userEntry.id) || match.awayCompetitorIds.includes(userEntry.id)) &&
+        (match.homeCompetitorId === userEntry.id || match.awayCompetitorId === userEntry.id) &&
         isMatchEditable(
           match,
           matchesByCategory.get(match.tournamentCategoryId) ?? [],

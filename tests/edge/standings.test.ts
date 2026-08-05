@@ -112,8 +112,8 @@ describe('standings — type-specific behavior', () => {
       }
 
       for (const match of pending) {
-        const homeIsDominator = match.homeCompetitorIds[0] === dominator
-        const awayIsDominator = match.awayCompetitorIds?.[0] === dominator
+        const homeIsDominator = match.homeCompetitorId === dominator
+        const awayIsDominator = match.awayCompetitorId === dominator
 
         if (awayIsDominator) {
           await setResult(match.id, { home: 5, away: 16 })

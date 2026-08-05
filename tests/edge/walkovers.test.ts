@@ -62,7 +62,7 @@ describe('walkovers', () => {
     expect(getChampionCompetitorId(await reloadTournament(built.tournament.id))).not.toBeNull()
 
     const all = await getAllMatches(built.categoryIds[0])
-    const realWalkovers = all.filter((m) => m.awayCompetitorIds && m.awayCompetitorIds.length > 0)
+    const realWalkovers = all.filter((m) => m.awayCompetitorId != null)
 
     expect(realWalkovers.every((m) => m.status === MatchStatus.WALKOVER && m.winner === MatchSide.HOME)).toBe(true)
   })

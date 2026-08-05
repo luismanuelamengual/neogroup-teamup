@@ -484,12 +484,12 @@ async function registerCompetitors(
 
 /** Loads the two teams of an interclubes match and generates a series between them. */
 async function generateSeriesScoreFor(tournament: Tournament, match: Match): Promise<MatchScore> {
-  const competitors = await Competitor.whereIn('id', [
-    ...match.homeCompetitorIds,
-    ...(match.awayCompetitorIds ?? [])
-  ]).get()
-  const home = competitors.find((competitor) => match.homeCompetitorIds.includes(competitor.id))
-  const away = competitors.find((competitor) => (match.awayCompetitorIds ?? []).includes(competitor.id))
+  const competitors = await Competitor.whereIn(
+    'id',
+    [match.homeCompetitorId, match.awayCompetitorId].filter((id): id is number => id != null)
+  ).get()
+  const home = competitors.find((competitor) => match.homeCompetitorId === competitor.id)
+  const away = competitors.find((competitor) => match.awayCompetitorId === competitor.id)
 
   return generateSeriesScore(tournament.scoreFormat, home?.playerIds ?? [], away?.playerIds ?? [])
 }
@@ -744,31 +744,6 @@ const SPECS: TournamentSpec[] = [
     categories: [{ category: null, competitorsCount: 13 }],
     settings: { ...DEFAULT_AMERICANO_SETTINGS },
     status: TournamentStatus.FINISHED
-  },
-  {
-    name: 'Americano Rotativo de Pádel',
-    description: 'Cada jugador cambia de compañero por ronda.',
-    discipline: Discipline.PADEL,
-    subDiscipline: null,
-    type: TournamentType.AMERICANO_WITH_SWAP,
-    scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: [{ category: null, competitorsCount: 11 }],
-    settings: { ...DEFAULT_AMERICANO_SETTINGS },
-    status: TournamentStatus.ONGOING,
-    phase: 'just_started'
-  },
-  {
-    name: 'Americano Social de Pádel',
-    description: 'Rotación de compañeros, en curso.',
-    discipline: Discipline.PADEL,
-    subDiscipline: null,
-    type: TournamentType.AMERICANO_WITH_SWAP,
-    scoreFormat: ScoreFormat.BASIC_COUNT,
-    categories: [{ category: null, competitorsCount: 8 }],
-    settings: { pointsPerGameWon: 1, pointsPerMatchWon: 2 },
-    status: TournamentStatus.ONGOING,
-    phase: 'mid',
-    completedRounds: 2
   },
   {
     name: 'Americano de Pádel Empresas',
@@ -1069,10 +1044,10 @@ const SPECS: TournamentSpec[] = [
   // Padel Americano 16 jugadores — en curso, mitad del torneo
   {
     name: 'Americano de Pádel Copa de Oro',
-    description: 'Americano con 16 jugadores, rotación de parejas.',
+    description: 'Americano con 16 jugadores, parejas fijas.',
     discipline: Discipline.PADEL,
     subDiscipline: null,
-    type: TournamentType.AMERICANO_WITH_SWAP,
+    type: TournamentType.AMERICANO,
     scoreFormat: ScoreFormat.BASIC_COUNT,
     categories: [{ category: null, competitorsCount: 16 }],
     settings: { ...DEFAULT_AMERICANO_SETTINGS },
