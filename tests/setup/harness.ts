@@ -48,6 +48,7 @@ import migration013 from '@/database/migrations/013-matches-schedule'
 import migration014 from '@/database/migrations/014-tournaments-start-inscriptions-date'
 import migration015 from '@/database/migrations/015-payments-refactor'
 import migration016 from '@/database/migrations/016-fold-playoff-consolation-into-playoff'
+import migration017 from '@/database/migrations/017-users-drop-nickname-add-site'
 import migration018 from '@/database/migrations/018-single-competitor-per-side'
 
 const TABLES = [
@@ -152,6 +153,9 @@ export async function resetDatabase(): Promise<void> {
   // settings.consolationBracket — a no-op here since the table is freshly
   // created and empty.
   await migration016.up()
+  // 017 adds users.siteId (the player's home venue), which same-site
+  // avoidance in bracket/group generation reads for singles/pairs competitors.
+  await migration017.up()
   // 018 replaces matches.homeCompetitorIds/awayCompetitorIds (arrays, needed
   // only by the removed AMERICANO_WITH_SWAP type) with single nullable
   // homeCompetitorId/awayCompetitorId FK columns — a no-op deletion step here
@@ -194,7 +198,11 @@ export async function createOrganization(): Promise<number> {
 let userSeq = 0
 
 /** Creates a throwaway user row (FK target for owners / competitors). */
-export async function createUser(organizationId = 1, roleId: Role | null = null): Promise<number> {
+export async function createUser(
+  organizationId = 1,
+  roleId: Role | null = null,
+  siteId: number | null = null
+): Promise<number> {
   userSeq++
   const user = new User()
 
@@ -202,6 +210,7 @@ export async function createUser(organizationId = 1, roleId: Role | null = null)
     organizationId,
     email: `user${userSeq}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.dev`,
     roleId,
+    siteId,
     active: true,
     emailVerified: true,
     createdAt: new Date()
@@ -254,6 +263,16 @@ export interface CreateTournamentOptions {
    * as "Alemán A" / "Alemán B". Defaults to one distinct venue per team.
    */
   sites?: string[]
+  /**
+   * Home venue ("sede") name of every player of each competitor, positionally
+   * (singles/pairs/groups+playoff — anything that is NOT interclubes, whose
+   * venue comes from `sites`/`data.siteId` instead). Every player in the
+   * competitor's roster gets this same `User.siteId`, so the competitor's
+   * resolved site (see `resolveCompetitorSiteId`) is exactly this venue.
+   * Repeating a name across competitors is what makes same-site avoidance
+   * testable. Omitted entries leave the competitor's players without a site.
+   */
+  playerSites?: (string | null)[]
   /**
    * Per-category competitor counts. When provided, one real category instance is
    * created per entry. When omitted, a single category (categoryId = null) holds
@@ -363,9 +382,20 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
 
     for (let i = 0; i < count; i++) {
       const playerIds: number[] = []
+      const playerSiteName = options.playerSites?.[competitorIndex] ?? null
+      let playerSiteId: number | null = null
+
+      if (playerSiteName) {
+        playerSiteId = siteIdByName.get(playerSiteName) ?? null
+
+        if (playerSiteId == null) {
+          playerSiteId = await createSite(organizationId, playerSiteName)
+          siteIdByName.set(playerSiteName, playerSiteId)
+        }
+      }
 
       for (let player = 0; player < playersPerCompetitor; player++) {
-        playerIds.push(await createUser(organizationId))
+        playerIds.push(await createUser(organizationId, null, playerSiteId))
       }
 
       const competitor = new Competitor()

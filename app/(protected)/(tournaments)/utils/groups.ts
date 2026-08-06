@@ -24,6 +24,158 @@ import { snakeSeedGroups, supportsPreclassification } from '@/app/(protected)/(t
 export interface GroupableCompetitor {
   id: number
   seedNumber?: number | null
+  /** Type-specific attributes; only `data.siteId` (interclubes venue) matters here. */
+  data?: { siteId?: number | null } | null
+  /** Roster, when loaded — each player's own home site is read off `siteId`. */
+  players?: Array<{ siteId?: number | null }> | null
+}
+
+/**
+ * Resolves a competitor's "sede" (site/venue) for same-site avoidance in
+ * bracket/group generation, per this precedence:
+ *
+ *   1. `data.siteId` — an explicit venue, today only set for interclubes teams.
+ *   2. Otherwise, the players' own home site (`User.siteId`), but only when
+ *      EVERY player of the competitor shares the same one — a mixed-site pair
+ *      has no single site to avoid clashing on.
+ *   3. Otherwise, "unassigned": returns `null`.
+ *
+ * Kept as a standalone pure function (rather than folded into
+ * `resolveCompetitorSiteId`) so the engine — which has `playerIds` plus a
+ * separately-queried id→site map instead of embedded player objects — can
+ * reuse the same precedence rule without duplicating it.
+ */
+export function resolveSiteId(
+  dataSiteId: number | null | undefined,
+  playerSiteIds: Array<number | null | undefined>
+): number | null {
+  if (dataSiteId != null) {
+    return dataSiteId
+  }
+
+  if (playerSiteIds.length === 0) {
+    return null
+  }
+
+  const [first, ...rest] = playerSiteIds
+
+  if (first == null) {
+    return null
+  }
+
+  return rest.every((siteId) => siteId === first) ? first : null
+}
+
+/** `resolveSiteId` applied to a `GroupableCompetitor` whose players (if any) are already embedded. */
+export function resolveCompetitorSiteId(competitor: GroupableCompetitor): number | null {
+  return resolveSiteId(
+    competitor.data?.siteId,
+    (competitor.players ?? []).map((player) => player.siteId)
+  )
+}
+
+/** Competitor id → site id, skipping competitors whose site could not be resolved (unassigned). */
+export function buildSiteMap(competitors: GroupableCompetitor[]): Map<number, number> {
+  const siteOf = new Map<number, number>()
+
+  for (const competitor of competitors) {
+    const siteId = resolveCompetitorSiteId(competitor)
+
+    if (siteId != null) {
+      siteOf.set(competitor.id, siteId)
+    }
+  }
+
+  return siteOf
+}
+
+/**
+ * Rearranges group membership so two competitors from the same site don't end
+ * up in the same group when it can be avoided. Best effort, deliberately
+ * conservative, mirroring `repairSameGroupPairings`'s swap pass:
+ *
+ *   - only ever a 1-for-1 swap between two groups, so sizes never change;
+ *   - a swap is applied only when it clears the clash without creating a new
+ *     one on either side;
+ *   - groups/positions are visited in order and the first valid partner wins,
+ *     so the result is deterministic;
+ *   - it is genuinely best effort — a site with more members than there are
+ *     groups always leaves someone paired with a fellow member.
+ */
+export function repairSameSiteGroups(groups: number[][], siteOf: Map<number, number>): number[][] {
+  const hasClash = (group: number[]): boolean => {
+    const seen = new Set<number>()
+
+    for (const id of group) {
+      const siteId = siteOf.get(id)
+
+      if (siteId == null) {
+        continue
+      }
+
+      if (seen.has(siteId)) {
+        return true
+      }
+
+      seen.add(siteId)
+    }
+
+    return false
+  }
+
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+    const group = groups[groupIndex]
+
+    for (let position = 0; position < group.length; position++) {
+      const id = group[position]
+      const siteId = siteOf.get(id)
+
+      if (siteId == null) {
+        continue
+      }
+
+      // Recomputed fresh (not an incremental running set) because an earlier
+      // swap in this same pass can change who sits before `position`.
+      const clashesWithEarlierMember = group.slice(0, position).some((earlierId) => siteOf.get(earlierId) === siteId)
+
+      if (!clashesWithEarlierMember) {
+        continue
+      }
+
+      // `id` clashes with an earlier member of the same site in this group —
+      // look for a swap partner in another group, closest index first.
+      const otherGroupIndexes = groups
+        .map((_, index) => index)
+        .filter((index) => index !== groupIndex)
+        .sort((a, b) => Math.abs(a - groupIndex) - Math.abs(b - groupIndex))
+      let swapped = false
+
+      for (const otherIndex of otherGroupIndexes) {
+        const other = groups[otherIndex]
+
+        for (let otherPosition = 0; otherPosition < other.length; otherPosition++) {
+          const candidateId = other[otherPosition]
+
+          group[position] = candidateId
+          other[otherPosition] = id
+
+          if (!hasClash(group) && !hasClash(other)) {
+            swapped = true
+            break
+          }
+
+          group[position] = id
+          other[otherPosition] = candidateId
+        }
+
+        if (swapped) {
+          break
+        }
+      }
+    }
+  }
+
+  return groups
 }
 
 /**
@@ -91,39 +243,44 @@ export function sortCompetitorIds(competitors: GroupableCompetitor[], type: Tour
  * (the first `seededCount` entries of `orderedIds`) are snake-seeded across the
  * groups so the top seeds land in different ones; the rest fill the remaining
  * slots.
+ *
+ * `siteOf`, when given, triggers a best-effort repair pass afterwards
+ * (`repairSameSiteGroups`) so competitors sharing a site avoid landing in the
+ * same group — covers both groups+playoff groups and interclubes zones, the
+ * only two group-formation paths in the app.
  */
 export function buildGroups(
   orderedIds: number[],
   seededCount: number,
   settings: TournamentSettings | null | undefined,
-  type: TournamentType = TournamentType.GROUPS_PLAYOFF
+  type: TournamentType = TournamentType.GROUPS_PLAYOFF,
+  siteOf?: Map<number, number>
 ): number[][] {
   const groupSize = settings?.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
   const groupSizes =
     type === TournamentType.INTERCLUBS
       ? interclubsGroupSizes(orderedIds.length)
       : computeGroupSizes(orderedIds.length, groupSize)
+  let groups: number[][]
 
   if (seededCount > 0) {
-    return snakeSeedGroups(orderedIds.slice(0, seededCount), orderedIds.slice(seededCount), groupSizes)
-  }
-
-  if (type === TournamentType.INTERCLUBS) {
+    groups = snakeSeedGroups(orderedIds.slice(0, seededCount), orderedIds.slice(seededCount), groupSizes)
+  } else if (type === TournamentType.INTERCLUBS) {
     // Zones are filled in registration order. `assignGroups` cannot be reused
     // here: it re-derives the zone COUNT with the groups+playoff ceil rule,
     // which is not how interclubes zones are sized.
-    const groups: number[][] = []
+    groups = []
     let cursor = 0
 
     for (const size of groupSizes) {
       groups.push(orderedIds.slice(cursor, cursor + size))
       cursor += size
     }
-
-    return groups
+  } else {
+    groups = assignGroups(orderedIds, groupSize)
   }
 
-  return assignGroups(orderedIds, groupSize)
+  return siteOf && siteOf.size > 0 ? repairSameSiteGroups(groups, siteOf) : groups
 }
 
 /**
@@ -140,5 +297,5 @@ export function computeGroupMembership(
   const orderedIds = sortCompetitorIds(competitors, type)
   const seededCount = competitors.filter((competitor) => competitor.seedNumber != null).length
 
-  return buildGroups(orderedIds, seededCount, settings, type)
+  return buildGroups(orderedIds, seededCount, settings, type, buildSiteMap(competitors))
 }

@@ -106,6 +106,39 @@ describe('PLAYOFF — full flows', () => {
     })
   }
 
+  it('avoids pairing same-site competitors in round 1 when a full separation exists', async () => {
+    // 8 competitors, 4 sites of 2 each. Sites are assigned so the standard
+    // bracket seeding's natural round-1 pairs — (idx0,idx7), (idx3,idx4),
+    // (idx1,idx6), (idx2,idx5) — would each clash if left alone; a full
+    // derangement across the 4 pairs exists, so the repair should reach it.
+    const built = await buildTournament({
+      type: TournamentType.PLAYOFF,
+      competitors: 8,
+      scoreFormat: ScoreFormat.BASIC_COUNT,
+      playerSites: ['Alemán', 'Español', 'Italiano', 'Francés', 'Francés', 'Italiano', 'Español', 'Alemán']
+    })
+
+    await start(built)
+
+    const categoryId = built.categoryIds[0]
+    const round1 = (await getRounds(categoryId)).find((r) => r.type === MatchType.BRACKET && r.number === 1)!
+    const matches = await getMatches(round1.id)
+    const siteByCompetitorId = new Map(
+      built.competitorIds.map((id, index) => [
+        id,
+        ['Alemán', 'Español', 'Italiano', 'Francés', 'Francés', 'Italiano', 'Español', 'Alemán'][index]
+      ])
+    )
+
+    for (const match of matches) {
+      if (match.awayCompetitorId == null) {
+        continue
+      }
+
+      expect(siteByCompetitorId.get(match.homeCompetitorId!)).not.toBe(siteByCompetitorId.get(match.awayCompetitorId))
+    }
+  })
+
   it('lets the away side win and advance (winner propagation)', async () => {
     const built = await buildTournament({
       type: TournamentType.PLAYOFF,

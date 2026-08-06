@@ -94,6 +94,59 @@ describe('GROUPS_PLAYOFF — full flows', () => {
     })
   }
 
+  it('avoids grouping same-site competitors when a balanced split exists', async () => {
+    // 8 competitors, groups of 4 → two groups. The unseeded round-robin split
+    // (assignGroups) naturally puts registration slots 0,2,4,6 in group 0 and
+    // 1,3,5,7 in group 1; sites are assigned so slots 0&2 clash (both group 0)
+    // and 1&3 clash (both group 1) unless the repair pass moves them apart.
+    const built = await buildTournament({
+      type: TournamentType.GROUPS_PLAYOFF,
+      competitors: 8,
+      scoreFormat: ScoreFormat.BASIC_COUNT,
+      settings: { competitorsPerGroup: 4, qualifiersPerGroup: 2 },
+      playerSites: ['Alemán', 'Español', 'Alemán', 'Español', null, null, null, null]
+    })
+
+    await start(built)
+
+    const categoryId = built.categoryIds[0]
+    const leagueMatches = (await getAllMatches(categoryId)).filter((m) => m.type === MatchType.LEAGUE)
+    const groupOfCompetitor = new Map<number, number>()
+
+    for (const match of leagueMatches) {
+      if (match.homeCompetitorId != null) {
+        groupOfCompetitor.set(match.homeCompetitorId, match.groupNumber!)
+      }
+
+      if (match.awayCompetitorId != null) {
+        groupOfCompetitor.set(match.awayCompetitorId, match.groupNumber!)
+      }
+    }
+
+    const siteNames = ['Alemán', 'Español', 'Alemán', 'Español', null, null, null, null]
+    const groupsBySite = new Map<string, Set<number>>()
+
+    built.competitorIds.forEach((competitorId, index) => {
+      const site = siteNames[index]
+      const groupNumber = groupOfCompetitor.get(competitorId)
+
+      if (site == null || groupNumber == null) {
+        return
+      }
+
+      if (!groupsBySite.has(site)) {
+        groupsBySite.set(site, new Set())
+      }
+
+      groupsBySite.get(site)!.add(groupNumber)
+    })
+
+    // Each site's competitors ended up spread across more than one group.
+    for (const groups of groupsBySite.values()) {
+      expect(groups.size).toBeGreaterThan(1)
+    }
+  })
+
   it('closes the groups early and starts the knockout once maxRounds is reached', async () => {
     const built = await buildTournament({
       type: TournamentType.GROUPS_PLAYOFF,
