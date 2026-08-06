@@ -5,7 +5,9 @@ import { processTournaments } from '@/app/(protected)/(tournaments)/services/tou
  * GET /api/processTournaments
  *
  * Vercel Cron Job endpoint. Secured by the CRON_SECRET environment variable
- * (set as Authorization: Bearer <secret> in vercel.json).
+ * (set as Authorization: Bearer <secret> in vercel.json). Only auto-finishes
+ * completed ONGOING tournaments — it does not start tournaments; starting is
+ * a manual, organizer-only action (POST /api/startTournament).
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const authHeader = request.headers.get('authorization')
