@@ -12,10 +12,11 @@ import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverdu
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { useUserStore } from '@/app/stores/users'
+import { normalizeName } from '@/app/utils/users'
 
 export default function OrganizerDashboard() {
   const user = useUserStore((state) => state.user)
-  const firstName = user?.firstName || user?.displayName || ''
+  const firstName = (user?.firstName ? normalizeName(user.firstName) : '') || user?.displayName || ''
   const { overdueCount } = useOverduePayments()
   const blocked = overdueCount > 0
 

@@ -138,7 +138,7 @@ function CompetitorAvatarGroup({ players, fallbackName }: { players?: Competitor
           className="competitor-avatar-group-item"
           size="sm"
           email={player.email}
-          name={[player.firstName, player.lastName].filter(Boolean).join(' ') || player.email}
+          name={player.displayName}
         />
       ))}
     </div>

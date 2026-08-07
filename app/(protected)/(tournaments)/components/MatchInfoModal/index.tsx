@@ -68,9 +68,8 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
   const playerName = (competitor: CompetitorDto | undefined, playerId: number): string => {
     const index = competitor?.playerIds.indexOf(playerId) ?? -1
     const player = index >= 0 ? competitor?.players?.[index] : undefined
-    const name = [player?.firstName, player?.lastName].filter(Boolean).join(' ')
 
-    return name || player?.email || `#${playerId}`
+    return player?.displayName || `#${playerId}`
   }
 
   const stageName = (): string => {
