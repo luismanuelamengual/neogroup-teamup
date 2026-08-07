@@ -11,7 +11,7 @@ import {
 } from '@/app/(protected)/(tournaments)/services/registrations'
 import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { getLateRegistrationSlots, LateRegistrationSlot } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
-import { attachLateCompetitor } from '@/app/(protected)/(tournaments)/utils/tournaments'
+import { attachLateCompetitor, freezeGroupMembership } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
@@ -181,6 +181,15 @@ export async function registerCompetitor(
   // a competitor we would then have nowhere to put.
   const slot =
     tournament.status === TournamentStatus.ONGOING ? resolveLateSlot(tournament, targetCategory, slotSelection) : null
+
+  if (slot) {
+    // Before the entrant's row exists, so the membership that gets written down
+    // is the one being played rather than a fresh derivation that already counts
+    // them in. A no-op unless this is a groups+playoff that started before
+    // membership was frozen (see `freezeGroupMembership`).
+    await freezeGroupMembership(tournament)
+  }
+
   const [rawUserId, ...rawMateIds] = playerIds
   const userId = Number(rawUserId)
   const user = await User.find(userId)

@@ -4,7 +4,12 @@ import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { roundLabel } from '@/app/(protected)/(tournaments)/utils/bracket'
-import { GroupableCompetitor, storedGroupMembership } from '@/app/(protected)/(tournaments)/utils/groups'
+import {
+  computeGroupMembership,
+  GroupableCompetitor,
+  storedGroupMembership
+} from '@/app/(protected)/(tournaments)/utils/groups'
+import { generateRoundRobinRound } from '@/app/(protected)/(tournaments)/utils/roundRobin'
 import { allowsUnorderedResults } from '@/app/(protected)/(tournaments)/utils/settings'
 
 /**
@@ -205,6 +210,110 @@ function isInGroupPhase(matches: LateRegistrationMatch[]): boolean {
   return groupMatches.length > 0 && groupMatches.some((match) => match.status === MatchStatus.PENDING)
 }
 
+/** Order-insensitive key of a matchup, so a fixture is recognised however its sides are stored. */
+function pairKeyOf(home: number | null, away: number | null): string {
+  return [home, away]
+    .filter((id): id is number => id != null)
+    .sort((a, b) => a - b)
+    .join(':')
+}
+
+/**
+ * Whether re-deriving a category's group membership from scratch reproduces the
+ * groups that are ACTUALLY being played.
+ *
+ * Membership is normally frozen when the tournament starts, but tournaments that
+ * were already under way when that was introduced carry nothing — and refusing
+ * them forever is worse than checking. The derivation is deterministic, so for a
+ * category whose competitors have not changed since it started it reproduces the
+ * original split exactly; this is what proves it, against the matches themselves:
+ *
+ *  1. Every materialised fixture must sit in the group the derivation puts BOTH
+ *     of its sides in. A single fixture in the wrong lane means the split drifted.
+ *  2. An ordered lane additionally depends on the ORDER inside each group — the
+ *     circle method derives every pairing from it — so each materialised round
+ *     must come out with exactly the fixtures it already holds. An unordered lane
+ *     needs no such check: nothing ever re-derives its layout, and a late entrant
+ *     only reads the membership as a set of rivals.
+ *
+ * A category with no group fixtures yet has nothing to contradict, so it passes.
+ */
+function derivationReproducesPlay(
+  groups: number[][],
+  categoryMatches: LateRegistrationMatch[],
+  unordered: boolean
+): boolean {
+  const groupOf = new Map<number, number>()
+
+  groups.forEach((group, index) => group.forEach((id) => groupOf.set(id, index)))
+
+  const groupMatches = categoryMatches.filter((match) => match.type === MatchType.LEAGUE && match.groupNumber != null)
+
+  if (groupMatches.length === 0) {
+    return true
+  }
+
+  for (const match of groupMatches) {
+    for (const side of [match.homeCompetitorId, match.awayCompetitorId]) {
+      if (side != null && groupOf.get(side) !== match.groupNumber) {
+        return false
+      }
+    }
+  }
+
+  if (unordered) {
+    return true
+  }
+
+  for (let groupNumber = 0; groupNumber < groups.length; groupNumber++) {
+    const lane = groupMatches.filter((match) => match.groupNumber === groupNumber)
+
+    for (const roundNumber of new Set(lane.map((match) => match.roundNumber))) {
+      const stored = new Set(
+        lane
+          .filter((match) => match.roundNumber === roundNumber)
+          .map((match) => pairKeyOf(match.homeCompetitorId, match.awayCompetitorId))
+      )
+      const derived = generateRoundRobinRound(groups[groupNumber], roundNumber).map((pairing) =>
+        pairKeyOf(pairing.home, pairing.away)
+      )
+
+      if (derived.length !== stored.size || derived.some((key) => !stored.has(key))) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
+/**
+ * The group membership of a category that can be TRUSTED to be the one being
+ * played: the frozen one when it is there, otherwise a re-derivation that has
+ * been verified against the matches (see `derivationReproducesPlay`). Null when
+ * neither is available, which closes the category to late registration.
+ *
+ * Exported because the server writes the result back onto the competitors when
+ * it accepts an entrant (`freezeGroupMembership`), so a repaired category is
+ * only ever repaired once — and with exactly what was verified here.
+ */
+export function resolveGroupMembership(
+  competitors: LateRegistrationCompetitor[],
+  categoryMatches: LateRegistrationMatch[],
+  settings: TournamentSettings | null,
+  unordered: boolean
+): number[][] | null {
+  const stored = storedGroupMembership(competitors)
+
+  if (stored) {
+    return stored
+  }
+
+  const derived = computeGroupMembership(competitors, settings, TournamentType.GROUPS_PLAYOFF)
+
+  return derivationReproducesPlay(derived, categoryMatches, unordered) ? derived : null
+}
+
 /**
  * Whether a round-robin lane of `memberCount` competitors can take one more
  * without any existing fixture changing.
@@ -319,11 +428,11 @@ export function getLateRegistrationSlots(
       return []
     }
 
-    // Only a category whose membership was frozen at start can take an entrant:
-    // without it the groups are re-derived from the competitor list on every
-    // read, so one more competitor would reshuffle groups already being played.
-    // Tournaments started before freezing existed land here and stay closed.
-    const groups = storedGroupMembership(categoryCompetitors)
+    // The membership has to be the one actually being played, or a new entrant
+    // would reshuffle groups already under way: frozen at start, or re-derived
+    // and verified against the matches for a tournament that started before the
+    // freezing existed (see `resolveGroupMembership`).
+    const groups = resolveGroupMembership(categoryCompetitors, categoryMatches, tournament.settings, unordered)
 
     if (!groups) {
       return []

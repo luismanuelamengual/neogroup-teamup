@@ -814,6 +814,138 @@ describe('late registration — round-robin lanes with unordered results', () =>
   })
 })
 
+describe('late registration — tournaments that started before membership was frozen', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+  })
+
+  /** Strips the frozen membership, leaving the category as a pre-freezing tournament. */
+  async function unfreeze(tournamentCategoryId: number): Promise<void> {
+    for (const competitor of await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()) {
+      competitor.data = null
+      await competitor.save()
+    }
+  }
+
+  /**
+   * The shape of a real tournament this went wrong on: several categories, one
+   * big group each (`competitorsPerGroup` well above the field), unordered
+   * results with a per-competitor quota.
+   */
+  const LIVE_SHAPE = {
+    type: TournamentType.GROUPS_PLAYOFF,
+    categories: [6, 5, 4],
+    playersPerCompetitor: 2,
+    settings: {
+      competitorsPerGroup: 100,
+      qualifiersPerGroup: 1,
+      minPlayoffQualifiers: 100,
+      maxRounds: 4,
+      allowUnorderedResults: true
+    }
+  }
+
+  it('re-derives and accepts a category whose membership was never frozen', async () => {
+    const built = await buildTournament(LIVE_SHAPE)
+
+    await start(built)
+
+    for (const categoryId of built.categoryIds) {
+      await unfreeze(categoryId)
+    }
+
+    // Every category is a single group, and every one of them is open again.
+    for (const categoryId of built.categoryIds) {
+      expect((await slotsOf(built, categoryId)).map((slot) => slot.groupNumber)).toEqual([0])
+    }
+
+    const categoryId = built.categoryIds[0]
+    const before = await fixtureIndex(categoryId, MatchType.LEAGUE, 0)
+    const membersBefore = (await Competitor.where('tournamentCategoryId', categoryId).get()).map((each) => each.id)
+    const competitor = await registerLate(built, categoryId, { groupNumber: 0 })
+    // Nothing that was already on the table moved.
+    const after = await fixtureIndex(categoryId, MatchType.LEAGUE, 0)
+
+    expect([...before].every((fixture) => after.has(fixture))).toBe(true)
+
+    // The entrant is owed a fixture against every existing member...
+    const own = (await groupMatches(categoryId, 0)).filter(
+      (match) => match.homeCompetitorId === competitor.id || match.awayCompetitorId === competitor.id
+    )
+
+    expect(own.length).toBe(membersBefore.length)
+
+    // ...and the repair was written down, so the category is frozen from now on.
+    const groups = await frozenGroups(categoryId)
+
+    expect(groups.length).toBe(1)
+    expect(groups[0].sort((a, b) => a - b)).toEqual([...membersBefore, competitor.id].sort((a, b) => a - b))
+
+    await playToCompletion(built)
+    expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
+  })
+
+  it('repairs an ordered odd group too, where the round layout must also match', async () => {
+    const built = await buildTournament({
+      type: TournamentType.GROUPS_PLAYOFF,
+      competitors: 9,
+      playersPerCompetitor: 2,
+      settings: { competitorsPerGroup: 3 }
+    })
+
+    await start(built)
+    await playOneWave(built)
+    await unfreeze(built.categoryIds[0])
+
+    const categoryId = built.categoryIds[0]
+
+    expect((await slotsOf(built, categoryId)).map((slot) => slot.groupNumber)).toEqual([0, 1, 2])
+
+    const before = await fixtureIndex(categoryId, MatchType.LEAGUE, 1)
+    const competitor = await registerLate(built, categoryId, { groupNumber: 1 })
+    const after = await fixtureIndex(categoryId, MatchType.LEAGUE, 1)
+
+    expect([...before].every((fixture) => after.has(fixture))).toBe(true)
+
+    // The entrant landed in the group the organizer picked. This is what the
+    // repair has to get right: re-deriving the membership with the entrant
+    // already counted in would have placed them wherever the split wanted.
+    expect((await Competitor.find(competitor.id))!.data?.groupNumber).toBe(1)
+
+    const groups = await frozenGroups(categoryId)
+
+    expect(groups.map((group) => group.length)).toEqual([3, 4, 3])
+
+    await playToCompletion(built)
+    expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
+  })
+
+  it('stays closed when the derivation does NOT match what is being played', async () => {
+    const built = await buildTournament({
+      type: TournamentType.GROUPS_PLAYOFF,
+      competitors: 9,
+      playersPerCompetitor: 2,
+      settings: { competitorsPerGroup: 3 }
+    })
+
+    await start(built)
+
+    const categoryId = built.categoryIds[0]
+
+    await unfreeze(categoryId)
+
+    // Move one fixture into another group's lane: the split on record no longer
+    // describes the matches, so re-deriving it must NOT be trusted.
+    const [stray] = await groupMatches(categoryId, 0)
+
+    stray.groupNumber = 1
+    await stray.save()
+
+    expect(await slotsOf(built, categoryId)).toEqual([])
+    await expect(registerLate(built, categoryId, { groupNumber: 0 })).rejects.toThrow('no admite nuevas inscripciones')
+  })
+})
+
 describe('late registration — what a running tournament still refuses', () => {
   beforeEach(async () => {
     await resetDatabase()
