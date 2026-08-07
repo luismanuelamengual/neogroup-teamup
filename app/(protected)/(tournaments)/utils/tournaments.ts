@@ -26,9 +26,19 @@ import {
   orderKnockoutSides,
   resolveInterclubsFormat
 } from '@/app/(protected)/(tournaments)/utils/interclubs'
-import { LateRegistrationSlot, LateRegistrationSlotKind } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
+import {
+  LateRegistrationSlot,
+  LateRegistrationSlotKind,
+  resolveGroupMembership
+} from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
+import {
+  generateRoundRobinRound,
+  Pairing,
+  roundRobinPairs,
+  roundRobinRoundsFor
+} from '@/app/(protected)/(tournaments)/utils/roundRobin'
 import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   allowsUnorderedResults,
@@ -50,20 +60,10 @@ import { User } from '@/app/models/User'
  * so the two null cases never need to be told apart by the id alone.
  */
 
-export interface Pairing {
-  home: number | null
-  away: number | null
-  position: number
-}
-
-/** Round-robin rounds needed for `size` competitors (circle method). */
-function roundRobinRoundsFor(size: number): number {
-  if (size < 2) {
-    return 0
-  }
-
-  return size % 2 === 0 ? size - 1 : size
-}
+// The circle method itself lives in utils/roundRobin.ts: it must also run on
+// the client, which cannot import this database-backed module.
+export type { Pairing }
+export { generateRoundRobinRound, roundRobinRoundsFor }
 
 /** Caps `rounds` at `maxRounds` when it is set to a positive number, else returns it unchanged. */
 function capRounds(rounds: number, maxRounds: number | null | undefined): number {
@@ -394,50 +394,6 @@ export function getGroupPhaseRoundsFromSizes(
   return type === TournamentType.GROUPS_PLAYOFF
     ? capRounds(naturalRounds, scheduleRoundCap(type, settings))
     : naturalRounds
-}
-
-/**
- * Circle-method round robin. Returns the pairs for a 1-based round number.
- * With an odd number of participants a null "bye" slot is added; pairs that
- * include the bye are skipped.
- */
-function roundRobinPairs(ids: number[], roundNumber: number): [number | null, number | null][] {
-  const slots: (number | null)[] = [...ids]
-
-  if (slots.length % 2 !== 0) {
-    slots.push(null)
-  }
-
-  const count = slots.length
-  const fixed = slots[0]
-  const rotating = slots.slice(1)
-  const rotation = (roundNumber - 1) % (count - 1)
-  const rotated = [...rotating.slice(rotation), ...rotating.slice(0, rotation)]
-  const lineup = [fixed, ...rotated]
-  const pairs: [number | null, number | null][] = []
-
-  for (let i = 0; i < count / 2; i++) {
-    pairs.push([lineup[i], lineup[count - 1 - i]])
-  }
-
-  return pairs
-}
-
-/** League and fixed-pairs americano: classic round robin between competitors. */
-export function generateRoundRobinRound(competitorIds: number[], roundNumber: number): Pairing[] {
-  const pairs = roundRobinPairs(competitorIds, roundNumber)
-  const pairings: Pairing[] = []
-  let position = 0
-
-  for (const [home, away] of pairs) {
-    if (home == null || away == null) {
-      continue
-    }
-
-    pairings.push({ home, away, position: position++ })
-  }
-
-  return pairings
 }
 
 /**
@@ -999,6 +955,13 @@ async function computeCategoryGroups(
  * teams registered, so it stays on the derivation and is never open to late
  * registration.
  *
+ * Also runs as a REPAIR on a tournament that is already under way — every
+ * groups+playoff that was running when this was introduced carries no membership
+ * and would otherwise stay closed to late registration forever. There the
+ * derivation is only adopted once it has been verified to be the split actually
+ * being played (`resolveGroupMembership`); a category that fails that check is
+ * left alone, and simply stays closed.
+ *
  * Idempotent, and a no-op for a category whose membership is already frozen.
  */
 export async function freezeGroupMembership(tournament: Tournament): Promise<void> {
@@ -1006,15 +969,30 @@ export async function freezeGroupMembership(tournament: Tournament): Promise<voi
     return
   }
 
+  const unordered = allowsUnorderedResults(tournament.type, tournament.settings)
+
   for (const category of await getTournamentCategories(tournament)) {
-    const competitors = await Competitor.where('tournamentCategoryId', category.id).orderBy('id').get()
+    // `players` is loaded because the split avoids putting competitors of the
+    // same venue in one group, and each competitor's venue is resolved off its
+    // players' own `siteId` (see resolveCompetitorSiteId). Without them the
+    // derivation would silently skip that repair and produce a different split.
+    const competitors = await Competitor.where('tournamentCategoryId', category.id).with('players').orderBy('id').get()
 
     if (competitors.length === 0 || storedGroupMembership(competitors)) {
       continue
     }
 
-    const competitorIds = sortCompetitorIds(competitors, tournament.type)
-    const groups = await computeCategoryGroups(category.id, competitorIds, tournament.settings ?? {})
+    const groups = resolveGroupMembership(
+      competitors,
+      await loadCategoryMatches(category.id),
+      tournament.settings,
+      unordered
+    )
+
+    if (!groups) {
+      continue
+    }
+
     const byId = new Map(competitors.map((competitor) => [competitor.id, competitor]))
 
     for (let groupNumber = 0; groupNumber < groups.length; groupNumber++) {
