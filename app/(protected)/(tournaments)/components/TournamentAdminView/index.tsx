@@ -33,11 +33,13 @@ import { usePlayers } from '@/app/(protected)/(tournaments)/hooks/usePlayers'
 import { useTournamentAdmin } from '@/app/(protected)/(tournaments)/hooks/useTournamentAdmin'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { CompetitorDto, CompetitorUserInfo } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
+import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { TournamentCategoryDto } from '@/app/(protected)/(tournaments)/models/TournamentCategoryDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { INTERCLUBS_MIN_TEAM_PLAYERS } from '@/app/(protected)/(tournaments)/utils/interclubs'
+import { getLateRegistrationSlots, LateRegistrationSlot } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
@@ -165,14 +167,42 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   // (`player` above, who always heads the roster).
   const [registerSiteId, setRegisterSiteId] = useState<number | null>(null)
   const [teamMates, setTeamMates] = useState<RosterPlayer[]>([])
+  // Late registration only: which structural hole the entrant takes.
+  const [registerSlotKey, setRegisterSlotKey] = useState<string>('')
   // "Move to category" menu anchored to a competitor's chip.
   const [moveMenu, setMoveMenu] = useState<{ anchorEl: HTMLElement; competitor: CompetitorDto } | null>(null)
   // Generic confirmation dialog.
   const [confirm, setConfirm] = useState<{ title: string; message: string; action: () => Promise<void> } | null>(null)
   const isOwner = tournament != null && userId != null && tournament.ownerId === userId
   const isStandBy = tournament?.status === TournamentStatus.STAND_BY
+  // A running tournament turns this page into a registration-only view: its
+  // structure is being played, so categories, seeds, moves and unregistrations
+  // are all off the table. All that is left is slotting an entrant into a hole
+  // the structure already has (see utils/lateRegistration).
+  const isOngoing = tournament?.status === TournamentStatus.ONGOING
   const categories = useMemo<TournamentCategoryDto[]>(() => tournament?.categories ?? [], [tournament])
   const competitors = useMemo<CompetitorDto[]>(() => tournament?.competitors ?? [], [tournament])
+  const matches = useMemo<MatchDto[]>(() => tournament?.matches ?? [], [tournament])
+  /** Where a late entrant fits, per category id. Empty for a tournament that has not started. */
+  const slotsByCategory = useMemo(() => {
+    const map = new Map<number, LateRegistrationSlot[]>()
+
+    if (!tournament || !isOngoing) {
+      return map
+    }
+
+    for (const category of categories) {
+      map.set(category.id, getLateRegistrationSlots(tournament, category, matches, competitors))
+    }
+
+    return map
+  }, [tournament, isOngoing, categories, matches, competitors])
+  /** Categories that can still take an entrant — every one of them while in registration. */
+  const registrableCategories = useMemo(
+    () =>
+      isOngoing ? categories.filter((category) => (slotsByCategory.get(category.id) ?? []).length > 0) : categories,
+    [isOngoing, categories, slotsByCategory]
+  )
   const needsPartner = tournament
     ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
     : false
@@ -245,7 +275,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     )
   }
 
-  if (!tournament || !isOwner || !isStandBy) {
+  if (!tournament || !isOwner || (!isStandBy && !isOngoing)) {
     return (
       <div className="tournament-admin">
         <Alert
@@ -258,8 +288,8 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
             ) : undefined
           }
         >
-          {tournament && !isStandBy
-            ? 'La administración solo está disponible mientras el torneo está en fase de inscripción.'
+          {tournament && !isStandBy && !isOngoing
+            ? 'La administración no está disponible en un torneo finalizado.'
             : 'Torneo no encontrado'}
         </Alert>
       </div>
@@ -270,8 +300,21 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const usedCategoryIds = categories
     .map((category) => category.categoryId)
     .filter((categoryId): categoryId is number => categoryId != null)
+  // A multi-category tournament always asks which category, even while running
+  // and even when only one of them can take an entrant: the organizer has to see
+  // WHICH one they are registering into. Only a single-category tournament
+  // resolves it implicitly, because there is nothing to choose.
   const effectiveRegisterCategoryId =
     categories.length === 1 ? categories[0].id : registerCategoryId === '' ? '' : Number(registerCategoryId)
+  const availableSlots =
+    effectiveRegisterCategoryId === '' ? [] : (slotsByCategory.get(Number(effectiveRegisterCategoryId)) ?? [])
+  const slotKeyOf = (slot: LateRegistrationSlot) => `${slot.kind}:${slot.matchId ?? slot.groupNumber}`
+  // With a single hole there is nothing to choose: it is taken implicitly.
+  const effectiveSlot =
+    availableSlots.length === 1
+      ? availableSlots[0]
+      : (availableSlots.find((slot) => slotKeyOf(slot) === registerSlotKey) ?? null)
+  const canRegisterInOngoing = !isOngoing || effectiveSlot != null
 
   const handleAddCategory = async () => {
     const max = Number(newCategoryMax)
@@ -289,7 +332,10 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   }
 
   const openRegister = () => {
-    setRegisterCategoryId('')
+    // When exactly one category is open, preselect it — the selector still shows
+    // (so the choice is visible and can be changed) but the common case is one click.
+    setRegisterCategoryId(registrableCategories.length === 1 ? registrableCategories[0].id : '')
+    setRegisterSlotKey('')
     setPlayer(null)
     setPartner(null)
     setRegisterSiteId(null)
@@ -298,7 +344,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   }
 
   const handleRegister = async () => {
-    if (!player || effectiveRegisterCategoryId === '') {
+    if (!player || effectiveRegisterCategoryId === '' || !canRegisterInOngoing) {
       return
     }
 
@@ -308,7 +354,13 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
         ? [player.id, partner.id]
         : [player.id]
     const ok = await runAction(() =>
-      registerCompetitor(tournament.id, Number(effectiveRegisterCategoryId), playerIds, isTeam ? registerSiteId : null)
+      registerCompetitor(
+        tournament.id,
+        Number(effectiveRegisterCategoryId),
+        playerIds,
+        isTeam ? registerSiteId : null,
+        effectiveSlot ? { matchId: effectiveSlot.matchId, groupNumber: effectiveSlot.groupNumber } : null
+      )
     )
 
     if (ok) {
@@ -374,9 +426,15 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const canRegister =
     !!player &&
     effectiveRegisterCategoryId !== '' &&
+    canRegisterInOngoing &&
     (!needsPartner || !!partner) &&
     (!isTeam || (registerSiteId != null && teamSize >= INTERCLUBS_MIN_TEAM_PLAYERS))
-  /** A single competitor "card": avatar(s), name and the seed/move/unregister actions. */
+  /**
+   * A single competitor "card": avatar(s), name and — while the tournament has
+   * not started — the seed/move/unregister actions. Once it is running the card
+   * is read-only: every one of those actions would change a structure that is
+   * already being played.
+   */
   const renderCompetitorCard = (competitor: CompetitorDto) => (
     <div key={competitor.id} className="competitor-card">
       <CompetitorAvatarGroup players={competitor.players} fallbackName={competitor.displayName} />
@@ -384,7 +442,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
         <Typography className="competitor-name">{competitor.displayName}</Typography>
       </Tooltip>
       <div className="competitor-card-actions">
-        {seedingEnabled && (
+        {seedingEnabled && !isOngoing && (
           <Tooltip title="Seed manual: tiene prioridad sobre el ranking al iniciar el torneo">
             <TextField
               key={`seed-${competitor.id}-${competitor.seedNumber ?? ''}`}
@@ -399,7 +457,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
             />
           </Tooltip>
         )}
-        {categories.length > 1 && (
+        {categories.length > 1 && !isOngoing && (
           <Tooltip title="Cambiar de categoría">
             <span>
               <IconButton
@@ -412,13 +470,15 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
             </span>
           </Tooltip>
         )}
-        <Tooltip title="Desinscribir">
-          <span>
-            <IconButton color="error" size="small" disabled={working} onClick={() => requestUnregister(competitor)}>
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
+        {!isOngoing && (
+          <Tooltip title="Desinscribir">
+            <span>
+              <IconButton color="error" size="small" disabled={working} onClick={() => requestUnregister(competitor)}>
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
       </div>
     </div>
   )
@@ -441,74 +501,78 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
         </div>
       </div>
 
-      <Paper className="section">
-        <Typography variant="h6" className="section-title">
-          Categorías
-        </Typography>
-        <div className="category-rows">
-          {categories.map((category) => {
-            const count = competitorCountByCategory.get(category.id) ?? 0
-            const isLast = categories.length <= 1
-            const blocked = count > 0 || isLast
-            const reason = isLast
-              ? 'El torneo debe tener al menos una categoría'
-              : count > 0
-                ? 'No se puede quitar una categoría con competidores inscriptos'
-                : 'Quitar categoría'
+      {/* Categories are the shape of the tournament: adding or removing one after
+          it started would rebuild everything, so the whole panel is gone. */}
+      {!isOngoing && (
+        <Paper className="section">
+          <Typography variant="h6" className="section-title">
+            Categorías
+          </Typography>
+          <div className="category-rows">
+            {categories.map((category) => {
+              const count = competitorCountByCategory.get(category.id) ?? 0
+              const isLast = categories.length <= 1
+              const blocked = count > 0 || isLast
+              const reason = isLast
+                ? 'El torneo debe tener al menos una categoría'
+                : count > 0
+                  ? 'No se puede quitar una categoría con competidores inscriptos'
+                  : 'Quitar categoría'
 
-            return (
-              <div key={category.id} className="category-row">
-                <div className="category-info">
-                  <Typography className="category-name">{categoryNameById.get(category.id)}</Typography>
-                  <Chip size="small" variant="outlined" label={`${count} / ${category.maxCompetitors}`} />
+              return (
+                <div key={category.id} className="category-row">
+                  <div className="category-info">
+                    <Typography className="category-name">{categoryNameById.get(category.id)}</Typography>
+                    <Chip size="small" variant="outlined" label={`${count} / ${category.maxCompetitors}`} />
+                  </div>
+                  <Tooltip title={reason}>
+                    <span>
+                      <IconButton
+                        color="error"
+                        size="small"
+                        disabled={blocked || working}
+                        onClick={() => requestRemoveCategory(category)}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                 </div>
-                <Tooltip title={reason}>
-                  <span>
-                    <IconButton
-                      color="error"
-                      size="small"
-                      disabled={blocked || working}
-                      onClick={() => requestRemoveCategory(category)}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </div>
-            )
-          })}
-        </div>
-        <Divider />
-        <div className="add-category">
-          <CategorySelector
-            value={newCategoryId}
-            onChange={setNewCategoryId}
-            discipline={tournament.discipline}
-            excludedIds={usedCategoryIds}
-            label="Nueva categoría"
-            size="small"
-            fullWidth={false}
-            className="add-category-name"
-          />
-          <TextField
-            label="Cupo"
-            type="number"
-            size="small"
-            value={newCategoryMax}
-            onChange={(event) => setNewCategoryMax(event.target.value)}
-            slotProps={{ htmlInput: { min: 2 } }}
-            className="add-category-max"
-          />
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleAddCategory}
-            disabled={working || !newCategoryId || Number(newCategoryMax) < 2}
-          >
-            Agregar
-          </Button>
-        </div>
-      </Paper>
+              )
+            })}
+          </div>
+          <Divider />
+          <div className="add-category">
+            <CategorySelector
+              value={newCategoryId}
+              onChange={setNewCategoryId}
+              discipline={tournament.discipline}
+              excludedIds={usedCategoryIds}
+              label="Nueva categoría"
+              size="small"
+              fullWidth={false}
+              className="add-category-name"
+            />
+            <TextField
+              label="Cupo"
+              type="number"
+              size="small"
+              value={newCategoryMax}
+              onChange={(event) => setNewCategoryMax(event.target.value)}
+              slotProps={{ htmlInput: { min: 2 } }}
+              className="add-category-max"
+            />
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleAddCategory}
+              disabled={working || !newCategoryId || Number(newCategoryMax) < 2}
+            >
+              Agregar
+            </Button>
+          </div>
+        </Paper>
+      )}
 
       <Paper className="section">
         <div className="section-header-row">
@@ -523,8 +587,20 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
             />
           )}
         </div>
+        {isOngoing && (
+          <Alert severity={registrableCategories.length > 0 ? 'info' : 'warning'}>
+            {registrableCategories.length > 0
+              ? 'El torneo ya inició: solo se pueden inscribir competidores donde la estructura ya tiene lugar, sin cambiar ningún partido ya armado. No se pueden quitar ni mover competidores.'
+              : 'El torneo ya inició y su estructura no admite nuevas inscripciones: inscribir a alguien cambiaría partidos que ya se están jugando.'}
+          </Alert>
+        )}
         <div className="register-actions">
-          <Button variant="contained" startIcon={<PersonAddAlt1Icon />} onClick={openRegister} disabled={working}>
+          <Button
+            variant="contained"
+            startIcon={<PersonAddAlt1Icon />}
+            onClick={openRegister}
+            disabled={working || (isOngoing && registrableCategories.length === 0)}
+          >
             Inscribir competidor
           </Button>
         </div>
@@ -579,6 +655,10 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
       <Dialog open={registerOpen} onClose={() => setRegisterOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{isTeam ? 'Inscribir equipo' : 'Inscribir competidor'}</DialogTitle>
         <DialogContent className="register-dialog-content">
+          {/* Every category is listed, running or not. A closed one is shown
+              disabled rather than hidden: the organizer needs to see that the
+              category exists and why it cannot take anybody, instead of finding
+              a shorter list than the tournament has. */}
           {categories.length > 1 && (
             <TextField
               select
@@ -586,14 +666,47 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
               size="small"
               fullWidth
               value={registerCategoryId === '' ? '' : String(registerCategoryId)}
-              onChange={(event) => setRegisterCategoryId(Number(event.target.value))}
+              onChange={(event) => {
+                setRegisterCategoryId(Number(event.target.value))
+                setRegisterSlotKey('')
+              }}
             >
-              {categories.map((category) => (
-                <MenuItem key={category.id} value={String(category.id)}>
-                  {categoryNameById.get(category.id)}
+              {categories.map((category) => {
+                const categorySlots = slotsByCategory.get(category.id) ?? []
+                const closed = isOngoing && categorySlots.length === 0
+
+                return (
+                  <MenuItem key={category.id} value={String(category.id)} disabled={closed}>
+                    {categoryNameById.get(category.id)}
+                    {closed ? ' — sin lugar en la estructura' : ''}
+                  </MenuItem>
+                )
+              })}
+            </TextField>
+          )}
+          {/* More than one hole in the structure: the organizer says which one.
+              With exactly one there is nothing to pick, so it is taken silently. */}
+          {isOngoing && availableSlots.length > 1 && (
+            <TextField
+              select
+              label="Posición disponible"
+              size="small"
+              fullWidth
+              value={registerSlotKey}
+              onChange={(event) => setRegisterSlotKey(event.target.value)}
+            >
+              {availableSlots.map((slot) => (
+                <MenuItem key={slotKeyOf(slot)} value={slotKeyOf(slot)}>
+                  {slot.label}
                 </MenuItem>
               ))}
             </TextField>
+          )}
+          {isOngoing && effectiveRegisterCategoryId !== '' && availableSlots.length === 0 && (
+            <Alert severity="warning">Esta categoría no tiene lugar en su estructura para un nuevo competidor.</Alert>
+          )}
+          {isOngoing && effectiveSlot != null && availableSlots.length === 1 && (
+            <Alert severity="info">Se inscribirá en: {effectiveSlot.label}</Alert>
           )}
           {isTeam && (
             <SiteSelector value={registerSiteId} onChange={setRegisterSiteId} label="Sede" required size="small" />

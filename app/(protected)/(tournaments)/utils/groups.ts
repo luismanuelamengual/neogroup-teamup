@@ -24,8 +24,12 @@ import { snakeSeedGroups, supportsPreclassification } from '@/app/(protected)/(t
 export interface GroupableCompetitor {
   id: number
   seedNumber?: number | null
-  /** Type-specific attributes; only `data.siteId` (interclubes venue) matters here. */
-  data?: { siteId?: number | null } | null
+  /**
+   * Type-specific attributes. `data.siteId` (interclubes venue) drives same-site
+   * avoidance; `data.groupNumber` / `data.groupPosition` hold the group
+   * membership frozen when the tournament started (see CompetitorData).
+   */
+  data?: { siteId?: number | null; groupNumber?: number | null; groupPosition?: number | null } | null
   /** Roster, when loaded — each player's own home site is read off `siteId`. */
   players?: Array<{ siteId?: number | null }> | null
 }
@@ -294,8 +298,59 @@ export function computeGroupMembership(
   settings: TournamentSettings | null | undefined,
   type: TournamentType = TournamentType.GROUPS_PLAYOFF
 ): number[][] {
+  // A tournament that has started carries its membership on the competitors
+  // themselves; deriving it again would reshuffle the groups as soon as a late
+  // entrant joins (see `storedGroupMembership`).
+  const stored = storedGroupMembership(competitors)
+
+  if (stored) {
+    return stored
+  }
+
   const orderedIds = sortCompetitorIds(competitors, type)
   const seededCount = competitors.filter((competitor) => competitor.seedNumber != null).length
 
   return buildGroups(orderedIds, seededCount, settings, type, buildSiteMap(competitors))
+}
+
+/**
+ * Group membership read back from the competitors themselves, as frozen when the
+ * tournament started (`data.groupNumber` / `data.groupPosition`).
+ *
+ * Returns null — meaning "fall back to deriving it" — unless EVERY competitor
+ * carries the pair. All-or-nothing on purpose: a partially frozen category would
+ * silently drop the competitors that lack it from their group, which is exactly
+ * the kind of failure that only shows up once a standings table is missing a row.
+ *
+ * Inside a group, members are ordered by their stored `groupPosition` (ties, which
+ * should not happen, broken by id so the result is always deterministic). That
+ * order matters: the circle-method round robin derives every pairing from it, so
+ * reading it back wrong would regenerate a different fixture than the one played.
+ */
+export function storedGroupMembership(competitors: GroupableCompetitor[]): number[][] | null {
+  if (competitors.length === 0) {
+    return null
+  }
+
+  const entries: Array<{ id: number; groupNumber: number; groupPosition: number }> = []
+
+  for (const competitor of competitors) {
+    const groupNumber = competitor.data?.groupNumber
+    const groupPosition = competitor.data?.groupPosition
+
+    if (groupNumber == null || groupPosition == null || groupNumber < 0) {
+      return null
+    }
+
+    entries.push({ id: competitor.id, groupNumber, groupPosition })
+  }
+
+  const groupCount = Math.max(...entries.map((entry) => entry.groupNumber)) + 1
+  const groups: number[][] = Array.from({ length: groupCount }, () => [])
+
+  for (const entry of [...entries].sort((a, b) => a.groupPosition - b.groupPosition || a.id - b.id)) {
+    groups[entry.groupNumber].push(entry.id)
+  }
+
+  return groups
 }

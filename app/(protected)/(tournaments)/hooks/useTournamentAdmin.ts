@@ -27,9 +27,20 @@ export function useTournamentAdmin() {
       tournamentId: number,
       tournamentCategoryId: number,
       playerIds: number[],
-      siteId: number | null = null
+      siteId: number | null = null,
+      // Which structural hole the entrant takes when the tournament is already
+      // running (a knockout bye, or a group of the group phase). Both null on a
+      // tournament that has not started, where there is no structure yet.
+      slot: { matchId?: number | null; groupNumber?: number | null } | null = null
     ): Promise<void> => {
-      await executeRequest('/registerCompetitor', { tournamentId, tournamentCategoryId, playerIds, siteId })
+      await executeRequest('/registerCompetitor', {
+        tournamentId,
+        tournamentCategoryId,
+        playerIds,
+        siteId,
+        slotMatchId: slot?.matchId ?? null,
+        slotGroupNumber: slot?.groupNumber ?? null
+      })
       showSuccessMessage('Competidor inscripto correctamente')
     },
     [executeRequest, showSuccessMessage]

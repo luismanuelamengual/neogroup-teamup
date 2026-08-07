@@ -66,9 +66,27 @@ describe('isMatchEditable — unordered round robins', () => {
   const lane = [earlier, later]
   const unordered = { allowUnorderedResults: true }
 
-  it('locks an earlier round once a later one holds a result, as it always did', () => {
-    expect(isMatchEditable(earlier, lane, TournamentType.LEAGUE, TournamentStatus.ONGOING)).toBe(false)
-    expect(isMatchEditable(earlier, lane, TournamentType.LEAGUE, TournamentStatus.ONGOING, {})).toBe(false)
+  it('locks an earlier RESULT once a later round holds one, as it always did', () => {
+    // The frontier rule protects results: this one was played, and a later round
+    // has since been played on top of it.
+    const played = leagueMatch({ id: 1, roundNumber: 1, status: MatchStatus.PLAYED })
+    const withResult = [played, later]
+
+    expect(isMatchEditable(played, withResult, TournamentType.LEAGUE, TournamentStatus.ONGOING)).toBe(false)
+    expect(isMatchEditable(played, withResult, TournamentType.LEAGUE, TournamentStatus.ONGOING, {})).toBe(false)
+  })
+
+  it('leaves an earlier round OPEN while it has never been played', () => {
+    // There is no result to protect, so the frontier says nothing. This is what
+    // lets a competitor registered into a running group phase play the fixtures
+    // the circle method owes them in rounds everybody else already finished
+    // (see utils/lateRegistration).
+    expect(isMatchEditable(earlier, lane, TournamentType.LEAGUE, TournamentStatus.ONGOING)).toBe(true)
+    expect(isMatchEditable(earlier, lane, TournamentType.GROUPS_PLAYOFF, TournamentStatus.ONGOING, {})).toBe(true)
+  })
+
+  it('still locks an unplayed earlier round in an americano, whose later rounds feed on it', () => {
+    expect(isMatchEditable(earlier, lane, TournamentType.AMERICANO, TournamentStatus.ONGOING)).toBe(false)
   })
 
   it('keeps every round open when results may be loaded unordered', () => {

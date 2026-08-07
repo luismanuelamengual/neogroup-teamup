@@ -10,24 +10,42 @@ import {
   resolveTeamRoster
 } from '@/app/(protected)/(tournaments)/services/registrations'
 import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { getLateRegistrationSlots, LateRegistrationSlot } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
+import { attachLateCompetitor } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { User } from '@/app/models/User'
 
 /**
- * Organizer-only management of a tournament while it is still in the
- * registration phase (STAND_BY). Everything here mutates categories or
- * competitors before the tournament starts, so it is deliberately gated to the
- * tournament owner and the STAND_BY status.
+ * Organizer-only management of a tournament.
+ *
+ * While the tournament is still in its registration phase (STAND_BY) everything
+ * here is open: categories and competitors can be added, moved and removed
+ * freely, because nothing has been played and no structure exists yet.
+ *
+ * Once it starts, all of that closes — the structure IS the tournament and no
+ * administrative action may alter it. The single exception is registering a
+ * competitor, and only where the structure already has a hole shaped like them
+ * (a knockout bye, an odd group's rest slot): see utils/lateRegistration.
  */
 
 /**
  * Loads a tournament (org-scoped by the model's global scope) and asserts the
- * caller may administrate it: they must own it and it must still be in the
- * registration phase. Loads `categories` and `competitors` for validation.
+ * caller may administrate it: they must own it and be in a status that admits
+ * the action. Loads `categories` and `competitors` for validation.
+ *
+ * `allowOngoing` opts into the late-registration path, which is the only
+ * administrative action a running tournament accepts. It additionally loads the
+ * tournament's `matches`, since where (and whether) a late entrant fits is read
+ * off the structure itself.
  */
-export async function loadManageableTournament(tournamentId: number, userId: number): Promise<Tournament> {
+export async function loadManageableTournament(
+  tournamentId: number,
+  userId: number,
+  { allowOngoing = false }: { allowOngoing?: boolean } = {}
+): Promise<Tournament> {
   const tournament = await Tournament.where('id', Number(tournamentId))
     .with('categories', 'categories.category', 'competitors')
+    .when(allowOngoing, (query) => query.with('matches'))
     .first()
 
   if (!tournament) {
@@ -38,7 +56,10 @@ export async function loadManageableTournament(tournamentId: number, userId: num
     throw new ApiException('No autorizado para administrar este torneo', 403)
   }
 
-  if (tournament.status !== TournamentStatus.STAND_BY) {
+  const allowed =
+    tournament.status === TournamentStatus.STAND_BY || (allowOngoing && tournament.status === TournamentStatus.ONGOING)
+
+  if (!allowed) {
     throw new ApiException('El torneo no está en fase de inscripción')
   }
 
@@ -134,7 +155,8 @@ export async function registerCompetitor(
   tournament: Tournament,
   tournamentCategoryId: number,
   playerIds: number[],
-  siteId: number | null = null
+  siteId: number | null = null,
+  slotSelection: LateRegistrationSlotSelection | null = null
 ): Promise<Competitor> {
   const categories = tournament.categories ?? []
   const targetCategory = categories.find((category) => category.id === Number(tournamentCategoryId))
@@ -143,6 +165,11 @@ export async function registerCompetitor(
     throw new ApiException('Categoría inválida')
   }
 
+  // Resolved BEFORE anything is written: a running tournament only accepts an
+  // entrant where its structure already has room, so there is no point creating
+  // a competitor we would then have nowhere to put.
+  const slot =
+    tournament.status === TournamentStatus.ONGOING ? resolveLateSlot(tournament, targetCategory, slotSelection) : null
   const [rawUserId, ...rawMateIds] = playerIds
   const userId = Number(rawUserId)
   const user = await User.find(userId)
@@ -169,7 +196,7 @@ export async function registerCompetitor(
     const roster = await resolveTeamRoster(user.id, mateIds, competitors)
     const data = await resolveTeamData(tournament.organizationId, siteId)
 
-    return createCompetitor(targetCategory.id, roster, data)
+    return attachIfLate(tournament, await createCompetitor(targetCategory.id, roster, data), slot)
   }
 
   const needsPartner = registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
@@ -199,7 +226,67 @@ export async function registerCompetitor(
     resolvedPlayerIds.push(partner.id)
   }
 
-  return createCompetitor(targetCategory.id, resolvedPlayerIds)
+  return attachIfLate(tournament, await createCompetitor(targetCategory.id, resolvedPlayerIds), slot)
+}
+
+/** Which structural hole the organizer picked for a late entrant, as sent by the client. */
+export interface LateRegistrationSlotSelection {
+  /** BYE: id of the walkover match to fill. */
+  matchId?: number | null
+  /** GROUP: index of the group to join. */
+  groupNumber?: number | null
+}
+
+/**
+ * The structural hole a late entrant will occupy, re-derived from the
+ * tournament's current state rather than trusted from the request.
+ *
+ * When the organizer picked one it must still be there — between opening the
+ * dialog and confirming, a result may have been loaded that closed it, and
+ * failing loudly is far better than silently putting the entrant somewhere else.
+ * When they picked nothing (a category that only ever had one option) the first
+ * remaining slot is taken.
+ */
+function resolveLateSlot(
+  tournament: Tournament,
+  category: TournamentCategory,
+  selection: LateRegistrationSlotSelection | null
+): LateRegistrationSlot {
+  const slots = getLateRegistrationSlots(tournament, category, tournament.matches ?? [], tournament.competitors ?? [])
+
+  if (slots.length === 0) {
+    throw new ApiException('El torneo ya inició y su estructura no admite nuevas inscripciones en esta categoría')
+  }
+
+  const matchId = selection?.matchId != null ? Number(selection.matchId) : null
+  const groupNumber = selection?.groupNumber != null ? Number(selection.groupNumber) : null
+
+  if (matchId == null && groupNumber == null) {
+    return slots[0]
+  }
+
+  const picked = slots.find(
+    (slot) => (matchId != null && slot.matchId === matchId) || (groupNumber != null && slot.groupNumber === groupNumber)
+  )
+
+  if (!picked) {
+    throw new ApiException('La posición elegida ya no está disponible')
+  }
+
+  return picked
+}
+
+/** Slots a just-created competitor into the structure when the tournament is already running. */
+async function attachIfLate(
+  tournament: Tournament,
+  competitor: Competitor,
+  slot: LateRegistrationSlot | null
+): Promise<Competitor> {
+  if (slot) {
+    await attachLateCompetitor(tournament, competitor, slot)
+  }
+
+  return competitor
 }
 
 /** Moves a competitor to another category instance of the same tournament. */

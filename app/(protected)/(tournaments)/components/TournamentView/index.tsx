@@ -394,7 +394,10 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
             {isOrganizer ? (
               <div className="footer">
                 <div className="info-area">
-                  {tournament.status === TournamentStatus.STAND_BY && (
+                  {/* Also available once the tournament is running, where the page
+                      narrows down to registering a competitor into whatever room
+                      the structure still has (see TournamentAdminView). */}
+                  {tournament.status !== TournamentStatus.FINISHED && (
                     <Button
                       variant="outlined"
                       startIcon={<SettingsIcon />}
