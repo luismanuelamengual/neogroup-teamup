@@ -353,6 +353,18 @@ describe('getLateRegistrationSlots — GROUPS_PLAYOFF group phase', () => {
     expect(slots.map((slot) => slot.groupNumber)).toEqual([1])
   })
 
+  it('offers a category that never materialised anything, whatever its parity', () => {
+    // Left with a single competitor, so starting the tournament skipped it.
+    for (const unordered of [false, true]) {
+      const tournament = unordered
+        ? unorderedTournamentOf(TournamentType.GROUPS_PLAYOFF)
+        : tournamentOf(TournamentType.GROUPS_PLAYOFF)
+      const slots = getLateRegistrationSlots(tournament, CATEGORY, [], groupedCompetitors([[1]]))
+
+      expect(slots.map((slot) => slot.groupNumber)).toEqual([0])
+    }
+  })
+
   it('offers EVERY group, odd or even, when results may be loaded unordered', () => {
     const competitors = groupedCompetitors([
       [1, 2, 3],

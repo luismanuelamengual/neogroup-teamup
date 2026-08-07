@@ -814,6 +814,101 @@ describe('late registration — round-robin lanes with unordered results', () =>
   })
 })
 
+describe('late registration — a category that never got going', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+  })
+
+  /**
+   * Starting a tournament skips every category left with a single competitor:
+   * one entrant cannot play anybody, so nothing is materialised for it (see
+   * `materializeRound`). Registering a second one is what finally starts it —
+   * and it is the safest case there is, since the category holds no fixture to
+   * preserve.
+   */
+  for (const unordered of [false, true]) {
+    it(`starts a one-competitor category when a second one joins (${unordered ? 'unordered' : 'ordered'})`, async () => {
+      const built = await buildTournament({
+        type: TournamentType.GROUPS_PLAYOFF,
+        categories: [6, 5, 1],
+        playersPerCompetitor: 2,
+        settings: {
+          competitorsPerGroup: 100,
+          qualifiersPerGroup: 1,
+          minPlayoffQualifiers: 100,
+          maxRounds: 4,
+          ...(unordered ? { allowUnorderedResults: true } : {})
+        }
+      })
+
+      await start(built)
+
+      const lonelyCategoryId = built.categoryIds[2]
+
+      // It really did not start: no fixture at all.
+      expect(await getAllMatches(lonelyCategoryId)).toHaveLength(0)
+
+      // Yet it is open — and it is the group phase it is waiting at.
+      const slots = await slotsOf(built, lonelyCategoryId)
+
+      expect(slots.map((slot) => slot.groupNumber)).toEqual([0])
+
+      const competitor = await registerLate(built, lonelyCategoryId, { groupNumber: 0 })
+      const matches = await groupMatches(lonelyCategoryId, 0)
+
+      // The category now has its round robin: the two of them, once.
+      expect(matches).toHaveLength(1)
+      expect(pairKey(matches[0])).toBe(
+        [built.competitorIds[built.competitorIds.length - 1], competitor.id].sort((a, b) => a - b).join(':')
+      )
+      expect(matches[0].status).toBe(MatchStatus.PENDING)
+
+      // And it is playable, which is the whole point.
+      const all = await getAllMatches(lonelyCategoryId)
+
+      expect(
+        isMatchEditable(matches[0], all, built.tournament.type, TournamentStatus.ONGOING, built.tournament.settings)
+      ).toBe(true)
+
+      expect((await frozenGroups(lonelyCategoryId)).map((group) => group.length)).toEqual([2])
+
+      await playToCompletion(built)
+      expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
+
+      // It reached its knockout like any other category.
+      expect((await getAllMatches(lonelyCategoryId)).some((match) => match.type === MatchType.BRACKET)).toBe(true)
+    })
+  }
+
+  it('does the same for a legacy category, whose membership is not frozen either', async () => {
+    const built = await buildTournament({
+      type: TournamentType.GROUPS_PLAYOFF,
+      categories: [6, 1],
+      playersPerCompetitor: 2,
+      settings: { competitorsPerGroup: 100, qualifiersPerGroup: 1, allowUnorderedResults: true }
+    })
+
+    await start(built)
+
+    const lonelyCategoryId = built.categoryIds[1]
+
+    for (const each of await Competitor.where('tournamentCategoryId', lonelyCategoryId).get()) {
+      each.data = null
+      await each.save()
+    }
+
+    expect((await slotsOf(built, lonelyCategoryId)).map((slot) => slot.groupNumber)).toEqual([0])
+
+    await registerLate(built, lonelyCategoryId, { groupNumber: 0 })
+
+    expect(await groupMatches(lonelyCategoryId, 0)).toHaveLength(1)
+    expect((await frozenGroups(lonelyCategoryId)).map((group) => group.length)).toEqual([2])
+
+    await playToCompletion(built)
+    expect(await getTournamentStatus(built.tournament.id)).toBe(TournamentStatus.FINISHED)
+  })
+})
+
 describe('late registration — tournaments that started before membership was frozen', () => {
   beforeEach(async () => {
     await resetDatabase()
