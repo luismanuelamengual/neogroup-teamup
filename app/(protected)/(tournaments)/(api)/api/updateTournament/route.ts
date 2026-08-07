@@ -6,7 +6,7 @@ import { ApiException } from '@/app/models/ApiException'
 import { withAuth } from '@/app/utils/api-server'
 import { Tournament } from '../../../models/Tournament'
 
-/** POST /api/updateTournament — updates the editable attributes (owner only). */
+/** POST /api/updateTournament — updates the editable attributes (any organizer). */
 export const POST = withAuth(async (request, _context, _userId, organizationId) => {
   const { id, ...input } = (await request.json()) as UpdateTournamentInput & { id: number }
   const tournament = await Tournament.find(Number(id))

@@ -14,6 +14,7 @@ import {
   setCompetitorSeed,
   unregisterCompetitor
 } from '@/app/(protected)/(tournaments)/services/administration'
+import { Role } from '@/app/models/Role'
 import { buildTournament, createCategory, createUser, resetDatabase } from '@/tests/setup/harness'
 
 /** Reloads a tournament through the same gate the API routes use. */
@@ -31,12 +32,28 @@ describe('tournament administration', () => {
   })
 
   describe('loadManageableTournament', () => {
-    it('rejects a non-owner', async () => {
+    it('rejects a caller who is not an organizer', async () => {
       const built = await buildTournament({ type: TournamentType.LEAGUE, competitors: 2 })
-      const stranger = await createUser(built.tournament.organizationId)
+      const player = await createUser(built.tournament.organizationId, Role.PLAYER)
 
-      await expect(manageable(built.tournament.id, stranger)).rejects.toThrow('No autorizado')
+      await expect(manageable(built.tournament.id, player)).rejects.toThrow('No autorizado')
     })
+
+    it('accepts ANY organizer, not just the one who created the tournament', async () => {
+      const built = await buildTournament({ type: TournamentType.LEAGUE, competitors: 2 })
+      const colleague = await createUser(built.tournament.organizationId, Role.ORGANIZER)
+      const tournament = await manageable(built.tournament.id, colleague)
+
+      // Organizers run the same club: whoever happens to have created the
+      // tournament is not who is allowed to manage it.
+      expect(tournament.id).toBe(built.tournament.id)
+      expect(tournament.ownerId).not.toBe(colleague)
+    })
+
+    // NOTE: the organization boundary (an organizer of ANOTHER organization must
+    // not reach this tournament at all) is enforced by `OrganizationScope`, which
+    // filters on the request session. The harness runs without one, so the scope
+    // is inert here and the case cannot be exercised — see app/models/OrganizationScope.
 
     it('rejects a tournament that is not in stand_by', async () => {
       const built = await buildTournament({ type: TournamentType.LEAGUE, competitors: 2 })

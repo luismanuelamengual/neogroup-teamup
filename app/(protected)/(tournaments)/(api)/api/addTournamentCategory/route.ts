@@ -4,7 +4,7 @@ import {
 } from '@/app/(protected)/(tournaments)/services/administration'
 import { withAuth } from '@/app/utils/api-server'
 
-/** POST /api/addTournamentCategory — adds a category to a tournament (owner, stand_by only). */
+/** POST /api/addTournamentCategory — adds a category to a tournament (organizer, stand_by only). */
 export const POST = withAuth(async (request, context, userId, organizationId) => {
   const { tournamentId, categoryId, maxCompetitors } = (await request.json()) as {
     tournamentId: number

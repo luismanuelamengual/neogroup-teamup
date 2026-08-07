@@ -3,7 +3,7 @@ import { withAuth } from '@/app/utils/api-server'
 
 /**
  * POST /api/registerCompetitor — registers a competitor into a category on
- * behalf of the organizer (owner only).
+ * behalf of the organizer (any organizer of the organization, not just the creator).
  *
  * Unlike every other administrative action this one also works on a tournament
  * that has already started, but only into a structural hole that accepts an

@@ -43,7 +43,7 @@ import { getLateRegistrationSlots, LateRegistrationSlot } from '@/app/(protected
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
-import { useUserStore } from '@/app/stores/users'
+import { useIsOrganizer } from '@/app/stores/users'
 
 interface TournamentAdminViewProps {
   tournamentId: number
@@ -154,7 +154,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const { getTournament } = useTournaments()
   const { addCategory, removeCategory, registerCompetitor, moveCompetitor, unregisterCompetitor, setCompetitorSeed } =
     useTournamentAdmin()
-  const userId = useUserStore((state) => state.user?.id ?? null)
+  const isOrganizer = useIsOrganizer()
   // Add-category form.
   const [newCategoryId, setNewCategoryId] = useState<number | null>(null)
   const [newCategoryMax, setNewCategoryMax] = useState<string>(String(DEFAULT_MAX_COMPETITORS))
@@ -173,7 +173,10 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const [moveMenu, setMoveMenu] = useState<{ anchorEl: HTMLElement; competitor: CompetitorDto } | null>(null)
   // Generic confirmation dialog.
   const [confirm, setConfirm] = useState<{ title: string; message: string; action: () => Promise<void> } | null>(null)
-  const isOwner = tournament != null && userId != null && tournament.ownerId === userId
+  // Any organizer of the organization may administrate any of its tournaments,
+  // regardless of who created it (see `loadManageableTournament`). The page
+  // itself is already gated on the organizer role server-side.
+  const canManage = isOrganizer
   const isStandBy = tournament?.status === TournamentStatus.STAND_BY
   // A running tournament turns this page into a registration-only view: its
   // structure is being played, so categories, seeds, moves and unregistrations
@@ -275,7 +278,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     )
   }
 
-  if (!tournament || !isOwner || (!isStandBy && !isOngoing)) {
+  if (!tournament || !canManage || (!isStandBy && !isOngoing)) {
     return (
       <div className="tournament-admin">
         <Alert
@@ -288,9 +291,11 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
             ) : undefined
           }
         >
-          {tournament && !isStandBy && !isOngoing
-            ? 'La administración no está disponible en un torneo finalizado.'
-            : 'Torneo no encontrado'}
+          {!tournament
+            ? 'Torneo no encontrado'
+            : !canManage
+              ? 'Necesitás un perfil de organizador para administrar torneos.'
+              : 'La administración no está disponible en un torneo finalizado.'}
         </Alert>
       </div>
     )
