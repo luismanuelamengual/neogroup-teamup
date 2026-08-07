@@ -474,11 +474,7 @@ export default function BracketView({
                       <Avatar
                         key={i}
                         email={player?.email ?? ''}
-                        name={
-                          player
-                            ? [player.firstName, player.lastName].filter(Boolean).join(' ') || player.email
-                            : champion.displayName
-                        }
+                        name={player ? player.displayName : champion.displayName}
                         size="md"
                         className="bracket-champion-avatar"
                       />

@@ -3,6 +3,7 @@ import { PasswordResetToken } from '@/app/(auth)/models/PasswordResetToken'
 import { User } from '@/app/models/User'
 import { resolveAppUrl } from '@/app/utils/domains'
 import { sendEmail } from '@/app/utils/email'
+import { normalizeName } from '@/app/utils/users'
 
 /** Lifetime of a token requested by the user from the "forgot password" screen. */
 const RESET_TOKEN_EXPIRY_HOURS = 1
@@ -53,7 +54,7 @@ export async function sendPasswordResetEmail(
   await resetToken.save()
 
   const resetUrl = `${resolveAppUrl(host)}/reset-password?token=${token}`
-  const firstName = user.firstName ?? 'usuario'
+  const firstName = user.firstName ? normalizeName(user.firstName) : 'usuario'
   const subject = invitation ? 'Tu cuenta de TeamUp' : 'Restablecer contraseña de TeamUp'
   const intro = invitation
     ? 'Se creó una cuenta para vos en TeamUp. Para empezar a usarla, definí tu contraseña:'

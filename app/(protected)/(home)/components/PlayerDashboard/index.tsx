@@ -10,10 +10,11 @@ import PlayerStats from '@/app/(protected)/(home)/components/PlayerStats'
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { useUserStore } from '@/app/stores/users'
+import { normalizeName } from '@/app/utils/users'
 
 export default function PlayerDashboard() {
   const user = useUserStore((state) => state.user)
-  const firstName = user?.firstName || user?.displayName || ''
+  const firstName = (user?.firstName ? normalizeName(user.firstName) : '') || user?.displayName || ''
 
   return (
     <div className="player-dashboard">

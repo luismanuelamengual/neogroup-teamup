@@ -127,7 +127,21 @@ export function isMatchEditable(
   // With unordered results there is no frontier round to protect: rounds are a
   // pure layout of a schedule that exists in full, so a later one holding a
   // result says nothing about this one.
-  if (!allowsUnorderedResults(tournamentType, settings)) {
+  //
+  // The frontier rule guards RESULTS: it stops one from being rewritten once a
+  // later round has consumed it. A match that was never played has no such
+  // consequence, so it stays open — which is what lets a competitor registered
+  // into a running group phase play the fixtures the circle method owes them in
+  // rounds that are otherwise finished (see utils/lateRegistration). An
+  // americano is excluded: its later rounds are paired FROM the standings, so an
+  // unplayed early fixture genuinely does feed them.
+  //
+  // Outside late registration this changes nothing: an ordered lane only ever
+  // materialises its next round once the frontier is fully resolved, so an
+  // unplayed match in an earlier round cannot otherwise exist.
+  const protectsAResult = match.status !== MatchStatus.PENDING || tournamentType === TournamentType.AMERICANO
+
+  if (protectsAResult && !allowsUnorderedResults(tournamentType, settings)) {
     const laneHasLaterResult = categoryMatches.some(
       (candidate) =>
         candidate.type === match.type &&

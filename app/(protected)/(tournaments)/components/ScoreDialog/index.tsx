@@ -69,9 +69,8 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
     (competitor: CompetitorDto | undefined): SeriesPlayer[] =>
       (competitor?.playerIds ?? []).map((id, index) => {
         const player = competitor?.players?.[index]
-        const name = [player?.firstName, player?.lastName].filter(Boolean).join(' ')
 
-        return { id, name: name || player?.email || `#${id}` }
+        return { id, name: player?.displayName || `#${id}` }
       }),
     []
   )

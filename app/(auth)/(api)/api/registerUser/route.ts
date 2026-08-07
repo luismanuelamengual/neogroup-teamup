@@ -8,7 +8,7 @@ import { getOrganization } from '@/app/services/organizations'
 import { withApi } from '@/app/utils/api-server'
 import { resolveAppUrl } from '@/app/utils/domains'
 import { sendEmail } from '@/app/utils/email'
-import { isValidRole } from '@/app/utils/users'
+import { isValidRole, normalizeName } from '@/app/utils/users'
 
 const TOKEN_EXPIRY_HOURS = 24
 
@@ -90,7 +90,7 @@ export const POST = withApi(async (request, context, organizationId) => {
     subject: 'Verificá tu cuenta de TeamUp',
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-        <h2>Hola ${firstName},</h2>
+        <h2>Hola ${normalizeName(firstName)},</h2>
         <p>Gracias por registrarte en TeamUp. Para activar tu cuenta, hacé clic en el siguiente botón:</p>
         <a href="${verificationUrl}" style="display:inline-block;padding:12px 24px;background:#1976d2;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold;">
           Verificar mi email

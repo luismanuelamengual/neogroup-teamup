@@ -30,6 +30,7 @@ import {
   createRound,
   createTournamentCategories,
   deleteVoidedFixtures,
+  freezeGroupMembership,
   isTournamentComplete,
   normalizeCategoryIds,
   normalizeImage,
@@ -373,6 +374,11 @@ export async function startTournament(tournament: Tournament): Promise<void> {
     }
 
     tournament.status = TournamentStatus.ONGOING
+    // Before round 1 exists: the groups are computed once here and written onto
+    // the competitors, so what gets played is fixed and a late entrant can no
+    // longer reshuffle it (see freezeGroupMembership). No-op for every type that
+    // does not play groups.
+    await freezeGroupMembership(tournament)
     await createRound(tournament, 1)
     await tournament.save()
   })

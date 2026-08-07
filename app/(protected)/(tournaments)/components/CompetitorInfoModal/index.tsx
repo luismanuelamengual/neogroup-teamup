@@ -27,15 +27,12 @@ interface CompetitorInfoModalProps {
 }
 
 interface PersonCardProps {
-  firstName: string | null
-  lastName: string | null
+  displayName: string
   phoneNumber: string | null
   email: string
 }
 
-function PersonCard({ firstName, lastName, phoneNumber, email }: PersonCardProps) {
-  const displayName = [firstName, lastName].filter(Boolean).join(' ') || email || '—'
-
+function PersonCard({ displayName, phoneNumber, email }: PersonCardProps) {
   return (
     <div className="competitor-info-modal-person">
       <Avatar email={email} name={displayName} size="lg" />
@@ -86,8 +83,7 @@ export default function CompetitorInfoModal({ open, competitors, onClose }: Comp
                   <div key={playerIndex}>
                     {playerIndex > 0 && <Divider className="competitor-divider" />}
                     <PersonCard
-                      firstName={player.firstName}
-                      lastName={player.lastName}
+                      displayName={player.displayName}
                       phoneNumber={player.phoneNumber}
                       email={player.email}
                     />

@@ -132,9 +132,7 @@ export default function AppShell({
           <div className="spacer" />
           <ButtonBase onClick={openMenu} className="user" focusRipple>
             <Avatar email={user?.email ?? ''} name={user?.displayName ?? ''} size="sm" className="avatar" />
-            <span className="user-name">
-              {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.displayName}
-            </span>
+            <span className="user-name">{user?.displayName}</span>
           </ButtonBase>
           <Menu
             anchorEl={menuAnchor}

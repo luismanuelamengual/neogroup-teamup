@@ -16,7 +16,8 @@ import {
   computeGroupSizes,
   interclubsGroupSizes,
   resolveSiteId,
-  sortCompetitorIds
+  sortCompetitorIds,
+  storedGroupMembership
 } from '@/app/(protected)/(tournaments)/utils/groups'
 import {
   assignLocality,
@@ -25,6 +26,7 @@ import {
   orderKnockoutSides,
   resolveInterclubsFormat
 } from '@/app/(protected)/(tournaments)/utils/interclubs'
+import { LateRegistrationSlot, LateRegistrationSlotKind } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
@@ -361,7 +363,31 @@ export function getGroupPhaseRounds(
           competitorsCount,
           settings.competitorsPerGroup ?? DEFAULT_GROUPS_PLAYOFF_SETTINGS.competitorsPerGroup
         )
-  const naturalRounds = sizes.reduce((max, size) => Math.max(max, roundRobinRoundsFor(size)), 0)
+
+  return getGroupPhaseRoundsFromSizes(settings, sizes, type)
+}
+
+/**
+ * `getGroupPhaseRounds` from the group sizes that are actually in play, rather
+ * than from a competitor count the sizes are re-derived from.
+ *
+ * The engine uses this variant wherever it already holds the groups, because
+ * once a category's membership is frozen (see `freezeGroupMembership`) the
+ * competitor count no longer determines the sizes: a late entrant joining an
+ * odd group grows that ONE group instead of triggering a fresh
+ * `computeGroupSizes` split. Re-deriving there would change the group phase's
+ * length mid-tournament.
+ *
+ * A late entrant never changes the answer either way: they only ever fill the
+ * circle method's bye slot of an odd group, and an odd group of size k needs
+ * exactly as many rounds as the even group of size k+1 it becomes.
+ */
+export function getGroupPhaseRoundsFromSizes(
+  settings: TournamentSettings,
+  groupSizes: number[],
+  type: TournamentType = TournamentType.GROUPS_PLAYOFF
+): number {
+  const naturalRounds = groupSizes.reduce((max, size) => Math.max(max, roundRobinRoundsFor(size)), 0)
 
   // The round cap only applies to groups+playoff — interclubes zones do not
   // support this setting.
@@ -940,6 +966,16 @@ async function computeCategoryGroups(
   const allCategoryCompetitors = cache
     ? await cache.competitors(tournamentCategoryId)
     : await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
+  // A started category carries its membership on the competitors themselves, so
+  // it survives a late entrant joining (see `freezeGroupMembership`). Checked
+  // first for exactly that reason: re-deriving would reshuffle groups that are
+  // already being played.
+  const stored = storedGroupMembership(allCategoryCompetitors)
+
+  if (stored) {
+    return stored
+  }
+
   const seededCount = allCategoryCompetitors.filter((competitor) => competitor.seedNumber != null).length
   const siteOf = cache ? await cache.sites(tournamentCategoryId) : await buildCompetitorSiteMap(allCategoryCompetitors)
 
@@ -948,6 +984,54 @@ async function computeCategoryGroups(
   // grouping competitors from the same site together — best effort, see
   // `repairSameSiteGroups`.
   return buildGroups(competitorIds, seededCount, settings, type, siteOf)
+}
+
+/**
+ * Writes each competitor's group membership onto the competitor itself, once,
+ * as the tournament starts. From then on `computeCategoryGroups` (engine) and
+ * `computeGroupMembership` (views) read it back instead of re-deriving it, so
+ * the groups that get played can never be reshuffled by a later change to the
+ * competitor list — which is precisely what makes registering a late entrant
+ * into a running group phase safe.
+ *
+ * Only groups+playoff freezes: it is the one type that both plays groups and
+ * accepts late entrants. Interclubes derives its whole format from how many
+ * teams registered, so it stays on the derivation and is never open to late
+ * registration.
+ *
+ * Idempotent, and a no-op for a category whose membership is already frozen.
+ */
+export async function freezeGroupMembership(tournament: Tournament): Promise<void> {
+  if (tournament.type !== TournamentType.GROUPS_PLAYOFF) {
+    return
+  }
+
+  for (const category of await getTournamentCategories(tournament)) {
+    const competitors = await Competitor.where('tournamentCategoryId', category.id).orderBy('id').get()
+
+    if (competitors.length === 0 || storedGroupMembership(competitors)) {
+      continue
+    }
+
+    const competitorIds = sortCompetitorIds(competitors, tournament.type)
+    const groups = await computeCategoryGroups(category.id, competitorIds, tournament.settings ?? {})
+    const byId = new Map(competitors.map((competitor) => [competitor.id, competitor]))
+
+    for (let groupNumber = 0; groupNumber < groups.length; groupNumber++) {
+      const group = groups[groupNumber]
+
+      for (let groupPosition = 0; groupPosition < group.length; groupPosition++) {
+        const competitor = byId.get(group[groupPosition])
+
+        if (!competitor) {
+          continue
+        }
+
+        competitor.data = { ...(competitor.data ?? {}), groupNumber, groupPosition }
+        await competitor.save()
+      }
+    }
+  }
 }
 
 /**
@@ -2053,10 +2137,13 @@ async function materializeCategoryRound(
     }
 
     case TournamentType.GROUPS_PLAYOFF: {
-      const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length)
+      const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
+      const groupPhaseRounds = getGroupPhaseRoundsFromSizes(
+        settings,
+        groups.map((group) => group.length)
+      )
 
       if (roundNumber <= groupPhaseRounds) {
-        const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings)
         // Same deal as an unordered league, one round robin per group. The
         // knockout phase is untouched: it is still seeded once every group has
         // played itself out.
@@ -2225,8 +2312,13 @@ async function buildLaneNextRound(
     const group = groups[lane.groupNumber] ?? []
     // The group phase can be capped short of its natural round-robin length
     // (groups+playoff's `maxRounds`), in which case every group's lane stops at
-    // the same round regardless of its own size.
-    const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length, tournament.type)
+    // the same round regardless of its own size. Measured over the groups in
+    // play rather than the competitor count, so a late entrant cannot change it.
+    const groupPhaseRounds = getGroupPhaseRoundsFromSizes(
+      settings,
+      groups.map((each) => each.length),
+      tournament.type
+    )
     const groupRounds = Math.min(roundRobinRoundsFor(group.length), groupPhaseRounds)
 
     if (group.length < 2 || nextNumber > groupRounds) {
@@ -2453,7 +2545,11 @@ async function maybeStartGroupsKnockout(
   const groups = await computeCategoryGroups(tournamentCategoryId, competitorIds, settings, cache, tournament.type)
   // Rounds actually owed by each group: its natural round-robin length, or
   // fewer when the group phase is capped short (groups+playoff's `maxRounds`).
-  const groupPhaseRounds = getGroupPhaseRounds(settings, competitorIds.length, tournament.type)
+  const groupPhaseRounds = getGroupPhaseRoundsFromSizes(
+    settings,
+    groups.map((group) => group.length),
+    tournament.type
+  )
 
   for (let index = 0; index < groups.length; index++) {
     const group = groups[index]
@@ -2688,6 +2784,272 @@ export async function progressTournamentAfterResult(
 
   // Only the edited match's category can advance from a single result.
   await advanceTournament(tournament, match.tournamentCategoryId)
+}
+
+/** Order-insensitive key of a matchup, so a fixture can be recognised however its sides are stored. */
+function pairKeyOf(home: number | null, away: number | null): string {
+  return [home, away]
+    .filter((id): id is number => id != null)
+    .sort((a, b) => a - b)
+    .join(':')
+}
+
+/**
+ * Slots a competitor that registered AFTER the tournament started into the hole
+ * of the structure they were accepted for. `slot` must come from
+ * `getLateRegistrationSlots` — the caller re-derives it against fresh state, so
+ * this function can take it as already validated.
+ *
+ * Nothing here grows or re-seeds a structure: it only fills what was already
+ * empty. See utils/lateRegistration for why those are the only two shapes of
+ * hole a running tournament has.
+ */
+export async function attachLateCompetitor(
+  tournament: Tournament,
+  competitor: Competitor,
+  slot: LateRegistrationSlot
+): Promise<void> {
+  const tournamentCategoryId = competitor.tournamentCategoryId
+
+  if (slot.kind === LateRegistrationSlotKind.BYE) {
+    await fillKnockoutBye(tournament, tournamentCategoryId, Number(slot.matchId), competitor.id)
+  } else {
+    await joinRoundRobin(tournament, competitor, slot.groupNumber)
+  }
+
+  await advanceTournament(tournament, tournamentCategoryId)
+}
+
+/**
+ * Turns an unopposed first-round knockout match into a real one, with the late
+ * entrant as its away side.
+ *
+ * The bye was stored as already won, so its occupant had been propagated into
+ * the next round. Re-running the winner propagation over the whole lane walks
+ * that back: with the match no longer decided, the slot it fed is written back
+ * to "to be defined". `getLateRegistrationSlots` only ever offers a bye whose
+ * next match is still PENDING, so nothing that actually happened is undone.
+ */
+async function fillKnockoutBye(
+  tournament: Tournament,
+  tournamentCategoryId: number,
+  matchId: number,
+  competitorId: number
+): Promise<void> {
+  const match = await Match.find(matchId)
+
+  if (!match || match.tournamentCategoryId !== tournamentCategoryId) {
+    throw new ApiException('El bye seleccionado no pertenece a esta categoría')
+  }
+
+  match.awayCompetitorId = competitorId
+  match.status = MatchStatus.PENDING
+  match.winner = null
+  match.score = null
+  match.updatedAt = new Date()
+  await match.save()
+
+  const lane: RoundLane = { type: match.type, groupNumber: null }
+  const roundNumbers = laneRoundNumbers(await loadCategoryMatches(tournamentCategoryId), lane)
+
+  for (const roundNumber of roundNumbers.slice(0, -1)) {
+    await syncKnockoutNextRound(tournamentCategoryId, lane, roundNumber)
+  }
+
+  // The consolation bracket mirrors the main one's first round, so the entrant
+  // changes which slot it is owed: re-resolve it from the (now different) state.
+  if (hasConsolationBracket(tournament.type, tournament.settings)) {
+    await advanceConsolationBracket(tournamentCategoryId)
+  }
+}
+
+/**
+ * Adds a late entrant to a running round-robin lane — a group of a groups+playoff
+ * group phase (`groupNumber` set), or the single lane of a league (null) — and
+ * materialises the fixtures they are owed.
+ *
+ * Which placement applies depends on what a round means in that lane; see
+ * utils/lateRegistration for why both are structure-preserving.
+ */
+async function joinRoundRobin(
+  tournament: Tournament,
+  competitor: Competitor,
+  groupNumber: number | null
+): Promise<void> {
+  const tournamentCategoryId = competitor.tournamentCategoryId
+  const categoryCompetitors = await Competitor.where('tournamentCategoryId', tournamentCategoryId).orderBy('id').get()
+  const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber }
+  let members: number[]
+
+  if (groupNumber == null) {
+    // A league's lane is the whole category, ordered by id — and the entrant,
+    // being the newest row, already sits at the end of it.
+    members = sortCompetitorIds(categoryCompetitors, tournament.type)
+  } else {
+    // The entrant's own row already exists but carries no membership yet, which
+    // would make the whole category read as "not frozen": the groups are read
+    // back from everybody else.
+    const groups = storedGroupMembership(categoryCompetitors.filter((each) => each.id !== competitor.id))
+
+    if (!groups || !groups[groupNumber]) {
+      throw new ApiException('El grupo seleccionado no es válido')
+    }
+
+    competitor.data = { ...(competitor.data ?? {}), groupNumber, groupPosition: groups[groupNumber].length }
+    await competitor.save()
+    members = [...groups[groupNumber], competitor.id]
+  }
+
+  const all = await loadCategoryMatches(tournamentCategoryId)
+
+  // A lane that was never materialised (a group left with a single member) is
+  // built from scratch: the entrant is what finally makes it playable.
+  if (laneRoundNumbers(all, lane).length === 0) {
+    await buildLaneNextRound(
+      tournament,
+      tournamentCategoryId,
+      lane,
+      1,
+      await getSortedCompetitorIds(tournament, tournamentCategoryId)
+    )
+
+    return
+  }
+
+  if (allowsUnorderedResults(tournament.type, tournament.settings)) {
+    await appendUnorderedFixtures(tournamentCategoryId, lane, members, competitor.id)
+
+    return
+  }
+
+  await reconcileOrderedRoundRobin(tournamentCategoryId, lane, members)
+}
+
+/**
+ * Ordered lane: re-derives each already-materialised round from the grown member
+ * list and reconciles it against what is stored.
+ *
+ * The entrant was appended to the lane's id array, which is exactly where the
+ * circle method's null "bye" slot sat (the lane is odd — that is the condition
+ * for the slot being offered at all), so every pairing the lane already had is
+ * reproduced unchanged and the pairs that used to be skipped for involving the
+ * null are now the entrant's.
+ *
+ * So rounds are reconciled rather than rebuilt: an existing fixture is kept and
+ * only renumbered (the round now holds one more match), and the entrant's is
+ * inserted alongside it, PENDING, in the round it belongs to — including rounds
+ * that are otherwise finished, which `isMatchEditable` deliberately keeps open
+ * for exactly this. Rounds not yet materialised need nothing: they will be
+ * generated from the grown list.
+ */
+async function reconcileOrderedRoundRobin(
+  tournamentCategoryId: number,
+  lane: RoundLane,
+  members: number[]
+): Promise<void> {
+  const all = await loadCategoryMatches(tournamentCategoryId)
+
+  for (const roundNumber of laneRoundNumbers(all, lane)) {
+    const existing = roundMatchesOf(all, lane, roundNumber)
+    const byPair = new Map(existing.map((match) => [pairKeyOf(match.homeCompetitorId, match.awayCompetitorId), match]))
+    const missing: Pairing[] = []
+
+    for (const pairing of generateRoundRobinRound(members, roundNumber)) {
+      const match = byPair.get(pairKeyOf(pairing.home, pairing.away))
+
+      if (!match) {
+        missing.push(pairing)
+
+        continue
+      }
+
+      if (match.position !== pairing.position) {
+        match.position = pairing.position
+        match.updatedAt = new Date()
+        await match.save()
+      }
+    }
+
+    if (missing.length > 0) {
+      await persistRoundMatches(tournamentCategoryId, roundNumber, lane, missing)
+    }
+  }
+}
+
+/**
+ * Unordered lane: appends the entrant's fixtures without touching a single
+ * existing one.
+ *
+ * Here a round is a display grouping, not a schedule, so the layout must NOT be
+ * re-derived — doing so would relocate fixtures (including played ones) to
+ * different rounds for no reason. Instead each new fixture goes into the
+ * lowest-numbered round where both sides are still free, so nobody is booked
+ * twice in the same round; when no round has space, one is appended at the end.
+ *
+ * On an odd lane this happens to reproduce exactly what the circle method would
+ * have produced, because the free slots ARE the rest slots. On an even one it
+ * simply grows the lane by the rounds it needs.
+ */
+async function appendUnorderedFixtures(
+  tournamentCategoryId: number,
+  lane: RoundLane,
+  members: number[],
+  competitorId: number
+): Promise<void> {
+  const all = await loadCategoryMatches(tournamentCategoryId)
+  const existing = laneMatches(all, lane)
+  const played = new Set(existing.map((match) => pairKeyOf(match.homeCompetitorId, match.awayCompetitorId)))
+  /** Competitors already booked in each round, and where the next match of it goes. */
+  const busy = new Map<number, Set<number>>()
+  const nextPosition = new Map<number, number>()
+
+  for (const match of existing) {
+    const sides = busy.get(match.roundNumber) ?? new Set<number>()
+
+    for (const side of [match.homeCompetitorId, match.awayCompetitorId]) {
+      if (side != null) {
+        sides.add(side)
+      }
+    }
+
+    busy.set(match.roundNumber, sides)
+    nextPosition.set(match.roundNumber, Math.max(nextPosition.get(match.roundNumber) ?? 0, match.position + 1))
+  }
+
+  const roundNumbers = [...busy.keys()].sort((a, b) => a - b)
+  const additions = new Map<number, Pairing[]>()
+  let lastRound = roundNumbers[roundNumbers.length - 1] ?? 0
+
+  for (const rivalId of members) {
+    if (rivalId === competitorId || played.has(pairKeyOf(rivalId, competitorId))) {
+      continue
+    }
+
+    let target = roundNumbers.find((roundNumber) => {
+      const sides = busy.get(roundNumber)!
+
+      return !sides.has(rivalId) && !sides.has(competitorId)
+    })
+
+    if (target == null) {
+      lastRound++
+      target = lastRound
+      roundNumbers.push(target)
+      busy.set(target, new Set<number>())
+      nextPosition.set(target, 0)
+    }
+
+    const position = nextPosition.get(target) ?? 0
+
+    busy.get(target)!.add(rivalId)
+    busy.get(target)!.add(competitorId)
+    nextPosition.set(target, position + 1)
+    additions.set(target, [...(additions.get(target) ?? []), { home: rivalId, away: competitorId, position }])
+  }
+
+  for (const [roundNumber, pairings] of [...additions.entries()].sort((a, b) => a[0] - b[0])) {
+    await persistRoundMatches(tournamentCategoryId, roundNumber, lane, pairings)
+  }
 }
 
 /** Tournament input normalization/validation helpers shared by API routes. */

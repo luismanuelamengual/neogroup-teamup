@@ -7,6 +7,7 @@ import OrganizationStats from '@/app/(protected)/(home)/components/OrganizationS
 import OverduePaymentsBanner from '@/app/(protected)/(payments)/components/OverduePaymentsBanner'
 import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverduePayments'
 import { useUserStore } from '@/app/stores/users'
+import { normalizeName } from '@/app/utils/users'
 
 /**
  * Home dashboard of the organization administrator.
@@ -18,7 +19,7 @@ import { useUserStore } from '@/app/stores/users'
  */
 export default function AdministratorDashboard() {
   const user = useUserStore((state) => state.user)
-  const firstName = user?.firstName || user?.displayName || ''
+  const firstName = (user?.firstName ? normalizeName(user.firstName) : '') || user?.displayName || ''
   const { overdueCount } = useOverduePayments()
 
   return (
