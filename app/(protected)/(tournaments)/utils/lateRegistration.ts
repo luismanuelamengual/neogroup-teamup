@@ -207,7 +207,16 @@ function isInGroupPhase(matches: LateRegistrationMatch[]): boolean {
 
   const groupMatches = matches.filter((match) => match.type === MatchType.LEAGUE && match.groupNumber != null)
 
-  return groupMatches.length > 0 && groupMatches.some((match) => match.status === MatchStatus.PENDING)
+  // A category that materialised NOTHING never got going in the first place —
+  // a tournament starts every category it can, and skips the ones left with a
+  // single competitor (see `materializeRound`). It has not reached any phase
+  // yet, so it is still waiting at the start of its group phase, and it is the
+  // safest case of all to let somebody into: there is no fixture to preserve.
+  if (groupMatches.length === 0) {
+    return true
+  }
+
+  return groupMatches.some((match) => match.status === MatchStatus.PENDING)
 }
 
 /** Order-insensitive key of a matchup, so a fixture is recognised however its sides are stored. */
