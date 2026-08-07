@@ -15,6 +15,7 @@ import {
   buildGroups,
   computeGroupSizes,
   interclubsGroupSizes,
+  resolveSiteId,
   sortCompetitorIds
 } from '@/app/(protected)/(tournaments)/utils/groups'
 import {
@@ -35,6 +36,7 @@ import {
 import { rankInterclubs } from '@/app/(protected)/(tournaments)/utils/standings'
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
+import { User } from '@/app/models/User'
 
 /**
  * Pure functions that compute the pairings of every tournament round.
@@ -197,20 +199,23 @@ export function seedFromGroups(qualifiers: GroupRankRow[][], tieBreakers?: Map<n
 }
 
 /**
- * Rearranges first-round pairings so two competitors coming out of the same
- * group do not meet again straight away.
+ * Rearranges first-round pairings so two competitors sharing a "clash key" —
+ * group membership, home site, ... — do not meet again straight away. Several
+ * keying functions can be given at once (e.g. group AND site) so a single swap
+ * pass satisfies every dimension together instead of one repair undoing another.
  *
- * Ordering each tier by points (see `seedFromGroups`) means the tier no longer
- * aligns with the group index, so the bracket can pit a group's runner-up
- * against its own third place. The same clash already happens without any
- * reordering whenever the qualifier count does not fit the bracket neatly — 3
- * groups sending 2 each fills a bracket of 8 and pairs C1 against C2.
+ * Typical case this fixes: ordering each tier by points (see `seedFromGroups`)
+ * means the tier no longer aligns with the group index, so the bracket can pit
+ * a group's runner-up against its own third place. The same clash already
+ * happens without any reordering whenever the qualifier count does not fit the
+ * bracket neatly — 3 groups sending 2 each fills a bracket of 8 and pairs C1
+ * against C2.
  *
  * The fix is a swap pass over the pairings, deliberately conservative:
  *   - only the "away" slots move, so byes and the top seeds' path never change;
  *   - the swap partner is the one closest in seed order, to perturb the bracket
  *     as little as possible;
- *   - a swap is applied only when it does not create a new clash;
+ *   - a swap is applied only when it does not create a new clash on any key;
  *   - positions are visited in order and the first valid partner wins, so the
  *     outcome is deterministic — no randomness anywhere.
  *
@@ -218,18 +223,25 @@ export function seedFromGroups(qualifiers: GroupRankRow[][], tieBreakers?: Map<n
  * group, where every pairing is an intra-group one and nothing can be done).
  * Those are left untouched rather than shuffled pointlessly.
  */
-export function repairSameGroupPairings(pairings: Pairing[], groupOf: Map<number, number>): Pairing[] {
-  const groupIdOf = (pairing: Pairing, side: 'home' | 'away'): number | undefined => {
-    const id = side === 'home' ? pairing.home : pairing.away
-
-    return id != null ? groupOf.get(id) : undefined
+export function repairClashingPairings(
+  pairings: Pairing[],
+  keyOfs: Array<(competitorId: number) => unknown>
+): Pairing[] {
+  if (keyOfs.length === 0) {
+    return pairings
   }
 
   const clashes = (pairing: Pairing): boolean => {
-    const home = groupIdOf(pairing, 'home')
-    const away = groupIdOf(pairing, 'away')
+    if (pairing.home == null || pairing.away == null) {
+      return false
+    }
 
-    return home !== undefined && away !== undefined && home === away
+    return keyOfs.some((keyOf) => {
+      const home = keyOf(pairing.home!)
+      const away = keyOf(pairing.away!)
+
+      return home !== undefined && home !== null && home === away
+    })
   }
 
   // Only pairings with two real sides can be swapped; byes have nothing to move.
@@ -263,6 +275,16 @@ export function repairSameGroupPairings(pairings: Pairing[], groupOf: Map<number
   }
 
   return pairings
+}
+
+/** `repairClashingPairings` for a single group-membership map — see it for the algorithm. */
+export function repairSameGroupPairings(pairings: Pairing[], groupOf: Map<number, number>): Pairing[] {
+  return repairClashingPairings(pairings, [(id) => groupOf.get(id)])
+}
+
+/** `repairClashingPairings` for a single competitor-site map — see it for the algorithm. */
+export function repairSameSitePairings(pairings: Pairing[], siteOf: Map<number, number>): Pairing[] {
+  return repairClashingPairings(pairings, [(id) => siteOf.get(id)])
 }
 
 /** Total number of rounds for a tournament given its competitors count. */
@@ -600,6 +622,7 @@ function isLaneMatch(match: Match, lane: RoundLane): boolean {
 class AdvanceCache {
   private matchesByCategory = new Map<number, Match[]>()
   private competitorsByCategory = new Map<number, Competitor[]>()
+  private sitesByCategory = new Map<number, Map<number, number>>()
 
   /** All matches of a category. */
   async matches(tournamentCategoryId: number): Promise<Match[]> {
@@ -625,6 +648,18 @@ class AdvanceCache {
     return competitors
   }
 
+  /** Competitor id → site id of a category (cached for the whole run, same lifetime as `competitors`). */
+  async sites(tournamentCategoryId: number): Promise<Map<number, number>> {
+    let siteOf = this.sitesByCategory.get(tournamentCategoryId)
+
+    if (!siteOf) {
+      siteOf = await buildCompetitorSiteMap(await this.competitors(tournamentCategoryId))
+      this.sitesByCategory.set(tournamentCategoryId, siteOf)
+    }
+
+    return siteOf
+  }
+
   /** Drops the cached matches of a category after a structural write. */
   invalidate(tournamentCategoryId: number): void {
     this.matchesByCategory.delete(tournamentCategoryId)
@@ -634,6 +669,34 @@ class AdvanceCache {
 /** Matches of a category, from the cache when present, else straight from the DB. */
 async function loadCategoryMatches(tournamentCategoryId: number, cache?: AdvanceCache): Promise<Match[]> {
   return cache ? cache.matches(tournamentCategoryId) : Match.where('tournamentCategoryId', tournamentCategoryId).get()
+}
+
+/**
+ * Site (sede) each competitor represents, per the shared precedence rule (see
+ * `resolveSiteId` in utils/groups.ts): `data.siteId` when set (interclubes
+ * teams), else the players' shared home site, else unassigned — and simply
+ * absent from the map, since every repair pass treats "no key" as "never
+ * clashes". Batches a single query for every player's `siteId` regardless of
+ * how many competitors are involved.
+ */
+async function buildCompetitorSiteMap(competitors: Competitor[]): Promise<Map<number, number>> {
+  const playerIds = [...new Set(competitors.flatMap((competitor) => competitor.playerIds ?? []))]
+  const players = playerIds.length > 0 ? await User.whereIn('id', playerIds).get() : []
+  const siteIdByPlayer = new Map(players.map((player) => [player.id, player.siteId]))
+  const siteOf = new Map<number, number>()
+
+  for (const competitor of competitors) {
+    const siteId = resolveSiteId(
+      competitor.data?.siteId,
+      (competitor.playerIds ?? []).map((id) => siteIdByPlayer.get(id))
+    )
+
+    if (siteId != null) {
+      siteOf.set(competitor.id, siteId)
+    }
+  }
+
+  return siteOf
 }
 
 /** Matches of a single lane, sorted by round then bracket position. */
@@ -878,10 +941,13 @@ async function computeCategoryGroups(
     ? await cache.competitors(tournamentCategoryId)
     : await Competitor.where('tournamentCategoryId', tournamentCategoryId).get()
   const seededCount = allCategoryCompetitors.filter((competitor) => competitor.seedNumber != null).length
+  const siteOf = cache ? await cache.sites(tournamentCategoryId) : await buildCompetitorSiteMap(allCategoryCompetitors)
 
   // Same pure split the views use (see utils/groups.ts), so what is played and
-  // what is displayed can never diverge.
-  return buildGroups(competitorIds, seededCount, settings, type)
+  // what is displayed can never diverge. `siteOf` makes the split try to avoid
+  // grouping competitors from the same site together — best effort, see
+  // `repairSameSiteGroups`.
+  return buildGroups(competitorIds, seededCount, settings, type, siteOf)
 }
 
 /**
@@ -1025,8 +1091,14 @@ async function syncKnockoutNextRound(
  * as empty "to be defined" matches. Each round is tagged with its bracket instance
  * (Final = 1, Semifinal = 2, …) and known winners (byes) are propagated forward so
  * the bracket is coherent from the start.
+ *
  * When the entrants come out of a groups phase, `groupOf` lets the first round be
- * repaired so nobody faces a rival from their own group straight away.
+ * repaired so nobody faces a rival from their own group straight away. The first
+ * round is additionally, always, given the same best-effort treatment against
+ * competitors that share a site (see `resolveSiteId`/`buildCompetitorSiteMap`) —
+ * this covers both a plain knockout's round 1 and a post-groups bracket, and is
+ * resolved together with `groupOf` in one swap pass so the two repairs cannot
+ * undo each other.
  * Returns 1 when a bracket was created, 0 when there were not enough competitors.
  */
 async function createKnockoutBracket(
@@ -1035,7 +1107,8 @@ async function createKnockoutBracket(
   seededIds: number[],
   startRound: number,
   applyLocality = false,
-  groupOf?: Map<number, number>
+  groupOf?: Map<number, number>,
+  cache?: AdvanceCache
 ): Promise<number> {
   if (seededIds.length < 2) {
     return 0
@@ -1043,9 +1116,20 @@ async function createKnockoutBracket(
 
   const bracketSize = getBracketSize(seededIds.length)
   const totalRounds = getKnockoutRounds(seededIds.length)
-  const firstRoundPairings = groupOf
-    ? repairSameGroupPairings(seedPlayoffPairings(seededIds), groupOf)
-    : seedPlayoffPairings(seededIds)
+  const siteOf = cache
+    ? await cache.sites(tournamentCategoryId)
+    : await buildCompetitorSiteMap(await Competitor.where('tournamentCategoryId', tournamentCategoryId).get())
+  const clashKeyOfs: Array<(id: number) => unknown> = []
+
+  if (groupOf) {
+    clashKeyOfs.push((id) => groupOf.get(id))
+  }
+
+  if (siteOf.size > 0) {
+    clashKeyOfs.push((id) => siteOf.get(id))
+  }
+
+  const firstRoundPairings = repairClashingPairings(seedPlayoffPairings(seededIds), clashKeyOfs)
 
   // Interclubes: seeding says who meets whom, the localía rule says who hosts.
   if (applyLocality) {
@@ -2406,7 +2490,8 @@ async function maybeStartGroupsKnockout(
     seeded,
     startNumber,
     tournament.type === TournamentType.INTERCLUBS,
-    groupOf
+    groupOf,
+    cache
   )
 
   if (created === 0) {

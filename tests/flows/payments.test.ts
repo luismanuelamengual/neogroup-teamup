@@ -14,6 +14,7 @@ import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipl
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { createTournament, deleteTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { Organization } from '@/app/models/Organization'
 import {
   buildTournament,
   createUser,
@@ -219,6 +220,43 @@ describe('service fee calculation', () => {
     expect(pending.competitorsCount).toBe(8)
     // (4 × 1000 + 4 × 2000) × 4%
     expect(pending.amount).toBe(480)
+  })
+})
+
+describe('creating a paid tournament', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+  })
+
+  it('is created already settled when the organization charges no service fee', async () => {
+    const organization = (await Organization.find(1))!
+
+    organization.serviceFeePercentage = 0
+    await organization.save()
+
+    const ownerId = await createUser(1)
+    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId, 1)
+
+    expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(true)
+  })
+
+  it('is created unsettled when the organization charges a service fee', async () => {
+    const ownerId = await createUser(1)
+    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId, 1)
+
+    expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(false)
+  })
+
+  it('is created unsettled for a free tournament even without a service fee', async () => {
+    const organization = (await Organization.find(1))!
+
+    organization.serviceFeePercentage = 0
+    await organization.save()
+
+    const ownerId = await createUser(1)
+    const { id } = await createTournament(NEW_TOURNAMENT, ownerId, 1)
+
+    expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(false)
   })
 })
 
@@ -437,6 +475,7 @@ describe('deleting a billable tournament', () => {
 
   it('allows deleting a started tournament once its service fee is settled', async () => {
     const tournamentId = await playPaidTournament()
+
     mockMercadoPago({ paymentStatus: 'approved' })
 
     const userId = await createUser(1)

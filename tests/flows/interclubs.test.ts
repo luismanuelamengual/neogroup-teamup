@@ -222,6 +222,39 @@ describe('INTERCLUBS — zones plus knockout (more than 4 teams)', () => {
     expect(bracket.filter((match) => match.bracketInstance === 2)).toHaveLength(2)
   })
 
+  it('avoids grouping two teams of the same venue into the same zone when it can', async () => {
+    // 8 teams, zones of 4 → two zones, filled in registration-order slices
+    // (slots 0-3 / 4-7). Two teams share "Alemán" at slots 0 and 3, so they'd
+    // land in the same zone unless the repair pass moves one of them.
+    const built = await buildTournament({
+      type: TournamentType.INTERCLUBS,
+      competitors: 8,
+      scoreFormat: ScoreFormat.BASIC_COUNT,
+      sites: ['Alemán', 'Español', 'Italiano', 'Alemán', 'Francés', 'Portugués', 'Danés', 'Suizo']
+    })
+
+    await start(built)
+
+    const categoryId = built.categoryIds[0]
+    const zoneMatches = (await getAllMatches(categoryId)).filter((match) => match.type === MatchType.LEAGUE)
+    const zoneOfCompetitor = new Map<number, number>()
+
+    for (const match of zoneMatches) {
+      if (match.homeCompetitorId != null) {
+        zoneOfCompetitor.set(match.homeCompetitorId, match.groupNumber!)
+      }
+
+      if (match.awayCompetitorId != null) {
+        zoneOfCompetitor.set(match.awayCompetitorId, match.groupNumber!)
+      }
+    }
+
+    // The two "Alemán" teams are competitorIds[0] and competitorIds[3].
+    const zones = [built.competitorIds[0], built.competitorIds[3]].map((id) => zoneOfCompetitor.get(id))
+
+    expect(zones[0]).not.toBe(zones[1])
+  })
+
   it('advances the zone winners computed by the standings', async () => {
     const built = await buildTournament({
       type: TournamentType.INTERCLUBS,

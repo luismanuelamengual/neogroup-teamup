@@ -116,6 +116,15 @@ export function useTournaments() {
     },
     [executeRequest, showSuccessMessage]
   )
+  // Team captain adding/removing mates from their own interclubes team, while
+  // registrations are still open (see /api/updateTeamRoster).
+  const updateTeamRoster = useCallback(
+    async (tournamentId: number, playerIds: number[]): Promise<void> => {
+      await executeRequest('/updateTeamRoster', { tournamentId, playerIds })
+      showSuccessMessage('Equipo actualizado correctamente')
+    },
+    [executeRequest, showSuccessMessage]
+  )
 
   return {
     getTournament,
@@ -127,6 +136,7 @@ export function useTournaments() {
     finishTournament,
     joinTournament,
     leaveTournament,
+    updateTeamRoster,
     saveMatchResult,
     saveMatchSchedule,
     clearMatchSchedule

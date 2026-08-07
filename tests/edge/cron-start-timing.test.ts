@@ -66,36 +66,27 @@ describe('isTournamentStartDue — gating by date, time AND organization timezon
   })
 })
 
-describe('processTournaments — starts tournaments at the organization local time', () => {
+describe('processTournaments — never auto-starts tournaments (manual start only)', () => {
   beforeEach(async () => {
     await resetDatabase()
   })
 
-  it('starts a tournament whose local start instant has passed, and skips one still upcoming', async () => {
+  it('leaves a STAND_BY tournament untouched even when its scheduled start instant has long passed', async () => {
     // Organization 1 (seeded by the migration) operates in Buenos Aires time.
     const org = await Organization.find(1)
 
     org!.timezone = 'America/Argentina/Buenos_Aires'
     await org!.save()
 
-    const now = new Date('2026-06-26T12:00:00Z') // = 09:00 in Buenos Aires
-    // Due: 08:00 BA = 11:00 UTC, already passed at `now`.
+    // Due: 08:00 BA on a date well in the past — would have been due under the old cron.
     const due = await buildTournament({ type: TournamentType.AMERICANO, competitors: 4, startDate: '2026-06-26' })
 
     due.tournament.startTime = '08:00'
     await due.tournament.save()
 
-    // Upcoming: 10:00 BA = 13:00 UTC, still in the future at `now`.
-    const upcoming = await buildTournament({ type: TournamentType.AMERICANO, competitors: 4, startDate: '2026-06-26' })
+    const result = await processTournaments()
 
-    upcoming.tournament.startTime = '10:00'
-    await upcoming.tournament.save()
-
-    const result = await processTournaments(now)
-
-    expect(result.started).toContain(due.tournament.id)
-    expect(result.started).not.toContain(upcoming.tournament.id)
-    expect(await getTournamentStatus(due.tournament.id)).toBe(TournamentStatus.ONGOING)
-    expect(await getTournamentStatus(upcoming.tournament.id)).toBe(TournamentStatus.STAND_BY)
+    expect(result.started).toHaveLength(0)
+    expect(await getTournamentStatus(due.tournament.id)).toBe(TournamentStatus.STAND_BY)
   })
 })

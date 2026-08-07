@@ -37,6 +37,7 @@ import CompetitorsList from '@/app/(protected)/(tournaments)/components/Competit
 import EditTournamentDialog from '@/app/(protected)/(tournaments)/components/EditTournamentDialog'
 import JoinTournamentDialog from '@/app/(protected)/(tournaments)/components/JoinTournamentDialog'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
+import MyTeamSection from '@/app/(protected)/(tournaments)/components/MyTeamSection'
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import TournamentRoundsView from '@/app/(protected)/(tournaments)/components/TournamentRoundsView'
@@ -98,6 +99,16 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
     () => competitors.find((c) => userId != null && c.playerIds.includes(userId)) ?? null,
     [competitors, userId]
   )
+  // "Mi equipo" (roster add/remove) is only for the captain of an interclubes
+  // team — the player heading its roster (`playerIds[0]`) — and only while
+  // registrations are still open; the server enforces the same rules (see
+  // `updateTeamRoster`).
+  const isTeamCaptain =
+    tournament?.type === TournamentType.INTERCLUBS &&
+    tournament?.status === TournamentStatus.STAND_BY &&
+    !!userEntry &&
+    userId != null &&
+    userEntry.playerIds[0] === userId
   // Registrations are open unless the tournament sets a future startInscriptionsDate.
   const registrationOpen = useMemo(() => isRegistrationOpen(tournament?.startInscriptionsDate), [tournament])
   const myMatches = useMemo(() => {
@@ -491,6 +502,10 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
             </>
           )}
         </Alert>
+      )}
+
+      {isTeamCaptain && userEntry && (
+        <MyTeamSection tournamentId={tournament.id} competitor={userEntry} onUpdated={loadTournament} />
       )}
 
       {myMatches.length > 0 && (

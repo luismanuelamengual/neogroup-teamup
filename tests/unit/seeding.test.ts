@@ -7,7 +7,9 @@ import {
   getBracketSize,
   getKnockoutRounds,
   getTotalRounds,
+  repairClashingPairings,
   repairSameGroupPairings,
+  repairSameSitePairings,
   resolveGroupQualifiers,
   seedFromGroups,
   seedPlayoffPairings
@@ -197,6 +199,85 @@ describe('same-group pairing repair', () => {
     const placed = pairings.flatMap((pairing) => [pairing.home, pairing.away].filter((id): id is number => id != null))
 
     expect(placed.sort((a, b) => a - b)).toEqual([10, 11, 20, 21, 30, 31])
+  })
+})
+
+describe('same-site pairing repair', () => {
+  /** site of every competitor, using the tens digit (10,11 → site 1) — same shape as `groupOf`. */
+  const sitesOf = (...entries: [number, number][]) => new Map(entries)
+
+  it('swaps rivals so nobody from the same site meets in round 1', () => {
+    const seeded = seedFromGroups([ranked([10, 11]), ranked([20, 21]), ranked([30, 31])])
+    const siteOf = sitesOf([10, 0], [11, 0], [20, 1], [21, 1], [30, 2], [31, 2])
+    const pairings = repairSameSitePairings(seedPlayoffPairings(seeded), siteOf)
+
+    for (const pairing of pairings) {
+      if (pairing.away != null) {
+        expect(siteOf.get(pairing.home!)).not.toBe(siteOf.get(pairing.away))
+      }
+    }
+  })
+
+  it('leaves byes and the competitors facing them untouched', () => {
+    const seeded = seedFromGroups([ranked([10, 11]), ranked([20, 21]), ranked([30, 31])])
+    const siteOf = sitesOf([10, 0], [11, 0], [20, 1], [21, 1], [30, 2], [31, 2])
+    const before = seedPlayoffPairings(seeded)
+      .filter((pairing) => pairing.away === null)
+      .map((pairing) => pairing.home!)
+    const after = repairSameSitePairings(seedPlayoffPairings(seeded), siteOf)
+      .filter((pairing) => pairing.away === null)
+      .map((pairing) => pairing.home!)
+
+    expect(after).toEqual(before)
+  })
+
+  it('is a no-op when a competitor has no known site', () => {
+    const seeded = [10, 11, 12, 13]
+    const siteOf = sitesOf([10, 0], [11, 1])
+    const before = seedPlayoffPairings(seeded)
+    const after = repairSameSitePairings(seedPlayoffPairings(seeded), siteOf)
+
+    expect(after).toEqual(before)
+  })
+
+  it('does not drop or duplicate anyone', () => {
+    const seeded = seedFromGroups([ranked([10, 11]), ranked([20, 21]), ranked([30, 31])])
+    const siteOf = sitesOf([10, 0], [11, 0], [20, 1], [21, 1], [30, 2], [31, 2])
+    const pairings = repairSameSitePairings(seedPlayoffPairings(seeded), siteOf)
+    const placed = pairings.flatMap((pairing) => [pairing.home, pairing.away].filter((id): id is number => id != null))
+
+    expect(placed.sort((a, b) => a - b)).toEqual([10, 11, 20, 21, 30, 31])
+  })
+
+  it('resolves a group clash and a site clash together in one pass', () => {
+    // 10/11 share a group; 20/30 (not otherwise related) happen to share a site.
+    // A repair that ran the two dimensions independently, one after the other,
+    // could undo the first fix while chasing the second — repairClashingPairings
+    // must satisfy both from a single swap pass.
+    const seeded = [10, 20, 30, 11]
+    const groupOf = new Map([
+      [10, 0],
+      [11, 0],
+      [20, 1],
+      [30, 2]
+    ])
+    const siteOf = new Map([
+      [20, 100],
+      [30, 100]
+    ])
+    const pairings = repairClashingPairings(seedPlayoffPairings(seeded), [
+      (id) => groupOf.get(id),
+      (id) => siteOf.get(id)
+    ])
+
+    for (const pairing of pairings) {
+      if (pairing.away == null) {
+        continue
+      }
+
+      expect(groupOf.get(pairing.home!)).not.toBe(groupOf.get(pairing.away))
+      expect(siteOf.get(pairing.home!)).not.toBe(siteOf.get(pairing.away))
+    }
   })
 })
 

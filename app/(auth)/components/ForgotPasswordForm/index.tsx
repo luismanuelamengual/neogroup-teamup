@@ -64,6 +64,7 @@ export default function ForgotPasswordForm() {
           required
           fullWidth
           autoComplete="email"
+          slotProps={{ inputLabel: { shrink: true } }}
         />
         <Button type="submit" variant="contained" fullWidth disabled={loading} loading={loading}>
           Enviar enlace
