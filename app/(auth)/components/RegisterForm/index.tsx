@@ -112,6 +112,7 @@ export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: 
           required
           fullWidth
           autoComplete="email"
+          slotProps={{ inputLabel: { shrink: true } }}
         />
         <TextField
           label="Contraseña"
@@ -121,6 +122,7 @@ export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: 
           required
           fullWidth
           autoComplete="new-password"
+          slotProps={{ inputLabel: { shrink: true } }}
         />
         <TextField
           label="Repetir contraseña"
@@ -132,6 +134,7 @@ export default function RegisterForm({ callbackUrl, allowedRegistrationRoles }: 
           autoComplete="new-password"
           error={confirmPassword.length > 0 && password !== confirmPassword}
           helperText={confirmPassword.length > 0 && password !== confirmPassword ? 'Las contraseñas no coinciden' : ' '}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
         {!!allowedRegistrationRoles && allowedRegistrationRoles.length > 1 && (
           <div className="role">

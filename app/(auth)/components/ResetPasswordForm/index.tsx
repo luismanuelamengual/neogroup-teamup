@@ -65,6 +65,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           required
           fullWidth
           autoComplete="new-password"
+          slotProps={{ inputLabel: { shrink: true } }}
         />
         <TextField
           label="Confirmar contraseña"
@@ -74,6 +75,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           required
           fullWidth
           autoComplete="new-password"
+          slotProps={{ inputLabel: { shrink: true } }}
         />
         <Button type="submit" variant="contained" fullWidth disabled={loading} loading={loading}>
           Guardar contraseña
