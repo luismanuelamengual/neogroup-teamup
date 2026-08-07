@@ -13,6 +13,7 @@ import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournament
 import { getLateRegistrationSlots, LateRegistrationSlot } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { attachLateCompetitor } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
+import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
 
 /**
@@ -30,8 +31,16 @@ import { User } from '@/app/models/User'
 
 /**
  * Loads a tournament (org-scoped by the model's global scope) and asserts the
- * caller may administrate it: they must own it and be in a status that admits
- * the action. Loads `categories` and `competitors` for validation.
+ * caller may administrate it: they must be an organizer, and the tournament in a
+ * status that admits the action. Loads `categories` and `competitors` for
+ * validation.
+ *
+ * ANY organizer of the organization can administrate ANY of its tournaments —
+ * not just whoever happens to have created it. Organizers are colleagues running
+ * the same club, and every other management path already works that way (see
+ * `setMatchResult`, `setMatchSchedule`, and the start/finish/delete/update
+ * routes). The organization boundary is enforced by the model's global scope, so
+ * a tournament of another organization is simply not found.
  *
  * `allowOngoing` opts into the late-registration path, which is the only
  * administrative action a running tournament accepts. It additionally loads the
@@ -52,7 +61,9 @@ export async function loadManageableTournament(
     throw new ApiException('Torneo no encontrado', 404)
   }
 
-  if (tournament.ownerId !== userId) {
+  const caller = await User.find(userId)
+
+  if (caller?.roleId !== Role.ORGANIZER) {
     throw new ApiException('No autorizado para administrar este torneo', 403)
   }
 

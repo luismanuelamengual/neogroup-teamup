@@ -1,7 +1,7 @@
 import { loadManageableTournament, moveCompetitor } from '@/app/(protected)/(tournaments)/services/administration'
 import { withAuth } from '@/app/utils/api-server'
 
-/** POST /api/moveCompetitor — moves a competitor to another category (owner, stand_by only). */
+/** POST /api/moveCompetitor — moves a competitor to another category (organizer, stand_by only). */
 export const POST = withAuth(async (request, context, userId) => {
   const { tournamentId, competitorId, tournamentCategoryId } = (await request.json()) as {
     tournamentId: number

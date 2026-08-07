@@ -1,7 +1,7 @@
 import { loadManageableTournament, setCompetitorSeed } from '@/app/(protected)/(tournaments)/services/administration'
 import { withAuth } from '@/app/utils/api-server'
 
-/** POST /api/setCompetitorSeed — sets or clears a competitor's manual seed (owner, stand_by only). */
+/** POST /api/setCompetitorSeed — sets or clears a competitor's manual seed (organizer, stand_by only). */
 export const POST = withAuth(async (request, context, userId) => {
   const { tournamentId, competitorId, seedNumber } = (await request.json()) as {
     tournamentId: number

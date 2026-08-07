@@ -16,6 +16,7 @@ import {
 import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { getLateRegistrationSlots } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { Role } from '@/app/models/Role'
 import {
   buildTournament,
   BuiltTournament,
@@ -869,16 +870,33 @@ describe('late registration — what a running tournament still refuses', () => 
     ).resolves.toBeDefined()
   })
 
-  it('still refuses a non-owner', async () => {
+  it('still refuses a caller who is not an organizer', async () => {
     const built = await buildTournament(ODD_GROUPS_FOR_GUARDS)
 
     await start(built)
 
-    const stranger = await createUser(built.tournament.organizationId)
+    const player = await createUser(built.tournament.organizationId, Role.PLAYER)
 
-    await expect(loadManageableTournament(built.tournament.id, stranger, { allowOngoing: true })).rejects.toThrow(
+    await expect(loadManageableTournament(built.tournament.id, player, { allowOngoing: true })).rejects.toThrow(
       'No autorizado'
     )
+  })
+
+  it('lets ANY organizer register a late entrant, not just the creator', async () => {
+    const built = await buildTournament(ODD_GROUPS_FOR_GUARDS)
+
+    await start(built)
+
+    const colleague = await createUser(built.tournament.organizationId, Role.ORGANIZER)
+    const tournament = await loadManageableTournament(built.tournament.id, colleague, { allowOngoing: true })
+    const categoryId = built.categoryIds[0]
+    const competitor = await registerCompetitor(tournament, categoryId, [
+      await createUser(tournament.organizationId),
+      await createUser(tournament.organizationId)
+    ])
+
+    expect(competitor.tournamentCategoryId).toBe(categoryId)
+    expect((await frozenGroups(categoryId)).flat()).toContain(competitor.id)
   })
 
   it('still enforces the category entry limit', async () => {
