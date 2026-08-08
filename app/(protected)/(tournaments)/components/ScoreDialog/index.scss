@@ -41,10 +41,22 @@
     color: var(--color-text-secondary);
   }
 
+  // Same shape as MatchCard's score board: home is one row, away is the row
+  // below it, and each set is a column shared by both rows — rather than the
+  // set being the row and home/away sitting side by side within it. Three
+  // sets' worth of columns is wider than a phone screen, so this scrolls
+  // horizontally on its own (see the mobile block below) instead of the
+  // whole dialog doing it, or the columns being squeezed illegibly thin.
   .sets {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    // Breathing room so the scrollbar (where the OS renders one) doesn't sit
+    // flush under the last row, and so a finger-drag scroll doesn't start
+    // right at the row's own edge.
+    padding-bottom: 2px;
   }
 
   .set-row {
@@ -54,18 +66,52 @@
 
     .MuiTextField-root {
       width: 80px;
+      flex-shrink: 0;
+    }
+
+    &.headers {
+      // Sits above the home/away rows purely to label the columns — no
+      // inputs of its own, so it only needs to line up with them.
+      .set-label {
+        width: 80px;
+        flex-shrink: 0;
+        text-align: center;
+      }
+    }
+  }
+
+  // Flexible rather than a fixed width: it takes whatever the score inputs
+  // (fixed width, flex-shrink: 0 above) don't need, so the inputs stay
+  // pinned to the row's right edge and the name gets all the leftover room
+  // instead of being capped at one fixed column width.
+  .side-name-spacer,
+  .side-name {
+    flex: 1 1 auto;
+    // Not 0: a name this small still needs to read as a name, not vanish
+    // entirely when the row is tight — past this point `.sets`' own
+    // overflow-x takes over instead of squeezing further.
+    min-width: 40px;
+  }
+
+  .side-name {
+    font-size: 13px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    // white-space: nowrap;
+
+    &.home {
+      color: var(--color-home);
+    }
+
+    &.away {
+      color: var(--color-away);
     }
   }
 
   .set-label {
-    width: 110px;
-    flex-shrink: 0;
     font-size: 13px;
     color: var(--color-text-secondary);
-  }
-
-  .set-separator {
-    font-weight: 700;
   }
 
   .walkover {
@@ -77,5 +123,38 @@
   .walkover-title {
     font-size: 13px;
     color: var(--color-text-secondary);
+  }
+}
+
+// --- Phones ----------------------------------------------------------------
+@media (max-width: 600px) {
+  // MUI injects its own paper styles through emotion at runtime, after this
+  // stylesheet, so reclaiming its 32px margin needs !important — same reason
+  // the padding overrides below carry it.
+  .score-dialog-root {
+    .MuiDialog-paper {
+      margin: 16px !important;
+      width: calc(100% - 32px) !important;
+      max-width: calc(100% - 32px) !important;
+      max-height: calc(100% - 32px) !important;
+    }
+  }
+
+  .score-dialog-title {
+    padding: 16px 16px 8px !important;
+    font-size: 18px !important;
+  }
+
+  .score-dialog {
+    padding: 8px 16px 16px !important;
+
+    // Narrower fields buy back enough width that most formats (anything but
+    // three sets) fit without scrolling; .sets' own overflow-x still covers
+    // whichever ones don't. The name column is already flexible, so it just
+    // gets whatever room this leaves it.
+    .set-row .MuiTextField-root,
+    .set-row.headers .set-label {
+      width: 60px;
+    }
   }
 }

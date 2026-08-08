@@ -11,7 +11,7 @@ import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import dayjs from 'dayjs'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -20,7 +20,12 @@ import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { formatScore, getSeriesMatchesWon, isSeriesScore } from '@/app/(protected)/(tournaments)/utils/score'
+import {
+  formatScore,
+  getScoreColumns,
+  getSeriesMatchesWon,
+  isSeriesScore
+} from '@/app/(protected)/(tournaments)/utils/score'
 
 /** Spanish name of a knockout stage, from its distance to the final. */
 const BRACKET_INSTANCE_NAMES: Record<number, string> = {
@@ -90,6 +95,10 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
   const openCompetitor = (competitor: CompetitorDto | undefined) => competitor && setModalCompetitors([competitor])
   const series = isSeriesScore(match.score) ? (match.score?.matches ?? []) : []
   const seriesResult = getSeriesMatchesWon(match.score ?? {})
+  // Same per-side column shape MatchCard renders from (one column per set, a
+  // single column for a basic count or an interclubes series) — null falls
+  // back to a single centered note (walkover, or not played yet).
+  const scoreColumns = getScoreColumns(match.score, tournament.scoreFormat)
   /**
    * When and where the match is played, as set in the planner. Unlike the match
    * card — which only surfaces a venue that deviates from the tournament's — the
@@ -123,24 +132,49 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
             {match.status === MatchStatus.WALKOVER && <Chip size="small" color="warning" label="W.O." />}
           </div>
 
-          <div className="sides">
+          {/* Same board as MatchCard: home is row 1, away is row 2, and a set's
+              home/away cells share one grid column — so the column sizes itself
+              to whichever value is widest instead of a fixed width that a
+              double-digit super tiebreak could outgrow. */}
+          <div className="score-board">
             <div
               className={`side ${match.winner === MatchSide.HOME ? 'winner' : ''}`}
+              style={{ gridRow: 1 }}
               onClick={() => openCompetitor(homeTeam)}
             >
               <span className="side-label">{isInterclubs ? 'Local' : 'Lado A'}</span>
               <span className="side-name">{sideName(match.homeCompetitorId)}</span>
             </div>
-            <div className="score">
-              {match.status === MatchStatus.PENDING ? '—' : formatScore(match.score, tournament.scoreFormat)}
-            </div>
             <div
-              className={`side away ${match.winner === MatchSide.AWAY ? 'winner' : ''}`}
+              className={`side ${match.winner === MatchSide.AWAY ? 'winner' : ''}`}
+              style={{ gridRow: 2 }}
               onClick={() => openCompetitor(awayTeam)}
             >
               <span className="side-label">{isInterclubs ? 'Visitante' : 'Lado B'}</span>
               <span className="side-name">{sideName(match.awayCompetitorId)}</span>
             </div>
+            {scoreColumns ? (
+              scoreColumns.map((column, index) => (
+                <Fragment key={index}>
+                  <span
+                    className={`score-cell ${column.home > column.away ? 'won' : ''}`}
+                    style={{ gridColumn: index + 2, gridRow: 1 }}
+                  >
+                    {column.home}
+                  </span>
+                  <span
+                    className={`score-cell ${column.away > column.home ? 'won' : ''}`}
+                    style={{ gridColumn: index + 2, gridRow: 2 }}
+                  >
+                    {column.away}
+                  </span>
+                </Fragment>
+              ))
+            ) : (
+              <span className="score-note" style={{ gridColumn: 2, gridRow: '1 / span 2' }}>
+                {match.status === MatchStatus.PENDING ? '—' : formatScore(match.score, tournament.scoreFormat)}
+              </span>
+            )}
           </div>
 
           <Divider />
@@ -171,18 +205,51 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
                 {`Partidos del encuentro (${seriesResult.home}-${seriesResult.away})`}
               </Typography>
               <div className="series">
-                {series.map((entry, index) => (
-                  <div key={index} className="series-row">
-                    <Chip size="small" variant="outlined" label={entry.double ? 'Dobles' : 'Single'} />
-                    <span className={`series-players ${entry.winner === MatchSide.HOME ? 'winner' : ''}`}>
-                      {entry.homePlayerIds.map((id) => playerName(homeTeam, id)).join(' / ')}
-                    </span>
-                    <span className="series-score">{formatScore(entry.score, tournament.scoreFormat)}</span>
-                    <span className={`series-players away ${entry.winner === MatchSide.AWAY ? 'winner' : ''}`}>
-                      {entry.awayPlayerIds.map((id) => playerName(awayTeam, id)).join(' / ')}
-                    </span>
-                  </div>
-                ))}
+                {series.map((entry, index) => {
+                  const entryColumns = getScoreColumns(entry.score, tournament.scoreFormat)
+
+                  return (
+                    <div key={index} className="series-row">
+                      <Chip size="small" variant="outlined" label={entry.double ? 'Dobles' : 'Single'} />
+                      <div className="series-board">
+                        <span
+                          className={`series-players ${entry.winner === MatchSide.HOME ? 'winner' : ''}`}
+                          style={{ gridRow: 1 }}
+                        >
+                          {entry.homePlayerIds.map((id) => playerName(homeTeam, id)).join(' / ')}
+                        </span>
+                        <span
+                          className={`series-players ${entry.winner === MatchSide.AWAY ? 'winner' : ''}`}
+                          style={{ gridRow: 2 }}
+                        >
+                          {entry.awayPlayerIds.map((id) => playerName(awayTeam, id)).join(' / ')}
+                        </span>
+                        {entryColumns ? (
+                          entryColumns.map((column, i) => (
+                            <Fragment key={i}>
+                              <span
+                                className={`series-score-cell ${column.home > column.away ? 'won' : ''}`}
+                                style={{ gridColumn: i + 2, gridRow: 1 }}
+                              >
+                                {column.home}
+                              </span>
+                              <span
+                                className={`series-score-cell ${column.away > column.home ? 'won' : ''}`}
+                                style={{ gridColumn: i + 2, gridRow: 2 }}
+                              >
+                                {column.away}
+                              </span>
+                            </Fragment>
+                          ))
+                        ) : (
+                          <span className="series-score-note" style={{ gridColumn: 2, gridRow: '1 / span 2' }}>
+                            {formatScore(entry.score, tournament.scoreFormat)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </>
           )}

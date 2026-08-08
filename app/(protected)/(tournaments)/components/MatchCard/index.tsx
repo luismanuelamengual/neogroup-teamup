@@ -5,13 +5,14 @@ import './index.scss'
 import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
 import dayjs from 'dayjs'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import MatchInfoModal from '@/app/(protected)/(tournaments)/components/MatchInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
+import { getCompetitorNameLines } from '@/app/(protected)/(tournaments)/utils/competitors'
 import { hasMatchSchedule } from '@/app/(protected)/(tournaments)/utils/matches'
-import { formatScore } from '@/app/(protected)/(tournaments)/utils/score'
+import { formatScore, getScoreColumns } from '@/app/(protected)/(tournaments)/utils/score'
 import { MatchDto } from '../../models/MatchDto'
 import { TournamentDto } from '../../models/TournamentDto'
 
@@ -22,6 +23,9 @@ interface MatchCardProps {
   editable?: boolean
   onEdit?: (match: MatchDto) => void
 }
+
+const HOME_ROW = 1
+const AWAY_ROW = 2
 
 export default function MatchCard({
   match,
@@ -47,29 +51,32 @@ export default function MatchCard({
   const otherSite = match.siteId != null && match.siteId !== tournament.siteId ? (match.site ?? null) : null
   // The schedule header is skipped entirely for a match nobody has planned yet.
   const hasSchedule = hasMatchSchedule(match, tournament.siteId)
+  // Per-side score columns (one column per set for a sets score, a single
+  // column for a basic count or an interclubes series) — the same shape for
+  // every score format, so a match card never falls back to a
+  // format-specific "old counter" style. Null falls back to a plain status
+  // note in `.result` (walkover, or not played yet).
+  const scoreColumns = getScoreColumns(match.score, scoreFormat)
 
-  const competitorLabel = (competitor: CompetitorDto | undefined, id: number): string => {
-    if (!competitor) {
-      return `#${id}`
-    }
-
-    const seed = competitor.seedNumber
-
-    return seed != null ? `[${seed}] ${competitor.shortName}` : competitor.shortName
-  }
-
-  const sideName = (id: number | null): string => {
+  const nameLines = (id: number | null): string[] => {
     if (id == null) {
-      return '—'
+      return ['—']
     }
 
-    return competitorLabel(competitorsById[id], id)
+    return getCompetitorNameLines(competitorsById[id], id)
   }
 
-  const renderSide = (side: MatchSide, id: number | null) => (
-    <div className={`side ${winner === side ? 'winner' : ''} ${winner && winner !== side ? 'loser' : ''}`}>
+  const renderSide = (side: MatchSide, id: number | null, row: number) => (
+    <div
+      className={`side ${winner === side ? 'winner' : ''} ${winner && winner !== side ? 'loser' : ''}`}
+      style={{ gridColumn: 1, gridRow: row }}
+    >
       <span className={`side-dot ${MatchSideNames[side]}`} />
-      <span className="side-name">{sideName(id)}</span>
+      <div className="side-name">
+        {nameLines(id).map((line, index) => (
+          <span key={index}>{line}</span>
+        ))}
+      </div>
     </div>
   )
 
@@ -92,38 +99,76 @@ export default function MatchCard({
           </div>
         )}
         <div className="match-card-main">
-          {isVoid ? (
-            <div className="sides">
-              <div className="bye">Sin clasificado</div>
-            </div>
-          ) : (
-            <div className="sides">
-              {renderSide(MatchSide.HOME, match.homeCompetitorId)}
-              {isBye ? <div className="bye">Pasa de ronda</div> : renderSide(MatchSide.AWAY, match.awayCompetitorId)}
-            </div>
-          )}
-          <div className="result">
-            {!isBye &&
-              !isVoid &&
-              (match.status === MatchStatus.PENDING ? (
-                <span className="pending">Pendiente</span>
-              ) : (
-                <span className="score">{formatScore(match.score, scoreFormat)}</span>
-              ))}
-            {editable && !isBye && !isVoid && (
-              <IconButton
-                size="small"
-                className="edit"
-                onClick={(event) => {
-                  // Loading a result is a different intent than inspecting one.
-                  event.stopPropagation()
-                  onEdit?.(match)
-                }}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
+          {/* Names and score share ONE grid — home is row 1, away is row 2 — rather
+              than being laid out in separate boxes. That is what makes both
+              alignments hold at once: a set's home/away cells sit in the same grid
+              column, so the column is exactly as wide as that set's longest value
+              (a super tiebreak's "10" no longer drifts from a "6" above it), and a
+              side's own cells sit in the same grid row as its name, so a doubles
+              name wrapping to two lines pushes its own score down with it instead
+              of leaving the two out of sync. */}
+          <div className="match-card-board">
+            {isVoid ? (
+              <div className="bye" style={{ gridColumn: 1, gridRow: `${HOME_ROW} / span 2` }}>
+                Sin clasificado
+              </div>
+            ) : (
+              <>
+                {renderSide(MatchSide.HOME, match.homeCompetitorId, HOME_ROW)}
+                {isBye ? (
+                  <div className="bye" style={{ gridColumn: 1, gridRow: AWAY_ROW }}>
+                    Pasa de ronda
+                  </div>
+                ) : (
+                  renderSide(MatchSide.AWAY, match.awayCompetitorId, AWAY_ROW)
+                )}
+                {!isBye &&
+                  scoreColumns?.map((column, index) => (
+                    <Fragment key={index}>
+                      <span
+                        className={`score-cell ${column.home > column.away ? 'won' : ''}`}
+                        style={{ gridColumn: index + 2, gridRow: HOME_ROW }}
+                      >
+                        {column.home}
+                      </span>
+                      <span
+                        className={`score-cell ${column.away > column.home ? 'won' : ''}`}
+                        style={{ gridColumn: index + 2, gridRow: AWAY_ROW }}
+                      >
+                        {column.away}
+                      </span>
+                    </Fragment>
+                  ))}
+              </>
             )}
           </div>
+          {!isBye && !isVoid && (!scoreColumns || editable) && (
+            <div className="result">
+              {!scoreColumns && (
+                // Nothing numeric to show per side yet — a walkover has no
+                // per-side score, only a winning side, and an unplayed match has
+                // none at all. Both read as the same kind of status note rather
+                // than the old bold score pill, so "Pendiente" and "W.O." look
+                // like the same family of message.
+                <span className="note">
+                  {match.status === MatchStatus.PENDING ? 'Pendiente' : formatScore(match.score, scoreFormat)}
+                </span>
+              )}
+              {editable && (
+                <IconButton
+                  size="small"
+                  className="edit"
+                  onClick={(event) => {
+                    // Loading a result is a different intent than inspecting one.
+                    event.stopPropagation()
+                    onEdit?.(match)
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <MatchInfoModal open={detailOpen} tournament={tournament} match={match} onClose={() => setDetailOpen(false)} />

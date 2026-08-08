@@ -148,8 +148,8 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
     scoreFormat === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && index === 2 ? 'Super tiebreak' : `Set ${index + 1}`
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth={isInterclubs ? 'sm' : 'xs'}>
-      <DialogTitle>{isInterclubs ? 'Resultado del encuentro' : 'Resultado'}</DialogTitle>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth={isInterclubs ? 'sm' : 'xs'} className="score-dialog-root">
+      <DialogTitle className="score-dialog-title">{isInterclubs ? 'Resultado del encuentro' : 'Resultado'}</DialogTitle>
       <DialogContent className="score-dialog">
         {invalid && (
           <Alert severity="error">
@@ -199,46 +199,71 @@ export default function ScoreDialog({ open, tournament, match, saving = false, o
             onChange={setSeriesMatches}
           />
         ) : usesSets ? (
+          // Same shape as MatchCard's score board: one row per side rather
+          // than one row per set, so each set is a column and both sides'
+          // values for it sit directly above one another.
           <div className="sets">
-            {sets.map((set, index) => (
-              <div key={index} className="set-row">
-                <span className="set-label">{setLabel(index)}</span>
+            <div className="set-row headers">
+              <span className="side-name-spacer" />
+              {sets.map((_, index) => (
+                <span key={index} className="set-label">
+                  {setLabel(index)}
+                </span>
+              ))}
+            </div>
+            <div className="set-row">
+              <span className="side-name home">{homeName}</span>
+              {sets.map((set, index) => (
                 <TextField
+                  key={index}
                   type="number"
                   size="small"
                   value={set.home}
                   onChange={(event) => updateSet(index, MatchSide.HOME, event.target.value)}
                   slotProps={{ htmlInput: { min: 0, 'aria-label': `${setLabel(index)} ${homeName}` } }}
                 />
-                <span className="set-separator">-</span>
+              ))}
+            </div>
+            <div className="set-row">
+              <span className="side-name away">{awayName}</span>
+              {sets.map((set, index) => (
                 <TextField
+                  key={index}
                   type="number"
                   size="small"
                   value={set.away}
                   onChange={(event) => updateSet(index, MatchSide.AWAY, event.target.value)}
                   slotProps={{ htmlInput: { min: 0, 'aria-label': `${setLabel(index)} ${awayName}` } }}
                 />
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : (
-          <div className="set-row">
-            <span className="set-label">Games</span>
-            <TextField
-              type="number"
-              size="small"
-              value={homeCount}
-              onChange={(event) => setHomeCount(event.target.value)}
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
-            <span className="set-separator">-</span>
-            <TextField
-              type="number"
-              size="small"
-              value={awayCount}
-              onChange={(event) => setAwayCount(event.target.value)}
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
+          <div className="sets">
+            <div className="set-row headers">
+              <span className="side-name-spacer" />
+              <span className="set-label">Games</span>
+            </div>
+            <div className="set-row">
+              <span className="side-name home">{homeName}</span>
+              <TextField
+                type="number"
+                size="small"
+                value={homeCount}
+                onChange={(event) => setHomeCount(event.target.value)}
+                slotProps={{ htmlInput: { min: 0, 'aria-label': `Games ${homeName}` } }}
+              />
+            </div>
+            <div className="set-row">
+              <span className="side-name away">{awayName}</span>
+              <TextField
+                type="number"
+                size="small"
+                value={awayCount}
+                onChange={(event) => setAwayCount(event.target.value)}
+                slotProps={{ htmlInput: { min: 0, 'aria-label': `Games ${awayName}` } }}
+              />
+            </div>
           </div>
         )}
       </DialogContent>

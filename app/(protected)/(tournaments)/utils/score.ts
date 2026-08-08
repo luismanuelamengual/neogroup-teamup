@@ -335,6 +335,43 @@ export function normalizeScore(score: MatchScore): MatchScore {
   return { ...score, home: matches.home, away: matches.away }
 }
 
+/**
+ * Per-side score columns to render as parallel cells, one row per side —
+ * this is the single scoreboard shape a match card renders from, whatever the
+ * tournament's score format: a sets score becomes one column per set, a
+ * BASIC_COUNT or an interclubes series collapses to a single column. Keeping
+ * every format on this one shape is what lets a match card show a
+ * homogeneous scoreboard next to each competitor's own name, instead of
+ * switching between that layout and an unrelated "old counter" pill
+ * depending on the format.
+ *
+ * Null only when there is nothing to show as numbers yet: a walkover (which
+ * has no per-side score, only a winning side) or a score that hasn't been
+ * played — callers fall back to `formatScore`'s single-line text for those.
+ */
+export function getScoreColumns(
+  score: MatchScore | null,
+  format: ScoreFormat
+): { home: number; away: number }[] | null {
+  if (!score || score.walkover) {
+    return null
+  }
+
+  if (isSeriesScore(score)) {
+    const matches = getSeriesMatchesWon(score)
+
+    return matches.home === 0 && matches.away === 0 ? null : [matches]
+  }
+
+  if (format === ScoreFormat.BASIC_COUNT) {
+    return score.home == null && score.away == null ? null : [{ home: score.home ?? 0, away: score.away ?? 0 }]
+  }
+
+  const sets = (score.sets ?? []).filter((set) => set.home !== 0 || set.away !== 0)
+
+  return sets.length > 0 ? sets.map((set) => ({ home: set.home, away: set.away })) : null
+}
+
 /** Formats a score for display (e.g. "6-3 4-6 10-7", "6-19", "2-1" or "W.O."). */
 export function formatScore(score: MatchScore | null, format: ScoreFormat): string {
   if (!score) {

@@ -4,7 +4,7 @@
   align-items: stretch;
   gap: 8px;
   padding: 12px 14px;
-  background-color: var(--color-surface);
+  background-color: #f8f8f8;
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
@@ -61,7 +61,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 6px;
     min-width: 0;
   }
 
@@ -78,13 +78,22 @@
     }
   }
 
-  .sides {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  // Names (column 1) and score cells (columns 2+) share this one grid — home
+  // is row 1, away is row 2 — instead of living in separate boxes. See the
+  // comment above `.match-card-board` in index.tsx for why: it is what keeps
+  // a set's home/away values in the same column (so the column sizes itself
+  // to whichever value is widest, with no fixed pixel width to outgrow) while
+  // also keeping each side's score in the same row as its own name (so a
+  // doubles name wrapping to two lines carries its score down with it).
+  .match-card-board {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-columns: max-content;
+    column-gap: 2px;
+    row-gap: 6px;
+    align-items: center;
     min-width: 0;
     flex: 1;
-    width: 0;
   }
 
   .side {
@@ -118,11 +127,48 @@
     }
   }
 
+  // One line per player for an unlabeled doubles/padel pair, a single line
+  // otherwise — see getCompetitorNameLines. Stacking the players instead of
+  // joining them with " / " is what frees up the horizontal room the score
+  // needs. `line-height` is fixed rather than left to the browser default:
+  // BracketView estimates a taller card's height per extra line (see
+  // MULTILINE_EXTRA_HEIGHT there) and needs that estimate to hold.
   .side-name {
-    font-size: 14px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+
+    span {
+      font-size: 14px;
+      line-height: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  // One cell per set for a sets score, a single cell for a basic count or an
+  // interclubes series — every score format renders through this same cell
+  // style, so there's no separate "old counter" look for basic count or
+  // series. Width is intentionally left to the grid column's own
+  // max-content sizing (no fixed/min-width here): a super tiebreak can reach
+  // double digits ("10", "12"...), and since the home/away cell of a set
+  // share one grid column (see `.match-card-board`), that column simply
+  // grows to fit whichever of the two needs more room — no pixel value to
+  // eventually outgrow.
+  .score-cell {
+    padding: 0 2px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    min-width: 16px;
+    color: var(--color-text-secondary);
+
+    &.won {
+      font-weight: 700;
+      color: var(--color-text);
+    }
   }
 
   .bye {
@@ -138,18 +184,10 @@
     flex-shrink: 0;
   }
 
-  .score {
-    font-weight: 700;
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-    color: var(--color-text);
-    background-color: rgba(15, 118, 110, 0.08);
-    border-radius: var(--radius-sm);
-    padding: 4px 8px;
-    white-space: nowrap;
-  }
-
-  .pending {
+  // Status text shown when there's nothing numeric to show per side yet
+  // ("Pendiente", "W.O.") — one shared style so every non-score outcome
+  // reads the same way, instead of "W.O." borrowing the old bold score pill.
+  .note {
     font-size: 12px;
     color: var(--color-text-secondary);
     font-style: italic;

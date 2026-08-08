@@ -7,16 +7,18 @@ import {
 
 /** The generator writes uncompressed streams, so the file reads back as latin1 text. */
 const asText = (bytes: Uint8Array): string => Buffer.from(bytes).toString('latin1')
+/** Undoes encodePdfString's escaping of literal '(', ')' and '\' inside a PDF string literal. */
+const unescapePdfString = (text: string): string => text.replace(/\\([()\\])/g, '$1')
 
 /** Every string the document draws, in order (`(...) Tj` operators). */
 function drawnText(bytes: Uint8Array): string[] {
-  return [...asText(bytes).matchAll(/\((.*?)\) Tj/g)].map((found) => found[1])
+  return [...asText(bytes).matchAll(/\((.*?)\) Tj/g)].map((found) => unescapePdfString(found[1]))
 }
 
 /** Baseline y of every drawn string, in PDF coordinates (larger is higher up). */
 function drawnBaselines(bytes: Uint8Array): { text: string; y: number }[] {
   return [...asText(bytes).matchAll(/1 0 0 1 [\d.]+ ([\d.]+) Tm\n\((.*?)\) Tj/g)].map((found) => ({
-    text: found[2],
+    text: unescapePdfString(found[2]),
     y: Number(found[1])
   }))
 }
@@ -149,6 +151,15 @@ describe('planner PDF — vertical centring', () => {
 
     expect(centres.length).toBe(2)
     expect(centres[0]).toBeCloseTo(centres[1], 5)
+  })
+})
+
+describe('planner PDF — seeds', () => {
+  it('draws the seed appended at the end of the name, in parentheses', () => {
+    const seeded = match({ home: 'L. Amengual / E. Martinez (2)', away: 'P. Perez / M. Gomez' })
+    const pdf = buildPlannerPdf('T', null, ['Cancha 1'], [day(['09:00'], [[seeded]])])
+
+    expect(drawnText(pdf)).toContain('L. Amengual / E. Martinez (2)')
   })
 })
 
