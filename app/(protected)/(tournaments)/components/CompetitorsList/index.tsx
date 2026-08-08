@@ -44,7 +44,7 @@ export default function CompetitorsList({ tournament, category }: CompetitorsLis
             key={competitor.id}
             label={
               competitor.seedNumber != null
-                ? `[${competitor.seedNumber}] ${competitor.displayName}`
+                ? `${competitor.displayName} (${competitor.seedNumber})`
                 : competitor.displayName
             }
             variant="outlined"

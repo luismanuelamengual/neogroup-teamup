@@ -10,7 +10,9 @@ import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { roundLabel } from '@/app/(protected)/(tournaments)/utils/bracket'
+import { getCompetitorNameLines } from '@/app/(protected)/(tournaments)/utils/competitors'
 import { hasMatchSchedule, isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import Avatar from '@/app/components/Avatar'
 import { useUserStore } from '@/app/stores/users'
@@ -51,6 +53,15 @@ const NODE_HEIGHT = 76
  * slack, so erring high only adds whitespace, while erring low would overlap.
  */
 const SCHEDULE_STRIP_HEIGHT = 34
+/**
+ * Extra height a node needs per extra name line a side wraps to — a doubles or
+ * padel pair renders one line per player (see getCompetitorNameLines)
+ * instead of the single line a singles competitor or interclubes team gets.
+ * Mirrors `.side-name span { line-height: 16px }` in MatchCard/index.scss.
+ * Like SCHEDULE_STRIP_HEIGHT, this has to be a constant rather than a
+ * measurement: the bracket positions cards absolutely before they paint.
+ */
+const MULTILINE_EXTRA_HEIGHT = 16
 const NODE_VGAP = 18
 const TITLE_BAND = 40
 /** Tolerance (px) before a round counts as fully scrolled past the left edge. */
@@ -119,16 +130,29 @@ export default function BracketView({
     () => [...new Set(bracketMatches.map((m) => m.roundNumber))].sort((a, b) => a - b),
     [bracketMatches]
   )
+  const competitorsById = useMemo(
+    (): Record<number, CompetitorDto> => Object.fromEntries((tournament.competitors ?? []).map((c) => [c.id, c])),
+    [tournament.competitors]
+  )
   /**
-   * Height of a single node. The card is only ever taller for one reason — the
-   * schedule strip — so the height is derived per match instead of measured:
-   * only the scheduled cards grow, and the rest of the bracket keeps its
-   * original geometry.
+   * Height of a single node. A card grows for two reasons, both derived
+   * per-match instead of measured (the bracket positions cards absolutely
+   * before they paint, so this has to be known up front): the schedule strip,
+   * and a side whose name wraps to more than one line (a doubles/padel pair —
+   * see getCompetitorNameLines). Everything else keeps the base height.
    */
   const nodeHeightOf = useCallback(
-    (match: MatchDto): number =>
-      hasMatchSchedule(match, tournament.siteId) ? NODE_HEIGHT + SCHEDULE_STRIP_HEIGHT : NODE_HEIGHT,
-    [tournament.siteId]
+    (match: MatchDto): number => {
+      let height = hasMatchSchedule(match, tournament.siteId) ? NODE_HEIGHT + SCHEDULE_STRIP_HEIGHT : NODE_HEIGHT
+      const sideLineCount = (id: number | null): number =>
+        id == null ? 1 : getCompetitorNameLines(competitorsById[id], id).length
+
+      height += Math.max(0, sideLineCount(match.homeCompetitorId) - 1) * MULTILINE_EXTRA_HEIGHT
+      height += Math.max(0, sideLineCount(match.awayCompetitorId) - 1) * MULTILINE_EXTRA_HEIGHT
+
+      return height
+    },
+    [tournament.siteId, competitorsById]
   )
   /** Matches per round, aligned to the `rounds` array and sorted by bracket position. */
   const roundMatchLists = useMemo(() => {
@@ -159,12 +183,10 @@ export default function BracketView({
     }
 
     const winnerId = finalMatch.winner === MatchSide.HOME ? finalMatch.homeCompetitorId : finalMatch.awayCompetitorId
-    const competitorsById: Record<number, CompetitorDto> = Object.fromEntries(
-      (tournament.competitors ?? []).map((c) => [c.id, c])
-    )
 
     return winnerId != null ? (competitorsById[winnerId] ?? null) : null
-  }, [rounds, roundMatchLists, tournament.competitors])
+  }, [rounds, roundMatchLists, competitorsById])
+  const isInterclubs = tournament.type === TournamentType.INTERCLUBS
   const { editableMatchIds, highlightedMatchIds } = useMemo(() => {
     const categoryMatches = (tournament.matches ?? []).filter(
       (m) => category == null || m.tournamentCategoryId === category
@@ -469,18 +491,28 @@ export default function BracketView({
               >
                 <span className="bracket-champion-label">Campeón</span>
                 <div className="bracket-champion">
-                  <div className="bracket-champion-avatars">
-                    {(champion.players?.length ? champion.players : [null]).map((player, i) => (
-                      <Avatar
-                        key={i}
-                        email={player?.email ?? ''}
-                        name={player ? player.displayName : champion.displayName}
-                        size="md"
-                        className="bracket-champion-avatar"
-                      />
+                  {/* Skipped for interclubes: a club's roster can run to half a
+                      dozen players, and no avatar count there was ever going
+                      to leave the name — the actual point of the panel —
+                      readable in the fixed COLUMN_WIDTH it has to fit. */}
+                  {!isInterclubs && (
+                    <div className="bracket-champion-avatars">
+                      {(champion.players?.length ? champion.players : [null]).map((player, i) => (
+                        <Avatar
+                          key={i}
+                          email={player?.email ?? ''}
+                          name={player ? player.displayName : champion.displayName}
+                          size="md"
+                          className="bracket-champion-avatar"
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <div className="bracket-champion-name">
+                    {getCompetitorNameLines(champion, champion.id).map((line, i) => (
+                      <span key={i}>{line}</span>
                     ))}
                   </div>
-                  <span className="bracket-champion-name">{champion.shortName}</span>
                   <EmojiEventsIcon className="bracket-champion-trophy" />
                 </div>
               </div>

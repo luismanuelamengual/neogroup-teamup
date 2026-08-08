@@ -55,10 +55,17 @@
     }
   }
 
+  // Same shape as MatchCard's score board: home is one row, away is the row
+  // below it, and each set is a column shared by both rows. Scrolls
+  // horizontally on its own on narrow screens — see the mobile block below —
+  // rather than squeezing three sets' worth of columns illegibly thin.
   .sets {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
   }
 
   .set-row {
@@ -68,17 +75,49 @@
 
     .MuiTextField-root {
       width: 80px;
+      flex-shrink: 0;
+    }
+
+    &.headers {
+      .set-label {
+        width: 80px;
+        flex-shrink: 0;
+        text-align: center;
+      }
+    }
+  }
+
+  // Flexible rather than a fixed width, same as ScoreDialog's: the score
+  // inputs (fixed width, flex-shrink: 0 above) stay pinned to the row's
+  // right edge and "Local"/"Visitante" gets whatever room that leaves.
+  .side-name-spacer,
+  .side-name {
+    flex: 1 1 auto;
+    min-width: 40px;
+  }
+
+  .side-name {
+    font-size: 13px;
+    font-weight: 700;
+
+    &.home {
+      color: var(--color-home);
+    }
+
+    &.away {
+      color: var(--color-away);
     }
   }
 
   .set-label {
-    width: 80px;
-    flex-shrink: 0;
     font-size: 13px;
     color: var(--color-text-secondary);
   }
 
-  .set-separator {
-    font-weight: 700;
+  @media (max-width: 600px) {
+    .set-row .MuiTextField-root,
+    .set-row.headers .set-label {
+      width: 60px;
+    }
   }
 }

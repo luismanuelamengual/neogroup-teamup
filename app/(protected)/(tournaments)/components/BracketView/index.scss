@@ -147,13 +147,24 @@ $node-height: 76px;
       }
     }
 
+    // One line per player for an unlabeled doubles/padel pair, a single line
+    // otherwise — see getCompetitorNameLines. Same fix as MatchCard's
+    // .side-name: stacking the players instead of joining them with " / "
+    // is what stops a pair's name from being cut off by the ellipsis.
     .bracket-champion-name {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--color-text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-width: 0;
+
+      span {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--color-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
     }
   }
 

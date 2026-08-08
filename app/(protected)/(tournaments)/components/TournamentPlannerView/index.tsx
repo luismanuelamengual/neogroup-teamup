@@ -453,31 +453,26 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       ),
     [tournament]
   )
-  const competitorLabel = useCallback(
-    (id: number): string => {
-      const competitor = competitorsById[id]
-
-      if (!competitor) {
-        return `#${id}`
-      }
-
-      return competitor.seedNumber != null ? `[${competitor.seedNumber}] ${competitor.shortName}` : competitor.shortName
-    },
-    [competitorsById]
-  )
+  /** Same seed placement as MatchCard — appended at the end, in parentheses — but kept on one line. */
   const sideName = useCallback(
     (id: number | null): string => {
       if (id == null) {
         return '—'
       }
 
-      return competitorLabel(id)
+      const competitor = competitorsById[id]
+
+      if (!competitor) {
+        return `#${id}`
+      }
+
+      return competitor.seedNumber != null ? `${competitor.shortName} (${competitor.seedNumber})` : competitor.shortName
     },
-    [competitorLabel]
+    [competitorsById]
   )
   /**
    * Names for the derived slot descriptions. The seed prefix is dropped here on
-   * purpose: "Ganador de [1] Amengual vs [4] Gutierrez" is already a long string
+   * purpose: "Ganador de Amengual (1) vs Gutierrez (4)" is already a long string
    * for a 260px column, and the seeds add nothing once the sentence itself says
    * which match it refers to.
    */

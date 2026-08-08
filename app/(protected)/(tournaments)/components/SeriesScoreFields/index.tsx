@@ -270,30 +270,51 @@ export default function SeriesScoreFields({
             </div>
           </div>
           {format === ScoreFormat.BASIC_COUNT ? (
-            <div className="set-row">
-              <span className="set-label">Games</span>
-              <TextField
-                type="number"
-                size="small"
-                value={entry.homeCount}
-                onChange={(event) => updateEntry(index, { homeCount: event.target.value })}
-                slotProps={{ htmlInput: { min: 0, 'aria-label': `Games ${homeName} partido ${index + 1}` } }}
-              />
-              <span className="set-separator">-</span>
-              <TextField
-                type="number"
-                size="small"
-                value={entry.awayCount}
-                onChange={(event) => updateEntry(index, { awayCount: event.target.value })}
-                slotProps={{ htmlInput: { min: 0, 'aria-label': `Games ${awayName} partido ${index + 1}` } }}
-              />
+            // Same shape as MatchCard's score board: home is one row, away is
+            // the row below it. The team names are already named above (in
+            // .series-entry-players), so the rows use the shorter "Local" /
+            // "Visitante" instead of repeating them a third time.
+            <div className="sets">
+              <div className="set-row headers">
+                <span className="side-name-spacer" />
+                <span className="set-label">Games</span>
+              </div>
+              <div className="set-row">
+                <span className="side-name home">Local</span>
+                <TextField
+                  type="number"
+                  size="small"
+                  value={entry.homeCount}
+                  onChange={(event) => updateEntry(index, { homeCount: event.target.value })}
+                  slotProps={{ htmlInput: { min: 0, 'aria-label': `Games ${homeName} partido ${index + 1}` } }}
+                />
+              </div>
+              <div className="set-row">
+                <span className="side-name away">Visitante</span>
+                <TextField
+                  type="number"
+                  size="small"
+                  value={entry.awayCount}
+                  onChange={(event) => updateEntry(index, { awayCount: event.target.value })}
+                  slotProps={{ htmlInput: { min: 0, 'aria-label': `Games ${awayName} partido ${index + 1}` } }}
+                />
+              </div>
             </div>
           ) : (
             <div className="sets">
-              {entry.sets.map((set, setIndex) => (
-                <div key={setIndex} className="set-row">
-                  <span className="set-label">{setLabel(setIndex)}</span>
+              <div className="set-row headers">
+                <span className="side-name-spacer" />
+                {entry.sets.map((_, setIndex) => (
+                  <span key={setIndex} className="set-label">
+                    {setLabel(setIndex)}
+                  </span>
+                ))}
+              </div>
+              <div className="set-row">
+                <span className="side-name home">Local</span>
+                {entry.sets.map((set, setIndex) => (
                   <TextField
+                    key={setIndex}
                     type="number"
                     size="small"
                     value={set.home}
@@ -302,8 +323,13 @@ export default function SeriesScoreFields({
                       htmlInput: { min: 0, 'aria-label': `${setLabel(setIndex)} ${homeName} partido ${index + 1}` }
                     }}
                   />
-                  <span className="set-separator">-</span>
+                ))}
+              </div>
+              <div className="set-row">
+                <span className="side-name away">Visitante</span>
+                {entry.sets.map((set, setIndex) => (
                   <TextField
+                    key={setIndex}
                     type="number"
                     size="small"
                     value={set.away}
@@ -312,8 +338,8 @@ export default function SeriesScoreFields({
                       htmlInput: { min: 0, 'aria-label': `${setLabel(setIndex)} ${awayName} partido ${index + 1}` }
                     }}
                   />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </Paper>
