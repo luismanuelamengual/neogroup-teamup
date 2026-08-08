@@ -11,7 +11,8 @@ import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import dayjs from 'dayjs'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
+import { useSites } from '@/app/(protected)/(sites)/hooks/useSites'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -51,9 +52,35 @@ interface MatchInfoModalProps {
  * part is which players took the court in each of them and how those went.
  */
 export default function MatchInfoModal({ open, tournament, match, onClose }: MatchInfoModalProps) {
+  const { getAllSites } = useSites()
   const [modalCompetitors, setModalCompetitors] = useState<CompetitorDto[]>([])
+  const [siteNames, setSiteNames] = useState<Record<number, string>>({})
   const competitorsById = new Map((tournament.competitors ?? []).map((competitor) => [competitor.id, competitor]))
   const isInterclubs = tournament.type === TournamentType.INTERCLUBS
+
+  // Venue catalogue, needed only by interclubes: an encounter without a venue of
+  // its own is played at the home team's, and the team carries just the site id
+  // (`data.siteId`) — there is no eager-loaded site to read the name off. Every
+  // other type resolves the fallback from the tournament, which comes resolved.
+  useEffect(() => {
+    if (!open || !isInterclubs) {
+      return
+    }
+
+    let cancelled = false
+
+    getAllSites()
+      .then((sites) => {
+        if (!cancelled) {
+          setSiteNames(Object.fromEntries(sites.map((site) => [site.id, site.name])))
+        }
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, isInterclubs, getAllSites])
 
   if (!match) {
     return null
@@ -100,21 +127,27 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
   // back to a single centered note (walkover, or not played yet).
   const scoreColumns = getScoreColumns(match.score, tournament.scoreFormat)
   /**
-   * When and where the match is played, as set in the planner. Unlike the match
-   * card — which only surfaces a venue that deviates from the tournament's — the
-   * detail names the venue outright, resolving the "null means the tournament's
-   * own site" convention so the reader never has to know about it.
+   * Venue of the match, resolving the "null means somewhere else" convention so
+   * the reader never has to know about it: the match's own venue first, and when
+   * it has none the tournament's — except in interclubes, where an encounter is
+   * hosted by the home team, so its venue is the fallback instead.
    */
+  const homeSiteId = homeTeam?.data?.siteId ?? null
+  const fallbackSiteName = isInterclubs
+    ? homeSiteId != null
+      ? siteNames[homeSiteId]
+      : undefined
+    : tournament.site?.name
+  /** When and where the match is played, as set in the planner. */
   const scheduleRows: { label: string; value: string }[] = [
     {
       label: 'Fecha',
       value: match.date ? dayjs(match.date).locale('es').format('dddd D [de] MMMM [de] YYYY') : 'A definir'
     },
     { label: 'Hora', value: match.hour ?? 'A definir' },
-    { label: 'Sede', value: (match.siteId != null ? match.site?.name : tournament.site?.name) ?? 'A definir' },
+    { label: 'Sede', value: match.site?.name ?? fallbackSiteName ?? 'A definir' },
     { label: 'Cancha', value: match.courtNumber != null ? `Cancha ${match.courtNumber}` : 'A definir' }
   ]
-  const isScheduled = match.date != null || match.hour != null || match.courtNumber != null || match.siteId != null
 
   return (
     <>
@@ -131,6 +164,22 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
             {match.status === MatchStatus.PENDING && <Chip size="small" variant="outlined" label="Pendiente" />}
             {match.status === MatchStatus.WALKOVER && <Chip size="small" color="warning" label="W.O." />}
           </div>
+
+          <div className="schedule">
+            <Typography variant="subtitle2" className="schedule-title">
+              Cuándo y dónde
+            </Typography>
+            <dl className="schedule-list">
+              {scheduleRows.map(({ label, value }) => (
+                <div key={label} className="schedule-row">
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <Divider />
 
           {/* Same board as MatchCard: home is row 1, away is row 2, and a set's
               home/away cells share one grid column — so the column sizes itself
@@ -174,27 +223,6 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
               <span className="score-note" style={{ gridColumn: 2, gridRow: '1 / span 2' }}>
                 {match.status === MatchStatus.PENDING ? '—' : formatScore(match.score, tournament.scoreFormat)}
               </span>
-            )}
-          </div>
-
-          <Divider />
-          <div className="schedule">
-            <Typography variant="subtitle2" className="schedule-title">
-              Cuándo y dónde
-            </Typography>
-            {isScheduled ? (
-              <dl className="schedule-list">
-                {scheduleRows.map(({ label, value }) => (
-                  <div key={label} className="schedule-row">
-                    <dt>{label}</dt>
-                    <dd>{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                El partido todavía no tiene día ni horario asignado.
-              </Typography>
             )}
           </div>
 
