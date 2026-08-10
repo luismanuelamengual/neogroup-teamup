@@ -39,7 +39,12 @@ import { TournamentDto } from '@/app/(protected)/(tournaments)/models/Tournament
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { INTERCLUBS_MIN_TEAM_PLAYERS } from '@/app/(protected)/(tournaments)/utils/interclubs'
-import { getLateRegistrationSlots, LateRegistrationSlot } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
+import {
+  getLateRegistrationSlots,
+  LateRegistrationSlot,
+  slotAcceptsRelocatedCompetitor
+} from '@/app/(protected)/(tournaments)/utils/lateRegistration'
+import { canRemoveCompetitor, RemovalCheck } from '@/app/(protected)/(tournaments)/utils/lateRemoval'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
@@ -171,6 +176,14 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const [registerSlotKey, setRegisterSlotKey] = useState<string>('')
   // "Move to category" menu anchored to a competitor's chip.
   const [moveMenu, setMoveMenu] = useState<{ anchorEl: HTMLElement; competitor: CompetitorDto } | null>(null)
+  // Second step of a move on a RUNNING tournament, and only when the destination
+  // has more than one hole to choose from: which one the competitor takes.
+  const [moveSlot, setMoveSlot] = useState<{
+    competitor: CompetitorDto
+    categoryId: number
+    slots: LateRegistrationSlot[]
+    key: string
+  } | null>(null)
   // Generic confirmation dialog.
   const [confirm, setConfirm] = useState<{ title: string; message: string; action: () => Promise<void> } | null>(null)
   // Any organizer of the organization may administrate any of its tournaments,
@@ -178,10 +191,12 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   // itself is already gated on the organizer role server-side.
   const canManage = isOrganizer
   const isStandBy = tournament?.status === TournamentStatus.STAND_BY
-  // A running tournament turns this page into a registration-only view: its
-  // structure is being played, so categories, seeds, moves and unregistrations
-  // are all off the table. All that is left is slotting an entrant into a hole
-  // the structure already has (see utils/lateRegistration).
+  // A running tournament narrows this page down to the entrant list: its
+  // structure is being played, so categories and seeds are off the table. What
+  // is left are the three actions the structure does not notice — slotting an
+  // entrant into a hole it already has (utils/lateRegistration), and letting one
+  // out when they leave no trace behind (utils/lateRemoval), which together also
+  // make a move between categories possible.
   const isOngoing = tournament?.status === TournamentStatus.ONGOING
   const categories = useMemo<TournamentCategoryDto[]>(() => tournament?.categories ?? [], [tournament])
   const competitors = useMemo<CompetitorDto[]>(() => tournament?.competitors ?? [], [tournament])
@@ -206,6 +221,30 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
       isOngoing ? categories.filter((category) => (slotsByCategory.get(category.id) ?? []).length > 0) : categories,
     [isOngoing, categories, slotsByCategory]
   )
+  /**
+   * Whether each competitor may be taken out of the tournament, and why not when
+   * they may not. Computed with the very same function the server validates
+   * with, so the tooltip cannot promise something the request would refuse.
+   */
+  const removalByCompetitor = useMemo(() => {
+    const map = new Map<number, RemovalCheck>()
+
+    if (!tournament) {
+      return map
+    }
+
+    const categoryById = new Map(categories.map((category) => [category.id, category]))
+
+    for (const competitor of competitors) {
+      const category = categoryById.get(competitor.tournamentCategoryId)
+
+      if (category) {
+        map.set(competitor.id, canRemoveCompetitor(tournament, category, matches, competitors, competitor.id))
+      }
+    }
+
+    return map
+  }, [tournament, categories, competitors, matches])
   const needsPartner = tournament
     ? registersAsPairs(tournament.discipline, tournament.subDiscipline, tournament.type)
     : false
@@ -388,6 +427,18 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     await runAction(() => setCompetitorSeed(tournament.id, competitor.id, nextSeed))
   }
 
+  /** Sends the move, with the destination hole when the tournament is running. */
+  const runMove = async (competitor: CompetitorDto, targetCategoryId: number, slot: LateRegistrationSlot | null) => {
+    await runAction(() =>
+      moveCompetitor(
+        tournament.id,
+        competitor.id,
+        targetCategoryId,
+        slot ? { matchId: slot.matchId, groupNumber: slot.groupNumber } : null
+      )
+    )
+  }
+
   const handleMove = async (targetCategoryId: number) => {
     const competitor = moveMenu?.competitor
 
@@ -397,7 +448,34 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
       return
     }
 
-    await runAction(() => moveCompetitor(tournament.id, competitor.id, targetCategoryId))
+    const target = categories.find((category) => category.id === targetCategoryId)
+    const slots = target ? destinationSlots(competitor, target) : []
+
+    // More than one hole in the destination: the organizer says which one. With
+    // exactly one — and on a tournament that has not started, where there is no
+    // structure at all — there is nothing to pick.
+    if (slots.length > 1) {
+      setMoveSlot({ competitor, categoryId: targetCategoryId, slots, key: '' })
+
+      return
+    }
+
+    await runMove(competitor, targetCategoryId, slots[0] ?? null)
+  }
+
+  const handleMoveSlot = async () => {
+    if (!moveSlot) {
+      return
+    }
+
+    const slot = moveSlot.slots.find((each) => slotKeyOf(each) === moveSlot.key)
+
+    if (!slot) {
+      return
+    }
+
+    setMoveSlot(null)
+    await runMove(moveSlot.competitor, moveSlot.categoryId, slot)
   }
 
   const requestRemoveCategory = (category: TournamentCategoryDto) => {
@@ -411,7 +489,9 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   const requestUnregister = (competitor: CompetitorDto) => {
     setConfirm({
       title: 'Desinscribir competidor',
-      message: `¿Desinscribir a ${competitor.displayName}?`,
+      message: isOngoing
+        ? `¿Desinscribir a ${competitor.displayName}? Se borran los partidos que tenía pendientes; el resto del fixture queda igual.`
+        : `¿Desinscribir a ${competitor.displayName}?`,
       action: () => unregisterCompetitor(tournament.id, competitor.id)
     })
   }
@@ -434,59 +514,104 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
     canRegisterInOngoing &&
     (!needsPartner || !!partner) &&
     (!isTeam || (registerSiteId != null && teamSize >= INTERCLUBS_MIN_TEAM_PLAYERS))
+
   /**
-   * A single competitor "card": avatar(s), name and — while the tournament has
-   * not started — the seed/move/unregister actions. Once it is running the card
-   * is read-only: every one of those actions would change a structure that is
-   * already being played.
+   * The holes of `category` that would really take THIS competitor. On a
+   * tournament that has not started there is no structure, so every other
+   * category is a destination.
    */
-  const renderCompetitorCard = (competitor: CompetitorDto) => (
-    <div key={competitor.id} className="competitor-card">
-      <CompetitorAvatarGroup players={competitor.players} fallbackName={competitor.displayName} />
-      <Tooltip title={competitor.displayName}>
-        <Typography className="competitor-name">{competitor.displayName}</Typography>
-      </Tooltip>
-      <div className="competitor-card-actions">
-        {seedingEnabled && !isOngoing && (
-          <Tooltip title="Seed manual: tiene prioridad sobre el ranking al iniciar el torneo">
-            <TextField
-              key={`seed-${competitor.id}-${competitor.seedNumber ?? ''}`}
-              label="#"
-              size="small"
-              type="number"
-              className="competitor-seed-input"
-              disabled={working}
-              defaultValue={competitor.seedNumber ?? ''}
-              slotProps={{ htmlInput: { min: 1 } }}
-              onBlur={(event) => handleSeedChange(competitor, event.target.value)}
-            />
-          </Tooltip>
-        )}
-        {categories.length > 1 && !isOngoing && (
-          <Tooltip title="Cambiar de categoría">
+  const destinationSlots = (competitor: CompetitorDto, category: TournamentCategoryDto): LateRegistrationSlot[] => {
+    if (!isOngoing || category.id === competitor.tournamentCategoryId) {
+      return []
+    }
+
+    return (slotsByCategory.get(category.id) ?? []).filter((slot) =>
+      slotAcceptsRelocatedCompetitor(tournament, slot, matches, competitors, competitor.id)
+    )
+  }
+
+  /** Categories this competitor could be moved to. */
+  const destinationsFor = (competitor: CompetitorDto): TournamentCategoryDto[] =>
+    categories.filter(
+      (category) =>
+        category.id !== competitor.tournamentCategoryId &&
+        (!isOngoing || destinationSlots(competitor, category).length > 0)
+    )
+
+  /**
+   * A single competitor "card": avatar(s), name and the seed/move/unregister
+   * actions.
+   *
+   * On a running tournament seeding is gone (the draw it feeds already
+   * happened), while move and unregister stay on screen even when they cannot be
+   * used: they are shown disabled, carrying the reason in their tooltip. An
+   * organizer who cannot move somebody needs to know WHY — "ya jugó un partido"
+   * and "en una llave no se puede" call for very different next steps — and a
+   * button that quietly disappears explains nothing.
+   */
+  const renderCompetitorCard = (competitor: CompetitorDto) => {
+    const removal = removalByCompetitor.get(competitor.id)
+    const canRemove = removal?.removable !== false
+    // On a running tournament the competitor also needs somewhere to land: a
+    // category whose structure has a hole that fits THEM.
+    const destinations = destinationsFor(competitor)
+    const moveReason = !canRemove
+      ? removal?.message
+      : destinations.length === 0
+        ? 'Ninguna otra categoría tiene lugar en su estructura para recibir a este competidor.'
+        : 'Cambiar de categoría'
+
+    return (
+      <div key={competitor.id} className="competitor-card">
+        <CompetitorAvatarGroup players={competitor.players} fallbackName={competitor.displayName} />
+        <Tooltip title={competitor.displayName}>
+          <Typography className="competitor-name">{competitor.displayName}</Typography>
+        </Tooltip>
+        <div className="competitor-card-actions">
+          {seedingEnabled && !isOngoing && (
+            <Tooltip title="Seed manual: tiene prioridad sobre el ranking al iniciar el torneo">
+              <TextField
+                key={`seed-${competitor.id}-${competitor.seedNumber ?? ''}`}
+                label="#"
+                size="small"
+                type="number"
+                className="competitor-seed-input"
+                disabled={working}
+                defaultValue={competitor.seedNumber ?? ''}
+                slotProps={{ htmlInput: { min: 1 } }}
+                onBlur={(event) => handleSeedChange(competitor, event.target.value)}
+              />
+            </Tooltip>
+          )}
+          {categories.length > 1 && (
+            <Tooltip title={moveReason}>
+              <span>
+                <IconButton
+                  size="small"
+                  disabled={working || !canRemove || destinations.length === 0}
+                  onClick={(event) => setMoveMenu({ anchorEl: event.currentTarget, competitor })}
+                >
+                  <DriveFileMoveOutlinedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+          <Tooltip title={canRemove ? 'Desinscribir' : removal?.message}>
             <span>
               <IconButton
+                color="error"
                 size="small"
-                disabled={working}
-                onClick={(event) => setMoveMenu({ anchorEl: event.currentTarget, competitor })}
+                disabled={working || !canRemove}
+                onClick={() => requestUnregister(competitor)}
               >
-                <DriveFileMoveOutlinedIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        )}
-        {!isOngoing && (
-          <Tooltip title="Desinscribir">
-            <span>
-              <IconButton color="error" size="small" disabled={working} onClick={() => requestUnregister(competitor)}>
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
-        )}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="tournament-admin">
@@ -595,7 +720,7 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
         {isOngoing && (
           <Alert severity={registrableCategories.length > 0 ? 'info' : 'warning'}>
             {registrableCategories.length > 0
-              ? 'El torneo ya inició: solo se pueden inscribir competidores donde la estructura ya tiene lugar, sin cambiar ningún partido ya armado. No se pueden quitar ni mover competidores.'
+              ? 'El torneo ya inició: se puede inscribir a alguien donde la estructura ya tiene lugar, y sacar o mover a quien todavía no jugó y pueda salir sin dejar rastro. Ningún partido ya armado cambia.'
               : 'El torneo ya inició y su estructura no admite nuevas inscripciones: inscribir a alguien cambiaría partidos que ya se están jugando.'}
           </Alert>
         )}
@@ -645,17 +770,56 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
         )}
       </Paper>
 
+      {/* Every category is listed, running or not — one that cannot receive the
+          competitor is shown disabled rather than hidden, same as the register
+          dialog does, so the organizer sees the whole tournament and why a
+          destination is out. */}
       <Menu anchorEl={moveMenu?.anchorEl ?? null} open={!!moveMenu} onClose={() => setMoveMenu(null)}>
-        {categories.map((category) => (
-          <MenuItem
-            key={category.id}
-            selected={category.id === moveMenu?.competitor.tournamentCategoryId}
-            onClick={() => handleMove(category.id)}
-          >
-            {categoryNameById.get(category.id)}
-          </MenuItem>
-        ))}
+        {categories.map((category) => {
+          const current = category.id === moveMenu?.competitor.tournamentCategoryId
+          const closed =
+            isOngoing && !current && (!moveMenu || destinationSlots(moveMenu.competitor, category).length === 0)
+
+          return (
+            <MenuItem key={category.id} selected={current} disabled={closed} onClick={() => handleMove(category.id)}>
+              {categoryNameById.get(category.id)}
+              {closed ? ' — sin lugar en la estructura' : ''}
+            </MenuItem>
+          )
+        })}
       </Menu>
+
+      <Dialog open={!!moveSlot} onClose={() => setMoveSlot(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Mover competidor</DialogTitle>
+        <DialogContent className="register-dialog-content">
+          <DialogContentText>
+            {moveSlot?.competitor.displayName} pasa a {moveSlot ? categoryNameById.get(moveSlot.categoryId) : ''}. Elegí
+            en qué lugar de la estructura queda.
+          </DialogContentText>
+          <TextField
+            select
+            label="Posición disponible"
+            size="small"
+            fullWidth
+            value={moveSlot?.key ?? ''}
+            onChange={(event) =>
+              setMoveSlot((current) => (current ? { ...current, key: event.target.value } : current))
+            }
+          >
+            {(moveSlot?.slots ?? []).map((slot) => (
+              <MenuItem key={slotKeyOf(slot)} value={slotKeyOf(slot)}>
+                {slot.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMoveSlot(null)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleMoveSlot} disabled={working || !moveSlot?.key}>
+            Mover
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={registerOpen} onClose={() => setRegisterOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{isTeam ? 'Inscribir equipo' : 'Inscribir competidor'}</DialogTitle>

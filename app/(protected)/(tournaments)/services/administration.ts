@@ -10,8 +10,17 @@ import {
   resolveTeamRoster
 } from '@/app/(protected)/(tournaments)/services/registrations'
 import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
-import { getLateRegistrationSlots, LateRegistrationSlot } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
-import { attachLateCompetitor, freezeGroupMembership } from '@/app/(protected)/(tournaments)/utils/tournaments'
+import {
+  getLateRegistrationSlots,
+  LateRegistrationSlot,
+  slotAcceptsRelocatedCompetitor
+} from '@/app/(protected)/(tournaments)/utils/lateRegistration'
+import { canRemoveCompetitor } from '@/app/(protected)/(tournaments)/utils/lateRemoval'
+import {
+  attachLateCompetitor,
+  detachLateCompetitor,
+  freezeGroupMembership
+} from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
@@ -24,9 +33,17 @@ import { User } from '@/app/models/User'
  * freely, because nothing has been played and no structure exists yet.
  *
  * Once it starts, all of that closes — the structure IS the tournament and no
- * administrative action may alter it. The single exception is registering a
- * competitor, and only where the structure already has a hole shaped like them
- * (a knockout bye, an odd group's rest slot): see utils/lateRegistration.
+ * administrative action may alter it. What survives are the three actions on the
+ * entrant list that can be performed without the structure noticing:
+ *
+ *  - REGISTERING a competitor, where the structure already has a hole shaped
+ *    like them (a knockout bye, an odd group's rest slot): utils/lateRegistration.
+ *  - UNREGISTERING one that can come out without leaving a trace — nobody
+ *    awarded a walkover they never played, no fixture re-paired:
+ *    utils/lateRemoval.
+ *  - MOVING one to another category, which is exactly the two above back to
+ *    back: they must be able to leave their category AND the destination must
+ *    have a hole for them. Either half missing and the move is refused.
  */
 
 /**
@@ -42,10 +59,10 @@ import { User } from '@/app/models/User'
  * routes). The organization boundary is enforced by the model's global scope, so
  * a tournament of another organization is simply not found.
  *
- * `allowOngoing` opts into the late-registration path, which is the only
- * administrative action a running tournament accepts. It additionally loads the
- * tournament's `matches`, since where (and whether) a late entrant fits is read
- * off the structure itself.
+ * `allowOngoing` opts into the actions a running tournament still accepts
+ * (registering, unregistering and moving a competitor — see the module
+ * docblock). It additionally loads the tournament's `matches`, since whether an
+ * entrant fits, and whether one may leave, are both read off the structure itself.
  */
 export async function loadManageableTournament(
   tournamentId: number,
@@ -309,22 +326,32 @@ async function attachIfLate(
   return competitor
 }
 
-/** Moves a competitor to another category instance of the same tournament. */
+/**
+ * Moves a competitor to another category instance of the same tournament.
+ *
+ * On a running tournament this is a departure followed by a late registration,
+ * and BOTH halves have to be possible: the competitor must be able to leave
+ * their category without leaving a trace (see utils/lateRemoval — which, among
+ * other things, is what refuses anyone who has already played), and the
+ * destination must have a structural hole to put them in (see
+ * utils/lateRegistration). Everything is resolved before the first write, so a
+ * move that cannot be completed does not half-happen.
+ */
 export async function moveCompetitor(
   tournament: Tournament,
   competitorId: number,
-  targetTournamentCategoryId: number
+  targetTournamentCategoryId: number,
+  slotSelection: LateRegistrationSlotSelection | null = null
 ): Promise<Competitor> {
-  const categoryIds = new Set((tournament.categories ?? []).map((category) => category.id))
+  const categories = tournament.categories ?? []
+  const categoryIds = new Set(categories.map((category) => category.id))
   const competitor = await Competitor.find(Number(competitorId))
 
   if (!competitor || !categoryIds.has(competitor.tournamentCategoryId)) {
     throw new ApiException('Competidor no encontrado')
   }
 
-  const targetCategory = (tournament.categories ?? []).find(
-    (category) => category.id === Number(targetTournamentCategoryId)
-  )
+  const targetCategory = categories.find((category) => category.id === Number(targetTournamentCategoryId))
 
   if (!targetCategory) {
     throw new ApiException('Categoría destino inválida')
@@ -341,6 +368,32 @@ export async function moveCompetitor(
   }
 
   const previousCategoryId = competitor.tournamentCategoryId
+  const ongoing = tournament.status === TournamentStatus.ONGOING
+  // Both halves are decided against the state as it is NOW, before anything is
+  // written: the destination's hole is re-derived exactly like a plain late
+  // registration would (see `resolveLateSlot`), and the origin is checked from
+  // the same snapshot.
+  const slot = ongoing ? resolveLateSlot(tournament, targetCategory, slotSelection) : null
+
+  if (slot) {
+    assertRemovable(tournament, competitor)
+
+    // The hole was offered to a hypothetical NEW entrant; a competitor arriving
+    // from another category keeps their id, and one slot depends on it.
+    if (
+      !slotAcceptsRelocatedCompetitor(
+        tournament,
+        slot,
+        tournament.matches ?? [],
+        tournament.competitors ?? [],
+        competitor.id
+      )
+    ) {
+      throw new ApiException(
+        'En una liga el fixture sigue el orden de inscripción, así que este competidor solo puede pasar a una categoría donde todos se hayan inscripto antes que él'
+      )
+    }
+  }
 
   // The competitor keeps its (manually-set) seed across the category change,
   // but a category may never have two seeded competitors sharing the same
@@ -359,8 +412,23 @@ export async function moveCompetitor(
     }
   }
 
-  competitor.tournamentCategoryId = targetCategory.id
-  await competitor.save()
+  const join = async () => {
+    competitor.tournamentCategoryId = targetCategory.id
+    await competitor.save()
+  }
+
+  if (slot) {
+    // Written down before the origin is touched, so the membership that gets
+    // frozen is the one being played — the mover included, since they are still
+    // part of it (see `freezeGroupMembership`).
+    await freezeGroupMembership(tournament)
+    // Reassigning the competitor is what `detachLateCompetitor` takes as their
+    // "leaving": it has to happen before the origin category is advanced.
+    await detachLateCompetitor(tournament, competitor, join)
+    await attachLateCompetitor(tournament, competitor, slot)
+  } else {
+    await join()
+  }
 
   // Team labels are relative to the other teams of their category, so BOTH the
   // category it left and the one it joined may need to be renamed.
@@ -368,6 +436,32 @@ export async function moveCompetitor(
   await assignSiteLabels(targetCategory.id)
 
   return competitor
+}
+
+/**
+ * Throws unless `competitor` can be taken out of the tournament it is running
+ * in without leaving a trace behind. The refusal carries the same sentence the
+ * admin page shows next to the disabled button, so the organizer reads one
+ * explanation whether they were stopped before clicking or by the server.
+ */
+function assertRemovable(tournament: Tournament, competitor: Competitor): void {
+  const category = (tournament.categories ?? []).find((each) => each.id === competitor.tournamentCategoryId)
+
+  if (!category) {
+    throw new ApiException('Competidor no encontrado')
+  }
+
+  const check = canRemoveCompetitor(
+    tournament,
+    category,
+    tournament.matches ?? [],
+    tournament.competitors ?? [],
+    competitor.id
+  )
+
+  if (!check.removable) {
+    throw new ApiException(check.message ?? 'El competidor no puede salir del torneo sin alterar su estructura')
+  }
 }
 
 /**
@@ -422,7 +516,13 @@ export async function setCompetitorSeed(
   return competitor
 }
 
-/** Removes a competitor registration from the tournament. */
+/**
+ * Removes a competitor registration from the tournament.
+ *
+ * On a running tournament only a competitor that can come out without a trace
+ * may be unregistered — see utils/lateRemoval for what that rules out, which is
+ * most of it.
+ */
 export async function unregisterCompetitor(tournament: Tournament, competitorId: number): Promise<void> {
   const categoryIds = new Set((tournament.categories ?? []).map((category) => category.id))
   const competitor = await Competitor.find(Number(competitorId))
@@ -433,7 +533,16 @@ export async function unregisterCompetitor(tournament: Tournament, competitorId:
 
   const tournamentCategoryId = competitor.tournamentCategoryId
 
-  await competitor.delete()
+  if (tournament.status === TournamentStatus.ONGOING) {
+    assertRemovable(tournament, competitor)
+    await freezeGroupMembership(tournament)
+    await detachLateCompetitor(tournament, competitor, async () => {
+      await competitor.delete()
+    })
+  } else {
+    await competitor.delete()
+  }
+
   // Losing a team can turn "Alemán A" / "Alemán B" back into a single "Alemán".
   await assignSiteLabels(tournamentCategoryId)
 }

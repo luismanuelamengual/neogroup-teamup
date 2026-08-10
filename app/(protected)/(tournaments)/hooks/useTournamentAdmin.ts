@@ -46,8 +46,22 @@ export function useTournamentAdmin() {
     [executeRequest, showSuccessMessage]
   )
   const moveCompetitor = useCallback(
-    async (tournamentId: number, competitorId: number, tournamentCategoryId: number): Promise<void> => {
-      await executeRequest('/moveCompetitor', { tournamentId, competitorId, tournamentCategoryId })
+    async (
+      tournamentId: number,
+      competitorId: number,
+      tournamentCategoryId: number,
+      // Which structural hole of the DESTINATION the competitor takes when the
+      // tournament is already running. Null on a tournament that has not
+      // started, where there is no structure yet.
+      slot: { matchId?: number | null; groupNumber?: number | null } | null = null
+    ): Promise<void> => {
+      await executeRequest('/moveCompetitor', {
+        tournamentId,
+        competitorId,
+        tournamentCategoryId,
+        slotMatchId: slot?.matchId ?? null,
+        slotGroupNumber: slot?.groupNumber ?? null
+      })
       showSuccessMessage('Competidor movido correctamente')
     },
     [executeRequest, showSuccessMessage]

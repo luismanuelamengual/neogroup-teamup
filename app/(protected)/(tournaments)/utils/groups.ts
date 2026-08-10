@@ -197,6 +197,56 @@ export function computeGroupSizes(competitorsCount: number, groupSize: number): 
 }
 
 /**
+ * How many competitors each group sends to the knockout phase.
+ *
+ * The baseline is `qualifiersPerGroup` (clamped to the group size). When
+ * `minPlayoffQualifiers` is set it takes precedence, but only upwards: the
+ * cut-off level is raised **evenly across every group** until the total reaches
+ * the minimum, or until the largest group is exhausted (nobody can be invented).
+ *
+ * Raising a single level for everyone — rather than handing extra slots to
+ * individual groups — is what keeps the knockout fair: with 2 groups of 4 and a
+ * minimum of 6, the top 3 of each group advance instead of "the top 2 plus the
+ * two best runners-up". Because the level is shared, uneven group sizes may
+ * overshoot the minimum, which is fine: it is a floor, not a target.
+ *
+ * Examples (sizes / qualifiers / minimum → result):
+ *   [8]           2  6    → [6]            a lone group sends its top 6
+ *   [4, 4]        2  6    → [3, 3]         top 3 of each
+ *   [10]          4  9000 → [10]           minimum beyond the field: everybody
+ *   [4, 4, 4, 4]  2  4    → [2, 2, 2, 2]   already 8 ≥ 4, nothing changes
+ *   [6, 2]        2  7    → [5, 2]         the small group runs out first
+ *
+ * Model-free, like the rest of this module, because it is not only the engine
+ * that needs it: deciding whether a competitor may LEAVE a running group phase
+ * comes down to whether their group would still send the same number of
+ * qualifiers without them (see utils/lateRemoval), and that check also runs on
+ * the client.
+ */
+export function resolveGroupQualifiers(
+  groupSizes: number[],
+  qualifiersPerGroup: number,
+  minPlayoffQualifiers?: number | null
+): number[] {
+  const cutAt = (level: number) => groupSizes.map((size) => Math.min(level, size))
+  const total = (quotas: number[]) => quotas.reduce((sum, quota) => sum + quota, 0)
+  const largest = groupSizes.reduce((max, size) => Math.max(max, size), 0)
+  let level = Math.max(1, Math.floor(qualifiersPerGroup) || 1)
+  let quotas = cutAt(level)
+
+  if (minPlayoffQualifiers == null || minPlayoffQualifiers <= 0) {
+    return quotas
+  }
+
+  while (total(quotas) < minPlayoffQualifiers && level < largest) {
+    level++
+    quotas = cutAt(level)
+  }
+
+  return quotas
+}
+
+/**
  * Zone sizes of an interclubes category. Unlike groups+playoff (which targets a
  * configurable group size and derives the COUNT with a ceil division), the
  * number of interclubes zones is `floor(count / 4)` and the leftovers are

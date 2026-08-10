@@ -7,6 +7,7 @@ import { roundLabel } from '@/app/(protected)/(tournaments)/utils/bracket'
 import {
   computeGroupMembership,
   GroupableCompetitor,
+  sortCompetitorIds,
   storedGroupMembership
 } from '@/app/(protected)/(tournaments)/utils/groups'
 import { generateRoundRobinRound } from '@/app/(protected)/(tournaments)/utils/roundRobin'
@@ -119,13 +120,18 @@ export interface LateRegistrationCategory {
   maxCompetitors: number
 }
 
-/** Matches of one lane (type + group index) of a category. */
-function laneOf(matches: LateRegistrationMatch[], type: MatchType, groupNumber: number | null = null) {
+/**
+ * Matches of one lane (type + group index) of a category.
+ *
+ * Exported for utils/lateRemoval, which reasons about the very same lanes from
+ * the opposite direction (a competitor LEAVING one).
+ */
+export function laneOf(matches: LateRegistrationMatch[], type: MatchType, groupNumber: number | null = null) {
   return matches.filter((match) => match.type === type && (match.groupNumber ?? null) === groupNumber)
 }
 
-/** Ascending round numbers present in a set of matches. */
-function roundNumbersOf(matches: LateRegistrationMatch[]): number[] {
+/** Ascending round numbers present in a set of matches. Exported for utils/lateRemoval. */
+export function roundNumbersOf(matches: LateRegistrationMatch[]): number[] {
   return [...new Set(matches.map((match) => match.roundNumber))].sort((a, b) => a - b)
 }
 
@@ -200,7 +206,7 @@ function isFillableBye(bye: LateRegistrationMatch, matches: LateRegistrationMatc
  * or after a failed write — where the groups are done but the bracket is not
  * there yet, rather than accepting an entrant into a phase that is over.
  */
-function isInGroupPhase(matches: LateRegistrationMatch[]): boolean {
+export function isInGroupPhase(matches: LateRegistrationMatch[]): boolean {
   if (laneOf(matches, MatchType.BRACKET).length > 0) {
     return false
   }
@@ -219,8 +225,12 @@ function isInGroupPhase(matches: LateRegistrationMatch[]): boolean {
   return groupMatches.some((match) => match.status === MatchStatus.PENDING)
 }
 
-/** Order-insensitive key of a matchup, so a fixture is recognised however its sides are stored. */
-function pairKeyOf(home: number | null, away: number | null): string {
+/**
+ * Order-insensitive key of a matchup, so a fixture is recognised however its
+ * sides are stored. Exported for utils/lateRemoval, which diffs the very same
+ * derivations against the very same stored fixtures.
+ */
+export function pairKeyOf(home: number | null, away: number | null): string {
   return [home, away]
     .filter((id): id is number => id != null)
     .sort((a, b) => a - b)
@@ -465,6 +475,75 @@ export function getLateRegistrationSlots(
   // its very format from the entry count: there is no structure-preserving place
   // to put anybody.
   return []
+}
+
+/**
+ * Whether `slot` really has room for a competitor that ALREADY EXISTS — one
+ * being moved from another category of the same tournament, rather than
+ * registered from scratch.
+ *
+ * Every slot on offer assumes a BRAND-NEW entrant, and one slot leans on that
+ * assumption: the single lane of an ordered league is ordered by competitor id
+ * (`sortCompetitorIds`), so a fresh registration is by definition the highest id
+ * and lands exactly on the circle method's rest slot. A competitor arriving from
+ * another category keeps the id they were registered with, which can be lower
+ * than the ids already in the lane — and then they do NOT land on the rest slot:
+ * they are inserted in the middle of the order and re-pair the whole lane.
+ *
+ * So the arrival is verified the same way a departure is (see
+ * `reproducesLaneWithout` in utils/lateRemoval): every materialised round of the
+ * destination lane must come out of the grown lane exactly as it is stored, plus
+ * the newcomer's own fixtures and nothing else. In practice that means the
+ * mover's id has to be above every id in the destination league, which is
+ * restrictive but honest — a league's fixture is its registration order, and
+ * there is no way to insert somebody into the middle of one for free.
+ *
+ * Every other slot is id-independent and always accepts: a group appends the
+ * newcomer at an explicit `groupPosition`, an unordered lane never re-derives
+ * its layout, and a knockout bye is a named empty side.
+ */
+export function slotAcceptsRelocatedCompetitor(
+  tournament: LateRegistrationTournament,
+  slot: LateRegistrationSlot,
+  matches: LateRegistrationMatch[],
+  competitors: LateRegistrationCompetitor[],
+  competitorId: number
+): boolean {
+  if (slot.kind !== LateRegistrationSlotKind.ROUND_ROBIN || slot.groupNumber != null) {
+    return true
+  }
+
+  if (allowsUnorderedResults(tournament.type, tournament.settings)) {
+    return true
+  }
+
+  const destination = competitors.filter(
+    (competitor) => competitor.tournamentCategoryId === slot.tournamentCategoryId || competitor.id === competitorId
+  )
+  const members = sortCompetitorIds(destination, tournament.type)
+  const lane = laneOf(
+    matches.filter((match) => match.tournamentCategoryId === slot.tournamentCategoryId),
+    MatchType.LEAGUE
+  )
+
+  for (const roundNumber of roundNumbersOf(lane)) {
+    const stored = new Set(
+      lane
+        .filter((match) => match.roundNumber === roundNumber)
+        .map((match) => pairKeyOf(match.homeCompetitorId, match.awayCompetitorId))
+    )
+    // The newcomer's own fixtures are the ones that get ADDED, so they are the
+    // only derived pairings allowed not to be there already.
+    const derived = generateRoundRobinRound(members, roundNumber)
+      .filter((pairing) => pairing.home !== competitorId && pairing.away !== competitorId)
+      .map((pairing) => pairKeyOf(pairing.home, pairing.away))
+
+    if (derived.length !== stored.size || derived.some((key) => !stored.has(key))) {
+      return false
+    }
+  }
+
+  return true
 }
 
 /** Whether an ONGOING category accepts at least one more competitor. */
