@@ -15,6 +15,7 @@ import {
   buildGroups,
   computeGroupSizes,
   interclubsGroupSizes,
+  resolveGroupQualifiers,
   resolveSiteId,
   sortCompetitorIds,
   storedGroupMembership
@@ -90,54 +91,11 @@ export function getBracketSize(entrants: number): number {
   return Math.pow(2, Math.ceil(Math.log2(Math.max(entrants, 2))))
 }
 
-// Group sizing and membership are model-free and shared with the client-side
-// views (standings tables), so they live in utils/groups.ts; they stay exported
-// from here for the engine's callers and tests.
-export { assignGroups, computeGroupSizes }
-
-/**
- * How many competitors each group sends to the knockout phase.
- *
- * The baseline is `qualifiersPerGroup` (clamped to the group size). When
- * `minPlayoffQualifiers` is set it takes precedence, but only upwards: the
- * cut-off level is raised **evenly across every group** until the total reaches
- * the minimum, or until the largest group is exhausted (nobody can be invented).
- *
- * Raising a single level for everyone — rather than handing extra slots to
- * individual groups — is what keeps the knockout fair: with 2 groups of 4 and a
- * minimum of 6, the top 3 of each group advance instead of "the top 2 plus the
- * two best runners-up". Because the level is shared, uneven group sizes may
- * overshoot the minimum, which is fine: it is a floor, not a target.
- *
- * Examples (sizes / qualifiers / minimum → result):
- *   [8]           2  6    → [6]            a lone group sends its top 6
- *   [4, 4]        2  6    → [3, 3]         top 3 of each
- *   [10]          4  9000 → [10]           minimum beyond the field: everybody
- *   [4, 4, 4, 4]  2  4    → [2, 2, 2, 2]   already 8 ≥ 4, nothing changes
- *   [6, 2]        2  7    → [5, 2]         the small group runs out first
- */
-export function resolveGroupQualifiers(
-  groupSizes: number[],
-  qualifiersPerGroup: number,
-  minPlayoffQualifiers?: number | null
-): number[] {
-  const cutAt = (level: number) => groupSizes.map((size) => Math.min(level, size))
-  const total = (quotas: number[]) => quotas.reduce((sum, quota) => sum + quota, 0)
-  const largest = groupSizes.reduce((max, size) => Math.max(max, size), 0)
-  let level = Math.max(1, Math.floor(qualifiersPerGroup) || 1)
-  let quotas = cutAt(level)
-
-  if (minPlayoffQualifiers == null || minPlayoffQualifiers <= 0) {
-    return quotas
-  }
-
-  while (total(quotas) < minPlayoffQualifiers && level < largest) {
-    level++
-    quotas = cutAt(level)
-  }
-
-  return quotas
-}
+// Group sizing, membership and qualifier quotas are model-free and shared with
+// the client-side views (standings tables) and checks (utils/lateRemoval), so
+// they live in utils/groups.ts; they stay exported from here for the engine's
+// callers and tests.
+export { assignGroups, computeGroupSizes, resolveGroupQualifiers }
 
 /** A competitor's finishing position in its group, with the points it earned there. */
 export interface GroupRankRow {
@@ -3027,6 +2985,103 @@ async function appendUnorderedFixtures(
 
   for (const [roundNumber, pairings] of [...additions.entries()].sort((a, b) => a[0] - b[0])) {
     await persistRoundMatches(tournamentCategoryId, roundNumber, lane, pairings)
+  }
+}
+
+/**
+ * Takes a competitor OUT of the structure of a tournament that has already
+ * started — the inverse of `attachLateCompetitor`, used both to unregister them
+ * and as the first half of moving them to another category.
+ *
+ * `canRemoveCompetitor` must have accepted this competitor first: the caller
+ * re-derives it against fresh state, so this function can take it as already
+ * validated. That check is what guarantees the only thing to do here is delete —
+ * the competitor's own fixtures are the only rows that mention them, no other
+ * fixture needs to move, and nothing downstream was decided by their presence.
+ *
+ * The frozen group membership goes with them, so a competitor that is on their
+ * way to another category does not carry a stale group into it (see
+ * `joinRoundRobin`, which writes the new one).
+ *
+ * `leave` is what actually takes the competitor out of the category — deleting
+ * their row, or reassigning it to the category they are moving to. It is a
+ * parameter rather than the caller's next line because the ORDER is not
+ * optional: deleting the last pending fixture of a round completes it, and the
+ * category is advanced here so the lane can build the round that follows. Were
+ * the competitor still a member of the category at that point, the round being
+ * built would be generated with them in it and hand them back the very fixtures
+ * that were just deleted.
+ */
+export async function detachLateCompetitor(
+  tournament: Tournament,
+  competitor: Competitor,
+  leave: () => Promise<void>
+): Promise<void> {
+  const tournamentCategoryId = competitor.tournamentCategoryId
+  const all = await loadCategoryMatches(tournamentCategoryId)
+  const own = all.filter(
+    (match) => match.homeCompetitorId === competitor.id || match.awayCompetitorId === competitor.id
+  )
+
+  await deleteMatches(own)
+  await compactRoundPositions(
+    tournamentCategoryId,
+    own.map((match) => ({
+      lane: { type: match.type, groupNumber: match.groupNumber ?? null },
+      round: match.roundNumber
+    }))
+  )
+
+  const data = { ...(competitor.data ?? {}) }
+
+  if (data.groupNumber != null || data.groupPosition != null) {
+    delete data.groupNumber
+    delete data.groupPosition
+    competitor.data = data
+    await competitor.save()
+  }
+
+  await leave()
+  await advanceTournament(tournament, tournamentCategoryId)
+}
+
+/**
+ * Closes the positional gaps a deletion left behind, so each affected round is
+ * numbered 0..n-1 again — exactly what the round would hold had it been
+ * generated for the smaller lane in the first place (`persistRoundMatches`
+ * numbers pairings from zero, and `reconcileOrderedRoundRobin` renumbers to the
+ * derivation for the same reason).
+ *
+ * Round-robin lanes only: a `position` there is just the fixture's place in its
+ * round, while in a bracket it identifies the slot itself and must never move.
+ */
+async function compactRoundPositions(
+  tournamentCategoryId: number,
+  slices: Array<{ lane: RoundLane; round: number }>
+): Promise<void> {
+  const seen = new Set<string>()
+  const all = await loadCategoryMatches(tournamentCategoryId)
+
+  for (const { lane, round } of slices) {
+    const key = `${lane.type}:${lane.groupNumber}:${round}`
+
+    if (isKnockoutType(lane.type) || seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+
+    const remaining = roundMatchesOf(all, lane, round)
+
+    for (let position = 0; position < remaining.length; position++) {
+      const match = remaining[position]
+
+      if (match.position !== position) {
+        match.position = position
+        match.updatedAt = new Date()
+        await match.save()
+      }
+    }
   }
 }
 
