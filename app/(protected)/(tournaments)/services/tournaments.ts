@@ -27,6 +27,7 @@ import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils
 import { getScoreWinner, isValidScore, normalizeScore } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   canDeleteTournament,
+  closeCategoryGroupPhase,
   createRound,
   createTournamentCategories,
   deleteVoidedFixtures,
@@ -414,6 +415,33 @@ export async function finishTournament(tournament: Tournament): Promise<void> {
     // it only stops them from lingering as rows nobody will ever look at.
     await deleteVoidedFixtures(tournament)
   })
+}
+
+/**
+ * Closes the group phase of ONE category of a running "groups + playoff"
+ * tournament and starts its knockout, without waiting for the fixtures that are
+ * still pending (they are voided — see `closeCategoryGroupPhase` for what that
+ * means and why).
+ *
+ * Scoped to a single category on purpose: categories of the same tournament run
+ * their own group phases at their own pace, and an organizer whose Cuarta is
+ * stuck has no reason to cut the Primera short as well.
+ *
+ * Wrapped in a transaction, like start/finish: voiding the fixtures, flagging
+ * the category and seeding the bracket are one indivisible step. A partial
+ * commit would be the worst of both worlds — fixtures cancelled with no
+ * knockout to show for it.
+ *
+ * Returns how many fixtures were voided, so the caller can tell the organizer.
+ */
+export async function closeGroupPhase(tournament: Tournament, tournamentCategoryId: number): Promise<number> {
+  const category = await TournamentCategory.where('id', Number(tournamentCategoryId)).first()
+
+  if (!category || category.tournamentId !== tournament.id) {
+    throw new ApiException('notFound', 404)
+  }
+
+  return DB.transaction(async () => closeCategoryGroupPhase(tournament, category))
 }
 
 export async function deleteTournament(tournament: Tournament): Promise<boolean> {

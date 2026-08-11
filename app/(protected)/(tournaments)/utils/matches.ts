@@ -147,7 +147,14 @@ export function isMatchEditable(
         candidate.type === match.type &&
         (candidate.groupNumber ?? null) === (match.groupNumber ?? null) &&
         candidate.roundNumber > match.roundNumber &&
-        candidate.status !== MatchStatus.PENDING
+        candidate.status !== MatchStatus.PENDING &&
+        // A VOID fixture never happened, so it consumed nothing and protects
+        // nothing. This is what a group phase the organizer closed early leaves
+        // behind (see `closeCategoryGroupPhase`): its later rounds are full of
+        // cancelled fixtures, and reading those as results would freeze the
+        // results that WERE played — the very ones the knockout was seeded from,
+        // which stay correctable until the bracket holds a result of its own.
+        candidate.status !== MatchStatus.VOID
     )
 
     if (laneHasLaterResult) {

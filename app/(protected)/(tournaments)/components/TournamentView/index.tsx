@@ -46,6 +46,7 @@ import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipli
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
+import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -69,7 +70,8 @@ interface TournamentViewProps {
 }
 
 export default function TournamentView({ tournamentId, appUrl, isOrganizer }: TournamentViewProps) {
-  const { finishTournament, getTournament, leaveTournament, saveMatchResult, startTournament } = useTournaments()
+  const { closeGroupPhase, finishTournament, getTournament, leaveTournament, saveMatchResult, startTournament } =
+    useTournaments()
   const router = useRouter()
   const searchParams = useSearchParams()
   const joinLinkHandled = useRef(false)
@@ -82,6 +84,9 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
   const [confirmStartOpen, setConfirmStartOpen] = useState(false)
   const [confirmFinishOpen, setConfirmFinishOpen] = useState(false)
   const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false)
+  // Category whose group phase the organizer asked to close early, while the
+  // confirmation is up (null when the dialog is closed).
+  const [closingGroupsCategory, setClosingGroupsCategory] = useState<number | null>(null)
   const userId = useUserStore((state) => state.user?.id ?? null)
   const competitors = useMemo(() => tournament?.competitors ?? [], [tournament])
   const matches = useMemo(() => tournament?.matches ?? [], [tournament])
@@ -282,6 +287,26 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
   const handleConfirmFinish = () => {
     setConfirmFinishOpen(false)
     runAction(() => finishTournament(tournament.id))
+  }
+
+  // Group fixtures of the category being closed that would be called off — the
+  // number the confirmation puts in front of the organizer before they commit.
+  const pendingGroupMatches = matches.filter(
+    (match) =>
+      match.tournamentCategoryId === closingGroupsCategory &&
+      match.type === MatchType.LEAGUE &&
+      match.groupNumber != null &&
+      match.status === MatchStatus.PENDING
+  ).length
+
+  const handleConfirmCloseGroupPhase = () => {
+    const categoryId = closingGroupsCategory
+
+    setClosingGroupsCategory(null)
+
+    if (categoryId != null) {
+      runAction(() => closeGroupPhase(tournament.id, categoryId))
+    }
   }
 
   const handleShare = async () => {
@@ -575,6 +600,7 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
                     category={key}
                     organizerMode={isOrganizer}
                     onEditMatch={setScoreMatch}
+                    onCloseGroupPhase={isOrganizer ? () => setClosingGroupsCategory(key) : undefined}
                   />
                 </>
               )}
@@ -630,6 +656,31 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
               <Button onClick={() => setConfirmFinishOpen(false)}>Cancelar</Button>
               <Button color="error" variant="contained" onClick={handleConfirmFinish}>
                 Finalizar
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          <Dialog open={closingGroupsCategory != null} onClose={() => setClosingGroupsCategory(null)}>
+            <DialogTitle>Finalizar fase de grupos</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                Se va a armar la eliminatoria de{' '}
+                <strong>{categoryNameById.get(closingGroupsCategory!) ?? 'la categoría única'}</strong> con las
+                posiciones actuales de cada grupo.
+                {pendingGroupMatches > 0 && (
+                  <>
+                    {' '}
+                    Los <strong>{pendingGroupMatches}</strong> partido{pendingGroupMatches === 1 ? '' : 's'} de grupo
+                    que todavía no se jugaron quedan anulados y no se van a poder cargar.
+                  </>
+                )}{' '}
+                Esta acción no se puede deshacer.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setClosingGroupsCategory(null)}>Cancelar</Button>
+              <Button color="error" variant="contained" onClick={handleConfirmCloseGroupPhase}>
+                Finalizar fase de grupos
               </Button>
             </DialogActions>
           </Dialog>

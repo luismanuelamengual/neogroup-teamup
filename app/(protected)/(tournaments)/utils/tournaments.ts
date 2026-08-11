@@ -676,6 +676,24 @@ function laneExistsIn(matches: Match[], lane: RoundLane): boolean {
   return matches.some((match) => isLaneMatch(match, lane))
 }
 
+/** The single knockout lane a groups+playoff (or interclubes) category feeds into. */
+const KNOCKOUT_LANE: RoundLane = { type: MatchType.BRACKET, groupNumber: null }
+
+/**
+ * Whether a category's group phase is over — the marker being the knockout
+ * bracket itself, exactly as `isInGroupPhase` (utils/lateRegistration) reads it
+ * from the client side.
+ *
+ * Nothing else needs storing, because the bracket is only ever seeded when the
+ * phase genuinely ends: on its own once every group has played itself out, or on
+ * the organizer's say-so when they close it early (`closeCategoryGroupPhase`).
+ * Both cases mean the same thing to everyone downstream — the groups owe no
+ * further round, and whatever they voided along the way stays voided.
+ */
+function isGroupPhaseOver(matches: Match[]): boolean {
+  return laneExistsIn(matches, KNOCKOUT_LANE)
+}
+
 /** Whether a lane already holds at least one real (non-bye) resolved result. */
 function laneHasResultsIn(matches: Match[], lane: RoundLane): boolean {
   return matches.some(
@@ -2326,6 +2344,15 @@ async function advanceLane(
   }
 
   const all = await loadCategoryMatches(tournamentCategoryId, cache)
+
+  // A group phase that is over owes no further round. In the normal flow this is
+  // simply never reached — the bracket is seeded only once every group has
+  // materialised all of its rounds — but a phase the organizer closed early
+  // stopped short of them, and must not resume generating them now.
+  if (lane.groupNumber != null && isGroupPhaseOver(all)) {
+    return false
+  }
+
   const roundNumbers = laneRoundNumbers(all, lane)
 
   if (roundNumbers.length === 0) {
@@ -2402,6 +2429,15 @@ async function syncUnorderedVoids(
   }
 
   const all = await loadCategoryMatches(tournamentCategoryId, cache)
+
+  // A group phase that is over voided whatever was still open when it ended —
+  // on the organizer's say-so, not on the quota (see `closeCategoryGroupPhase`).
+  // Re-deriving those here would hand them straight back as playable, since
+  // nobody reached the quota — that is precisely why the phase was cut short.
+  if (lane.groupNumber != null && isGroupPhaseOver(all)) {
+    return false
+  }
+
   const matches = laneMatches(all, lane)
   const played = new Map<number, number>()
 
@@ -2452,12 +2488,26 @@ async function syncUnorderedVoids(
  * round-robin rounds with no pending match, builds the knockout bracket seeded
  * from the final group standings. No-op until then, or if the bracket already
  * exists. Returns true when the bracket was created.
+ *
+ * `force` lifts the "every group is done" requirement, for the two callers that
+ * already know the phase is over and do not need to be convinced of it:
+ *
+ *  - `closeCategoryGroupPhase`, where the organizer just declared it over, so
+ *    whatever the groups have played IS their final standing;
+ *  - `regenerateDownstreamRounds`, which drops an existing bracket to reseed it
+ *    after a group result was corrected — the bracket it just deleted is the
+ *    proof that the phase had ended.
+ *
+ * The check is skipped rather than merely satisfied because a phase closed early
+ * is genuinely short of rounds it will never materialise. Forcing is safe for a
+ * phase that ended on its own too: there, the checks would have passed anyway.
  */
 async function maybeStartGroupsKnockout(
   tournament: Tournament,
   tournamentCategoryId: number,
   competitorIds: number[],
-  cache?: AdvanceCache
+  cache?: AdvanceCache,
+  force = false
 ): Promise<boolean> {
   const isInterclubs = tournament.type === TournamentType.INTERCLUBS
 
@@ -2470,10 +2520,9 @@ async function maybeStartGroupsKnockout(
     return false
   }
 
-  const knockoutLane: RoundLane = { type: MatchType.BRACKET, groupNumber: null }
   const all = await loadCategoryMatches(tournamentCategoryId, cache)
 
-  if (laneExistsIn(all, knockoutLane)) {
+  if (isGroupPhaseOver(all)) {
     return false
   }
 
@@ -2487,24 +2536,26 @@ async function maybeStartGroupsKnockout(
     tournament.type
   )
 
-  for (let index = 0; index < groups.length; index++) {
-    const group = groups[index]
+  if (!force) {
+    for (let index = 0; index < groups.length; index++) {
+      const group = groups[index]
 
-    if (group.length < 2) {
-      continue
-    }
+      if (group.length < 2) {
+        continue
+      }
 
-    const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: index }
-    const groupRoundNumbers = laneRoundNumbers(all, lane)
-    const groupRounds = Math.min(roundRobinRoundsFor(group.length), groupPhaseRounds)
+      const lane: RoundLane = { type: MatchType.LEAGUE, groupNumber: index }
+      const groupRoundNumbers = laneRoundNumbers(all, lane)
+      const groupRounds = Math.min(roundRobinRoundsFor(group.length), groupPhaseRounds)
 
-    // The group must have materialised all of its rounds and resolved them all.
-    if (groupRoundNumbers.length < groupRounds) {
-      return false
-    }
+      // The group must have materialised all of its rounds and resolved them all.
+      if (groupRoundNumbers.length < groupRounds) {
+        return false
+      }
 
-    if (laneMatches(all, lane).some((match) => match.status === MatchStatus.PENDING)) {
-      return false
+      if (laneMatches(all, lane).some((match) => match.status === MatchStatus.PENDING)) {
+        return false
+      }
     }
   }
 
@@ -2515,10 +2566,17 @@ async function maybeStartGroupsKnockout(
     cache,
     tournament.type
   )
-  const startNumber = groupPhaseRounds + 1
+  // The bracket starts on the round after the group phase. A phase closed early
+  // stopped wherever it stopped, so its length is read off the rounds that were
+  // actually materialised rather than the ones the format owed. For a phase that
+  // ran to the end the two agree, since every owed round is there.
+  const playedGroupRounds = all
+    .filter((match) => match.type === MatchType.LEAGUE && match.groupNumber != null)
+    .reduce((max, match) => Math.max(max, match.roundNumber), 0)
+  const startNumber = Math.min(playedGroupRounds, groupPhaseRounds) + 1
   const created = await createKnockoutBracket(
     tournamentCategoryId,
-    knockoutLane,
+    KNOCKOUT_LANE,
     seeded,
     startNumber,
     tournament.type === TournamentType.INTERCLUBS,
@@ -2643,7 +2701,24 @@ async function regenerateDownstreamRounds(tournament: Tournament, editedMatch: M
       // A group-phase edit can change who qualifies → drop the knockout so it is
       // reseeded. Only reachable while the knockout holds no results yet.
       if (editedMatch.type === MatchType.LEAGUE && editedMatch.groupNumber != null) {
-        await deleteLane(tournamentCategoryId, { type: MatchType.BRACKET, groupNumber: null })
+        const all = await loadCategoryMatches(tournamentCategoryId)
+
+        if (!isGroupPhaseOver(all)) {
+          break
+        }
+
+        await deleteLane(tournamentCategoryId, KNOCKOUT_LANE)
+
+        // Rebuilt right here rather than left to the advance loop below, because
+        // deleting the bracket also erased the only record that the group phase
+        // had ended. The loop would re-apply the "every group has played every
+        // round it owes" test and refuse — correct for a phase still running,
+        // wrong for one the organizer closed early, which stopped short of those
+        // rounds on purpose. Having just deleted a bracket IS the proof that the
+        // phase was over, so it is passed straight through as `force`.
+        const competitorIds = await getSortedCompetitorIds(tournament, tournamentCategoryId)
+
+        await maybeStartGroupsKnockout(tournament, tournamentCategoryId, competitorIds, undefined, true)
       }
 
       break
@@ -2720,6 +2795,132 @@ export async function progressTournamentAfterResult(
 
   // Only the edited match's category can advance from a single result.
   await advanceTournament(tournament, match.tournamentCategoryId)
+}
+
+/**
+ * What a category's group phase currently looks like from the outside, so a
+ * caller can decide whether closing it by hand is offered/accepted without
+ * reaching into the matches itself.
+ */
+export interface GroupPhaseState {
+  /** The category plays groups at all (a groups+playoff category that got going). */
+  hasGroups: boolean
+  /** The knockout bracket has already been seeded, so the phase is over. */
+  knockoutStarted: boolean
+  /** Group fixtures still awaiting a result — what an early close would void. */
+  pendingMatches: number
+  /** Group fixtures that already hold one — what the seeding would be built from. */
+  resolvedMatches: number
+}
+
+/** Reads the group-phase state of a single category. See `GroupPhaseState`. */
+export async function getGroupPhaseState(tournamentCategoryId: number): Promise<GroupPhaseState> {
+  const all = await loadCategoryMatches(tournamentCategoryId)
+  const groupMatches = all.filter((match) => match.type === MatchType.LEAGUE && match.groupNumber != null)
+
+  return {
+    hasGroups: groupMatches.length > 0,
+    knockoutStarted: isGroupPhaseOver(all),
+    pendingMatches: groupMatches.filter((match) => match.status === MatchStatus.PENDING).length,
+    resolvedMatches: groupMatches.filter((match) => countsForStandings(match)).length
+  }
+}
+
+/**
+ * Ends a category's group phase on the organizer's say-so, before its round
+ * robin has been played out, and starts the knockout from the standings as they
+ * stand.
+ *
+ * The group phase normally ends by itself, once every group has played every
+ * round it owes. This is the escape hatch for when it never will — a couple of
+ * competitors that stopped showing up, a court that fell through, a schedule
+ * that ran out of daylight — so the tournament can reach its knockout instead
+ * of stalling on fixtures nobody is going to play.
+ *
+ * Two things happen, and only these two:
+ *
+ *  - every group fixture still awaiting a result becomes VOID. That is the
+ *    status the engine already uses for a fixture that will never be played
+ *    (see MatchStatus): it counts towards no standing, accepts no result, and
+ *    does not hold the tournament open. The rows are kept rather than deleted so
+ *    the fixture — and the day/time/court the planner gave it — stays on record
+ *    as something that was called off, not something that never existed.
+ *
+ *  - the knockout bracket is seeded from the standings as they stand. That
+ *    bracket is also what RECORDS the decision: "this group phase is over" is
+ *    read off its existence everywhere else (see `isGroupPhaseOver`), so nothing
+ *    extra has to be stored to stop the groups generating another round.
+ *
+ * Results already loaded are untouched, so the standings the knockout is seeded
+ * from are exactly the ones the competitors played for. It is one-way: there is
+ * no reopening a group phase, because the bracket that comes out of it is the
+ * tournament from here on.
+ *
+ * Returns how many fixtures were voided.
+ */
+export async function closeCategoryGroupPhase(tournament: Tournament, category: TournamentCategory): Promise<number> {
+  if (tournament.type !== TournamentType.GROUPS_PLAYOFF) {
+    throw new ApiException('Solo los torneos de Grupo + Eliminatoria tienen fase de grupos')
+  }
+
+  if (tournament.status !== TournamentStatus.ONGOING) {
+    throw new ApiException('invalidStatus')
+  }
+
+  if (category.tournamentId !== tournament.id) {
+    throw new ApiException('notFound', 404)
+  }
+
+  const state = await getGroupPhaseState(category.id)
+
+  if (!state.hasGroups) {
+    throw new ApiException('Esta categoría no tiene fase de grupos')
+  }
+
+  if (state.knockoutStarted) {
+    throw new ApiException('La fase eliminatoria de esta categoría ya comenzó')
+  }
+
+  // Seeding the knockout off a group phase where nothing at all has been played
+  // would rank every competitor on zero points and hand the bracket to the
+  // pre-tournament seeds — never what an organizer means by "close the groups".
+  if (state.resolvedMatches === 0) {
+    throw new ApiException('No se puede finalizar la fase de grupos sin ningún resultado cargado')
+  }
+
+  const all = await loadCategoryMatches(category.id)
+  const pending = all.filter(
+    (match) => match.type === MatchType.LEAGUE && match.groupNumber != null && match.status === MatchStatus.PENDING
+  )
+  const now = new Date()
+
+  for (const match of pending) {
+    match.status = MatchStatus.VOID
+    match.updatedAt = now
+    await match.save()
+  }
+
+  tournament.updatedAt = now
+  await tournament.save()
+
+  // Seeded here rather than left to `advanceTournament`, which would apply the
+  // "every group has played every round it owes" test and refuse — the whole
+  // point of this action is that those rounds are never going to be played.
+  const competitorIds = await getSortedCompetitorIds(tournament, category.id)
+  const created = await maybeStartGroupsKnockout(tournament, category.id, competitorIds, undefined, true)
+
+  if (!created) {
+    // Nothing to seed a bracket with (fewer than two qualifiers). Refusing keeps
+    // the transaction whole instead of leaving the category with its fixtures
+    // cancelled and no knockout to replace them.
+    throw new ApiException('No hay suficientes clasificados para armar la fase eliminatoria')
+  }
+
+  // Resolves whatever the fresh bracket already decides — byes, and any round
+  // made entirely of them.
+  await advanceTournament(tournament, category.id)
+
+  return pending.length
 }
 
 /** Order-insensitive key of a matchup, so a fixture can be recognised however its sides are stored. */
