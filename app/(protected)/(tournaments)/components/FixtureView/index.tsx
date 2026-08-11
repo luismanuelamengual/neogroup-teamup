@@ -7,7 +7,10 @@ import SearchIcon from '@mui/icons-material/Search'
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
+import Pagination from '@mui/material/Pagination'
 import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import { useMemo, useState } from 'react'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -34,6 +37,15 @@ interface RoundGroup {
   matches: MatchDto[]
   open: boolean
 }
+
+/** Status filter offered when results can be loaded in any order. */
+type StatusFilter = 'all' | 'pending' | 'finished'
+
+/**
+ * Matches per page. Twelve fills three or four full rows on a wide grid and
+ * still keeps the single-column phone layout to a reasonable scroll.
+ */
+const MATCHES_PER_PAGE = 12
 
 /** Rounds + matches list used by leagues, americano and group-phase fixtures. */
 export default function FixtureView({
@@ -161,6 +173,33 @@ export default function FixtureView({
       return terms.every((term) => names.includes(term))
     })
   }, [rounds, search, searchIndex])
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [page, setPage] = useState(1)
+  // What the list shows before paging: the whole (searched and status-filtered)
+  // schedule when results come in unordered, otherwise just the active round.
+  const listedMatches = useMemo(() => {
+    if (!unordered) {
+      return rounds[activeRoundIndex]?.matches ?? []
+    }
+
+    if (statusFilter === 'all') {
+      return searchedMatches
+    }
+
+    // Anything past PENDING counts as played: WALKOVER has a final result too,
+    // and VOID never reaches this list.
+    return searchedMatches.filter((match) =>
+      statusFilter === 'pending' ? match.status === MatchStatus.PENDING : match.status !== MatchStatus.PENDING
+    )
+  }, [unordered, rounds, activeRoundIndex, searchedMatches, statusFilter])
+  const pageCount = Math.max(1, Math.ceil(listedMatches.length / MATCHES_PER_PAGE))
+  // Filters can shrink the list under the current page; clamp rather than reset
+  // so that widening them again lands back where the user was.
+  const activePage = Math.min(page, pageCount)
+  const pagedMatches = useMemo(
+    () => listedMatches.slice((activePage - 1) * MATCHES_PER_PAGE, activePage * MATCHES_PER_PAGE),
+    [listedMatches, activePage]
+  )
 
   if (laneMatches.length === 0) {
     return null
@@ -176,34 +215,77 @@ export default function FixtureView({
       onEdit={onEditMatch}
     />
   )
+  // Only worth rendering once there is somewhere to go. `siblingCount={0}`
+  // keeps it to first/current/last on narrow screens instead of overflowing.
+  const paginator = pageCount > 1 && (
+    <Pagination
+      className="paginator"
+      count={pageCount}
+      page={activePage}
+      onChange={(_, value) => setPage(value)}
+      color="primary"
+      siblingCount={0}
+    />
+  )
 
   // No round selector and no "En juego" chip: with nothing in play there is
   // nothing to navigate between, so the whole schedule is one list and any card
   // can take its result. That list can get long (a 10-competitor league is 45
-  // matches), hence the search box.
+  // matches), hence the search box, the status filter and the paginator.
   if (unordered) {
     return (
       <div className="fixture-view">
-        <TextField
-          size="small"
-          placeholder="Buscar por competidor"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="match-search"
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }
-          }}
-        />
-        {searchedMatches.length === 0 ? (
-          <MessagePanel>No hay partidos de un competidor con ese nombre.</MessagePanel>
+        <div className="match-filters">
+          <TextField
+            size="small"
+            placeholder="Buscar por competidor"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPage(1)
+            }}
+            className="match-search"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                )
+              }
+            }}
+          />
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            color="primary"
+            value={statusFilter}
+            onChange={(_, value: StatusFilter | null) => {
+              // Null means the active button was clicked again: keep the
+              // current filter rather than leaving the group unselected.
+              if (value != null) {
+                setStatusFilter(value)
+                setPage(1)
+              }
+            }}
+            className="status-filter"
+          >
+            <ToggleButton value="all">Todos</ToggleButton>
+            <ToggleButton value="pending">Pendiente</ToggleButton>
+            <ToggleButton value="finished">Finalizado</ToggleButton>
+          </ToggleButtonGroup>
+        </div>
+        {listedMatches.length === 0 ? (
+          <MessagePanel>
+            {searchedMatches.length === 0
+              ? 'No hay partidos de un competidor con ese nombre.'
+              : 'No hay partidos en ese estado.'}
+          </MessagePanel>
         ) : (
-          <div className="matches">{searchedMatches.map(renderMatch)}</div>
+          <>
+            <div className="matches">{pagedMatches.map(renderMatch)}</div>
+            {paginator}
+          </>
         )}
       </div>
     )
@@ -222,7 +304,10 @@ export default function FixtureView({
           <IconButton
             size="small"
             disabled={activeRoundIndex === 0}
-            onClick={() => setSelectedRoundNumber(rounds[activeRoundIndex - 1]!.number)}
+            onClick={() => {
+              setSelectedRoundNumber(rounds[activeRoundIndex - 1]!.number)
+              setPage(1)
+            }}
           >
             <ChevronLeftIcon />
           </IconButton>
@@ -231,7 +316,10 @@ export default function FixtureView({
           <IconButton
             size="small"
             disabled={activeRoundIndex === rounds.length - 1}
-            onClick={() => setSelectedRoundNumber(rounds[activeRoundIndex + 1]!.number)}
+            onClick={() => {
+              setSelectedRoundNumber(rounds[activeRoundIndex + 1]!.number)
+              setPage(1)
+            }}
           >
             <ChevronRightIcon />
           </IconButton>
@@ -239,7 +327,8 @@ export default function FixtureView({
         {activeRound.open && <Chip size="small" color="success" variant="outlined" label="En juego" />}
       </div>
       <section className="round">
-        <div className="matches">{activeRound.matches.map(renderMatch)}</div>
+        <div className="matches">{pagedMatches.map(renderMatch)}</div>
+        {paginator}
       </section>
     </div>
   )
