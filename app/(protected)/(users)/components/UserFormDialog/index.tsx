@@ -59,7 +59,7 @@ export default function UserFormDialog({ open, user, onClose, onSaved }: UserFor
 
     try {
       if (user) {
-        await updateUser(user.id, { firstName, lastName, phoneNumber, siteId, roleId, active })
+        await updateUser(user.id, { email, firstName, lastName, phoneNumber, siteId, roleId, active })
         showSuccessMessage('Usuario actualizado')
       } else {
         await createUser({ email, firstName, lastName, phoneNumber, siteId, roleId })
@@ -88,10 +88,7 @@ export default function UserFormDialog({ open, user, onClose, onSaved }: UserFor
             onChange={(event) => setEmail(event.target.value)}
             required
             fullWidth
-            disabled={isEdit}
-            helperText={
-              isEdit ? 'El email no se puede modificar' : 'Le enviaremos un email para que defina su contraseña'
-            }
+            helperText={isEdit ? undefined : 'Le enviaremos un email para que defina su contraseña'}
           />
           <TextField
             label="Nombre"

@@ -53,6 +53,35 @@ async function findManageableUser(organizationId: number, userId: number): Promi
   return user
 }
 
+/**
+ * Validates and normalizes an email address, and ensures it is not already in
+ * use by another user of the organization. `excludeUserId` lets an update keep
+ * the user's own current email without tripping over itself.
+ */
+async function normalizeEmail(organizationId: number, rawEmail: unknown, excludeUserId?: number): Promise<string> {
+  const email = String(rawEmail ?? '')
+    .trim()
+    .toLowerCase()
+
+  if (!EMAIL_PATTERN.test(email)) {
+    throw new ApiException('El email no es válido')
+  }
+
+  const existingQuery = User.withoutGlobalScopes().where('organizationId', organizationId).where('email', email)
+
+  if (excludeUserId) {
+    existingQuery.where('id', '!=', excludeUserId)
+  }
+
+  const existing = await existingQuery.first()
+
+  if (existing) {
+    throw new ApiException('Ya existe un usuario con ese email')
+  }
+
+  return email
+}
+
 /** Validates and normalizes the personal fields shared by creation and update. */
 function normalizeProfile(input: Partial<CreateUserInput & UpdateUserInput>) {
   const firstName = (input.firstName ?? '').trim()
@@ -150,20 +179,7 @@ export async function getUsers(
  */
 export async function createUser(organizationId: number, input: CreateUserInput, host: string): Promise<User> {
   const profile = normalizeProfile(input)
-  const email = (input.email ?? '').trim().toLowerCase()
-
-  if (!EMAIL_PATTERN.test(email)) {
-    throw new ApiException('El email no es válido')
-  }
-
-  const existing = await User.withoutGlobalScopes()
-    .where('organizationId', organizationId)
-    .where('email', email)
-    .first()
-
-  if (existing) {
-    throw new ApiException('Ya existe un usuario con ese email')
-  }
+  const email = await normalizeEmail(organizationId, input.email)
 
   const user = new User()
 
@@ -184,11 +200,16 @@ export async function createUser(organizationId: number, input: CreateUserInput,
   return user
 }
 
-/** Updates the profile, role and active flag of a user of the organization. */
+/**
+ * Updates the email, profile, role and active flag of a user of the
+ * organization. The email may change as long as it stays unique within the
+ * organization.
+ */
 export async function updateUser(organizationId: number, userId: number, input: UpdateUserInput): Promise<User> {
   const user = await findManageableUser(organizationId, userId)
   const profile = normalizeProfile(input)
 
+  user.email = await normalizeEmail(organizationId, input.email, user.id)
   user.firstName = profile.firstName
   user.lastName = profile.lastName
   user.phoneNumber = profile.phoneNumber

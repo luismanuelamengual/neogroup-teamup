@@ -11,11 +11,11 @@ export interface CreateUserInput {
 }
 
 /**
- * Payload used by the administrator to edit an existing user. The email is not
- * editable: it identifies the account (and its Gravatar) and is the target of
- * every notification already sent.
+ * Payload used by the administrator to edit an existing user. The email can be
+ * changed, as long as it stays unique within the organization.
  */
 export interface UpdateUserInput {
+  email: string
   firstName: string
   lastName: string
   phoneNumber?: string | null

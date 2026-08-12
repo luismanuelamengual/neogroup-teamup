@@ -62,6 +62,24 @@ export function useTournaments() {
     },
     [executeRequest, showSuccessMessage]
   )
+  // Ends one category's group phase ahead of time and starts its knockout (see
+  // /api/closeGroupPhase). The toast names how many fixtures were called off, so
+  // the organizer sees the cost of the action right after confirming it.
+  const closeGroupPhase = useCallback(
+    async (tournamentId: number, tournamentCategoryId: number): Promise<void> => {
+      const { voided } = await executeRequest<{ voided: number }>('/closeGroupPhase', {
+        tournamentId,
+        tournamentCategoryId
+      })
+
+      showSuccessMessage(
+        voided > 0
+          ? `Fase de grupos finalizada. Se anularon ${voided} partido${voided === 1 ? '' : 's'} sin jugar`
+          : 'Fase de grupos finalizada'
+      )
+    },
+    [executeRequest, showSuccessMessage]
+  )
   const saveMatchResult = useCallback(
     async (matchId: number, score: MatchScore): Promise<void> => {
       try {
@@ -134,6 +152,7 @@ export function useTournaments() {
     deleteTournament,
     startTournament,
     finishTournament,
+    closeGroupPhase,
     joinTournament,
     leaveTournament,
     updateTeamRoster,

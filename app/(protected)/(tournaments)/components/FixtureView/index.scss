@@ -40,8 +40,23 @@
     }
   }
 
+  .match-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
   .match-search {
+    flex: 1 1 240px;
     max-width: 340px;
+  }
+
+  // Pushed to the far edge so the search box stays anchored left and the two
+  // controls read as separate things rather than one crowded toolbar.
+  .status-filter {
+    background-color: white;
+    margin-left: auto;
   }
 
   .matches {
@@ -50,16 +65,55 @@
     gap: 12px;
     align-items: center;
   }
-}
 
-@media (max-width: 600px) {
-  .fixture-view .match-search {
-    max-width: none;
+  .paginator {
+    display: flex;
+    justify-content: center;
+    margin-top: 4px;
   }
 }
 
 @media (max-width: 600px) {
-  .fixture-view .matches {
-    grid-template-columns: 1fr;
+  .fixture-view {
+    .match-filters {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .match-search {
+      flex: none;
+      max-width: none;
+    }
+
+    // Three equal buttons across the screen instead of a row that can push past
+    // the viewport once the labels are laid out.
+    .status-filter {
+      width: 100%;
+      margin-left: 0;
+
+      .MuiToggleButton-root {
+        flex: 1;
+        padding-left: 4px;
+        padding-right: 4px;
+        font-size: 12px;
+      }
+    }
+
+    .matches {
+      grid-template-columns: 1fr;
+    }
+
+    // The default paginator overflows on narrow screens once the page count
+    // grows, so shrink the items and let them wrap.
+    .paginator .MuiPagination-ul {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .paginator .MuiPaginationItem-root {
+      margin: 0 1px;
+      min-width: 30px;
+      height: 30px;
+    }
   }
 }

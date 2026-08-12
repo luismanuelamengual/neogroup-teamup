@@ -1,6 +1,8 @@
 'use client'
 
 import './index.scss'
+import SkipNextIcon from '@mui/icons-material/SkipNext'
+import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
 import { useMemo } from 'react'
@@ -9,9 +11,12 @@ import FixtureView from '@/app/(protected)/(tournaments)/components/FixtureView'
 import GroupsView from '@/app/(protected)/(tournaments)/components/GroupsView'
 import StandingsTable from '@/app/(protected)/(tournaments)/components/StandingsTable'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
+import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
+import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
 import { hasConsolationBracket } from '@/app/(protected)/(tournaments)/utils/settings'
 import MessagePanel from '@/app/components/MessagePanel'
 
@@ -20,6 +25,11 @@ interface TournamentRoundsViewProps {
   category?: number
   organizerMode?: boolean
   onEditMatch?: (match: MatchDto) => void
+  /**
+   * Organizer ending this category's group phase ahead of time (groups+playoff
+   * only). Omitted where the action does not apply, which also hides the button.
+   */
+  onCloseGroupPhase?: () => void
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -34,17 +44,35 @@ export default function TournamentRoundsView({
   tournament,
   category,
   organizerMode = false,
-  onEditMatch
+  onEditMatch,
+  onCloseGroupPhase
 }: TournamentRoundsViewProps) {
-  const { hasConsolation, hasKnockout, hasZones } = useMemo(() => {
+  const { hasConsolation, hasKnockout, hasZones, pendingGroupMatches, resolvedGroupMatches } = useMemo(() => {
     const matches = (tournament.matches ?? []).filter((m) => category == null || m.tournamentCategoryId === category)
+    const groupMatches = matches.filter((m) => m.type === MatchType.LEAGUE && m.groupNumber != null)
 
     return {
       hasConsolation: matches.some((m) => m.type === MatchType.CONSOLATION_BRACKET),
       hasKnockout: matches.some((m) => m.type === MatchType.BRACKET),
-      hasZones: matches.some((m) => m.type === MatchType.LEAGUE && m.groupNumber != null)
+      hasZones: groupMatches.length > 0,
+      pendingGroupMatches: groupMatches.filter((m) => m.status === MatchStatus.PENDING).length,
+      resolvedGroupMatches: groupMatches.filter((m) => countsForStandings(m)).length
     }
   }, [tournament.matches, category])
+  // Closing the group phase by hand only makes sense while there IS one to
+  // close: a running groups+playoff category whose bracket has not been seeded.
+  // It also needs something to seed that bracket from, which is the same rule
+  // the server enforces (see `closeCategoryGroupPhase`), so the button is only
+  // offered once at least one group result is in.
+  const canCloseGroupPhase =
+    organizerMode &&
+    onCloseGroupPhase != null &&
+    tournament.type === TournamentType.GROUPS_PLAYOFF &&
+    tournament.status === TournamentStatus.ONGOING &&
+    hasZones &&
+    !hasKnockout &&
+    pendingGroupMatches > 0 &&
+    resolvedGroupMatches > 0
 
   // Interclubes takes one of two shapes depending on how many teams entered:
   // a single home-and-away league (no zones) or zones feeding a knockout. Which
@@ -165,7 +193,14 @@ export default function TournamentRoundsView({
   return (
     <div className="rounds-view">
       <div className="rounds-section">
-        <SectionTitle>Fase de grupos</SectionTitle>
+        <div className="section-header">
+          <SectionTitle>Fase de grupos</SectionTitle>
+          {canCloseGroupPhase && (
+            <Button size="small" variant="outlined" startIcon={<SkipNextIcon />} onClick={onCloseGroupPhase}>
+              Finalizar fase de grupos
+            </Button>
+          )}
+        </div>
         <GroupsView
           tournament={tournament}
           category={category}
