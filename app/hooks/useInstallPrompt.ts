@@ -9,8 +9,8 @@ interface BeforeInstallPromptEvent extends Event {
 
 /**
  * Captures the browser's `beforeinstallprompt` event so the app can trigger
- * the native "Install app" flow from its own UI (e.g. a menu item) instead of
- * relying on the browser's own install icon/menu entry.
+ * the native "Install app" flow from its own UI (e.g. the home banner) instead
+ * of relying on the browser's own install icon/menu entry.
  *
  * The event is only fired by Chromium-based browsers (Chrome, Edge) when the
  * PWA installability criteria (manifest + active service worker) are met, and

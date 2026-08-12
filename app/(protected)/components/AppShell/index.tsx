@@ -3,7 +3,6 @@
 import './index.scss'
 import CategoryIcon from '@mui/icons-material/Category'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
-import GetAppIcon from '@mui/icons-material/GetApp'
 import GroupIcon from '@mui/icons-material/Group'
 import HomeIcon from '@mui/icons-material/Home'
 import LeaderboardIcon from '@mui/icons-material/Leaderboard'
@@ -27,7 +26,6 @@ import { getSession, signOut } from 'next-auth/react'
 import { MouseEvent, ReactNode, useEffect, useState } from 'react'
 import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import Avatar from '@/app/components/Avatar'
-import { useInstallPrompt } from '@/app/hooks/useInstallPrompt'
 import { Role, RoleNames } from '@/app/models/Role'
 import { useUserStore } from '@/app/stores/users'
 
@@ -67,7 +65,6 @@ export default function AppShell({
   const storeUser = useUserStore((state) => state.user)
   const user = storeUser ?? initialUser
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
-  const { canInstall, promptInstall } = useInstallPrompt()
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
@@ -108,11 +105,6 @@ export default function AppShell({
   const handleLogout = () => {
     closeMenu()
     signOut({ redirectTo: '/login' })
-  }
-
-  const handleInstall = () => {
-    closeMenu()
-    promptInstall()
   }
 
   return (
@@ -165,17 +157,6 @@ export default function AppShell({
                 </ListItemIcon>
                 Pagos
               </MenuItem>
-            )}
-            {canInstall && (
-              <>
-                <Divider />
-                <MenuItem onClick={handleInstall}>
-                  <ListItemIcon>
-                    <GetAppIcon fontSize="small" />
-                  </ListItemIcon>
-                  Instalar aplicación
-                </MenuItem>
-              </>
             )}
             <Divider />
             <MenuItem onClick={handleLogout}>
