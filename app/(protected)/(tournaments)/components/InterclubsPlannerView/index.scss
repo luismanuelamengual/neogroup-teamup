@@ -1,0 +1,69 @@
+// Only the differences with the regular planner, whose stylesheet this view
+// imports first: columns that are slots rather than named courts, and the
+// "no venue" state of a team without a club.
+.tournament-planner.interclubs-planner {
+  .planner-main {
+    .planner-section {
+      &.config-section {
+        .config-fields {
+          // Five fields (venue / slots / from / to / duration), laid out as wide
+          // as the screen allows rather than in the regular planner's fixed two
+          // columns.
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+      }
+
+      &.grid-section {
+        .planner-days {
+          .planner-day {
+            .planner-grid {
+              // A slot is a place in the hour, not a court someone can rename,
+              // so the header is a plain label instead of the regular planner's
+              // editable input.
+              .court-header.slot-header {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 37px;
+                padding: 8px 6px;
+              }
+
+              // Slots are narrower than a court column when a day runs several
+              // at once, so the cards give their content a little more room.
+              .court-column .planner-match.grid {
+                padding: 8px;
+
+                .planner-match-body {
+                  padding: 4px 0 0 0;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // A series whose home team has no club cannot be placed anywhere: it stays in
+  // the pool, greyed out and flagged, instead of being silently undraggable.
+  .planner-match.orphan {
+    cursor: not-allowed;
+    opacity: 0.7;
+    border-left: 3px solid var(--color-secondary, #f59e0b);
+
+    .planner-match-metadata {
+      .orphan-badge {
+        flex-shrink: 0;
+        font-size: 7px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #fff;
+        background-color: var(--color-secondary, #f59e0b);
+        border-radius: var(--radius-sm, 6px);
+        padding: 2px 6px;
+        white-space: nowrap;
+      }
+    }
+  }
+}
