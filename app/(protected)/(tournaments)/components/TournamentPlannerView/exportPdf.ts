@@ -38,9 +38,10 @@ const MIN_ROW_HEIGHT = 56
 const FOOTER_HEIGHT = 16
 const CELL_PAD = 5
 /**
- * Qualifier drawn above every start time except a day's first one. A planner
- * cannot promise a start time for a court that is still being used, so those
- * rows announce the earliest a match can begin rather than a fixed hour.
+ * Qualifier drawn above a slot's start time when some match that day is
+ * scheduled to end exactly as it begins — a planner can't promise a start
+ * time for a court that may still be in use, so that row announces the
+ * earliest a match can begin rather than a fixed hour. See `drawTimeCell`.
  */
 const TIME_APPROX_LABEL = 'No antes de'
 const TIME_APPROX_SIZE = 7
@@ -202,6 +203,22 @@ function measureStripHeight(days: PlannerPdfDay[], innerWidth: number): number {
   return Math.max(MIN_STRIP_HEIGHT, STRIP_PAD_TOP + content + STRIP_PAD_BOTTOM)
 }
 
+/** Parses a slot's 'HH:mm' label into minutes from midnight. */
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number)
+
+  return hours * 60 + minutes
+}
+
+/**
+ * Every start time (in minutes) that has at least one match that day. Used to
+ * check whether some match — on any court, not necessarily the row right
+ * above — is scheduled to end exactly when a given slot begins.
+ */
+function slotStartMinutes(day: PlannerPdfDay): Set<number> {
+  return new Set(day.slots.map((slot) => timeToMinutes(slot.time)))
+}
+
 /* --------------------------------------------------------------------------
  * Document assembly
  * ------------------------------------------------------------------------ */
@@ -216,6 +233,8 @@ interface BuildContext {
   courtColWidth: number
   /** Uniform header-strip height for every match cell (see measureStripHeight). */
   stripHeight: number
+  /** Minutes every match occupies its court for — every match on the sheet shares one duration. */
+  matchDurationMinutes: number
 }
 
 class PlannerDocument {
@@ -348,11 +367,12 @@ class PlannerDocument {
   }
 
   /**
-   * Paints the time column. Only the day's first slot states a real start time:
-   * everything after it depends on how long the previous matches actually took,
-   * so it is announced as a "no earlier than" — which is what an order of play
-   * can honestly promise, and what avoids players showing up to a court that is
-   * still busy.
+   * Paints the time column. A slot states a real start time unless some match
+   * that day is scheduled to end exactly when it begins (start + duration ==
+   * this slot's start) — only then can a court still be occupied, so only then
+   * is the time announced as a "no earlier than" instead of a fixed hour. A
+   * gap left on purpose (courts free well before this slot) is a real,
+   * promised time and is shown as-is.
    */
   private drawTimeCell(time: string, top: number, rowHeight: number, approximate: boolean): void {
     const p = this.painter
@@ -383,11 +403,17 @@ class PlannerDocument {
     })
   }
 
-  private drawRow(slot: PlannerPdfSlot, rowIndex: number, rowHeight: number, innerWidth: number): void {
+  private drawRow(
+    slot: PlannerPdfSlot,
+    rowIndex: number,
+    rowHeight: number,
+    innerWidth: number,
+    approximate: boolean
+  ): void {
     const p = this.painter
     const top = this.cursorTop
 
-    this.drawTimeCell(slot.time, top, rowHeight, rowIndex > 0)
+    this.drawTimeCell(slot.time, top, rowHeight, approximate)
 
     slot.cells.forEach((matches, index) => {
       const x = MARGIN + TIME_COL_WIDTH + index * this.ctx.courtColWidth
@@ -499,6 +525,12 @@ class PlannerDocument {
       return
     }
 
+    // "No antes de" only makes sense when some match that day is scheduled to
+    // end exactly as a slot begins — i.e. that slot's start minus the match
+    // duration is itself a start time in use. A slot reached after a genuine
+    // gap (every court free well before it) states a real, fixed time.
+    const startMinutes = slotStartMinutes(day)
+
     day.slots.forEach((slot, index) => {
       const rowHeight = this.rowHeightFor(slot, innerWidth)
 
@@ -508,7 +540,9 @@ class PlannerDocument {
         this.drawColumnHeader()
       }
 
-      this.drawRow(slot, index, rowHeight, innerWidth)
+      const approximate = index > 0 && startMinutes.has(timeToMinutes(slot.time) - this.ctx.matchDurationMinutes)
+
+      this.drawRow(slot, index, rowHeight, innerWidth, approximate)
     })
 
     this.cursorTop += 16
@@ -533,13 +567,22 @@ class PlannerDocument {
   }
 }
 
+/**
+ * Default assumed for callers that don't say how long a match runs. Kept in
+ * sync with the planner's own default (`DEFAULT_DURATION` in utils/planner.ts)
+ * only by convention — the two aren't imported from each other to keep this
+ * module's only dependency the generic PDF machinery.
+ */
+const DEFAULT_MATCH_DURATION_MINUTES = 90
+
 /** Pure builder: produces the PDF bytes. Exported so it can be exercised in tests. */
 export function buildPlannerPdf(
   tournamentName: string,
   venue: string | null,
   courtLabels: string[],
   days: PlannerPdfDay[],
-  logo: PdfLogo | null = null
+  logo: PdfLogo | null = null,
+  matchDurationMinutes: number = DEFAULT_MATCH_DURATION_MINUTES
 ): Uint8Array {
   const columnCount = Math.max(1, courtLabels.length)
   const courtColWidth = (CONTENT_WIDTH - TIME_COL_WIDTH) / columnCount
@@ -556,7 +599,8 @@ export function buildPlannerPdf(
     courtColWidth,
     // Measured once over every match so the header bands are uniform across the
     // whole document, not just within a row.
-    stripHeight: measureStripHeight(days, courtColWidth - CELL_PAD * 2)
+    stripHeight: measureStripHeight(days, courtColWidth - CELL_PAD * 2),
+    matchDurationMinutes
   }
   const doc = new PlannerDocument(ctx)
 
@@ -572,18 +616,22 @@ export function buildPlannerPdf(
 /**
  * Builds the planner PDF (loading the org-resolved brand logo) and triggers a
  * browser download. `logoSrc` should come from `resolveOrganizationImage`.
+ * `matchDurationMinutes` should be the same duration the grid scheduled every
+ * match with, so "No antes de" reflects which slots actually chain courts
+ * back-to-back.
  */
 export async function downloadPlannerPdf(
   tournamentName: string,
   venue: string | null,
   courtLabels: string[],
   days: PlannerPdfDay[],
-  logoSrc?: string
+  logoSrc?: string,
+  matchDurationMinutes: number = DEFAULT_MATCH_DURATION_MINUTES
 ): Promise<void> {
   const logo = logoSrc ? await loadBrowserLogo(logoSrc, BRAND_HEADER_HEX) : null
 
   downloadPdfBytes(
-    buildPlannerPdf(tournamentName, venue, courtLabels, days, logo),
+    buildPlannerPdf(tournamentName, venue, courtLabels, days, logo, matchDurationMinutes),
     `planificacion-${slugify(tournamentName, 'torneo')}.pdf`
   )
 }

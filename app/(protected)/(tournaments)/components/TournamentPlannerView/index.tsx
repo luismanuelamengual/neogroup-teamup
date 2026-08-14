@@ -766,7 +766,8 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       siteId != null ? (siteNames[siteId] ?? null) : null,
       courtLabels,
       plannerDays,
-      logoSrc
+      logoSrc,
+      duration
     )
   }
 
