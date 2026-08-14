@@ -1,6 +1,7 @@
 'use client'
 
 import 'dayjs/locale/es'
+import '../TournamentPlannerView/index.scss'
 import './index.scss'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CloseIcon from '@mui/icons-material/Close'
@@ -29,7 +30,6 @@ import { TournamentDto } from '@/app/(protected)/(tournaments)/models/Tournament
 import {
   buildPlannerEntries,
   DAY_START_MIN,
-  DEFAULT_DURATION,
   DURATION_OPTIONS,
   labelToMin,
   MAX_PLANNING_DAYS,
@@ -42,177 +42,154 @@ import {
 } from '@/app/(protected)/(tournaments)/utils/planner'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { searchTerms } from '@/app/utils/text'
-import { downloadPlannerPdf, PlannerPdfDay, PlannerPdfSlot } from './exportPdf'
+import { downloadInterclubsPdf, InterclubsPdfDay } from './exportPdf'
 
-const DEFAULT_COURTS = 2
-const MAX_COURTS = 12
 /**
- * Match duration, in minutes. Unlike the courts configuration this is a habit of
- * the organizer rather than a property of a venue, so it is stored once and
- * reused across every site.
+ * Interclubes planner.
+ *
+ * It is the regular planner with the courts replaced by slots. A series is
+ * played at the club of its home team — the fixture already decided that, see
+ * the localía rotation in utils/interclubs — so there is no court to pick and
+ * nothing to name: what the grid lays side by side is simply how many series
+ * the organizer wants running at the same hour. Four series at 10:00 are an
+ * ordinary Sunday here (they are at four different clubs), so the day is given
+ * as many slots as it needs and each column holds one of them.
+ *
+ * The exception is a day gathered at one club, typically the finals. Picking a
+ * venue at the top sends every series dropped from then on to that club,
+ * whoever the home team is, and the exported programme names it under the date.
+ * Left empty — the ordinary case — nothing is printed about the venue, because
+ * "cada uno en su sede" is what everybody already assumes.
+ *
+ * Everything else — the pool of pending series, the drag & drop, the day range,
+ * the branded PDF — works exactly like the regular planner.
  */
-const DURATION_STORAGE_KEY = 'tournamentPlanner:duration'
-/**
- * Courts configuration, stored per site: how many courts it has and how they are
- * named. "Cancha 3" of one club has nothing to do with "Cancha 3" of another, so
- * switching sites in the selector loads that site's own setup.
- */
-const courtsStorageKey = (siteId: number) => `tournamentPlanner:courts:${siteId}`
-/**
- * Keys written by the previous, browser-only planner: match placements and
- * free-text custom matches. Both concepts are gone — placements now live on the
- * matches themselves and custom matches were removed — so any leftovers are
- * cleared once, when the planner mounts, instead of lingering forever.
- */
-const LEGACY_STORAGE_PREFIXES = [
-  'tournamentPlanner:placements:',
-  'tournamentPlanner:customMatches:',
-  'tournamentPlanner:config'
-]
 
-function pruneLegacyPlannerStorage(): void {
+/**
+ * Series duration, in minutes. An interclubes encounter is three matches, so it
+ * runs longer than the hour and a half a single match does. Stored as a habit
+ * of the organizer, like in the regular planner.
+ */
+const DURATION_STORAGE_KEY = 'interclubsPlanner:duration'
+const DEFAULT_SERIES_DURATION = 120
+/**
+ * The venue chosen for this tournament, if any. It is not a property of the
+ * tournament (each series stores its own), but re-picking "the finals are at
+ * the Andino" on every visit would be busywork, so the choice is remembered per
+ * tournament in the organizer's own browser.
+ */
+const siteStorageKey = (tournamentId: number) => `interclubsPlanner:site:${tournamentId}`
+/**
+ * Slots are the columns of the grid: not courts (each series is at a club of
+ * its own, which fields as many courts as it needs) but places in the hour, so
+ * the organizer can see at a glance that four series start at 10:00. The slot
+ * a series is dropped in is what gets stored as its court number.
+ */
+const DEFAULT_SLOTS = 3
+const MAX_SLOTS = 12
+/** How many slots this tournament is planned with, remembered per tournament. */
+const slotsStorageKey = (tournamentId: number) => `interclubsPlanner:slots:${tournamentId}`
+
+/** Reads the persisted slot count, falling back to the default. */
+function loadSlots(tournamentId: number): number {
   if (typeof window === 'undefined') {
-    return
+    return DEFAULT_SLOTS
   }
 
   try {
-    const keys: string[] = []
+    const slots = Number(window.localStorage.getItem(slotsStorageKey(tournamentId)))
 
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i)
-
-      if (key && LEGACY_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
-        keys.push(key)
-      }
-    }
-
-    for (const key of keys) {
-      window.localStorage.removeItem(key)
-    }
+    return Number.isFinite(slots) && slots >= 1 ? Math.min(MAX_SLOTS, Math.floor(slots)) : DEFAULT_SLOTS
   } catch {
-    // Ignore read/write errors (e.g. storage disabled).
+    return DEFAULT_SLOTS
   }
 }
 
-/** Courts setup of a single site. */
-interface CourtsConfig {
-  courts: number
-  /** Custom court names, keyed by 1-based court number. Missing entries fall back to "Cancha N". */
-  courtNames: Record<number, string>
-}
-
-const DEFAULT_COURTS_CONFIG: CourtsConfig = { courts: DEFAULT_COURTS, courtNames: {} }
-
-/** Reads a site's persisted courts setup, falling back to defaults if absent or invalid. */
-function loadCourtsConfig(siteId: number | null): CourtsConfig {
-  if (typeof window === 'undefined' || siteId == null) {
-    return DEFAULT_COURTS_CONFIG
-  }
-
-  try {
-    const raw = window.localStorage.getItem(courtsStorageKey(siteId))
-
-    if (!raw) {
-      return DEFAULT_COURTS_CONFIG
-    }
-
-    const parsed = JSON.parse(raw)
-    const courts = Number(parsed?.courts)
-    const courtNames: Record<number, string> = {}
-
-    if (parsed?.courtNames && typeof parsed.courtNames === 'object') {
-      for (const [key, value] of Object.entries(parsed.courtNames)) {
-        const court = Number(key)
-
-        if (Number.isFinite(court) && typeof value === 'string' && value.trim() !== '') {
-          courtNames[court] = value
-        }
-      }
-    }
-
-    return {
-      courts: Number.isFinite(courts) ? Math.max(1, Math.min(MAX_COURTS, courts)) : DEFAULT_COURTS,
-      courtNames
-    }
-  } catch {
-    return DEFAULT_COURTS_CONFIG
-  }
-}
-
-/** Reads the persisted match duration, falling back to the default. */
+/** Reads the persisted series duration, falling back to the default. */
 function loadDuration(): number {
   if (typeof window === 'undefined') {
-    return DEFAULT_DURATION
+    return DEFAULT_SERIES_DURATION
   }
 
   try {
     const duration = Number(window.localStorage.getItem(DURATION_STORAGE_KEY))
 
-    return DURATION_OPTIONS.includes(duration) ? duration : DEFAULT_DURATION
+    return DURATION_OPTIONS.includes(duration) ? duration : DEFAULT_SERIES_DURATION
   } catch {
-    return DEFAULT_DURATION
+    return DEFAULT_SERIES_DURATION
   }
 }
 
 /** Identifies what is currently being dragged. */
 interface DragInfo {
   matchId: number
-  /** Vertical offset (px) between the grab point and the top of the match card. */
+  /** Vertical offset (px) between the grab point and the top of the series card. */
   grabOffsetY: number
 }
 
-interface TournamentPlannerViewProps {
+/** Where the drop preview is being shown: a day, a slot and a start time. */
+interface DragTarget {
+  dateIso: string
+  /** 1-based slot, i.e. which column of the day. */
+  slot: number
+  startMin: number
+}
+
+interface InterclubsPlannerViewProps {
   tournamentId: number
   /** Organization-resolved logo URL for the exported PDF header (see resolveOrganizationImage). */
   logoSrc?: string
 }
 
-export default function TournamentPlannerView({ tournamentId, logoSrc }: TournamentPlannerViewProps) {
+export default function InterclubsPlannerView({ tournamentId, logoSrc }: InterclubsPlannerViewProps) {
   const { getTournament, saveMatchSchedule, clearMatchSchedule } = useTournaments()
   const { getAllSites } = useSites()
   const { showWarningMessage } = useNotifications()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
-  // Venue catalogue, kept only to name the selected site on the exported PDF.
-  // The selector loads its own copy; both hit the same cached endpoint.
+  // Venue catalogue, kept to name the chosen venue on the exported programme.
   const [siteNames, setSiteNames] = useState<Record<number, string>>({})
-  // --- Configuration state ------------------------------------------------
-  // The venue being planned. Every match dropped on the grid is scheduled here,
-  // and the grid only shows the matches of this site — otherwise "Cancha 1" of
-  // two different clubs would collide in the same column.
+  /**
+   * Venue every series is sent to, overriding the home team's own club. Null —
+   * the ordinary case — leaves each series at its home club.
+   */
   const [siteId, setSiteId] = useState<number | null>(null)
-  const [courts, setCourts] = useState(DEFAULT_COURTS)
-  const [courtNames, setCourtNames] = useState<Record<number, string>>({})
-  const [duration, setDuration] = useState(DEFAULT_DURATION)
+  const [slots, setSlots] = useState(DEFAULT_SLOTS)
+  const [duration, setDuration] = useState(DEFAULT_SERIES_DURATION)
   const [startDate, setStartDate] = useState<Dayjs>(() => dayjs().startOf('day'))
   const [endDate, setEndDate] = useState<Dayjs>(() => dayjs().startOf('day').add(2, 'day'))
   /**
    * Optimistic overlay on top of what the server says. A drag applies here
    * immediately (so the card moves without waiting for the round-trip) and the
    * entry is dropped again once the tournament is refetched — or rolled back if
-   * the request fails. `null` marks a match being unscheduled.
+   * the request fails. `null` marks a series being unscheduled.
    */
   const [pendingPlacements, setPendingPlacements] = useState<Record<number, Placement | null>>({})
-  // Cell currently hovered while dragging — drives the drop-preview shadow.
-  const [dragTarget, setDragTarget] = useState<Placement | null>(null)
-  // Match currently being dragged — hidden from its original spot while moving.
+  // Column + slot currently previewed while dragging.
+  const [dragTarget, setDragTarget] = useState<DragTarget | null>(null)
+  // Series currently being dragged — hidden from its original spot while moving.
   const [draggingId, setDraggingId] = useState<number | null>(null)
   const dragRef = useRef<DragInfo | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   // Persistent (already-painted) element reused as the drag image for pool drags.
   const ghostRef = useRef<HTMLDivElement>(null)
-  // True until the initial tournament load has seeded the site and day range, so
-  // those defaults are only ever applied once.
+  // True until the initial load has seeded the day range, so it is only ever
+  // applied once.
   const initializedRef = useRef(false)
 
-  // Clear the leftovers of the previous localStorage-based planner, once.
   useEffect(() => {
-    pruneLegacyPlannerStorage()
     setDuration(loadDuration())
-  }, [])
+    setSlots(loadSlots(tournamentId))
 
-  // The venue name is only needed for the PDF header; a failure here must not
-  // block the planner, so it silently falls back to no venue line.
+    try {
+      const stored = Number(window.localStorage.getItem(siteStorageKey(tournamentId)))
+
+      setSiteId(Number.isInteger(stored) && stored > 0 ? stored : null)
+    } catch {
+      // Ignore read errors (e.g. storage disabled).
+    }
+  }, [tournamentId])
+
   useEffect(() => {
     let cancelled = false
 
@@ -247,23 +224,15 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
         }
 
         initializedRef.current = true
-        // Open on the venue that already holds this tournament's planning (or the
-        // tournament's own site when nothing is scheduled yet).
-        const scheduled = (data.matches ?? []).filter((match) => match.date != null)
-        const firstScheduled = scheduled.map((match) => match.date!).sort()[0]
-
-        setSiteId(scheduled[0]?.siteId ?? data.siteId ?? null)
 
         // Show the days that are already planned rather than always starting at
         // "today", which would hide an existing planning behind a date change.
+        const scheduled = (data.matches ?? []).filter((match) => match.date != null).map((match) => match.date!)
+        const firstScheduled = [...scheduled].sort()[0]
+
         if (firstScheduled) {
           const first = dayjs(firstScheduled).startOf('day')
-          const last = dayjs(
-            scheduled
-              .map((match) => match.date!)
-              .sort()
-              .at(-1)!
-          ).startOf('day')
+          const last = dayjs([...scheduled].sort().at(-1)!).startOf('day')
           const maxEnd = first.add(MAX_PLANNING_DAYS - 1, 'day')
 
           setStartDate(first)
@@ -273,28 +242,6 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       .finally(() => setLoading(false))
   }, [refreshTournament])
 
-  // Load the selected site's own courts setup whenever the venue changes.
-  useEffect(() => {
-    const config = loadCourtsConfig(siteId)
-
-    setCourts(config.courts)
-    setCourtNames(config.courtNames)
-  }, [siteId])
-
-  // Persist the courts setup against the site it belongs to.
-  useEffect(() => {
-    if (siteId == null || typeof window === 'undefined') {
-      return
-    }
-
-    try {
-      window.localStorage.setItem(courtsStorageKey(siteId), JSON.stringify({ courts, courtNames }))
-    } catch {
-      // Ignore write errors (e.g. storage disabled/full).
-    }
-  }, [siteId, courts, courtNames])
-
-  // Duration is a habit of the organizer, not of a venue: stored once.
   useEffect(() => {
     try {
       window.localStorage.setItem(DURATION_STORAGE_KEY, String(duration))
@@ -303,26 +250,41 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     }
   }, [duration])
 
-  // Resolves the display name for a court, falling back to "Cancha N" if not renamed.
-  const courtLabel = useCallback((court: number) => courtNames[court]?.trim() || `Cancha ${court}`, [courtNames])
-  const renameCourt = useCallback((court: number, name: string) => {
-    setCourtNames((prev) => {
-      const trimmed = name.trim()
-      const next = { ...prev }
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(slotsStorageKey(tournamentId), String(slots))
+    } catch {
+      // Ignore write errors (e.g. storage disabled/full).
+    }
+  }, [slots, tournamentId])
 
-      if (trimmed === '' || trimmed === `Cancha ${court}`) {
-        delete next[court]
+  useEffect(() => {
+    try {
+      if (siteId == null) {
+        window.localStorage.removeItem(siteStorageKey(tournamentId))
       } else {
-        next[court] = trimmed
+        window.localStorage.setItem(siteStorageKey(tournamentId), String(siteId))
       }
+    } catch {
+      // Ignore write errors (e.g. storage disabled/full).
+    }
+  }, [siteId, tournamentId])
 
-      return next
-    })
-  }, [])
-  const allEntries = useMemo<PlannerEntry[]>(() => buildPlannerEntries(tournament), [tournament])
+  // Zone and fixture labels are asked for: an interclubes programme names the
+  // stage of every series ("Zona 2 · Fecha 3", "Final"), not just the knockout ones.
+  const allEntries = useMemo<PlannerEntry[]>(() => buildPlannerEntries(tournament, { zoneLabels: true }), [tournament])
+  const entriesById = useMemo(() => new Map(allEntries.map((entry) => [entry.id, entry])), [allEntries])
   /**
-   * Where each match sits right now: what the server stored for the selected
-   * venue, with any in-flight drag applied on top.
+   * Where a series is played: the venue chosen for the whole planning, or —
+   * with none chosen — the club of its home team, which is what an interclubes
+   * fixture means without having to say it.
+   */
+  const seriesSiteIdOf = useCallback((entry: PlannerEntry): number | null => siteId ?? entry.homeSiteId, [siteId])
+  const siteLabel = useCallback((id: number) => siteNames[id] ?? `Sede #${id}`, [siteNames])
+  /**
+   * Where each series sits right now: what the server stored, with any in-flight
+   * drag applied on top. The stored venue is ignored — it is derived, not
+   * chosen — but the court is the slot the series was dropped in.
    */
   const placements = useMemo<Record<number, Placement>>(() => {
     const result: Record<number, Placement> = {}
@@ -330,11 +292,11 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     for (const match of tournament?.matches ?? []) {
       const startMin = match.hour != null ? labelToMin(match.hour) : null
 
-      if (match.siteId !== siteId || match.date == null || match.courtNumber == null || startMin == null) {
+      if (match.date == null || startMin == null) {
         continue
       }
 
-      result[match.id] = { dateIso: match.date, court: match.courtNumber, startMin }
+      result[match.id] = { dateIso: match.date, court: match.courtNumber ?? 1, startMin }
     }
 
     for (const [key, placement] of Object.entries(pendingPlacements)) {
@@ -346,15 +308,15 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     }
 
     return result
-  }, [tournament, siteId, pendingPlacements])
+  }, [tournament, pendingPlacements])
   const unplannedEntries = useMemo(
     () => allEntries.filter((entry) => !entry.locked && placements[entry.id] == null),
     [allEntries, placements]
   )
   /**
-   * Pool filters. They narrow the list of matches waiting to be placed and
+   * Pool filters. They narrow the list of series waiting to be placed and
    * nothing else: the grid always shows the full planning, otherwise filtering
-   * would look like matches had been unscheduled.
+   * would look like series had been unscheduled.
    */
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all')
   const [search, setSearch] = useState('')
@@ -365,9 +327,9 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     return categories.length > 1 ? categories : []
   }, [tournament])
   const filteredEntries = useMemo(() => {
-    // Every whitespace-separated word must appear somewhere in the match, but
-    // not necessarily in the same competitor: "agui contre" is how you look for
-    // Aguilar vs Contreras, and a single "agui" still finds every Aguilar match.
+    // Every whitespace-separated word must appear somewhere in the series, but
+    // not necessarily in the same team: "andi rega" is how you look for
+    // Andino vs Regatas.
     const terms = searchTerms(search)
 
     return unplannedEntries.filter(
@@ -409,7 +371,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
    * so the card never flickers back to its old slot in between.
    */
   const persistPlacement = useCallback(
-    async (matchId: number, placement: Placement | null) => {
+    async (matchId: number, placement: Placement | null, siteId: number | null) => {
       setPendingPlacements((prev) => ({ ...prev, [matchId]: placement }))
 
       try {
@@ -438,14 +400,14 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
         })
       }
     },
-    [clearMatchSchedule, saveMatchSchedule, refreshTournament, siteId]
+    [clearMatchSchedule, saveMatchSchedule, refreshTournament]
   )
 
   // --- Drag & drop --------------------------------------------------------
   // Populate the persistent, already-painted ghost element so it mimics a placed
-  // (grid) match card — sized to a real court column width and the configured
-  // duration — and return it for use as the drag image. Reusing a node that was
-  // already rendered avoids the first-frame flash of the browser's default image.
+  // (grid) series card and return it for use as the drag image. Reusing a node
+  // that was already rendered avoids the first-frame flash of the browser's
+  // default image.
   const prepareGridGhost = (entry: PlannerEntry): { element: HTMLElement; width: number; height: number } | null => {
     const ghost = ghostRef.current
 
@@ -540,14 +502,11 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
 
     // Pool cards have a different shape than grid cards; use the persistent,
     // already-painted grid-shaped ghost as the drag image so the preview looks
-    // identical in both cases (a freshly-created element wouldn't be painted yet
-    // and the browser would flash its default image for the first frame).
+    // identical in both cases.
     if (variant === 'pool') {
       const ghost = prepareGridGhost(entry)
 
       if (ghost) {
-        // Grab the ghost from its center, so wherever the pool card is grabbed
-        // from, the dragged card is centered on the pointer.
         const centerX = ghost.width / 2
         const centerY = ghost.height / 2
 
@@ -560,9 +519,9 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', String(entry.id))
 
-    // Hide the match from its origin while it's being moved, without unmounting it
-    // so the browser still fires `dragend` for cleanup. Hiding must wait a tick:
-    // doing it synchronously cancels the in-progress browser drag.
+    // Hide the series from its origin while it's being moved, without unmounting
+    // it so the browser still fires `dragend` for cleanup. Hiding must wait a
+    // tick: doing it synchronously cancels the in-progress browser drag.
     setTimeout(() => setDraggingId(entry.id), 0)
   }
 
@@ -573,11 +532,9 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
   }
 
   // Resolve which 30-min slot the drag ghost's top falls closest to, relative to
-  // the top of a court column. Using the ghost top — rather than the mouse
-  // pointer — means grabbing a match from anywhere on its card and dropping
-  // without moving keeps it in the very same slot. Rounding to the nearest slot
-  // (instead of always flooring) keeps the preview aligned with the ghost's
-  // actual position rather than consistently biased toward an earlier slot.
+  // the top of a column. Using the ghost top — rather than the mouse pointer —
+  // means grabbing a series from anywhere on its card and dropping without
+  // moving keeps it in the very same slot.
   const slotFromEvent = (event: DragEvent): number => {
     const columnTop = event.currentTarget.getBoundingClientRect().top
     const grabOffsetY = dragRef.current?.grabOffsetY ?? 0
@@ -588,22 +545,29 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     return DAY_START_MIN + clamped * SLOT_MIN
   }
 
-  // Track the hovered column + slot so we can preview where the match lands.
-  const handleColumnDragOver = (dateIso: string, court: number) => (event: DragEvent) => {
+  /** The club the series being dragged is played at, if it has one. */
+  const dragSiteId = (): number | null => {
+    const entry = dragRef.current ? entriesById.get(dragRef.current.matchId) : undefined
+
+    return entry ? seriesSiteIdOf(entry) : null
+  }
+
+  // Track the hovered slot + time so we can preview where the series lands.
+  const handleColumnDragOver = (dateIso: string, slot: number) => (event: DragEvent) => {
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
 
     const startMin = slotFromEvent(event)
 
     setDragTarget((prev) =>
-      prev && prev.dateIso === dateIso && prev.court === court && prev.startMin === startMin
+      prev && prev.dateIso === dateIso && prev.slot === slot && prev.startMin === startMin
         ? prev
-        : { dateIso, court, startMin }
+        : { dateIso, slot, startMin }
     )
   }
 
-  /** Does [start, start+duration) collide with another match on the same court/day? */
-  const hasCollision = (matchId: number, dateIso: string, court: number, startMin: number): boolean => {
+  /** Does [start, start+duration) collide with another series in the same slot that day? */
+  const hasCollision = (matchId: number, dateIso: string, slot: number, startMin: number): boolean => {
     const endMin = startMin + duration
 
     return Object.entries(placements).some(([otherId, placement]) => {
@@ -611,7 +575,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
         return false
       }
 
-      if (placement.dateIso !== dateIso || placement.court !== court) {
+      if (placement.dateIso !== dateIso || placement.court !== slot) {
         return false
       }
 
@@ -621,7 +585,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     })
   }
 
-  const handleColumnDrop = (dateIso: string, court: number) => (event: DragEvent) => {
+  const handleColumnDrop = (dateIso: string, slot: number) => (event: DragEvent) => {
     event.preventDefault()
 
     const drag = dragRef.current
@@ -634,27 +598,30 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       return
     }
 
-    if (siteId == null) {
-      showWarningMessage('Elegí una sede antes de planificar')
+    const siteId = dragSiteId()
 
-      return
-    }
-
-    if (hasCollision(drag.matchId, dateIso, court, startMin)) {
-      showWarningMessage('Ya hay un partido en ese horario y cancha')
-
-      return
-    }
-
-    void persistPlacement(drag.matchId, { dateIso, court, startMin })
     dragRef.current = null
+
+    if (siteId == null) {
+      showWarningMessage('El equipo local de esta serie no tiene sede asignada')
+
+      return
+    }
+
+    if (hasCollision(drag.matchId, dateIso, slot, startMin)) {
+      showWarningMessage('Ya hay una serie en ese horario y slot')
+
+      return
+    }
+
+    void persistPlacement(drag.matchId, { dateIso, court: slot, startMin }, siteId)
   }
 
   const removePlacement = (matchId: number) => {
-    void persistPlacement(matchId, null)
+    void persistPlacement(matchId, null, null)
   }
 
-  // Placements grouped by day + court for quick lookup when rendering.
+  // Placements grouped by day + slot for quick lookup when rendering.
   const placedByCell = useMemo(() => {
     const map = new Map<string, { entry: PlannerEntry; startMin: number }[]>()
 
@@ -677,7 +644,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
 
   if (loading) {
     return (
-      <div className="tournament-planner">
+      <div className="tournament-planner interclubs-planner">
         <div className="planner-topbar">
           <Skeleton variant="circular" width={34} height={34} />
           <Skeleton variant="text" height={40} className="planner-title" />
@@ -719,71 +686,65 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     return <Alert severity="error">Torneo no encontrado</Alert>
   }
 
-  const courtColumns = Array.from({ length: courts }, (_, index) => index + 1)
+  const slotColumns = Array.from({ length: slots }, (_, index) => index + 1)
+  const slotLabel = (slot: number) => `Slot ${slot}`
 
-  // Exports the current planning grid (only placed matches) to a downloadable PDF.
+  // Exports the current planning (only placed series) to a downloadable PDF: a
+  // section per day, listed as a timetable.
   const handleExportPdf = () => {
     if (Object.keys(placements).length === 0) {
-      showWarningMessage('No hay partidos planificados para exportar')
+      showWarningMessage('No hay series planificadas para exportar')
 
       return
     }
 
-    const courtLabels = courtColumns.map((court) => courtLabel(court))
-    // Build a court×time grid per day: rows are the distinct start times used that
-    // day, columns are the courts, and each cell holds the match placed there.
-    const plannerDays: PlannerPdfDay[] = days
+    const plannerDays: InterclubsPdfDay[] = days
       .map((day) => {
         const dateIso = day.format('YYYY-MM-DD')
-        const startMins = Array.from(
-          new Set(
-            courtColumns.flatMap((court) =>
-              (placedByCell.get(`${dateIso}#${court}`) ?? []).map((item) => item.startMin)
-            )
-          )
-        ).sort((a, b) => a - b)
-        const slots: PlannerPdfSlot[] = startMins.map((startMin) => ({
-          time: minToLabel(startMin),
-          cells: courtColumns.map((court) =>
-            (placedByCell.get(`${dateIso}#${court}`) ?? [])
-              .filter((item) => item.startMin === startMin)
-              .map(({ entry }) => ({
-                category: entry.category,
-                round: entry.round ?? '—',
-                home: entry.home,
-                away: entry.away,
-                consolation: entry.consolation
-              }))
-          )
-        }))
 
-        return { heading: day.locale('es').format('dddd D [de] MMMM'), slots }
+        return {
+          heading: day.locale('es').format('dddd D [de] MMMM'),
+          // Only a day gathered at one club names it. Otherwise the programme
+          // says nothing: every series is at its home team's club, which is what
+          // an interclubes fixture means without having to write it down.
+          venue: siteId != null ? siteLabel(siteId) : null,
+          series: slotColumns
+            .flatMap((slot) => (placedByCell.get(`${dateIso}#${slot}`) ?? []).map((placed) => ({ ...placed, slot })))
+            // The programme reads as a timetable: by hour, and inside an hour in
+            // the same order the slots are shown on screen.
+            .sort((a, b) => a.startMin - b.startMin || a.slot - b.slot)
+            .map(({ entry, startMin }) => ({
+              time: minToLabel(startMin),
+              category: entry.category,
+              round: entry.round ?? '',
+              home: entry.home,
+              away: entry.away,
+              consolation: entry.consolation
+            }))
+        }
       })
-      .filter((day) => day.slots.length > 0)
+      .filter((day) => day.series.length > 0)
 
-    void downloadPlannerPdf(
-      tournament.name,
-      siteId != null ? (siteNames[siteId] ?? null) : null,
-      courtLabels,
-      plannerDays,
-      logoSrc,
-      duration
-    )
+    void downloadInterclubsPdf(tournament.name, plannerDays, logoSrc)
   }
 
-  const renderMatchChip = (entry: PlannerEntry, variant: 'pool' | 'grid') => {
-    // A played match keeps its slot in the grid as a record of what happened, but
-    // it is no longer part of the planning: it cannot be moved or removed.
-    const draggable = !entry.locked
+  const renderSeriesChip = (entry: PlannerEntry, variant: 'pool' | 'grid') => {
+    // A played series keeps its slot in the grid as a record of what happened,
+    // but it is no longer part of the planning: it cannot be moved or removed.
+    // Neither can one with nowhere to go — no venue chosen for the planning and
+    // no club on record for its home team. Choosing a venue above unblocks it.
+    const orphan = seriesSiteIdOf(entry) == null
+    const draggable = !entry.locked && !orphan
 
     return (
       <div
         key={entry.id}
-        className={`planner-match ${variant} ${entry.locked ? 'locked' : ''} ${entry.id === draggingId ? 'dragging' : ''}`}
+        className={`planner-match ${variant} ${entry.locked ? 'locked' : ''} ${orphan ? 'orphan' : ''} ${entry.id === draggingId ? 'dragging' : ''}`}
         draggable={draggable}
         onDragStart={draggable ? handleDragStart(entry, variant) : undefined}
         onDragEnd={draggable ? handleDragEnd : undefined}
         style={variant === 'grid' ? { height: (duration / SLOT_MIN) * ROW_HEIGHT - 4 } : undefined}
+        title={orphan ? 'El equipo local no tiene sede asignada' : undefined}
       >
         <div className="planner-match-header">
           <div className="planner-match-title">
@@ -800,16 +761,16 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
             </IconButton>
           )}
         </div>
-        {(entry.round || entry.consolation) && (
+        {(entry.round || entry.consolation || orphan) && (
           <div className="planner-match-metadata">
             {entry.round && <span className="round-badge">{entry.round}</span>}
             {entry.consolation && <span className="consolation-badge">C</span>}
+            {orphan && <span className="orphan-badge">Sin sede</span>}
           </div>
         )}
         <div className="planner-match-body">
-          {/* The names are ellipsised in a narrow column, and a derived slot
-              description is long by nature, so the full text stays reachable
-              on hover. */}
+          {/* The home side is the one hosting: its club is the column the series
+              lives in, which is why it is always drawn first. */}
           <div className="side">
             <span className={`side-dot ${MatchSideNames[MatchSide.HOME]}`} />
             <span className={`side-name ${entry.homePlaceholder ? 'placeholder' : ''}`} title={entry.home}>
@@ -829,7 +790,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
-      <div className="tournament-planner" ref={rootRef}>
+      <div className="tournament-planner interclubs-planner" ref={rootRef}>
         {/* Always-mounted drag image reused for pool drags (kept painted, hidden). */}
         <div ref={ghostRef} className="planner-match grid drag-ghost" aria-hidden="true" />
         <div className="planner-topbar">
@@ -839,7 +800,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
             </IconButton>
           </Link>
           <Typography variant="h5" component="h1" className="planner-title">
-            Planificador — {tournament.name}
+            Planificador de interclubes — {tournament.name}
           </Typography>
           <Button
             variant="outlined"
@@ -859,17 +820,26 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               Configuración
             </Typography>
             <div className="config-fields">
-              <SiteSelector className="field" size="small" label="Sede" value={siteId} onChange={setSiteId} required />
+              <SiteSelector
+                className="field"
+                size="small"
+                label="Sede"
+                emptyLabel="Sede del club local"
+                helperText="Elegí una sede sólo si todas las series se juegan en el mismo club (por ejemplo, las finales)"
+                value={siteId}
+                onChange={setSiteId}
+              />
               <TextField
                 className="field"
                 size="small"
-                label="Canchas disponibles"
+                label="Slots por horario"
                 type="number"
-                value={courts}
+                helperText="Cuántas series pueden empezar a la misma hora"
+                value={slots}
                 onChange={(event) => {
                   const value = Number(event.target.value)
 
-                  setCourts(Math.max(1, Math.min(MAX_COURTS, Number.isNaN(value) ? 1 : value)))
+                  setSlots(Math.max(1, Math.min(MAX_SLOTS, Number.isNaN(value) ? 1 : value)))
                 }}
               />
               <DatePicker
@@ -905,7 +875,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               <TextField
                 className="field"
                 size="small"
-                label="Duración por partido"
+                label="Duración por serie"
                 select
                 value={duration}
                 onChange={(event) => setDuration(Number(event.target.value))}
@@ -921,11 +891,11 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
             </div>
           </Paper>
 
-          {/* --- Pending matches section ----------------------------------- */}
+          {/* --- Pending series section ------------------------------------ */}
           <Paper className="planner-section pool-section">
             <div className="pool-header">
               <Typography variant="subtitle1" className="section-title">
-                Partidos pendientes{' '}
+                Series pendientes{' '}
                 {filtersActive
                   ? `(${filteredEntries.length} de ${unplannedEntries.length})`
                   : `(${unplannedEntries.length})`}
@@ -952,7 +922,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
                   )}
                   <TextField
                     size="small"
-                    placeholder="Buscar por competidor"
+                    placeholder="Buscar por equipo"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     slotProps={{
@@ -969,22 +939,22 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               )}
             </div>
             {allEntries.length === 0 ? (
-              <Alert severity="info">No hay partidos para planificar. Activá rondas del torneo.</Alert>
+              <Alert severity="info">No hay series para planificar. Activá rondas del torneo.</Alert>
             ) : unplannedEntries.length === 0 ? (
               <Typography variant="body2" color="text.secondary" className="pool-empty">
-                Todos los partidos están planificados. Arrastrá un partido acá para quitarlo de la planificación.
+                Todas las series están planificadas. Arrastrá una serie acá para quitarla de la planificación.
               </Typography>
             ) : filteredEntries.length === 0 ? (
               <div className="pool-empty-filtered">
                 <Typography variant="body2" color="text.secondary" className="pool-empty">
-                  Ningún partido pendiente coincide con el filtro.
+                  Ninguna serie pendiente coincide con el filtro.
                 </Typography>
                 <Button size="small" onClick={clearFilters}>
                   Limpiar filtros
                 </Button>
               </div>
             ) : (
-              <div className="pool-list">{filteredEntries.map((entry) => renderMatchChip(entry, 'pool'))}</div>
+              <div className="pool-list">{filteredEntries.map((entry) => renderSeriesChip(entry, 'pool'))}</div>
             )}
           </Paper>
 
@@ -994,14 +964,10 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               Planificación
             </Typography>
             <Typography variant="body2" color="text.secondary" className="grid-hint">
-              Arrastrá los partidos a un día, cancha y horario. Podés moverlos entre celdas o devolverlos a la lista de
-              pendientes.
+              {siteId != null
+                ? `Todas las series se juegan en ${siteLabel(siteId)}: arrastrálas al día y horario que quieras.`
+                : 'Cada serie se juega en la sede de su equipo local, así que sólo elegís el día, el horario y el slot. Varias series pueden compartir horario: una por slot.'}
             </Typography>
-            {siteId == null && (
-              <Alert severity="warning" className="grid-no-site">
-                Elegí una sede para empezar a planificar.
-              </Alert>
-            )}
             <div className="planner-days">
               {days.map((day) => {
                 const dateIso = day.format('YYYY-MM-DD')
@@ -1011,22 +977,16 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
                     <Typography variant="subtitle2" className="day-title">
                       {day.locale('es').format('dddd D [de] MMMM')}
                     </Typography>
-                    <div className="planner-grid" style={{ gridTemplateColumns: `64px repeat(${courts}, 1fr)` }}>
+                    <div className="planner-grid" style={{ gridTemplateColumns: `64px repeat(${slots}, 1fr)` }}>
                       {/* Header row */}
                       <div className="grid-corner" />
-                      {courtColumns.map((court) => (
-                        <div key={court} className="court-header">
-                          <input
-                            className="court-header-input"
-                            value={courtNames[court] ?? courtLabel(court)}
-                            onChange={(event) => setCourtNames((prev) => ({ ...prev, [court]: event.target.value }))}
-                            onBlur={(event) => renameCourt(court, event.target.value)}
-                            aria-label={`Nombre de la cancha ${court}`}
-                          />
+                      {slotColumns.map((slot) => (
+                        <div key={slot} className="court-header slot-header">
+                          {slotLabel(slot)}
                         </div>
                       ))}
 
-                      {/* Time gutter + court columns */}
+                      {/* Time gutter + slot columns */}
                       <div className="time-gutter" style={{ height: SLOTS.length * ROW_HEIGHT }}>
                         {SLOTS.map((min) => (
                           <div key={min} className="time-label" style={{ height: ROW_HEIGHT }}>
@@ -1035,23 +995,23 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
                         ))}
                       </div>
 
-                      {courtColumns.map((court) => {
-                        const placed = placedByCell.get(`${dateIso}#${court}`) ?? []
+                      {slotColumns.map((slot) => {
+                        const placed = placedByCell.get(`${dateIso}#${slot}`) ?? []
 
                         return (
                           <div
-                            key={court}
+                            key={slot}
                             className="court-column"
                             style={{ height: SLOTS.length * ROW_HEIGHT }}
-                            onDragOver={handleColumnDragOver(dateIso, court)}
-                            onDrop={handleColumnDrop(dateIso, court)}
+                            onDragOver={handleColumnDragOver(dateIso, slot)}
+                            onDrop={handleColumnDrop(dateIso, slot)}
                           >
                             {SLOTS.map((min) => (
                               <div key={min} className="grid-cell" style={{ height: ROW_HEIGHT }} />
                             ))}
-                            {dragTarget && dragTarget.dateIso === dateIso && dragTarget.court === court && (
+                            {dragTarget && dragTarget.dateIso === dateIso && dragTarget.slot === slot && (
                               <div
-                                className={`placed-shadow ${hasCollision(dragRef.current?.matchId ?? -1, dateIso, court, dragTarget.startMin) ? 'invalid' : ''}`}
+                                className={`placed-shadow ${hasCollision(dragRef.current?.matchId ?? -1, dateIso, slot, dragTarget.startMin) ? 'invalid' : ''}`}
                                 style={{
                                   top: ((dragTarget.startMin - DAY_START_MIN) / SLOT_MIN) * ROW_HEIGHT,
                                   height: (duration / SLOT_MIN) * ROW_HEIGHT - 4
@@ -1064,7 +1024,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
                                 className={`placed-slot ${entry.id === draggingId ? 'dragging' : ''}`}
                                 style={{ top: ((startMin - DAY_START_MIN) / SLOT_MIN) * ROW_HEIGHT }}
                               >
-                                {renderMatchChip(entry, 'grid')}
+                                {renderSeriesChip(entry, 'grid')}
                               </div>
                             ))}
                           </div>

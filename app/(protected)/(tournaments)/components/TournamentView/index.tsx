@@ -84,6 +84,7 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
   const [confirmStartOpen, setConfirmStartOpen] = useState(false)
   const [confirmFinishOpen, setConfirmFinishOpen] = useState(false)
   const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false)
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false)
   // Category whose group phase the organizer asked to close early, while the
   // confirmation is up (null when the dialog is closed).
   const [closingGroupsCategory, setClosingGroupsCategory] = useState<number | null>(null)
@@ -363,7 +364,12 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
         <div className="header-body">
           {tournament.image && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={tournament.image.image} alt={tournament.name} className="poster" />
+            <img
+              src={tournament.image.image}
+              alt={tournament.name}
+              className="poster"
+              onClick={() => setImagePreviewOpen(true)}
+            />
           )}
           <div className="header-content">
             <div className="title-row">
@@ -512,6 +518,23 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
           </div>
         </div>
       </Paper>
+
+      {tournament.image && (
+        <Dialog
+          open={imagePreviewOpen}
+          onClose={() => setImagePreviewOpen(false)}
+          maxWidth="lg"
+          className="image-preview-dialog"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={tournament.image.image}
+            alt={tournament.name}
+            className="image-preview"
+            onClick={() => setImagePreviewOpen(false)}
+          />
+        </Dialog>
+      )}
 
       {tournament.type === TournamentType.INTERCLUBS && (
         <Alert severity="info" className="interclubs-notice">

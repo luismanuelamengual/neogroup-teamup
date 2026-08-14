@@ -352,7 +352,7 @@ export function normalizeScore(score: MatchScore): MatchScore {
 export function getScoreColumns(
   score: MatchScore | null,
   format: ScoreFormat
-): { home: number; away: number }[] | null {
+): { home: number; away: number; superTiebreak?: boolean }[] | null {
   if (!score || score.walkover) {
     return null
   }
@@ -369,7 +369,17 @@ export function getScoreColumns(
 
   const sets = (score.sets ?? []).filter((set) => set.home !== 0 || set.away !== 0)
 
-  return sets.length > 0 ? sets.map((set) => ({ home: set.home, away: set.away })) : null
+  // The 3rd set of a TWO_SETS_SUPER_TIEBREAK score isn't a regular set — it's
+  // played to 10 (or beyond) instead of games, so callers render it as a 0-0
+  // "set" with the real super tiebreak score shown as a superscript above
+  // each 0, instead of as the raw points count.
+  return sets.length > 0
+    ? sets.map((set, index) => ({
+        home: set.home,
+        away: set.away,
+        superTiebreak: format === ScoreFormat.TWO_SETS_SUPER_TIEBREAK && index === 2
+      }))
+    : null
 }
 
 /** Formats a score for display (e.g. "6-3 4-6 10-7", "6-19", "2-1" or "W.O."). */

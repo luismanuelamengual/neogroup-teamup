@@ -192,4 +192,51 @@ describe('planner PDF — time column', () => {
 
     expect(drawnText(pdf).filter((text) => text === 'No antes de').length).toBe(2)
   })
+
+  it('does not qualify a slot reached after a gap longer than the match duration', () => {
+    // 90-minute matches at 10:00, 11:30 and 13:00 chain back-to-back (each
+    // ends exactly when the next starts), so 11:30 and 13:00 are qualified.
+    // 16:30 follows a real gap — the 13:00 match ends at 14:30, two hours
+    // before 16:30 — so it states a fixed time. 18:00 chains onto 16:30 again
+    // (16:30 + 90 = 18:00), so it's qualified once more.
+    const pdf = buildPlannerPdf(
+      'Torneo Apertura',
+      null,
+      ['Cancha 1'],
+      [
+        day(
+          ['10:00', '11:30', '13:00', '16:30', '18:00'],
+          [[match()], [match()], [match()], [match()], [match()]]
+        )
+      ],
+      null,
+      90
+    )
+    const texts = drawnText(pdf)
+
+    expect(texts.filter((text) => text === 'No antes de').length).toBe(3)
+    // 16:30 is not immediately preceded by the qualifier, unlike 11:30, 13:00 and 18:00.
+    expect(texts[texts.indexOf('16:30') - 1]).not.toBe('No antes de')
+    expect(texts[texts.indexOf('11:30') - 1]).toBe('No antes de')
+    expect(texts[texts.indexOf('13:00') - 1]).toBe('No antes de')
+    expect(texts[texts.indexOf('18:00') - 1]).toBe('No antes de')
+  })
+
+  it('qualifies based on the duration passed in, not a fixed assumption', () => {
+    // With 60-minute matches, 10:00 -> 11:00 chains (qualified) but
+    // 11:00 -> 12:30 leaves a 30-minute gap (not qualified).
+    const pdf = buildPlannerPdf(
+      'Torneo Apertura',
+      null,
+      ['Cancha 1'],
+      [day(['10:00', '11:00', '12:30'], [[match()], [match()], [match()]])],
+      null,
+      60
+    )
+    const texts = drawnText(pdf)
+
+    expect(texts.filter((text) => text === 'No antes de').length).toBe(1)
+    expect(texts[texts.indexOf('11:00') - 1]).toBe('No antes de')
+    expect(texts[texts.indexOf('12:30') - 1]).not.toBe('No antes de')
+  })
 })

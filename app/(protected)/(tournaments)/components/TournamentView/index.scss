@@ -20,6 +20,7 @@
     height: auto;
     display: block;
     border-radius: var(--radius-md, 8px);
+    cursor: pointer;
   }
 
   .header-content {
@@ -214,5 +215,25 @@
       flex-direction: column;
       align-items: stretch;
     }
+  }
+}
+
+// Renders in a portal outside .tournament-view, so it's styled at the top level.
+.image-preview-dialog {
+  .MuiDialog-paper {
+    background: transparent;
+    box-shadow: none;
+    margin: 16px;
+    max-height: calc(100% - 32px);
+  }
+
+  .image-preview {
+    display: block;
+    max-width: 100%;
+    max-height: 90vh;
+    width: auto;
+    height: auto;
+    border-radius: var(--radius-md, 8px);
+    cursor: zoom-out;
   }
 }

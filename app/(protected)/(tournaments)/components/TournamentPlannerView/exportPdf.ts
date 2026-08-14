@@ -1,19 +1,33 @@
-// Dependency-free PDF generator for the tournament planner export.
+// PDF export of the tournament planner.
 //
-// The project intentionally ships no PDF library, so this builds a valid
-// PDF 1.4 file by hand. Unlike the previous monospaced-text version, this one
-// draws a branded, colour-coded grid (courts as columns, time slots as rows)
-// that mirrors the "orden de juego" sheets clubs are used to. It supports
-// filled/rounded rectangles, proportional Helvetica text (with real width
-// metrics for centring and wrapping) and an embedded raster logo (resolved per
-// organization by the caller).
+// It draws a branded, colour-coded grid (courts as columns, time slots as rows)
+// that mirrors the "orden de juego" sheets clubs are used to. The PDF machinery
+// itself — painting, text metrics, encoding, file assembly — lives in
+// app/utils/pdf.ts; this module only describes the layout.
+
+import {
+  A4_LANDSCAPE,
+  assemblePdf,
+  BRAND_HEADER_HEX,
+  capBottom,
+  capTop,
+  centerTextIn,
+  DOC_COLORS as COLORS,
+  downloadPdfBytes,
+  loadBrowserLogo,
+  measureText,
+  Painter,
+  PdfLogo,
+  slugify,
+  wrapText
+} from '@/app/utils/pdf'
 
 /* --------------------------------------------------------------------------
  * Page geometry & brand palette
  * ------------------------------------------------------------------------ */
 
-const PAGE_WIDTH = 841.89 // A4 landscape, in points
-const PAGE_HEIGHT = 595.28
+const PAGE_WIDTH = A4_LANDSCAPE.width
+const PAGE_HEIGHT = A4_LANDSCAPE.height
 const MARGIN = 26
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2
 const BRAND_HEADER_HEIGHT = 60
@@ -24,443 +38,14 @@ const MIN_ROW_HEIGHT = 56
 const FOOTER_HEIGHT = 16
 const CELL_PAD = 5
 /**
- * Qualifier drawn above every start time except a day's first one. A planner
- * cannot promise a start time for a court that is still being used, so those
- * rows announce the earliest a match can begin rather than a fixed hour.
+ * Qualifier drawn above a slot's start time when some match that day is
+ * scheduled to end exactly as it begins — a planner can't promise a start
+ * time for a court that may still be in use, so that row announces the
+ * earliest a match can begin rather than a fixed hour. See `drawTimeCell`.
  */
 const TIME_APPROX_LABEL = 'No antes de'
 const TIME_APPROX_SIZE = 7
 const TIME_APPROX_LINE = 9
-
-type Rgb = [number, number, number]
-
-const hex = (value: string): Rgb => {
-  const n = parseInt(value.replace('#', ''), 16)
-
-  return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255]
-}
-
-/** Header band colour — logos are composited over this so white "bar" logos blend in. */
-const BRAND_HEADER_HEX = '#0f766e'
-const COLORS = {
-  teal: hex(BRAND_HEADER_HEX),
-  tealDark: hex('#115e59'),
-  tealDeep: hex('#0b4f4a'),
-  amber: hex('#f59e0b'),
-  amberSoft: hex('#fde68a'),
-  ink: hex('#1f2937'),
-  muted: hex('#6b7280'),
-  white: [1, 1, 1] as Rgb,
-  rowAlt: hex('#f0faf8'),
-  cellBg: hex('#ffffff'),
-  emptyBg: hex('#f8fafc'),
-  border: hex('#cbd5e1')
-}
-/* --------------------------------------------------------------------------
- * Helvetica width metrics (units per 1000em) — enough for centring & wrapping
- * ------------------------------------------------------------------------ */
-// prettier-ignore
-const HELVETICA: Record<string, number> = {
-  ' ': 278, '!': 278, '"': 355, '#': 556, $: 556, '%': 889, '&': 667, "'": 191, '(': 333, ')': 333,
-  '*': 389, '+': 584, ',': 278, '-': 333, '.': 278, '/': 278, '0': 556, '1': 556, '2': 556, '3': 556,
-  '4': 556, '5': 556, '6': 556, '7': 556, '8': 556, '9': 556, ':': 278, ';': 278, '<': 584, '=': 584,
-  '>': 584, '?': 556, '@': 1015, A: 667, B: 667, C: 722, D: 722, E: 667, F: 611, G: 778, H: 722,
-  I: 278, J: 500, K: 667, L: 556, M: 833, N: 722, O: 778, P: 667, Q: 778, R: 722, S: 667, T: 611,
-  U: 722, V: 667, W: 944, X: 667, Y: 667, Z: 611, '[': 278, '\\': 278, ']': 278, '^': 469, _: 556,
-  '`': 333, a: 556, b: 556, c: 500, d: 556, e: 556, f: 278, g: 556, h: 556, i: 222, j: 222, k: 500,
-  l: 222, m: 833, n: 556, o: 556, p: 556, q: 556, r: 333, s: 500, t: 278, u: 556, v: 500, w: 722,
-  x: 500, y: 500, z: 500, '{': 334, '|': 260, '}': 334, '~': 584, '·': 278, '—': 1000, '–': 556, '…': 1000
-}
-// prettier-ignore
-const HELVETICA_BOLD: Record<string, number> = {
-  ' ': 278, '!': 333, '"': 474, '#': 556, $: 556, '%': 889, '&': 722, "'": 238, '(': 333, ')': 333,
-  '*': 389, '+': 584, ',': 278, '-': 333, '.': 278, '/': 278, '0': 556, '1': 556, '2': 556, '3': 556,
-  '4': 556, '5': 556, '6': 556, '7': 556, '8': 556, '9': 556, ':': 333, ';': 333, '<': 584, '=': 584,
-  '>': 584, '?': 611, '@': 975, A: 722, B: 722, C: 722, D: 722, E: 667, F: 611, G: 778, H: 722,
-  I: 278, J: 556, K: 722, L: 611, M: 833, N: 722, O: 778, P: 667, Q: 778, R: 722, S: 667, T: 611,
-  U: 722, V: 667, W: 944, X: 667, Y: 667, Z: 611, '[': 333, '\\': 278, ']': 333, '^': 584, _: 556,
-  '`': 333, a: 556, b: 611, c: 556, d: 611, e: 556, f: 333, g: 611, h: 611, i: 278, j: 278, k: 556,
-  l: 278, m: 889, n: 611, o: 611, p: 611, q: 611, r: 389, s: 556, t: 333, u: 611, v: 556, w: 778,
-  x: 556, y: 556, z: 500, '{': 389, '|': 280, '}': 389, '~': 584, '·': 278, '—': 1000, '–': 556, '…': 1000
-}
-const COMBINING_DIACRITICS_REGEX = new RegExp('[\\u0300-\\u036f]', 'g')
-
-function charWidth(char: string, bold: boolean): number {
-  const table = bold ? HELVETICA_BOLD : HELVETICA
-
-  if (char in table) {
-    return table[char]
-  }
-
-  // Accented Latin letters share the advance width of their base letter in the
-  // standard Helvetica metrics, so fold diacritics before looking up.
-  const base = char.normalize('NFD').replace(COMBINING_DIACRITICS_REGEX, '')
-
-  if (base && base[0] in table) {
-    return table[base[0]]
-  }
-
-  return bold ? 611 : 556
-}
-
-/** Text width in points for a given font size. */
-function measureText(text: string, size: number, bold: boolean): number {
-  let units = 0
-
-  for (const char of text) {
-    units += charWidth(char, bold)
-  }
-
-  return (units * size) / 1000
-}
-
-function truncateToWidth(text: string, size: number, bold: boolean, maxWidth: number): string {
-  if (measureText(text, size, bold) <= maxWidth) {
-    return text
-  }
-
-  let result = ''
-
-  for (const char of text) {
-    if (measureText(`${result}${char}…`, size, bold) > maxWidth) {
-      break
-    }
-
-    result += char
-  }
-
-  return `${result}…`
-}
-
-/** Greedy word-wrap with hard-break for over-long tokens and an ellipsis on overflow. */
-function wrapText(text: string, size: number, bold: boolean, maxWidth: number, maxLines: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean)
-  const lines: string[] = []
-  let current = ''
-
-  const pushWord = (word: string) => {
-    if (current === '') {
-      // A single word wider than the column has to be broken character by character.
-      if (measureText(word, size, bold) > maxWidth) {
-        let piece = ''
-
-        for (const char of word) {
-          if (piece !== '' && measureText(piece + char, size, bold) > maxWidth) {
-            lines.push(piece)
-            piece = char
-          } else {
-            piece += char
-          }
-        }
-
-        current = piece
-
-        return
-      }
-
-      current = word
-
-      return
-    }
-
-    if (measureText(`${current} ${word}`, size, bold) <= maxWidth) {
-      current = `${current} ${word}`
-    } else {
-      lines.push(current)
-      current = ''
-      pushWord(word)
-    }
-  }
-
-  words.forEach(pushWord)
-
-  if (current !== '') {
-    lines.push(current)
-  }
-
-  if (lines.length <= maxLines) {
-    return lines
-  }
-
-  const kept = lines.slice(0, maxLines)
-
-  kept[maxLines - 1] = truncateToWidth(`${lines[maxLines - 1]} …`, size, bold, maxWidth)
-
-  return kept
-}
-
-/* --------------------------------------------------------------------------
- * WinAnsi text encoding (matches the /WinAnsiEncoding declared on the fonts)
- * ------------------------------------------------------------------------ */
-
-const WIN_ANSI_SPECIALS: Record<number, number> = {
-  0x20ac: 0x80,
-  0x201a: 0x82,
-  0x0192: 0x83,
-  0x201e: 0x84,
-  0x2026: 0x85,
-  0x2020: 0x86,
-  0x2021: 0x87,
-  0x02c6: 0x88,
-  0x2030: 0x89,
-  0x0160: 0x8a,
-  0x2039: 0x8b,
-  0x0152: 0x8c,
-  0x017d: 0x8e,
-  0x2018: 0x91,
-  0x2019: 0x92,
-  0x201c: 0x93,
-  0x201d: 0x94,
-  0x2022: 0x95,
-  0x2013: 0x96,
-  0x2014: 0x97,
-  0x02dc: 0x98,
-  0x2122: 0x99,
-  0x0161: 0x9a,
-  0x203a: 0x9b,
-  0x0153: 0x9c,
-  0x017e: 0x9e,
-  0x0178: 0x9f
-}
-
-function toWinAnsiBytes(text: string): number[] {
-  const bytes: number[] = []
-
-  for (const char of text) {
-    const code = char.codePointAt(0) ?? 0x3f
-    const byte = code <= 0xff ? code : WIN_ANSI_SPECIALS[code]
-
-    bytes.push(byte ?? 0x3f)
-  }
-
-  return bytes
-}
-
-function encodePdfString(text: string): number[] {
-  const escaped = text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-
-  return toWinAnsiBytes(escaped)
-}
-
-function asciiBytes(text: string): number[] {
-  const bytes: number[] = []
-
-  for (let i = 0; i < text.length; i++) {
-    bytes.push(text.charCodeAt(i) & 0xff)
-  }
-
-  return bytes
-}
-
-class ByteWriter {
-  private bytes: number[] = []
-
-  get length(): number {
-    return this.bytes.length
-  }
-
-  pushAscii(text: string): void {
-    this.bytes.push(...asciiBytes(text))
-  }
-
-  pushBytes(values: number[]): void {
-    this.bytes.push(...values)
-  }
-
-  toUint8Array(): Uint8Array {
-    return Uint8Array.from(this.bytes)
-  }
-}
-
-/* --------------------------------------------------------------------------
- * Page painter — a thin drawing API over a PDF content stream
- * ------------------------------------------------------------------------ */
-
-const fmt = (value: number): string => {
-  const rounded = Math.round(value * 100) / 100
-
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2)
-}
-
-const rgb = (color: Rgb): string => `${fmt(color[0])} ${fmt(color[1])} ${fmt(color[2])}`
-
-interface TextOptions {
-  size: number
-  bold?: boolean
-  color?: Rgb
-  align?: 'left' | 'center' | 'right'
-  maxWidth?: number
-}
-
-interface RectOptions {
-  fill?: Rgb
-  stroke?: Rgb
-  lineWidth?: number
-  radius?: number
-}
-
-class Painter {
-  readonly writer = new ByteWriter()
-
-  private y(top: number): number {
-    return PAGE_HEIGHT - top
-  }
-
-  /** Draws a rectangle whose top-left corner is (x, top). Supports rounded corners. */
-  rect(x: number, top: number, width: number, height: number, options: RectOptions): void {
-    if (!options.fill && !options.stroke) {
-      return
-    }
-
-    const bottom = this.y(top + height)
-
-    if (options.fill) {
-      this.writer.pushAscii(`${rgb(options.fill)} rg\n`)
-    }
-
-    if (options.stroke) {
-      this.writer.pushAscii(`${rgb(options.stroke)} RG\n${fmt(options.lineWidth ?? 1)} w\n`)
-    }
-
-    const radius = Math.min(options.radius ?? 0, width / 2, height / 2)
-
-    if (radius > 0) {
-      const k = 0.5523 * radius
-      const right = x + width
-      const topY = bottom + height
-
-      this.writer.pushAscii(`${fmt(x + radius)} ${fmt(topY)} m\n`)
-      this.writer.pushAscii(`${fmt(right - radius)} ${fmt(topY)} l\n`)
-      this.writer.pushAscii(
-        `${fmt(right - radius + k)} ${fmt(topY)} ${fmt(right)} ${fmt(topY - radius + k)} ${fmt(right)} ${fmt(topY - radius)} c\n`
-      )
-      this.writer.pushAscii(`${fmt(right)} ${fmt(bottom + radius)} l\n`)
-      this.writer.pushAscii(
-        `${fmt(right)} ${fmt(bottom + radius - k)} ${fmt(right - radius + k)} ${fmt(bottom)} ${fmt(right - radius)} ${fmt(bottom)} c\n`
-      )
-      this.writer.pushAscii(`${fmt(x + radius)} ${fmt(bottom)} l\n`)
-      this.writer.pushAscii(
-        `${fmt(x + radius - k)} ${fmt(bottom)} ${fmt(x)} ${fmt(bottom + radius - k)} ${fmt(x)} ${fmt(bottom + radius)} c\n`
-      )
-      this.writer.pushAscii(`${fmt(x)} ${fmt(topY - radius)} l\n`)
-      this.writer.pushAscii(
-        `${fmt(x)} ${fmt(topY - radius + k)} ${fmt(x + radius - k)} ${fmt(topY)} ${fmt(x + radius)} ${fmt(topY)} c\n`
-      )
-    } else {
-      this.writer.pushAscii(`${fmt(x)} ${fmt(bottom)} ${fmt(width)} ${fmt(height)} re\n`)
-    }
-
-    if (options.fill && options.stroke) {
-      this.writer.pushAscii('B\n')
-    } else if (options.fill) {
-      this.writer.pushAscii('f\n')
-    } else {
-      this.writer.pushAscii('S\n')
-    }
-  }
-
-  /** Draws a single already-wrapped line of text. `top` is the top of the line box. */
-  text(x: number, top: number, value: string, options: TextOptions): void {
-    if (value === '') {
-      return
-    }
-
-    const bold = options.bold ?? false
-    const color = options.color ?? COLORS.ink
-    let drawn = value
-    let drawX = x
-
-    if (options.maxWidth != null) {
-      drawn = truncateToWidth(drawn, options.size, bold, options.maxWidth)
-    }
-
-    if (options.align === 'center' || options.align === 'right') {
-      const width = measureText(drawn, options.size, bold)
-
-      drawX = options.align === 'center' ? x - width / 2 : x - width
-    }
-
-    const baseline = this.y(top + options.size * BASELINE_RATIO)
-
-    this.writer.pushAscii(`BT\n${rgb(color)} rg\n/${bold ? 'F2' : 'F1'} ${fmt(options.size)} Tf\n`)
-    this.writer.pushAscii(`1 0 0 1 ${fmt(drawX)} ${fmt(baseline)} Tm\n(`)
-    this.writer.pushBytes(encodePdfString(drawn))
-    this.writer.pushAscii(') Tj\nET\n')
-  }
-
-  image(x: number, top: number, width: number, height: number): void {
-    const bottom = this.y(top + height)
-
-    this.writer.pushAscii(`q\n${fmt(width)} 0 0 ${fmt(height)} ${fmt(x)} ${fmt(bottom)} cm\n/Im0 Do\nQ\n`)
-  }
-}
-
-/* --------------------------------------------------------------------------
- * Logo raster (embedded as an uncompressed DeviceRGB image XObject)
- * ------------------------------------------------------------------------ */
-
-export interface PlannerPdfLogo {
-  width: number
-  height: number
-  /** Row-major RGB bytes (no alpha), already composited over the header colour. */
-  rgb: Uint8Array
-}
-
-/**
- * Rasterises a logo URL to RGB bytes over the teal header colour, in the browser.
- * Compositing over the header colour (rather than white) lets a white "bar" logo
- * on a transparent background sit seamlessly on the PDF's teal band. The URL
- * should already be resolved per organization (e.g. via
- * `resolveOrganizationImage(orgDomain, 'logo-bar.png')`). Returns null if the logo
- * can't be loaded, so the PDF simply falls back to a text badge.
- */
-async function loadBrowserLogo(logoSrc: string): Promise<PlannerPdfLogo | null> {
-  if (typeof document === 'undefined' || typeof Image === 'undefined') {
-    return null
-  }
-
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const element = new Image()
-
-      element.crossOrigin = 'anonymous'
-      element.onload = () => resolve(element)
-      element.onerror = reject
-      element.src = logoSrc
-    })
-    const natural = Math.max(image.naturalWidth, image.naturalHeight) || 1
-    const scale = Math.min(1, 320 / natural)
-    const width = Math.max(1, Math.round(image.naturalWidth * scale))
-    const height = Math.max(1, Math.round(image.naturalHeight * scale))
-    const canvas = document.createElement('canvas')
-
-    canvas.width = width
-    canvas.height = height
-
-    const ctx = canvas.getContext('2d')
-
-    if (!ctx) {
-      return null
-    }
-
-    ctx.fillStyle = BRAND_HEADER_HEX
-    ctx.fillRect(0, 0, width, height)
-    ctx.drawImage(image, 0, 0, width, height)
-
-    const { data } = ctx.getImageData(0, 0, width, height)
-    const rgbBytes = new Uint8Array(width * height * 3)
-
-    for (let i = 0, o = 0; i < data.length; i += 4, o += 3) {
-      rgbBytes[o] = data[i]
-      rgbBytes[o + 1] = data[i + 1]
-      rgbBytes[o + 2] = data[i + 2]
-    }
-
-    return { width, height, rgb: rgbBytes }
-  } catch {
-    return null
-  }
-}
 
 /* --------------------------------------------------------------------------
  * Planner data shapes
@@ -485,6 +70,9 @@ export interface PlannerPdfDay {
   heading: string
   slots: PlannerPdfSlot[]
 }
+
+/** Kept for callers that used to import the logo shape from here. */
+export type PlannerPdfLogo = PdfLogo
 
 /* --------------------------------------------------------------------------
  * Cell layout — measure how tall a match cell needs to be, and its text runs
@@ -512,24 +100,6 @@ const STRIP_PAD_BOTTOM = 5
 const MIN_STRIP_HEIGHT = STRIP_PAD_TOP + HEADER_LINE + STRIP_PAD_BOTTOM
 /** Padding above and below the players block, inside the cell's body area. */
 const BODY_PAD = 8
-/** Where a line's baseline sits below the top of its line box, per unit of font size. */
-const BASELINE_RATIO = 0.8
-/** Helvetica cap height, per unit of font size. */
-const CAP_HEIGHT_RATIO = 0.718
-/**
- * Vertical extent of the ink a line of text actually puts on the page, measured
- * from the top of its line box. Centring a block on its line boxes leaves it
- * looking high: a box is taller than the capitals it holds, and the slack sits
- * below the baseline where it has no counterpart above the first line. These two
- * bound the capitals instead, which is what the eye centres on. Descenders are
- * deliberately ignored — otherwise a cell would shift depending on whether a
- * competitor's name happens to contain a "g".
- */
-const capTop = (size: number): number => size * (BASELINE_RATIO - CAP_HEIGHT_RATIO)
-const capBottom = (size: number): number => size * BASELINE_RATIO
-/** The `top` that centres a line of capitals inside the box [boxTop, boxTop + boxHeight]. */
-const centerTextIn = (boxTop: number, boxHeight: number, size: number): number =>
-  boxTop + boxHeight / 2 - (capTop(size) + capBottom(size)) / 2
 /** Width of the "CONSUELO" chip, including its horizontal padding. */
 const consolationChipWidth = (): number => measureText(CONSOLATION_CHIP_LABEL, CONSOLATION_CHIP_SIZE, true) + 10
 
@@ -633,6 +203,22 @@ function measureStripHeight(days: PlannerPdfDay[], innerWidth: number): number {
   return Math.max(MIN_STRIP_HEIGHT, STRIP_PAD_TOP + content + STRIP_PAD_BOTTOM)
 }
 
+/** Parses a slot's 'HH:mm' label into minutes from midnight. */
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number)
+
+  return hours * 60 + minutes
+}
+
+/**
+ * Every start time (in minutes) that has at least one match that day. Used to
+ * check whether some match — on any court, not necessarily the row right
+ * above — is scheduled to end exactly when a given slot begins.
+ */
+function slotStartMinutes(day: PlannerPdfDay): Set<number> {
+  return new Set(day.slots.map((slot) => timeToMinutes(slot.time)))
+}
+
 /* --------------------------------------------------------------------------
  * Document assembly
  * ------------------------------------------------------------------------ */
@@ -643,10 +229,12 @@ interface BuildContext {
   venue: string | null
   subtitle: string
   courtLabels: string[]
-  logo: PlannerPdfLogo | null
+  logo: PdfLogo | null
   courtColWidth: number
   /** Uniform header-strip height for every match cell (see measureStripHeight). */
   stripHeight: number
+  /** Minutes every match occupies its court for — every match on the sheet shares one duration. */
+  matchDurationMinutes: number
 }
 
 class PlannerDocument {
@@ -662,7 +250,7 @@ class PlannerDocument {
   }
 
   private newPage(): void {
-    this.painter = new Painter()
+    this.painter = new Painter(PAGE_HEIGHT)
     this.pages.push(this.painter)
     this.drawBrandHeader()
     this.cursorTop = this.topStart
@@ -779,11 +367,12 @@ class PlannerDocument {
   }
 
   /**
-   * Paints the time column. Only the day's first slot states a real start time:
-   * everything after it depends on how long the previous matches actually took,
-   * so it is announced as a "no earlier than" — which is what an order of play
-   * can honestly promise, and what avoids players showing up to a court that is
-   * still busy.
+   * Paints the time column. A slot states a real start time unless some match
+   * that day is scheduled to end exactly when it begins (start + duration ==
+   * this slot's start) — only then can a court still be occupied, so only then
+   * is the time announced as a "no earlier than" instead of a fixed hour. A
+   * gap left on purpose (courts free well before this slot) is a real,
+   * promised time and is shown as-is.
    */
   private drawTimeCell(time: string, top: number, rowHeight: number, approximate: boolean): void {
     const p = this.painter
@@ -814,11 +403,17 @@ class PlannerDocument {
     })
   }
 
-  private drawRow(slot: PlannerPdfSlot, rowIndex: number, rowHeight: number, innerWidth: number): void {
+  private drawRow(
+    slot: PlannerPdfSlot,
+    rowIndex: number,
+    rowHeight: number,
+    innerWidth: number,
+    approximate: boolean
+  ): void {
     const p = this.painter
     const top = this.cursorTop
 
-    this.drawTimeCell(slot.time, top, rowHeight, rowIndex > 0)
+    this.drawTimeCell(slot.time, top, rowHeight, approximate)
 
     slot.cells.forEach((matches, index) => {
       const x = MARGIN + TIME_COL_WIDTH + index * this.ctx.courtColWidth
@@ -930,6 +525,12 @@ class PlannerDocument {
       return
     }
 
+    // "No antes de" only makes sense when some match that day is scheduled to
+    // end exactly as a slot begins — i.e. that slot's start minus the match
+    // duration is itself a start time in use. A slot reached after a genuine
+    // gap (every court free well before it) states a real, fixed time.
+    const startMinutes = slotStartMinutes(day)
+
     day.slots.forEach((slot, index) => {
       const rowHeight = this.rowHeightFor(slot, innerWidth)
 
@@ -939,7 +540,9 @@ class PlannerDocument {
         this.drawColumnHeader()
       }
 
-      this.drawRow(slot, index, rowHeight, innerWidth)
+      const approximate = index > 0 && startMinutes.has(timeToMinutes(slot.time) - this.ctx.matchDurationMinutes)
+
+      this.drawRow(slot, index, rowHeight, innerWidth, approximate)
     })
 
     this.cursorTop += 16
@@ -964,103 +567,13 @@ class PlannerDocument {
   }
 }
 
-/* --------------------------------------------------------------------------
- * Low-level PDF file assembly
- * ------------------------------------------------------------------------ */
-
-function assemblePdf(pages: Painter[], logo: PlannerPdfLogo | null): Uint8Array {
-  const catalogId = 1
-  const pagesId = 2
-  const fontRegularId = 3
-  const fontBoldId = 4
-  const logoId = logo ? 5 : 0
-  const firstDynamicId = logo ? 6 : 5
-  const pageIds = pages.map((_, index) => firstDynamicId + index * 2)
-  const contentIds = pages.map((_, index) => firstDynamicId + index * 2 + 1)
-  const objects: { id: number; bytes: number[] }[] = []
-  const pushText = (id: number, text: string) => objects.push({ id, bytes: asciiBytes(text) })
-
-  pushText(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R >>`)
-  pushText(pagesId, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`)
-  pushText(fontRegularId, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>')
-  pushText(fontBoldId, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>')
-
-  if (logo) {
-    objects.push({
-      id: logoId,
-      bytes: [
-        ...asciiBytes(
-          `<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} ` +
-            `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Length ${logo.rgb.length} >>\nstream\n`
-        ),
-        ...Array.from(logo.rgb),
-        ...asciiBytes('\nendstream')
-      ]
-    })
-  }
-
-  const xobjectEntry = logo ? ` /XObject << /Im0 ${logoId} 0 R >>` : ''
-
-  pages.forEach((page, index) => {
-    const contentBytes = Array.from(page.writer.toUint8Array())
-
-    pushText(
-      pageIds[index],
-      `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] ` +
-        `/Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >>${xobjectEntry} >> ` +
-        `/Contents ${contentIds[index]} 0 R >>`
-    )
-
-    objects.push({
-      id: contentIds[index],
-      bytes: [
-        ...asciiBytes(`<< /Length ${contentBytes.length} >>\nstream\n`),
-        ...contentBytes,
-        ...asciiBytes('\nendstream')
-      ]
-    })
-  })
-
-  objects.sort((a, b) => a.id - b.id)
-
-  const writer = new ByteWriter()
-  const offsets: number[] = []
-
-  writer.pushAscii('%PDF-1.4\n')
-
-  for (const object of objects) {
-    offsets[object.id] = writer.length
-    writer.pushAscii(`${object.id} 0 obj\n`)
-    writer.pushBytes(object.bytes)
-    writer.pushAscii('\nendobj\n')
-  }
-
-  const xrefOffset = writer.length
-  const totalObjects = objects.length + 1
-
-  writer.pushAscii(`xref\n0 ${totalObjects}\n0000000000 65535 f \n`)
-
-  for (let id = 1; id < totalObjects; id++) {
-    writer.pushAscii(`${String(offsets[id] ?? 0).padStart(10, '0')} 00000 n \n`)
-  }
-
-  writer.pushAscii(`trailer\n<< /Size ${totalObjects} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`)
-
-  return writer.toUint8Array()
-}
-
-const COMBINING_DIACRITICS_SLUG = new RegExp('[\\u0300-\\u036f]', 'g')
-
-function slugify(text: string): string {
-  const slug = text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(COMBINING_DIACRITICS_SLUG, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-+|-+$)/g, '')
-
-  return slug || 'torneo'
-}
+/**
+ * Default assumed for callers that don't say how long a match runs. Kept in
+ * sync with the planner's own default (`DEFAULT_DURATION` in utils/planner.ts)
+ * only by convention — the two aren't imported from each other to keep this
+ * module's only dependency the generic PDF machinery.
+ */
+const DEFAULT_MATCH_DURATION_MINUTES = 90
 
 /** Pure builder: produces the PDF bytes. Exported so it can be exercised in tests. */
 export function buildPlannerPdf(
@@ -1068,7 +581,8 @@ export function buildPlannerPdf(
   venue: string | null,
   courtLabels: string[],
   days: PlannerPdfDay[],
-  logo: PlannerPdfLogo | null = null
+  logo: PdfLogo | null = null,
+  matchDurationMinutes: number = DEFAULT_MATCH_DURATION_MINUTES
 ): Uint8Array {
   const columnCount = Math.max(1, courtLabels.length)
   const courtColWidth = (CONTENT_WIDTH - TIME_COL_WIDTH) / columnCount
@@ -1085,7 +599,8 @@ export function buildPlannerPdf(
     courtColWidth,
     // Measured once over every match so the header bands are uniform across the
     // whole document, not just within a row.
-    stripHeight: measureStripHeight(days, courtColWidth - CELL_PAD * 2)
+    stripHeight: measureStripHeight(days, courtColWidth - CELL_PAD * 2),
+    matchDurationMinutes
   }
   const doc = new PlannerDocument(ctx)
 
@@ -1095,30 +610,28 @@ export function buildPlannerPdf(
     days.forEach((day) => doc.addDay(day))
   }
 
-  return assemblePdf(doc.finish(), logo)
+  return assemblePdf(doc.finish(), A4_LANDSCAPE, logo)
 }
 
 /**
  * Builds the planner PDF (loading the org-resolved brand logo) and triggers a
  * browser download. `logoSrc` should come from `resolveOrganizationImage`.
+ * `matchDurationMinutes` should be the same duration the grid scheduled every
+ * match with, so "No antes de" reflects which slots actually chain courts
+ * back-to-back.
  */
 export async function downloadPlannerPdf(
   tournamentName: string,
   venue: string | null,
   courtLabels: string[],
   days: PlannerPdfDay[],
-  logoSrc?: string
+  logoSrc?: string,
+  matchDurationMinutes: number = DEFAULT_MATCH_DURATION_MINUTES
 ): Promise<void> {
-  const logo = logoSrc ? await loadBrowserLogo(logoSrc) : null
-  const pdfBytes = buildPlannerPdf(tournamentName, venue, courtLabels, days, logo)
-  const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
+  const logo = logoSrc ? await loadBrowserLogo(logoSrc, BRAND_HEADER_HEX) : null
 
-  anchor.href = url
-  anchor.download = `planificacion-${slugify(tournamentName)}.pdf`
-  document.body.appendChild(anchor)
-  anchor.click()
-  document.body.removeChild(anchor)
-  URL.revokeObjectURL(url)
+  downloadPdfBytes(
+    buildPlannerPdf(tournamentName, venue, courtLabels, days, logo, matchDurationMinutes),
+    `planificacion-${slugify(tournamentName, 'torneo')}.pdf`
+  )
 }
