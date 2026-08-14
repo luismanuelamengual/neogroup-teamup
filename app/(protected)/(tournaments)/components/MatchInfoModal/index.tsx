@@ -14,6 +14,7 @@ import dayjs from 'dayjs'
 import { Fragment, useEffect, useState } from 'react'
 import { useSites } from '@/app/(protected)/(sites)/hooks/useSites'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
+import SuperTiebreakValue from '@/app/(protected)/(tournaments)/components/SuperTiebreakValue'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
@@ -209,13 +210,13 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
                     className={`score-cell ${column.home > column.away ? 'won' : ''}`}
                     style={{ gridColumn: index + 2, gridRow: 1 }}
                   >
-                    {column.home}
+                    {column.superTiebreak ? <SuperTiebreakValue value={column.home} /> : column.home}
                   </span>
                   <span
                     className={`score-cell ${column.away > column.home ? 'won' : ''}`}
                     style={{ gridColumn: index + 2, gridRow: 2 }}
                   >
-                    {column.away}
+                    {column.superTiebreak ? <SuperTiebreakValue value={column.away} /> : column.away}
                   </span>
                 </Fragment>
               ))
@@ -259,13 +260,13 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
                                 className={`series-score-cell ${column.home > column.away ? 'won' : ''}`}
                                 style={{ gridColumn: i + 2, gridRow: 1 }}
                               >
-                                {column.home}
+                                {column.superTiebreak ? <SuperTiebreakValue value={column.home} /> : column.home}
                               </span>
                               <span
                                 className={`series-score-cell ${column.away > column.home ? 'won' : ''}`}
                                 style={{ gridColumn: i + 2, gridRow: 2 }}
                               >
-                                {column.away}
+                                {column.superTiebreak ? <SuperTiebreakValue value={column.away} /> : column.away}
                               </span>
                             </Fragment>
                           ))

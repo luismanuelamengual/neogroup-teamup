@@ -1,0 +1,32 @@
+// The "0" stays a normal inline character — same baseline and line-height as
+// every other set's digit in the row, so it lines up with them instead of
+// sitting taller/shorter than its neighbors. The real super tiebreak score is
+// pulled out of flow and pinned to the "0"'s upper-right corner, diagonally,
+// the way a tiebreak point count reads in regular tennis notation — it never
+// affects the row's own alignment or height.
+.super-tiebreak-value {
+  position: relative;
+  display: inline-block;
+}
+
+.super-tiebreak-points {
+  position: absolute;
+  top: -0.1em;
+  left: 100%;
+  margin-left: 0.05em;
+  font-size: 0.6em;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--color-text-secondary);
+}
+
+// The winning side's set score is shown bold, in the full-strength text
+// color (see `.score-cell.won` / `.series-score-cell.won` in MatchCard and
+// MatchInfoModal) — the small super tiebreak number above it follows suit
+// on both counts, so a win reads as bold and equally dark end-to-end
+// instead of leaving the annotation looking muted and unclaimed.
+.score-cell.won .super-tiebreak-points,
+.series-score-cell.won .super-tiebreak-points {
+  font-weight: 700;
+  color: var(--color-text);
+}

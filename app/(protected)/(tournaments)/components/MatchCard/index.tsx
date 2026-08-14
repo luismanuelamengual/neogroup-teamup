@@ -7,6 +7,7 @@ import IconButton from '@mui/material/IconButton'
 import dayjs from 'dayjs'
 import { Fragment, useState } from 'react'
 import MatchInfoModal from '@/app/(protected)/(tournaments)/components/MatchInfoModal'
+import SuperTiebreakValue from '@/app/(protected)/(tournaments)/components/SuperTiebreakValue'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -129,13 +130,13 @@ export default function MatchCard({
                         className={`score-cell ${column.home > column.away ? 'won' : ''}`}
                         style={{ gridColumn: index + 2, gridRow: HOME_ROW }}
                       >
-                        {column.home}
+                        {column.superTiebreak ? <SuperTiebreakValue value={column.home} /> : column.home}
                       </span>
                       <span
                         className={`score-cell ${column.away > column.home ? 'won' : ''}`}
                         style={{ gridColumn: index + 2, gridRow: AWAY_ROW }}
                       >
-                        {column.away}
+                        {column.superTiebreak ? <SuperTiebreakValue value={column.away} /> : column.away}
                       </span>
                     </Fragment>
                   ))}
