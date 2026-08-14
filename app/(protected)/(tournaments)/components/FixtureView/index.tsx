@@ -47,6 +47,48 @@ type StatusFilter = 'all' | 'pending' | 'finished'
  */
 const MATCHES_PER_PAGE = 12
 
+/**
+ * Display order for the match list: first by state — organizers want the
+ * matches still awaiting a result up front, players want their finished
+ * matches up front — then chronologically by scheduled date/time (matches
+ * still missing a date or hour sort after every scheduled one), and finally
+ * by `createdAt` as a stable tie-breaker.
+ */
+function compareMatches(a: MatchDto, b: MatchDto, organizerMode: boolean): number {
+  const isPending = (match: MatchDto) => match.status === MatchStatus.PENDING
+
+  const statusRank = (match: MatchDto) => {
+    const pending = isPending(match)
+
+    return organizerMode ? (pending ? 0 : 1) : pending ? 1 : 0
+  }
+
+  const statusDiff = statusRank(a) - statusRank(b)
+
+  if (statusDiff !== 0) {
+    return statusDiff
+  }
+
+  const dateTime = (match: MatchDto) =>
+    match.date != null && match.hour != null ? `${match.date}T${match.hour}` : null
+  const dateTimeA = dateTime(a)
+  const dateTimeB = dateTime(b)
+
+  if (dateTimeA !== dateTimeB) {
+    if (dateTimeA == null) {
+      return 1
+    }
+
+    if (dateTimeB == null) {
+      return -1
+    }
+
+    return dateTimeA < dateTimeB ? -1 : 1
+  }
+
+  return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0
+}
+
 /** Rounds + matches list used by leagues, americano and group-phase fixtures. */
 export default function FixtureView({
   tournament,
@@ -178,20 +220,18 @@ export default function FixtureView({
   // What the list shows before paging: the whole (searched and status-filtered)
   // schedule when results come in unordered, otherwise just the active round.
   const listedMatches = useMemo(() => {
-    if (!unordered) {
-      return rounds[activeRoundIndex]?.matches ?? []
-    }
+    const base = !unordered
+      ? (rounds[activeRoundIndex]?.matches ?? [])
+      : statusFilter === 'all'
+        ? searchedMatches
+        : // Anything past PENDING counts as played: WALKOVER has a final result
+          // too, and VOID never reaches this list.
+          searchedMatches.filter((match) =>
+            statusFilter === 'pending' ? match.status === MatchStatus.PENDING : match.status !== MatchStatus.PENDING
+          )
 
-    if (statusFilter === 'all') {
-      return searchedMatches
-    }
-
-    // Anything past PENDING counts as played: WALKOVER has a final result too,
-    // and VOID never reaches this list.
-    return searchedMatches.filter((match) =>
-      statusFilter === 'pending' ? match.status === MatchStatus.PENDING : match.status !== MatchStatus.PENDING
-    )
-  }, [unordered, rounds, activeRoundIndex, searchedMatches, statusFilter])
+    return [...base].sort((a, b) => compareMatches(a, b, organizerMode))
+  }, [unordered, rounds, activeRoundIndex, searchedMatches, statusFilter, organizerMode])
   const pageCount = Math.max(1, Math.ceil(listedMatches.length / MATCHES_PER_PAGE))
   // Filters can shrink the list under the current page; clamp rather than reset
   // so that widening them again lands back where the user was.
