@@ -6,6 +6,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import IconButton from '@mui/material/IconButton'
 import dayjs from 'dayjs'
 import { Fragment, useState } from 'react'
+import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import MatchInfoModal from '@/app/(protected)/(tournaments)/components/MatchInfoModal'
 import SuperTiebreakValue from '@/app/(protected)/(tournaments)/components/SuperTiebreakValue'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
@@ -36,6 +37,7 @@ export default function MatchCard({
   onEdit
 }: MatchCardProps) {
   const [detailOpen, setDetailOpen] = useState(false)
+  const [modalCompetitors, setModalCompetitors] = useState<CompetitorDto[]>([])
   const competitorsById: Record<number, CompetitorDto> = Object.fromEntries(
     (tournament.competitors ?? []).map((c) => [c.id, c])
   )
@@ -67,24 +69,44 @@ export default function MatchCard({
     return getCompetitorNameLines(competitorsById[id], id)
   }
 
-  const renderSide = (side: MatchSide, id: number | null, row: number) => (
-    <div
-      className={`side ${winner === side ? 'winner' : ''} ${winner && winner !== side ? 'loser' : ''}`}
-      style={{ gridColumn: 1, gridRow: row }}
-    >
-      <span className={`side-dot ${MatchSideNames[side]}`} />
-      <div className="side-name">
-        {nameLines(id).map((line, index) => (
-          <span key={index}>{line}</span>
-        ))}
+  const renderSide = (side: MatchSide, id: number | null, row: number) => {
+    // A "to be defined" slot has no competitor behind it, so there is nothing
+    // to open — only a real competitor turns the name into a click target.
+    const competitor = id != null ? competitorsById[id] : undefined
+
+    return (
+      <div
+        className={`side ${winner === side ? 'winner' : ''} ${winner && winner !== side ? 'loser' : ''}`}
+        style={{ gridColumn: 1, gridRow: row }}
+      >
+        <span className={`side-dot ${MatchSideNames[side]}`} />
+        {/* The handler sits on the name itself, not on the whole row: the empty
+            space beside a name still belongs to the card, so clicking it opens
+            the match detail rather than the competitor. `.side-name` is sized to
+            its text (see index.scss) so the target ends where the text does. */}
+        <div
+          className={`side-name ${competitor ? 'clickable' : ''}`}
+          onClick={(event) => {
+            if (competitor) {
+              // Inspecting a competitor is a different intent than opening the
+              // match detail the whole card is a target for.
+              event.stopPropagation()
+              setModalCompetitors([competitor])
+            }
+          }}
+        >
+          {nameLines(id).map((line, index) => (
+            <span key={index}>{line}</span>
+          ))}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <>
-      {/* The whole card opens the match detail — which is also where each
-          competitor's own info is reachable from. */}
+      {/* The whole card opens the match detail, except on a competitor's own
+          name — that opens the competitor's info instead. */}
       <div
         className={`match-card ${highlighted ? 'highlighted' : ''} ${hasDetail ? 'clickable' : ''}`}
         onClick={() => hasDetail && setDetailOpen(true)}
@@ -173,6 +195,11 @@ export default function MatchCard({
         </div>
       </div>
       <MatchInfoModal open={detailOpen} tournament={tournament} match={match} onClose={() => setDetailOpen(false)} />
+      <CompetitorInfoModal
+        open={modalCompetitors.length > 0}
+        competitors={modalCompetitors}
+        onClose={() => setModalCompetitors([])}
+      />
     </>
   )
 }
