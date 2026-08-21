@@ -205,15 +205,16 @@ export default function TournamentScheduleView({ tournamentId }: TournamentSched
   }
 
   /**
-   * The teal band every sheet opens with. Unlike the exported PDF it carries no
-   * logo: the app's own top bar is already showing it right above.
+   * The teal band every sheet opens with. Unlike the exported PDF it carries
+   * neither logo nor tournament name: the app's own top bar and the page title
+   * are already showing both right above. What is left is what tells one sheet
+   * from the next — the venue.
    */
   const header = (venue: string | null) => (
     <div className="sheet-header">
       <div className="sheet-header-text">
-        <span className="sheet-tournament">{tournament.name}</span>
-        {venue && <span className="sheet-venue">Sede: {venue}</span>}
-        <span className="sheet-subtitle">Programación de partidos</span>
+        <span className="sheet-venue">{venue ? `Sede: ${venue}` : 'Programación de partidos'}</span>
+        {venue && <span className="sheet-subtitle">Programación de partidos</span>}
       </div>
     </div>
   )
@@ -226,9 +227,14 @@ export default function TournamentScheduleView({ tournamentId }: TournamentSched
             <ArrowBackIcon fontSize="small" />
           </IconButton>
         </Link>
-        <Typography variant="h5" component="h1" className="schedule-title">
-          Programación
-        </Typography>
+        <div className="schedule-topbar-titles">
+          <Typography variant="h5" component="h1" className="schedule-title">
+            Programación
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {tournament.name}
+          </Typography>
+        </div>
       </div>
 
       {sheets.length === 0 ? (

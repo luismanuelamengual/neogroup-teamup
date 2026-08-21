@@ -858,9 +858,14 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               <ArrowBackIcon fontSize="small" />
             </IconButton>
           </Link>
-          <Typography variant="h5" component="h1" className="planner-title">
-            Programador — {tournament.name}
-          </Typography>
+          <div className="planner-topbar-titles">
+            <Typography variant="h5" component="h1" className="planner-title">
+              Programador
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {tournament.name}
+            </Typography>
+          </div>
           <Button
             variant="outlined"
             size="small"

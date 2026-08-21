@@ -32,9 +32,15 @@ $mineBg: #fffbeb;
       color: inherit;
     }
 
-    .schedule-title {
+    .schedule-topbar-titles {
+      display: flex;
       flex: 1;
+      flex-direction: column;
+    }
+
+    .schedule-title {
       font-weight: 700;
+      line-height: 1.2;
     }
   }
 
@@ -44,8 +50,9 @@ $mineBg: #fffbeb;
   }
 
   // --- Brand band ---------------------------------------------------------
-  // The exported PDF opens this band with the organization's logo; on screen it
-  // is left out, because the app's own top bar is already showing it right above.
+  // The exported PDF opens this band with the organization's logo and the
+  // tournament name; on screen both are left out, because the app's own top bar
+  // and the page title are already showing them right above.
   .sheet-header {
     display: flex;
     align-items: center;
@@ -59,17 +66,11 @@ $mineBg: #fffbeb;
       min-width: 0;
     }
 
-    .sheet-tournament {
+    .sheet-venue {
       font-size: 17px;
       font-weight: 700;
       color: #fff;
       line-height: 1.25;
-    }
-
-    .sheet-venue {
-      font-size: 12px;
-      font-weight: 700;
-      color: $amberSoft;
     }
 
     .sheet-subtitle {
@@ -391,7 +392,7 @@ $mineBg: #fffbeb;
     .sheet-header {
       padding: 14px;
 
-      .sheet-tournament {
+      .sheet-venue {
         font-size: 15px;
       }
     }

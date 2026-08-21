@@ -18,9 +18,15 @@ $timelineColor: rgb(111, 111, 111);
       color: inherit;
     }
     
-    .planner-title {
+    .planner-topbar-titles {
+      display: flex;
       flex: 1;
+      flex-direction: column;
+    }
+
+    .planner-title {
       font-weight: 700;
+      line-height: 1.2;
     }
 
     .planner-export-button {
