@@ -124,6 +124,13 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
   // single column for a basic count or an interclubes series) — null falls
   // back to a single centered note (walkover, or not played yet).
   const scoreColumns = getScoreColumns(match.score, tournament.scoreFormat)
+  // A super tiebreak is always the 3rd (last) set, and its score renders as a
+  // superscript pinned outside the flow to the "0"'s upper-right corner (see
+  // SuperTiebreakValue) — the grid's own max-content column sizing never
+  // accounts for it. When it lands on the LAST column there's no next column
+  // to visually share the overflow with, so without reserved room it spills
+  // straight past the board into the dialog's own padding. See `.has-super-tiebreak`.
+  const scoreEndsInSuperTiebreak = scoreColumns?.some((column) => column.superTiebreak) ?? false
   /**
    * Venue of the match, resolving the "null means somewhere else" convention so
    * the reader never has to know about it: the match's own venue first, and when
@@ -182,7 +189,7 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
             home/away cells share one grid column — so the column sizes itself
             to whichever value is widest instead of a fixed width that a
             double-digit super tiebreak could outgrow. */}
-        <div className="score-board">
+        <div className={`score-board ${scoreEndsInSuperTiebreak ? 'has-super-tiebreak' : ''}`}>
           <div className={`side ${match.winner === MatchSide.HOME ? 'winner' : ''}`} style={{ gridRow: 1 }}>
             <span className="side-label">{isInterclubs ? 'Local' : 'Lado A'}</span>
             <span className="side-name">{sideName(match.homeCompetitorId)}</span>
@@ -224,11 +231,12 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
             <div className="series">
               {series.map((entry, index) => {
                 const entryColumns = getScoreColumns(entry.score, tournament.scoreFormat)
+                const entryEndsInSuperTiebreak = entryColumns?.some((column) => column.superTiebreak) ?? false
 
                 return (
                   <div key={index} className="series-row">
                     <Chip size="small" variant="outlined" label={entry.double ? 'Dobles' : 'Single'} />
-                    <div className="series-board">
+                    <div className={`series-board ${entryEndsInSuperTiebreak ? 'has-super-tiebreak' : ''}`}>
                       <span
                         className={`series-players ${entry.winner === MatchSide.HOME ? 'winner' : ''}`}
                         style={{ gridRow: 1 }}

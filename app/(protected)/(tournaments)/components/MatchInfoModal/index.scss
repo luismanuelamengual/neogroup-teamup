@@ -38,6 +38,17 @@
     align-items: end;
     column-gap: 12px;
     row-gap: 6px;
+
+    // A super tiebreak's real score renders as a superscript pulled out of
+    // flow at the "0"'s upper-right corner (see SuperTiebreakValue) — it
+    // never counts toward this grid's own max-content column sizing. When
+    // the super tiebreak set is the last column (it always is: it's the 3rd
+    // set) there's no next column to overlap into, so without this reserved
+    // strip the superscript spills straight past the board's edge and into
+    // the dialog's own padding instead of staying inside the score display.
+    &.has-super-tiebreak {
+      padding-right: 16px;
+    }
   }
 
   .side {
@@ -166,6 +177,13 @@
     row-gap: 2px;
     flex: 1;
     min-width: 0;
+
+    // Same reasoning as `.score-board.has-super-tiebreak` above, scaled down
+    // for this smaller row: a trailing super tiebreak's superscript would
+    // otherwise spill past the row's own border into the card's padding.
+    &.has-super-tiebreak {
+      padding-right: 12px;
+    }
   }
 
   .series-players {
