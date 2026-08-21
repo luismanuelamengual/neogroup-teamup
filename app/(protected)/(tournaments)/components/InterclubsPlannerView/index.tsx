@@ -693,7 +693,7 @@ export default function InterclubsPlannerView({ tournamentId, logoSrc }: Intercl
   // section per day, listed as a timetable.
   const handleExportPdf = () => {
     if (Object.keys(placements).length === 0) {
-      showWarningMessage('No hay series planificadas para exportar')
+      showWarningMessage('No hay series programadas para exportar')
 
       return
     }
@@ -755,7 +755,7 @@ export default function InterclubsPlannerView({ tournamentId, logoSrc }: Intercl
               size="small"
               className="planner-match-remove"
               onClick={() => removePlacement(entry.id)}
-              aria-label="Quitar de la planificación"
+              aria-label="Quitar de la programación"
             >
               <CloseIcon fontSize="inherit" />
             </IconButton>
@@ -800,7 +800,7 @@ export default function InterclubsPlannerView({ tournamentId, logoSrc }: Intercl
             </IconButton>
           </Link>
           <Typography variant="h5" component="h1" className="planner-title">
-            Planificador de interclubes — {tournament.name}
+            Programador de interclubes — {tournament.name}
           </Typography>
           <Button
             variant="outlined"
@@ -939,10 +939,10 @@ export default function InterclubsPlannerView({ tournamentId, logoSrc }: Intercl
               )}
             </div>
             {allEntries.length === 0 ? (
-              <Alert severity="info">No hay series para planificar. Activá rondas del torneo.</Alert>
+              <Alert severity="info">No hay series para programar. Activá rondas del torneo.</Alert>
             ) : unplannedEntries.length === 0 ? (
               <Typography variant="body2" color="text.secondary" className="pool-empty">
-                Todas las series están planificadas. Arrastrá una serie acá para quitarla de la planificación.
+                Todas las series están programadas. Arrastrá una serie acá para quitarla de la programación.
               </Typography>
             ) : filteredEntries.length === 0 ? (
               <div className="pool-empty-filtered">
@@ -961,7 +961,7 @@ export default function InterclubsPlannerView({ tournamentId, logoSrc }: Intercl
           {/* --- Planning grid section ------------------------------------- */}
           <Paper className="planner-section grid-section">
             <Typography variant="subtitle1" className="section-title">
-              Planificación
+              Programación
             </Typography>
             <Typography variant="body2" color="text.secondary" className="grid-hint">
               {siteId != null

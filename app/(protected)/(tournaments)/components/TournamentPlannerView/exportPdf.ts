@@ -519,7 +519,7 @@ class PlannerDocument {
     this.drawColumnHeader()
 
     if (day.slots.length === 0) {
-      this.painter.text(MARGIN + 12, this.cursorTop + 8, 'Sin partidos planificados.', { size: 9, color: COLORS.muted })
+      this.painter.text(MARGIN + 12, this.cursorTop + 8, 'Sin partidos programados.', { size: 9, color: COLORS.muted })
       this.cursorTop += 28
 
       return
@@ -552,7 +552,7 @@ class PlannerDocument {
     const total = this.pages.length
 
     this.pages.forEach((page, index) => {
-      page.text(PAGE_WIDTH / 2, PAGE_HEIGHT - MARGIN - 4, `TeamUp · Planificador  —  Página ${index + 1} de ${total}`, {
+      page.text(PAGE_WIDTH / 2, PAGE_HEIGHT - MARGIN - 4, `TeamUp · Programación  —  Página ${index + 1} de ${total}`, {
         size: 7.5,
         color: COLORS.muted,
         align: 'center'
@@ -589,7 +589,7 @@ export function buildPlannerPdf(
   const ctx: BuildContext = {
     tournamentName,
     venue,
-    subtitle: `Planificación de partidos · Generado el ${new Date().toLocaleDateString('es-AR', {
+    subtitle: `Programación de partidos · Generado el ${new Date().toLocaleDateString('es-AR', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -605,7 +605,7 @@ export function buildPlannerPdf(
   const doc = new PlannerDocument(ctx)
 
   if (days.length === 0) {
-    doc.addDay({ heading: 'Sin fechas planificadas', slots: [] })
+    doc.addDay({ heading: 'Sin fechas programadas', slots: [] })
   } else {
     days.forEach((day) => doc.addDay(day))
   }
@@ -632,6 +632,6 @@ export async function downloadPlannerPdf(
 
   downloadPdfBytes(
     buildPlannerPdf(tournamentName, venue, courtLabels, days, logo, matchDurationMinutes),
-    `planificacion-${slugify(tournamentName, 'torneo')}.pdf`
+    `programacion-${slugify(tournamentName, 'torneo')}.pdf`
   )
 }

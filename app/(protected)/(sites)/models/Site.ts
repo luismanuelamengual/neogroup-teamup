@@ -1,4 +1,5 @@
 import { BaseEntity, Column, Entity } from '@neogroup/neorm'
+import { SiteData } from '@/app/(protected)/(sites)/models/SiteData'
 import { OrganizationScope } from '@/app/models/OrganizationScope'
 
 /**
@@ -20,6 +21,15 @@ export class Site extends BaseEntity {
 
   @Column()
   name!: string
+
+  /**
+   * Settings of the venue — its courts setup, and the duration it was last
+   * planned with. Written by the organizer's planner, read by everyone who
+   * looks at a schedule (see SiteData and migration 019-sites-data). Null on a
+   * venue nobody has planned yet.
+   */
+  @Column({ cast: 'json' })
+  data!: SiteData | null
 
   protected static booted(): void {
     Site.addGlobalScope(new OrganizationScope())

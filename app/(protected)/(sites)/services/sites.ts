@@ -1,5 +1,6 @@
 import { DB } from '@neogroup/neorm'
 import { Site } from '@/app/(protected)/(sites)/models/Site'
+import { MAX_SITE_COURTS, SiteData } from '@/app/(protected)/(sites)/models/SiteData'
 import { SiteFilters } from '@/app/(protected)/(sites)/models/SiteFilters'
 import { SiteInput } from '@/app/(protected)/(sites)/models/SiteInput'
 import { ApiException } from '@/app/models/ApiException'
@@ -115,4 +116,71 @@ export async function deleteSite(organizationId: number, siteId: number): Promis
   }
 
   await site.delete()
+}
+
+/**
+ * Sanitizes the settings document an organizer submits for a venue.
+ *
+ * `sites.data` is schemaless by design (see SiteData), which makes it exactly
+ * the kind of column that quietly accumulates whatever a client happens to
+ * send. So it is rebuilt field by field here rather than stored as received:
+ * unknown keys are dropped, the courts count is clamped to the range the
+ * planner offers, and a court name that adds nothing — blank, or the very
+ * "Cancha N" it would fall back to anyway — is left out instead of stored.
+ *
+ * Returns null when nothing survived, so an emptied setup clears the column
+ * rather than leaving `{}` behind.
+ */
+function normalizeSiteData(input: SiteData | null | undefined): SiteData | null {
+  if (!input || typeof input !== 'object') {
+    return null
+  }
+
+  const data: SiteData = {}
+  const courts = Number(input.courts)
+
+  if (Number.isInteger(courts) && courts >= 1) {
+    data.courts = Math.min(MAX_SITE_COURTS, courts)
+  }
+
+  const matchDuration = Number(input.matchDuration)
+
+  if (Number.isInteger(matchDuration) && matchDuration > 0) {
+    data.matchDuration = matchDuration
+  }
+
+  const courtNames: Record<number, string> = {}
+
+  for (const [key, value] of Object.entries(input.courtNames ?? {})) {
+    const court = Number(key)
+    const name = typeof value === 'string' ? value.trim() : ''
+
+    if (!Number.isInteger(court) || court < 1 || name === '' || name === `Cancha ${court}`) {
+      continue
+    }
+
+    courtNames[court] = name.slice(0, 60)
+  }
+
+  if (Object.keys(courtNames).length > 0) {
+    data.courtNames = courtNames
+  }
+
+  return Object.keys(data).length > 0 ? data : null
+}
+
+/**
+ * Stores the settings of a venue — its courts setup and the duration it was
+ * last planned with.
+ *
+ * Unlike the rest of this module this one is not the administrator's: it is
+ * written by the organizer's planner, on every change, for whichever venue is
+ * being planned. Renaming a site stays administrator-only; describing its
+ * courts is part of planning.
+ */
+export async function updateSiteData(organizationId: number, siteId: number, input: SiteData | null): Promise<void> {
+  const site = await findSite(organizationId, siteId)
+
+  site.data = normalizeSiteData(input)
+  await site.save()
 }

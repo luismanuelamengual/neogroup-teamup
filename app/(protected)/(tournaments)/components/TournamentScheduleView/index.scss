@@ -1,0 +1,415 @@
+// The published schedule is the exported PDF rendered in the browser, so its
+// palette is the document one (DOC_COLORS in app/utils/pdf.ts) rather than the
+// app theme: a player comparing the screen with the sheet pinned at the club
+// should be looking at the same thing.
+$teal: #0f766e;
+$tealDark: #115e59;
+$tealDeep: #0b4f4a;
+$amber: #f59e0b;
+$amberSoft: #fde68a;
+$ink: #1f2937;
+$muted: #6b7280;
+$rowAlt: #f0faf8;
+$emptyBg: #f8fafc;
+$border: #cbd5e1;
+// Highlight of the reader's own matches — the one thing the sheet does that
+// paper cannot. Amber, so it belongs to the same palette, but as a tint and a
+// left rule rather than a fill, which would drown the names.
+$mineBg: #fffbeb;
+
+.tournament-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .schedule-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .back-link {
+      display: inline-flex;
+      color: inherit;
+    }
+
+    .schedule-title {
+      flex: 1;
+      font-weight: 700;
+    }
+  }
+
+  .schedule-sheet {
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  // --- Brand band ---------------------------------------------------------
+  // The exported PDF opens this band with the organization's logo; on screen it
+  // is left out, because the app's own top bar is already showing it right above.
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    background: $teal;
+
+    .sheet-header-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .sheet-tournament {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.25;
+    }
+
+    .sheet-venue {
+      font-size: 12px;
+      font-weight: 700;
+      color: $amberSoft;
+    }
+
+    .sheet-subtitle {
+      font-size: 11px;
+      color: $amberSoft;
+    }
+  }
+
+  .sheet-empty {
+    padding: 24px 20px;
+    color: $muted;
+  }
+
+  .sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 16px;
+  }
+
+  // One legend for the whole screen, above the sheets: with a sheet per venue,
+  // repeating it inside each one would only add noise.
+  .schedule-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: $muted;
+
+    .legend-swatch {
+      width: 22px;
+      height: 12px;
+      border-radius: 3px;
+      background: $mineBg;
+      border: 1px solid $border;
+      border-left: 3px solid $amber;
+    }
+  }
+
+  // --- One day ------------------------------------------------------------
+  .sheet-day {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .day-heading {
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 5px;
+    background: $amber;
+    color: $ink;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  // A phone cannot fit six courts side by side, and squeezing them would cost
+  // the thing the grid is for. It scrolls sideways instead, with the hour
+  // column pinned so a row never loses its time.
+  .grid-scroller {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    border: 1px solid $border;
+  }
+
+  // Cell backgrounds are a deliberate cascade, all at the same specificity, so
+  // what wins is the order they are written in: the plain cell, then the sheet's
+  // alternating tint, then the two cells that opt out of it — an empty court,
+  // and the match the reader is playing.
+  tr td {
+    background: #fff;
+  }
+
+  tr.alt td {
+    background: $rowAlt;
+  }
+
+  tr td.empty-cell {
+    background: $emptyBg;
+  }
+
+  tr td.mine,
+  tr.mine td {
+    background: $mineBg;
+  }
+
+  thead th {
+    background: $teal;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    padding: 6px 4px;
+    border-color: $tealDeep;
+  }
+
+  .time-header {
+    background: $tealDeep;
+  }
+
+  .time-header,
+  .time-cell {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    width: 74px;
+    min-width: 74px;
+  }
+
+  .time-cell {
+    background: $tealDark;
+    border-color: $tealDeep;
+    color: #fff;
+    text-align: center;
+    padding: 6px 4px;
+    font-weight: 700;
+
+    .time-approx {
+      display: block;
+      font-size: 9px;
+      font-weight: 400;
+      color: $amberSoft;
+      line-height: 1.2;
+    }
+
+    .time-value {
+      display: block;
+      font-size: 15px;
+      line-height: 1.3;
+    }
+  }
+
+  .empty-cell {
+    color: $border;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  // --- Courts grid --------------------------------------------------------
+  .courts-grid {
+    min-width: 100%;
+
+    .court-header {
+      min-width: 150px;
+    }
+
+    .match-cell {
+      padding: 0;
+      vertical-align: top;
+      min-width: 150px;
+    }
+
+    // The teal strip carrying the category and the round, exactly as the PDF
+    // prints it above every match. Its height is fixed rather than sized by its
+    // own content, so the coloured bands line up across a row instead of a
+    // consolation chip (or a category that wrapped) making one cell taller than
+    // its neighbours — the same reason the PDF measures one strip height for the
+    // whole document.
+    .cell-strip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-height: 38px;
+      padding: 5px 6px;
+      background: $tealDark;
+      text-align: center;
+    }
+
+    .cell-body {
+      padding: 8px 6px;
+    }
+  }
+
+  .cell-category {
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    line-height: 1.25;
+  }
+
+  .cell-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .courts-grid .cell-round {
+    font-size: 10px;
+    color: $amberSoft;
+  }
+
+  .consolation-chip {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: $amber;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .cell-sides {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    text-align: center;
+
+    .side {
+      font-size: 12px;
+      font-weight: 700;
+      color: $ink;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+
+      // A knockout slot that is still to be defined ("Ganador de A vs B") is a
+      // description, not a competitor: it reads as one.
+      &.placeholder {
+        font-weight: 400;
+        font-style: italic;
+        color: $muted;
+      }
+    }
+
+    .vs {
+      font-size: 10px;
+      color: $muted;
+    }
+  }
+
+  // --- Interclubes programme ---------------------------------------------
+  .series-table {
+    min-width: 100%;
+
+    td {
+      padding: 8px 10px;
+      vertical-align: middle;
+    }
+
+    .category-cell {
+      width: 22%;
+      min-width: 120px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: $tealDark;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .series-cell {
+      min-width: 220px;
+
+      .cell-sides {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+
+        .side {
+          flex: 1;
+          font-size: 13px;
+        }
+      }
+    }
+
+    .round-cell {
+      width: 22%;
+      min-width: 120px;
+      text-align: center;
+
+      .cell-round {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        color: $ink;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+    }
+  }
+
+  // --- The reader's own matches ------------------------------------------
+  // The amber rule down the left edge is what actually catches the eye; the
+  // tint alone is too quiet next to the alternating rows it sits between.
+  .match-cell.mine {
+    box-shadow: inset 3px 0 0 $amber;
+  }
+
+  tr.mine .time-cell {
+    box-shadow: inset 3px 0 0 $amber;
+  }
+}
+
+@media (max-width: 600px) {
+  .tournament-schedule {
+    .sheet-header {
+      padding: 14px;
+
+      .sheet-tournament {
+        font-size: 15px;
+      }
+    }
+
+    .sheet-body {
+      padding: 12px;
+      gap: 14px;
+    }
+
+    .time-header,
+    .time-cell {
+      width: 62px;
+      min-width: 62px;
+    }
+
+    .courts-grid .court-header,
+    .courts-grid .match-cell {
+      min-width: 132px;
+    }
+  }
+}

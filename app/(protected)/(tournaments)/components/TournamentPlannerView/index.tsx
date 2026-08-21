@@ -23,6 +23,8 @@ import Link from 'next/link'
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import { useSites } from '@/app/(protected)/(sites)/hooks/useSites'
+import { DEFAULT_SITE_COURTS, MAX_SITE_COURTS, SiteData } from '@/app/(protected)/(sites)/models/SiteData'
+import { SiteDto } from '@/app/(protected)/(sites)/models/SiteDto'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -44,29 +46,28 @@ import { useNotifications } from '@/app/hooks/useNotifications'
 import { searchTerms } from '@/app/utils/text'
 import { downloadPlannerPdf, PlannerPdfDay, PlannerPdfSlot } from './exportPdf'
 
-const DEFAULT_COURTS = 2
-const MAX_COURTS = 12
 /**
  * Match duration, in minutes. Unlike the courts configuration this is a habit of
- * the organizer rather than a property of a venue, so it is stored once and
- * reused across every site.
+ * the organizer rather than a property of a venue, so it stays in the browser,
+ * stored once and reused across every site. It is nonetheless mirrored onto
+ * whichever venue is being planned (`sites.data.matchDuration`) — see
+ * `persistSiteData` — because the published schedule cannot tell a promised
+ * start time from an "a partir de" one without knowing how long a match runs.
  */
 const DURATION_STORAGE_KEY = 'tournamentPlanner:duration'
 /**
- * Courts configuration, stored per site: how many courts it has and how they are
- * named. "Cancha 3" of one club has nothing to do with "Cancha 3" of another, so
- * switching sites in the selector loads that site's own setup.
- */
-const courtsStorageKey = (siteId: number) => `tournamentPlanner:courts:${siteId}`
-/**
- * Keys written by the previous, browser-only planner: match placements and
- * free-text custom matches. Both concepts are gone — placements now live on the
- * matches themselves and custom matches were removed — so any leftovers are
- * cleared once, when the planner mounts, instead of lingering forever.
+ * Keys written by planner versions that kept state in the browser: match
+ * placements and free-text custom matches (both concepts are gone — placements
+ * now live on the matches themselves, and custom matches were removed), and the
+ * per-site courts setup, which now belongs to the venue itself (`sites.data`,
+ * migration 019) so that a player reading the published schedule sees the same
+ * court names the organizer typed. Any leftovers are cleared once, when the
+ * planner mounts, instead of lingering forever.
  */
 const LEGACY_STORAGE_PREFIXES = [
   'tournamentPlanner:placements:',
   'tournamentPlanner:customMatches:',
+  'tournamentPlanner:courts:',
   'tournamentPlanner:config'
 ]
 
@@ -91,51 +92,6 @@ function pruneLegacyPlannerStorage(): void {
     }
   } catch {
     // Ignore read/write errors (e.g. storage disabled).
-  }
-}
-
-/** Courts setup of a single site. */
-interface CourtsConfig {
-  courts: number
-  /** Custom court names, keyed by 1-based court number. Missing entries fall back to "Cancha N". */
-  courtNames: Record<number, string>
-}
-
-const DEFAULT_COURTS_CONFIG: CourtsConfig = { courts: DEFAULT_COURTS, courtNames: {} }
-
-/** Reads a site's persisted courts setup, falling back to defaults if absent or invalid. */
-function loadCourtsConfig(siteId: number | null): CourtsConfig {
-  if (typeof window === 'undefined' || siteId == null) {
-    return DEFAULT_COURTS_CONFIG
-  }
-
-  try {
-    const raw = window.localStorage.getItem(courtsStorageKey(siteId))
-
-    if (!raw) {
-      return DEFAULT_COURTS_CONFIG
-    }
-
-    const parsed = JSON.parse(raw)
-    const courts = Number(parsed?.courts)
-    const courtNames: Record<number, string> = {}
-
-    if (parsed?.courtNames && typeof parsed.courtNames === 'object') {
-      for (const [key, value] of Object.entries(parsed.courtNames)) {
-        const court = Number(key)
-
-        if (Number.isFinite(court) && typeof value === 'string' && value.trim() !== '') {
-          courtNames[court] = value
-        }
-      }
-    }
-
-    return {
-      courts: Number.isFinite(courts) ? Math.max(1, Math.min(MAX_COURTS, courts)) : DEFAULT_COURTS,
-      courtNames
-    }
-  } catch {
-    return DEFAULT_COURTS_CONFIG
   }
 }
 
@@ -169,19 +125,20 @@ interface TournamentPlannerViewProps {
 
 export default function TournamentPlannerView({ tournamentId, logoSrc }: TournamentPlannerViewProps) {
   const { getTournament, saveMatchSchedule, clearMatchSchedule } = useTournaments()
-  const { getAllSites } = useSites()
+  const { getAllSites, updateSiteData } = useSites()
   const { showWarningMessage } = useNotifications()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)
   const [loading, setLoading] = useState(true)
-  // Venue catalogue, kept only to name the selected site on the exported PDF.
-  // The selector loads its own copy; both hit the same cached endpoint.
-  const [siteNames, setSiteNames] = useState<Record<number, string>>({})
+  // Venue catalogue: it names the selected site on the exported PDF and, more
+  // importantly, carries each venue's courts setup (`site.data`). The selector
+  // loads its own copy; both hit the same cached endpoint.
+  const [sites, setSites] = useState<SiteDto[]>([])
   // --- Configuration state ------------------------------------------------
   // The venue being planned. Every match dropped on the grid is scheduled here,
   // and the grid only shows the matches of this site — otherwise "Cancha 1" of
   // two different clubs would collide in the same column.
   const [siteId, setSiteId] = useState<number | null>(null)
-  const [courts, setCourts] = useState(DEFAULT_COURTS)
+  const [courts, setCourts] = useState(DEFAULT_SITE_COURTS)
   const [courtNames, setCourtNames] = useState<Record<number, string>>({})
   const [duration, setDuration] = useState(DEFAULT_DURATION)
   const [startDate, setStartDate] = useState<Dayjs>(() => dayjs().startOf('day'))
@@ -204,6 +161,13 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
   // True until the initial tournament load has seeded the site and day range, so
   // those defaults are only ever applied once.
   const initializedRef = useRef(false)
+  /**
+   * The courts setup as the server last knew it, and which venue it was read
+   * from. It is what lets the effect below tell an actual edit apart from the
+   * load that seeded the fields — without it, opening the planner would write
+   * the setup straight back to the site it had just been read from.
+   */
+  const persistedRef = useRef<{ siteId: number | null; signature: string }>({ siteId: null, signature: '' })
 
   // Clear the leftovers of the previous localStorage-based planner, once.
   useEffect(() => {
@@ -211,15 +175,15 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     setDuration(loadDuration())
   }, [])
 
-  // The venue name is only needed for the PDF header; a failure here must not
-  // block the planner, so it silently falls back to no venue line.
+  // A failure here must not block the planner: the grid still works, it just
+  // falls back to the default courts setup and to no venue line on the PDF.
   useEffect(() => {
     let cancelled = false
 
     getAllSites()
-      .then((sites) => {
+      .then((catalogue) => {
         if (!cancelled) {
-          setSiteNames(Object.fromEntries(sites.map((site) => [site.id, site.name])))
+          setSites(catalogue)
         }
       })
       .catch(() => undefined)
@@ -229,6 +193,10 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     }
   }, [getAllSites])
 
+  const siteNames = useMemo(
+    () => Object.fromEntries(sites.map((site) => [site.id, site.name])) as Record<number, string>,
+    [sites]
+  )
   const refreshTournament = useCallback(
     () =>
       getTournament(tournamentId).then((data) => {
@@ -273,26 +241,78 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
       .finally(() => setLoading(false))
   }, [refreshTournament])
 
-  // Load the selected site's own courts setup whenever the venue changes.
+  /**
+   * Load the venue's own courts setup whenever the planned site changes.
+   *
+   * "Cancha 3" of one club has nothing to do with "Cancha 3" of another, so
+   * each venue carries its own — and it is read from the venue itself rather
+   * than from this browser, so that the schedule a player opens names the
+   * courts exactly as the organizer did (see migration 019-sites-data).
+   */
   useEffect(() => {
-    const config = loadCourtsConfig(siteId)
-
-    setCourts(config.courts)
-    setCourtNames(config.courtNames)
-  }, [siteId])
-
-  // Persist the courts setup against the site it belongs to.
-  useEffect(() => {
-    if (siteId == null || typeof window === 'undefined') {
+    if (siteId == null || persistedRef.current.siteId === siteId) {
       return
     }
 
-    try {
-      window.localStorage.setItem(courtsStorageKey(siteId), JSON.stringify({ courts, courtNames }))
-    } catch {
-      // Ignore write errors (e.g. storage disabled/full).
+    const site = sites.find((candidate) => candidate.id === siteId)
+
+    // The catalogue has not arrived yet: leave the fields alone rather than
+    // flashing the defaults, and come back when `sites` resolves.
+    if (!site) {
+      return
     }
-  }, [siteId, courts, courtNames])
+
+    const data = site.data ?? {}
+    const storedCourts = Number(data.courts)
+    const nextCourts = Number.isInteger(storedCourts)
+      ? Math.max(1, Math.min(MAX_SITE_COURTS, storedCourts))
+      : DEFAULT_SITE_COURTS
+    // JSON object keys are strings; the planner indexes them by court number.
+    const nextCourtNames = Object.fromEntries(
+      Object.entries(data.courtNames ?? {}).map(([court, name]) => [Number(court), String(name)])
+    )
+
+    persistedRef.current = {
+      siteId,
+      signature: JSON.stringify({
+        courts: nextCourts,
+        courtNames: nextCourtNames,
+        matchDuration: data.matchDuration ?? null
+      })
+    }
+    setCourts(nextCourts)
+    setCourtNames(nextCourtNames)
+  }, [siteId, sites])
+
+  /**
+   * Store the courts setup on the venue it describes, debounced — renaming a
+   * court is typed one character at a time, and each keystroke is a state
+   * change. The match duration rides along (see DURATION_STORAGE_KEY): the
+   * planner still chooses it per organizer, but the published schedule needs it
+   * to know which start times a court can actually promise.
+   */
+  useEffect(() => {
+    if (siteId == null || persistedRef.current.siteId !== siteId) {
+      return
+    }
+
+    const data: SiteData = { courts, courtNames, matchDuration: duration }
+    const signature = JSON.stringify({ courts, courtNames, matchDuration: duration })
+
+    if (signature === persistedRef.current.signature) {
+      return
+    }
+
+    const timeout = setTimeout(() => {
+      persistedRef.current = { siteId, signature }
+      // A failure costs the setup, not the planning: every placement is stored
+      // on its own match row, so the grid keeps working and the next edit
+      // retries. Nothing here is worth interrupting a drag & drop session for.
+      void updateSiteData(siteId, data).catch(() => undefined)
+    }, 600)
+
+    return () => clearTimeout(timeout)
+  }, [siteId, courts, courtNames, duration, updateSiteData])
 
   // Duration is a habit of the organizer, not of a venue: stored once.
   useEffect(() => {
@@ -635,7 +655,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
     }
 
     if (siteId == null) {
-      showWarningMessage('Elegí una sede antes de planificar')
+      showWarningMessage('Elegí una sede antes de programar')
 
       return
     }
@@ -724,7 +744,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
   // Exports the current planning grid (only placed matches) to a downloadable PDF.
   const handleExportPdf = () => {
     if (Object.keys(placements).length === 0) {
-      showWarningMessage('No hay partidos planificados para exportar')
+      showWarningMessage('No hay partidos programados para exportar')
 
       return
     }
@@ -794,7 +814,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               size="small"
               className="planner-match-remove"
               onClick={() => removePlacement(entry.id)}
-              aria-label="Quitar de la planificación"
+              aria-label="Quitar de la programación"
             >
               <CloseIcon fontSize="inherit" />
             </IconButton>
@@ -839,7 +859,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
             </IconButton>
           </Link>
           <Typography variant="h5" component="h1" className="planner-title">
-            Planificador — {tournament.name}
+            Programador — {tournament.name}
           </Typography>
           <Button
             variant="outlined"
@@ -869,7 +889,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
                 onChange={(event) => {
                   const value = Number(event.target.value)
 
-                  setCourts(Math.max(1, Math.min(MAX_COURTS, Number.isNaN(value) ? 1 : value)))
+                  setCourts(Math.max(1, Math.min(MAX_SITE_COURTS, Number.isNaN(value) ? 1 : value)))
                 }}
               />
               <DatePicker
@@ -969,10 +989,10 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
               )}
             </div>
             {allEntries.length === 0 ? (
-              <Alert severity="info">No hay partidos para planificar. Activá rondas del torneo.</Alert>
+              <Alert severity="info">No hay partidos para programar. Activá rondas del torneo.</Alert>
             ) : unplannedEntries.length === 0 ? (
               <Typography variant="body2" color="text.secondary" className="pool-empty">
-                Todos los partidos están planificados. Arrastrá un partido acá para quitarlo de la planificación.
+                Todos los partidos están programados. Arrastrá un partido acá para quitarlo de la programación.
               </Typography>
             ) : filteredEntries.length === 0 ? (
               <div className="pool-empty-filtered">
@@ -991,7 +1011,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
           {/* --- Planning grid section ------------------------------------- */}
           <Paper className="planner-section grid-section">
             <Typography variant="subtitle1" className="section-title">
-              Planificación
+              Programación
             </Typography>
             <Typography variant="body2" color="text.secondary" className="grid-hint">
               Arrastrá los partidos a un día, cancha y horario. Podés moverlos entre celdas o devolverlos a la lista de
@@ -999,7 +1019,7 @@ export default function TournamentPlannerView({ tournamentId, logoSrc }: Tournam
             </Typography>
             {siteId == null && (
               <Alert severity="warning" className="grid-no-site">
-                Elegí una sede para empezar a planificar.
+                Elegí una sede para empezar a programar.
               </Alert>
             )}
             <div className="planner-days">

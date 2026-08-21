@@ -57,6 +57,7 @@ import { describeInterclubsFormat } from '@/app/(protected)/(tournaments)/utils/
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { isRegistrationOpen } from '@/app/(protected)/(tournaments)/utils/registrations'
+import { resolveScheduleDays, todayDate } from '@/app/(protected)/(tournaments)/utils/schedule'
 import { hasConsolationBracket } from '@/app/(protected)/(tournaments)/utils/settings'
 import { useUserStore } from '@/app/stores/users'
 
@@ -117,6 +118,25 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
     userEntry.playerIds[0] === userId
   // Registrations are open unless the tournament sets a future startInscriptionsDate.
   const registrationOpen = useMemo(() => isRegistrationOpen(tournament?.startInscriptionsDate), [tournament])
+  /**
+   * Whether there is a schedule worth opening: matches planned inside the window
+   * the published sheet derives (see utils/schedule.ts — the block of play about
+   * to happen, not the whole tournament). Computed with the same function the
+   * sheet uses, so the button never leads to an empty page: a tournament whose
+   * planning is still weeks away simply doesn't offer it yet.
+   *
+   * Organizers get the planner instead, which is the same information plus the
+   * ability to change it.
+   */
+  const hasSchedule = useMemo(() => {
+    if (isOrganizer) {
+      return false
+    }
+
+    const planned = matches.filter((match) => match.date != null && match.hour != null).map((match) => match.date!)
+
+    return resolveScheduleDays(planned, todayDate()).length > 0
+  }, [isOrganizer, matches])
   const myMatches = useMemo(() => {
     if (isOrganizer || !userEntry || !tournament || !tournament.allowPlayerSetScore) {
       return []
@@ -451,7 +471,7 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
                       component={Link}
                       href={`/tournaments/${tournament.id}/planner`}
                     >
-                      Planificador
+                      Programador
                     </Button>
                   )}
                 </div>
@@ -481,36 +501,53 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
                 </div>
               </div>
             ) : (
-              tournament.status === TournamentStatus.STAND_BY && (
+              (tournament.status === TournamentStatus.STAND_BY || hasSchedule) && (
                 <div className="footer">
                   <div className="info-area">
-                    {userEntry ? (
-                      <Chip icon={<CheckCircleIcon />} color="success" label="Inscripto" />
-                    ) : !registrationOpen ? (
-                      <Chip
-                        color="info"
-                        label={`Las inscripciones abren el ${dayjs(tournament.startInscriptionsDate).format('DD/MM/YYYY')}`}
-                      />
-                    ) : (
-                      <></>
+                    {tournament.status === TournamentStatus.STAND_BY &&
+                      (userEntry ? (
+                        <Chip icon={<CheckCircleIcon />} color="success" label="Inscripto" />
+                      ) : !registrationOpen ? (
+                        <Chip
+                          color="info"
+                          label={`Las inscripciones abren el ${dayjs(tournament.startInscriptionsDate).format('DD/MM/YYYY')}`}
+                        />
+                      ) : (
+                        <></>
+                      ))}
+                    {/* The order of play the organizer published, for the days
+                        that are about to be played. Unlike the organizer's
+                        planner it stays available on a phone, which is where
+                        it is actually read. */}
+                    {hasSchedule && (
+                      <Button
+                        variant="outlined"
+                        className="schedule-button"
+                        startIcon={<EventNoteIcon />}
+                        component={Link}
+                        href={`/tournaments/${tournament.id}/schedule`}
+                      >
+                        Ver programación
+                      </Button>
                     )}
                   </div>
                   <div className="actions-area">
-                    {userEntry ? (
-                      <Button
-                        color="error"
-                        variant="outlined"
-                        onClick={handleLeave}
-                        disabled={working}
-                        loading={working}
-                      >
-                        Darme de baja
-                      </Button>
-                    ) : registrationOpen ? (
-                      <Button variant="contained" startIcon={<HowToRegIcon />} onClick={() => setJoinOpen(true)}>
-                        Inscribirme
-                      </Button>
-                    ) : null}
+                    {tournament.status === TournamentStatus.STAND_BY &&
+                      (userEntry ? (
+                        <Button
+                          color="error"
+                          variant="outlined"
+                          onClick={handleLeave}
+                          disabled={working}
+                          loading={working}
+                        >
+                          Darme de baja
+                        </Button>
+                      ) : registrationOpen ? (
+                        <Button variant="contained" startIcon={<HowToRegIcon />} onClick={() => setJoinOpen(true)}>
+                          Inscribirme
+                        </Button>
+                      ) : null)}
                   </div>
                 </div>
               )
