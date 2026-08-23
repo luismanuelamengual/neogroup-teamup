@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react'
 import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
-import { useUserStore } from '@/app/stores/users'
+import { useUserStore } from '@/app/(protected)/stores/users'
 
 interface CompetitorsListProps {
   tournament: TournamentDto

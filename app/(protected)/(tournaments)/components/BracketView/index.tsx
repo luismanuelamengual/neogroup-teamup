@@ -14,8 +14,8 @@ import { TournamentType } from '@/app/(protected)/(tournaments)/models/Tournamen
 import { roundLabel } from '@/app/(protected)/(tournaments)/utils/bracket'
 import { getCompetitorNameLines } from '@/app/(protected)/(tournaments)/utils/competitors'
 import { hasMatchSchedule, isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { useUserStore } from '@/app/(protected)/stores/users'
 import Avatar from '@/app/components/Avatar'
-import { useUserStore } from '@/app/stores/users'
 
 interface BracketViewProps {
   tournament: TournamentDto

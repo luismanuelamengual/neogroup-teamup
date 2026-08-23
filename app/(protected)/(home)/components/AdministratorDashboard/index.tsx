@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography'
 import OrganizationStats from '@/app/(protected)/(home)/components/OrganizationStats'
 import OverduePaymentsBanner from '@/app/(protected)/(payments)/components/OverduePaymentsBanner'
 import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverduePayments'
-import { useUserStore } from '@/app/stores/users'
+import { useUserStore } from '@/app/(protected)/stores/users'
 import { normalizeName } from '@/app/utils/users'
 
 /**

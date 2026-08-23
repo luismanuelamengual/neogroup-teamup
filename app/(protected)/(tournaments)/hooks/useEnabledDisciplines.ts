@@ -1,5 +1,5 @@
 import { Discipline, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { useOrganizationStore } from '@/app/stores/organization'
+import { useOrganizationStore } from '@/app/(protected)/stores/organization'
 
 // Stable reference for the "not hydrated yet" fallback. A literal `?? []`
 // inline in the selector would create a new array on every call, which makes

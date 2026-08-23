@@ -24,10 +24,10 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { getSession, signOut } from 'next-auth/react'
 import { MouseEvent, ReactNode, useEffect, useState } from 'react'
-import { SessionUser } from '@/app/(auth)/models/SessionUser'
+import { SessionUser } from '@/app/(protected)/models/SessionUser'
+import { useUserStore } from '@/app/(protected)/stores/users'
 import Avatar from '@/app/components/Avatar'
 import { Role, RoleNames } from '@/app/models/Role'
-import { useUserStore } from '@/app/stores/users'
 
 interface NavItem {
   key: string

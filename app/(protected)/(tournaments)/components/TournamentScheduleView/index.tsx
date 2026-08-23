@@ -23,7 +23,7 @@ import {
   PlannerEntry
 } from '@/app/(protected)/(tournaments)/utils/planner'
 import { resolveScheduleDays, todayDate } from '@/app/(protected)/(tournaments)/utils/schedule'
-import { useUserStore } from '@/app/stores/users'
+import { useUserStore } from '@/app/(protected)/stores/users'
 
 /**
  * The schedule as a player reads it: what the organizer planned, published.

@@ -59,7 +59,7 @@ import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
 import { isRegistrationOpen } from '@/app/(protected)/(tournaments)/utils/registrations'
 import { resolveScheduleDays, todayDate } from '@/app/(protected)/(tournaments)/utils/schedule'
 import { hasConsolationBracket } from '@/app/(protected)/(tournaments)/utils/settings'
-import { useUserStore } from '@/app/stores/users'
+import { useUserStore } from '@/app/(protected)/stores/users'
 
 interface TournamentViewProps {
   tournamentId: number

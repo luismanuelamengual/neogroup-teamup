@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import { SessionUser } from '@/app/(auth)/models/SessionUser'
-import { useUserStore } from '@/app/stores/users'
+import { SessionUser } from '@/app/(protected)/models/SessionUser'
+import { useUserStore } from '@/app/(protected)/stores/users'
 
 /**
  * Hydrates the user store with the session user resolved on the server.

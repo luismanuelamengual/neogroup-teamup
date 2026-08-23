@@ -22,9 +22,9 @@ import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/Tour
 import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { INTERCLUBS_MIN_TEAM_PLAYERS } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
+import { useUserStore } from '@/app/(protected)/stores/users'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
-import { useUserStore } from '@/app/stores/users'
 import { SubDisciplineNames } from '../../models/SubDiscipline'
 
 interface JoinTournamentModalProps {

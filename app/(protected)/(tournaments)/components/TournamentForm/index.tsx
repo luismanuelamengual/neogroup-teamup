@@ -51,7 +51,7 @@ import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { isDoublesDiscipline } from '@/app/(protected)/(tournaments)/utils/discipline'
-import { useOrganizationStore } from '@/app/stores/organization'
+import { useOrganizationStore } from '@/app/(protected)/stores/organization'
 
 export default function TournamentForm() {
   const { createTournament } = useTournaments()

@@ -1,14 +1,14 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ReactNode, Suspense } from 'react'
-import UserStoreHydrator from '@/app/(auth)/components/UserStoreHydrator'
-import { SessionUser } from '@/app/(auth)/models/SessionUser'
 import { auth } from '@/app/(auth)/services/auth'
 import AppShell from '@/app/(protected)/components/AppShell'
 import OrganizationStoreHydrator from '@/app/(protected)/components/OrganizationStoreHydrator'
+import UserStoreHydrator from '@/app/(protected)/components/UserStoreHydrator'
+import { SessionOrganization } from '@/app/(protected)/models/SessionOrganization'
+import { SessionUser } from '@/app/(protected)/models/SessionUser'
 import Loading from '@/app/components/Loading'
 import { Role } from '@/app/models/Role'
-import { SessionOrganization } from '@/app/models/SessionOrganization'
 import { getOrganization, resolveOrganizationImage } from '@/app/services/organizations'
 
 /**
