@@ -305,7 +305,6 @@ export async function createTournament(
   tournament.paidAt = null
   tournament.servicePaymentId = null
   tournament.entryFee = entryFee
-  tournament.currency = 'ARS'
   tournament.allowPlayerSetScore = Boolean(input.allowPlayerSetScore)
   tournament.settings = settings
   // Ranking points only apply to tournaments that define categories.

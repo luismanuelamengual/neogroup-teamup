@@ -175,7 +175,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
               Costo de inscripción:{' '}
               <div className="entry-fee">
                 <PaidIcon fontSize="inherit" />{' '}
-                <strong>{formatMoney(tournament.entryFee!, tournament.currency)}</strong>
+                <strong>{formatMoney(tournament.entryFee!)}</strong>
               </div>
               . Se abona directamente al organizador, en la cancha o por el medio que acuerden.
             </Alert>

@@ -430,7 +430,7 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
                 size="small"
                 color={tournament.paid && tournament.entryFee ? 'success' : 'default'}
                 icon={tournament.entryFee ? <PaidIcon /> : undefined}
-                label={tournament.entryFee ? formatMoney(tournament.entryFee, tournament.currency) : 'Gratuito'}
+                label={tournament.entryFee ? formatMoney(tournament.entryFee) : 'Gratuito'}
               />
               {tournament.site?.name && (
                 <span className="meta-item">

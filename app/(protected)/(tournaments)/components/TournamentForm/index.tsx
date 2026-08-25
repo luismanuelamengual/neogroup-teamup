@@ -174,7 +174,6 @@ export default function TournamentForm() {
         categoryIds,
         maxCompetitors,
         entryFee: paid ? (entryFee ?? 0) : null,
-        currency: 'ARS',
         allowPlayerSetScore,
         rankingSettings,
         settings:

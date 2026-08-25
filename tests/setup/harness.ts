@@ -336,7 +336,6 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
     rankingSettings: null,
     allowPlayerSetScore: options.allowPlayerSetScore ?? false,
     entryFee: options.entryFee ?? null,
-    currency: 'ARS',
     paid: options.paid ?? false,
     paidAt: null,
     servicePaymentId: null,
