@@ -1,4 +1,4 @@
-import { clearMatchSchedule } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { clearMatchSchedule } from '@/app/(protected)/(tournaments)/services/matches'
 import { withAuth } from '@/app/utils/api-server'
 
 /**
