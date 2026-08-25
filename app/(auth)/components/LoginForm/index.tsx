@@ -68,7 +68,7 @@ export default function LoginForm({
         Iniciar sesión
       </Typography>
       <Typography variant="body2" color="text.secondary" className="subtitle">
-        Organizá y jugá torneos de tenis y pádel
+        Organizá y jugá torneos y competencias
       </Typography>
       {allowRegistrations && (
         <>
