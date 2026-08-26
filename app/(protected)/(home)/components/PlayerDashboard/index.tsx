@@ -7,9 +7,10 @@ import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import PlayerStats from '@/app/(protected)/(home)/components/PlayerStats'
+import UpcomingMatches from '@/app/(protected)/(home)/components/UpcomingMatches'
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { useUserStore } from '@/app/stores/users'
+import { useUserStore } from '@/app/(protected)/stores/users'
 import { normalizeName } from '@/app/utils/users'
 
 export default function PlayerDashboard() {
@@ -31,6 +32,8 @@ export default function PlayerDashboard() {
       <section className="player-stats">
         <PlayerStats />
       </section>
+
+      <UpcomingMatches />
 
       <section className="panel">
         <Typography variant="h6" className="panel-title">

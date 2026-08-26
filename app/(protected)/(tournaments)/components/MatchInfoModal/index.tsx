@@ -13,7 +13,6 @@ import Typography from '@mui/material/Typography'
 import dayjs from 'dayjs'
 import { Fragment, useEffect, useState } from 'react'
 import { useSites } from '@/app/(protected)/(sites)/hooks/useSites'
-import CompetitorInfoModal from '@/app/(protected)/(tournaments)/components/CompetitorInfoModal'
 import SuperTiebreakValue from '@/app/(protected)/(tournaments)/components/SuperTiebreakValue'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -54,7 +53,6 @@ interface MatchInfoModalProps {
  */
 export default function MatchInfoModal({ open, tournament, match, onClose }: MatchInfoModalProps) {
   const { getAllSites } = useSites()
-  const [modalCompetitors, setModalCompetitors] = useState<CompetitorDto[]>([])
   const [siteNames, setSiteNames] = useState<Record<number, string>>({})
   const competitorsById = new Map((tournament.competitors ?? []).map((competitor) => [competitor.id, competitor]))
   const isInterclubs = tournament.type === TournamentType.INTERCLUBS
@@ -120,13 +118,19 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
     return `Fecha ${match.roundNumber}`
   }
 
-  const openCompetitor = (competitor: CompetitorDto | undefined) => competitor && setModalCompetitors([competitor])
   const series = isSeriesScore(match.score) ? (match.score?.matches ?? []) : []
   const seriesResult = getSeriesMatchesWon(match.score ?? {})
   // Same per-side column shape MatchCard renders from (one column per set, a
   // single column for a basic count or an interclubes series) — null falls
   // back to a single centered note (walkover, or not played yet).
   const scoreColumns = getScoreColumns(match.score, tournament.scoreFormat)
+  // A super tiebreak is always the 3rd (last) set, and its score renders as a
+  // superscript pinned outside the flow to the "0"'s upper-right corner (see
+  // SuperTiebreakValue) — the grid's own max-content column sizing never
+  // accounts for it. When it lands on the LAST column there's no next column
+  // to visually share the overflow with, so without reserved room it spills
+  // straight past the board into the dialog's own padding. See `.has-super-tiebreak`.
+  const scoreEndsInSuperTiebreak = scoreColumns?.some((column) => column.superTiebreak) ?? false
   /**
    * Venue of the match, resolving the "null means somewhere else" convention so
    * the reader never has to know about it: the match's own venue first, and when
@@ -151,150 +155,136 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
   ]
 
   return (
-    <>
-      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth className="match-info-modal">
-        <DialogTitle className="match-info-modal-title">
-          Detalle del partido
-          <IconButton size="small" onClick={onClose} className="close-btn" aria-label="Cerrar">
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent className="match-info-modal-content">
-          <div className="stage">
-            <Chip size="small" label={stageName()} />
-            {match.status === MatchStatus.PENDING && <Chip size="small" variant="outlined" label="Pendiente" />}
-            {match.status === MatchStatus.WALKOVER && <Chip size="small" color="warning" label="W.O." />}
-          </div>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth className="match-info-modal">
+      <DialogTitle className="match-info-modal-title">
+        Detalle del partido
+        <IconButton size="small" onClick={onClose} className="close-btn" aria-label="Cerrar">
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent className="match-info-modal-content">
+        <div className="stage">
+          <Chip size="small" label={stageName()} />
+          {match.status === MatchStatus.PENDING && <Chip size="small" variant="outlined" label="Pendiente" />}
+          {match.status === MatchStatus.WALKOVER && <Chip size="small" color="warning" label="W.O." />}
+        </div>
 
-          <div className="schedule">
-            <Typography variant="subtitle2" className="schedule-title">
-              Cuándo y dónde
-            </Typography>
-            <dl className="schedule-list">
-              {scheduleRows.map(({ label, value }) => (
-                <div key={label} className="schedule-row">
-                  <dt>{label}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-
-          <Divider />
-
-          {/* Same board as MatchCard: home is row 1, away is row 2, and a set's
-              home/away cells share one grid column — so the column sizes itself
-              to whichever value is widest instead of a fixed width that a
-              double-digit super tiebreak could outgrow. */}
-          <div className="score-board">
-            <div
-              className={`side ${match.winner === MatchSide.HOME ? 'winner' : ''}`}
-              style={{ gridRow: 1 }}
-              onClick={() => openCompetitor(homeTeam)}
-            >
-              <span className="side-label">{isInterclubs ? 'Local' : 'Lado A'}</span>
-              <span className="side-name">{sideName(match.homeCompetitorId)}</span>
-            </div>
-            <div
-              className={`side ${match.winner === MatchSide.AWAY ? 'winner' : ''}`}
-              style={{ gridRow: 2 }}
-              onClick={() => openCompetitor(awayTeam)}
-            >
-              <span className="side-label">{isInterclubs ? 'Visitante' : 'Lado B'}</span>
-              <span className="side-name">{sideName(match.awayCompetitorId)}</span>
-            </div>
-            {scoreColumns ? (
-              scoreColumns.map((column, index) => (
-                <Fragment key={index}>
-                  <span
-                    className={`score-cell ${column.home > column.away ? 'won' : ''}`}
-                    style={{ gridColumn: index + 2, gridRow: 1 }}
-                  >
-                    {column.superTiebreak ? <SuperTiebreakValue value={column.home} /> : column.home}
-                  </span>
-                  <span
-                    className={`score-cell ${column.away > column.home ? 'won' : ''}`}
-                    style={{ gridColumn: index + 2, gridRow: 2 }}
-                  >
-                    {column.superTiebreak ? <SuperTiebreakValue value={column.away} /> : column.away}
-                  </span>
-                </Fragment>
-              ))
-            ) : (
-              <span className="score-note" style={{ gridColumn: 2, gridRow: '1 / span 2' }}>
-                {match.status === MatchStatus.PENDING ? '—' : formatScore(match.score, tournament.scoreFormat)}
-              </span>
-            )}
-          </div>
-
-          {isInterclubs && series.length > 0 && (
-            <>
-              <Divider />
-              <Typography variant="subtitle2" className="series-title">
-                {`Partidos del encuentro (${seriesResult.home}-${seriesResult.away})`}
-              </Typography>
-              <div className="series">
-                {series.map((entry, index) => {
-                  const entryColumns = getScoreColumns(entry.score, tournament.scoreFormat)
-
-                  return (
-                    <div key={index} className="series-row">
-                      <Chip size="small" variant="outlined" label={entry.double ? 'Dobles' : 'Single'} />
-                      <div className="series-board">
-                        <span
-                          className={`series-players ${entry.winner === MatchSide.HOME ? 'winner' : ''}`}
-                          style={{ gridRow: 1 }}
-                        >
-                          {entry.homePlayerIds.map((id) => playerName(homeTeam, id)).join(' / ')}
-                        </span>
-                        <span
-                          className={`series-players ${entry.winner === MatchSide.AWAY ? 'winner' : ''}`}
-                          style={{ gridRow: 2 }}
-                        >
-                          {entry.awayPlayerIds.map((id) => playerName(awayTeam, id)).join(' / ')}
-                        </span>
-                        {entryColumns ? (
-                          entryColumns.map((column, i) => (
-                            <Fragment key={i}>
-                              <span
-                                className={`series-score-cell ${column.home > column.away ? 'won' : ''}`}
-                                style={{ gridColumn: i + 2, gridRow: 1 }}
-                              >
-                                {column.superTiebreak ? <SuperTiebreakValue value={column.home} /> : column.home}
-                              </span>
-                              <span
-                                className={`series-score-cell ${column.away > column.home ? 'won' : ''}`}
-                                style={{ gridColumn: i + 2, gridRow: 2 }}
-                              >
-                                {column.superTiebreak ? <SuperTiebreakValue value={column.away} /> : column.away}
-                              </span>
-                            </Fragment>
-                          ))
-                        ) : (
-                          <span className="series-score-note" style={{ gridColumn: 2, gridRow: '1 / span 2' }}>
-                            {formatScore(entry.score, tournament.scoreFormat)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+        <div className="schedule">
+          <Typography variant="subtitle2" className="schedule-title">
+            Cuándo y dónde
+          </Typography>
+          <dl className="schedule-list">
+            {scheduleRows.map(({ label, value }) => (
+              <div key={label} className="schedule-row">
+                <dt>{label}</dt>
+                <dd>{value}</dd>
               </div>
-            </>
-          )}
+            ))}
+          </dl>
+        </div>
 
-          {isInterclubs && series.length === 0 && match.status !== MatchStatus.PENDING && (
-            <Typography variant="body2" color="text.secondary">
-              El encuentro se resolvió sin jugarse.
-            </Typography>
+        <Divider />
+
+        {/* Same board as MatchCard: home is row 1, away is row 2, and a set's
+            home/away cells share one grid column — so the column sizes itself
+            to whichever value is widest instead of a fixed width that a
+            double-digit super tiebreak could outgrow. */}
+        <div className={`score-board ${scoreEndsInSuperTiebreak ? 'has-super-tiebreak' : ''}`}>
+          <div className={`side ${match.winner === MatchSide.HOME ? 'winner' : ''}`} style={{ gridRow: 1 }}>
+            <span className="side-label">{isInterclubs ? 'Local' : 'Lado A'}</span>
+            <span className="side-name">{sideName(match.homeCompetitorId)}</span>
+          </div>
+          <div className={`side ${match.winner === MatchSide.AWAY ? 'winner' : ''}`} style={{ gridRow: 2 }}>
+            <span className="side-label">{isInterclubs ? 'Visitante' : 'Lado B'}</span>
+            <span className="side-name">{sideName(match.awayCompetitorId)}</span>
+          </div>
+          {scoreColumns ? (
+            scoreColumns.map((column, index) => (
+              <Fragment key={index}>
+                <span
+                  className={`score-cell ${column.home > column.away ? 'won' : ''}`}
+                  style={{ gridColumn: index + 2, gridRow: 1 }}
+                >
+                  {column.superTiebreak ? <SuperTiebreakValue value={column.home} /> : column.home}
+                </span>
+                <span
+                  className={`score-cell ${column.away > column.home ? 'won' : ''}`}
+                  style={{ gridColumn: index + 2, gridRow: 2 }}
+                >
+                  {column.superTiebreak ? <SuperTiebreakValue value={column.away} /> : column.away}
+                </span>
+              </Fragment>
+            ))
+          ) : (
+            <span className="score-note" style={{ gridColumn: 2, gridRow: '1 / span 2' }}>
+              {match.status === MatchStatus.PENDING ? '—' : formatScore(match.score, tournament.scoreFormat)}
+            </span>
           )}
-        </DialogContent>
-      </Dialog>
-      <CompetitorInfoModal
-        open={modalCompetitors.length > 0}
-        competitors={modalCompetitors}
-        onClose={() => setModalCompetitors([])}
-      />
-    </>
+        </div>
+
+        {isInterclubs && series.length > 0 && (
+          <>
+            <Divider />
+            <Typography variant="subtitle2" className="series-title">
+              {`Partidos del encuentro (${seriesResult.home}-${seriesResult.away})`}
+            </Typography>
+            <div className="series">
+              {series.map((entry, index) => {
+                const entryColumns = getScoreColumns(entry.score, tournament.scoreFormat)
+                const entryEndsInSuperTiebreak = entryColumns?.some((column) => column.superTiebreak) ?? false
+
+                return (
+                  <div key={index} className="series-row">
+                    <Chip size="small" variant="outlined" label={entry.double ? 'Dobles' : 'Single'} />
+                    <div className={`series-board ${entryEndsInSuperTiebreak ? 'has-super-tiebreak' : ''}`}>
+                      <span
+                        className={`series-players ${entry.winner === MatchSide.HOME ? 'winner' : ''}`}
+                        style={{ gridRow: 1 }}
+                      >
+                        {entry.homePlayerIds.map((id) => playerName(homeTeam, id)).join(' / ')}
+                      </span>
+                      <span
+                        className={`series-players ${entry.winner === MatchSide.AWAY ? 'winner' : ''}`}
+                        style={{ gridRow: 2 }}
+                      >
+                        {entry.awayPlayerIds.map((id) => playerName(awayTeam, id)).join(' / ')}
+                      </span>
+                      {entryColumns ? (
+                        entryColumns.map((column, i) => (
+                          <Fragment key={i}>
+                            <span
+                              className={`series-score-cell ${column.home > column.away ? 'won' : ''}`}
+                              style={{ gridColumn: i + 2, gridRow: 1 }}
+                            >
+                              {column.superTiebreak ? <SuperTiebreakValue value={column.home} /> : column.home}
+                            </span>
+                            <span
+                              className={`series-score-cell ${column.away > column.home ? 'won' : ''}`}
+                              style={{ gridColumn: i + 2, gridRow: 2 }}
+                            >
+                              {column.superTiebreak ? <SuperTiebreakValue value={column.away} /> : column.away}
+                            </span>
+                          </Fragment>
+                        ))
+                      ) : (
+                        <span className="series-score-note" style={{ gridColumn: 2, gridRow: '1 / span 2' }}>
+                          {formatScore(entry.score, tournament.scoreFormat)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {isInterclubs && series.length === 0 && match.status !== MatchStatus.PENDING && (
+          <Typography variant="body2" color="text.secondary">
+            El encuentro se resolvió sin jugarse.
+          </Typography>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

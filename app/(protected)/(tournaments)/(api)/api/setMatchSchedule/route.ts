@@ -1,4 +1,4 @@
-import { setMatchSchedule } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { setMatchSchedule } from '@/app/(protected)/(tournaments)/services/matches'
 import { withAuth } from '@/app/utils/api-server'
 
 /**

@@ -46,9 +46,9 @@ import {
 } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { canRemoveCompetitor, RemovalCheck } from '@/app/(protected)/(tournaments)/utils/lateRemoval'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
+import { useIsOrganizer } from '@/app/(protected)/stores/users'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
-import { useIsOrganizer } from '@/app/stores/users'
 
 interface TournamentAdminViewProps {
   tournamentId: number

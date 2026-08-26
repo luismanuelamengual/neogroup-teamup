@@ -2,7 +2,7 @@
 
 import './index.scss'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
-import { MouseEvent as ReactMouseEvent, useCallback, useMemo, useRef, useState } from 'react'
+import { MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -14,8 +14,8 @@ import { TournamentType } from '@/app/(protected)/(tournaments)/models/Tournamen
 import { roundLabel } from '@/app/(protected)/(tournaments)/utils/bracket'
 import { getCompetitorNameLines } from '@/app/(protected)/(tournaments)/utils/competitors'
 import { hasMatchSchedule, isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { useUserStore } from '@/app/(protected)/stores/users'
 import Avatar from '@/app/components/Avatar'
-import { useUserStore } from '@/app/stores/users'
 
 interface BracketViewProps {
   tournament: TournamentDto
@@ -366,6 +366,18 @@ export default function BracketView({
 
     return { nodes, titles, segments, canvasWidth, canvasHeight, championLayout }
   }, [rounds, roundMatchLists, baseRound, champion, nodeHeightOf])
+  /**
+   * Mirrors `baseRound` for synchronous reads inside `handleScroll` below,
+   * which — like the state itself — has to stay stable across re-renders (it's
+   * only ever recreated when `rounds.length` changes) instead of depending on
+   * `baseRound` directly, or every round change would re-bind the scroll
+   * listener. Kept in lockstep with the state via the effect right below.
+   */
+  const baseRoundRef = useRef(baseRound)
+
+  useEffect(() => {
+    baseRoundRef.current = baseRound
+  }, [baseRound])
   /** Recompute the first visible round from the horizontal scroll offset. */
   const handleScroll = useCallback(() => {
     if (rafRef.current != null) {
@@ -392,7 +404,23 @@ export default function BracketView({
       }
 
       nextBase = Math.min(nextBase, Math.max(0, rounds.length - 1))
-      setBaseRound((prev) => (prev === nextBase ? prev : nextBase))
+
+      if (nextBase === baseRoundRef.current) {
+        return
+      }
+
+      // A round is about to be added or removed, which re-bases the layout
+      // (see the `layout` memo above) and compacts the bracket. Bring its top
+      // edge into view *before* committing that change — while `.bracket-view`
+      // still has its current (not-yet-shrunk-or-grown) height — instead of
+      // reacting after the fact: the top edge's position is unaffected by the
+      // element's own height changing, so this scroll doesn't have to race the
+      // CSS transition that resizes `.bracket-canvas`, unlike a correction
+      // fired after the round change would.
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+      baseRoundRef.current = nextBase
+      setBaseRound(nextBase)
     })
   }, [rounds.length])
   /** Start a click-and-drag horizontal pan. Ignored if the press starts on an interactive node. */

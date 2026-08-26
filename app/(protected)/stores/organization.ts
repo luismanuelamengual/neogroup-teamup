@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { SessionOrganization } from '@/app/models/SessionOrganization'
+import { SessionOrganization } from '@/app/(protected)/models/SessionOrganization'
 
 /**
  * Store with the current organization. Hydrated from the session by

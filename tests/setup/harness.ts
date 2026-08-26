@@ -50,6 +50,7 @@ import migration015 from '@/database/migrations/015-payments-refactor'
 import migration016 from '@/database/migrations/016-fold-playoff-consolation-into-playoff'
 import migration017 from '@/database/migrations/017-users-drop-nickname-add-site'
 import migration018 from '@/database/migrations/018-single-competitor-per-side'
+import migration019 from '@/database/migrations/019-sites-data'
 
 const TABLES = [
   'service_payments',
@@ -161,6 +162,9 @@ export async function resetDatabase(): Promise<void> {
   // homeCompetitorId/awayCompetitorId FK columns — a no-op deletion step here
   // since the table is freshly created and empty.
   await migration018.up()
+  // 019 adds sites.data, the JSON document holding a venue's courts setup —
+  // what the planner writes and the published schedule reads back.
+  await migration019.up()
 
   const organization = new Organization()
 
@@ -332,7 +336,6 @@ export async function buildTournament(options: CreateTournamentOptions): Promise
     rankingSettings: null,
     allowPlayerSetScore: options.allowPlayerSetScore ?? false,
     entryFee: options.entryFee ?? null,
-    currency: 'ARS',
     paid: options.paid ?? false,
     paidAt: null,
     servicePaymentId: null,

@@ -136,10 +136,25 @@
   .side-name {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
+    // Sized to its own text (shrinking with ellipsis when the row is tight)
+    // rather than stretching over the leftover space: that leftover space is
+    // the card's own click target, and a name that grew into it would swallow
+    // clicks meant for the match detail.
+    flex: 0 1 auto;
+    align-items: flex-start;
     min-width: 0;
 
+    // Only a name backed by a real competitor opens anything on click.
+    &.clickable {
+      cursor: pointer;
+
+      &:hover span {
+        text-decoration: underline;
+      }
+    }
+
     span {
+      max-width: 100%;
       font-size: 14px;
       line-height: 16px;
       white-space: nowrap;

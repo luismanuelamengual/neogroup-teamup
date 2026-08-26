@@ -53,7 +53,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
             )}
             {tournament.entryFee ? (
               <span className="tag paid">
-                <PaidIcon fontSize="inherit" /> {formatMoney(tournament.entryFee, tournament.currency)}
+                <PaidIcon fontSize="inherit" /> {formatMoney(tournament.entryFee)}
               </span>
             ) : (
               <span className="tag">Gratuito</span>

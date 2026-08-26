@@ -11,7 +11,7 @@ import OverduePaymentsBanner from '@/app/(protected)/(payments)/components/Overd
 import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverduePayments'
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { useUserStore } from '@/app/stores/users'
+import { useUserStore } from '@/app/(protected)/stores/users'
 import { normalizeName } from '@/app/utils/users'
 
 export default function OrganizerDashboard() {

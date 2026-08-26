@@ -37,7 +37,6 @@ export interface TournamentDto {
   paid: boolean
   /** Entry fee players settle directly with the organizer. Null/0 means free. */
   entryFee: number | null
-  currency: string
   /** When true, a player taking part in a match may submit its result themselves. Otherwise only the organizer can. */
   allowPlayerSetScore: boolean
   categories?: TournamentCategoryDto[]

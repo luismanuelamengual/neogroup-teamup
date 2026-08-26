@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { clearMatchSchedule, setMatchSchedule } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { clearMatchSchedule, setMatchSchedule } from '@/app/(protected)/(tournaments)/services/matches'
 import { Role } from '@/app/models/Role'
 import {
   buildTournament,

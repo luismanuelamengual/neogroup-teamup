@@ -383,7 +383,7 @@ class InterclubsDocument {
     this.drawHeadings(day, false)
 
     if (day.series.length === 0) {
-      this.painter.text(MARGIN + 12, this.cursorTop + 4, 'Sin partidos planificados.', { size: 9, color: COLORS.muted })
+      this.painter.text(MARGIN + 12, this.cursorTop + 4, 'Sin partidos programados.', { size: 9, color: COLORS.muted })
       this.cursorTop += 26
 
       return
@@ -454,7 +454,7 @@ export function buildInterclubsPdf(
   const doc = new InterclubsDocument(ctx)
 
   if (days.length === 0) {
-    doc.addDay({ heading: 'Sin fechas planificadas', venue: null, series: [] })
+    doc.addDay({ heading: 'Sin fechas programadas', venue: null, series: [] })
   } else {
     days.forEach((day) => doc.addDay(day))
   }

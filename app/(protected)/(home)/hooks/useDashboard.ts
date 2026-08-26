@@ -3,6 +3,7 @@
 import { useCallback } from 'react'
 import { OrganizationStatisticsDto } from '@/app/(protected)/(home)/models/OrganizationStatisticsDto'
 import { PlayerStatisticsDto } from '@/app/(protected)/(home)/models/PlayerStatisticsDto'
+import { UpcomingMatchDto } from '@/app/(protected)/(home)/models/UpcomingMatchDto'
 import { useRequests } from '@/app/hooks/useRequests'
 
 export function useDashboard() {
@@ -15,6 +16,10 @@ export function useDashboard() {
     (): Promise<OrganizationStatisticsDto> => executeRequest<OrganizationStatisticsDto>('/getOrganizationStats'),
     [executeRequest]
   )
+  const getUpcomingMatches = useCallback(
+    (): Promise<UpcomingMatchDto[]> => executeRequest<UpcomingMatchDto[]>('/getUpcomingMatches'),
+    [executeRequest]
+  )
 
-  return { getPlayerStats, getOrganizationStats }
+  return { getPlayerStats, getOrganizationStats, getUpcomingMatches }
 }

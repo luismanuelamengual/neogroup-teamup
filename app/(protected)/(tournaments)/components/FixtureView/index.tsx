@@ -19,8 +19,8 @@ import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { allowsUnorderedResults } from '@/app/(protected)/(tournaments)/utils/settings'
+import { useUserStore } from '@/app/(protected)/stores/users'
 import MessagePanel from '@/app/components/MessagePanel'
-import { useUserStore } from '@/app/stores/users'
 import { foldForSearch, searchTerms } from '@/app/utils/text'
 
 interface FixtureViewProps {

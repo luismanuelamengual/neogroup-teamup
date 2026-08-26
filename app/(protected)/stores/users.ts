@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { SessionUser } from '@/app/(auth)/models/SessionUser'
+import { SessionUser } from '@/app/(protected)/models/SessionUser'
 import { Role } from '@/app/models/Role'
 
 /**

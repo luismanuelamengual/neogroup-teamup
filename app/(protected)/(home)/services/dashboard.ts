@@ -4,11 +4,16 @@ import { OrganizationStatistics } from '@/app/(protected)/(home)/models/Organiza
 import { OrganizationStatisticsDto } from '@/app/(protected)/(home)/models/OrganizationStatisticsDto'
 import { PlayerStatistics } from '@/app/(protected)/(home)/models/PlayerStatistics'
 import { PlayerStatisticsDto } from '@/app/(protected)/(home)/models/PlayerStatisticsDto'
+import { UpcomingMatchDto } from '@/app/(protected)/(home)/models/UpcomingMatchDto'
 import { getPlayerRankingSummary } from '@/app/(protected)/(rankings)/services/rankings'
+import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
+import { getMatches } from '@/app/(protected)/(tournaments)/services/matches'
 import { getPodiumCompetitorIds } from '@/app/(protected)/(tournaments)/utils/champion'
+import { isPlayableMatch } from '@/app/(protected)/(tournaments)/utils/matches'
+import { todayDate } from '@/app/(protected)/(tournaments)/utils/schedule'
 import { Tournament } from '../../(tournaments)/models/Tournament'
 
 /**
@@ -566,4 +571,83 @@ export async function getPlayerStats(userId: number): Promise<PlayerStatisticsDt
   await persistPlayerStatistics(userId, stats)
 
   return stats
+}
+
+// ── Upcoming matches ────────────────────────────────────────────────────────
+// Powers the "Tus próximos partidos" home section. Unlike the stats above,
+// this is never cached: a newly published schedule (or a match dropping out of
+// the window as its date passes) needs to show up on the very next load.
+
+/** How far ahead of today the "próximos partidos" section looks. */
+const UPCOMING_MATCHES_WINDOW_DAYS = 14
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** `date` (a 'YYYY-MM-DD' string) advanced by `days` calendar days. */
+function addDays(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number)
+
+  return new Date(Date.UTC(year, month - 1, day) + days * DAY_MS).toISOString().slice(0, 10)
+}
+
+/**
+ * The player's own matches scheduled (a date is set) within the next
+ * `UPCOMING_MATCHES_WINDOW_DAYS` days, across every ONGOING tournament they
+ * compete in. Ordered soonest first.
+ */
+export async function getUpcomingMatches(userId: number): Promise<UpcomingMatchDto[]> {
+  const session = await getSession()
+  const organizationId = session!.user.organizationId
+  const today = todayDate()
+  const horizon = addDays(today, UPCOMING_MATCHES_WINDOW_DAYS)
+  // The player's own competitor id per category they compete in. Competitor
+  // carries no organization scope of its own (unlike Tournament/Category/Site),
+  // so it is enforced explicitly through the `tournament` relation.
+  const myCompetitors = await Competitor.whereArrayContains('playerIds', userId)
+    .whereHas('tournament', (query) => query.where('organizationId', organizationId))
+    .get()
+
+  if (myCompetitors.length === 0) {
+    return []
+  }
+
+  const myCompetitorIds = new Set(myCompetitors.map((competitor) => competitor.id))
+  const matches = await getMatches({
+    competitorIds: [...myCompetitorIds],
+    statuses: [MatchStatus.PENDING],
+    tournamentStatuses: [TournamentStatus.ONGOING],
+    dateFrom: today,
+    dateTo: horizon,
+    withTournament: true,
+    withSite: true
+  })
+  // A real matchup only — excludes "to be defined" bracket placeholders whose
+  // rival slot is still empty.
+  const playableMatches = matches.filter(isPlayableMatch)
+  const opponentIdOf = (match: (typeof playableMatches)[number]): number =>
+    myCompetitorIds.has(match.homeCompetitorId!) ? match.awayCompetitorId! : match.homeCompetitorId!
+  const opponentIds = new Set(playableMatches.map(opponentIdOf))
+  const opponents =
+    opponentIds.size > 0
+      ? await Competitor.whereIn('id', [...opponentIds])
+          .with('players')
+          .get()
+      : []
+  const opponentNameById = new Map(opponents.map((competitor) => [competitor.id, competitor.shortName]))
+
+  return playableMatches.map((match) => {
+    const tournament = match.tournamentCategory?.tournament ?? null
+    const site = match.site ?? tournament?.site ?? null
+    const opponentId = opponentIdOf(match)
+
+    return {
+      matchId: match.id,
+      tournamentId: match.tournamentCategory!.tournamentId,
+      tournamentName: tournament?.name ?? '',
+      categoryName: match.tournamentCategory?.category?.name ?? null,
+      date: match.date!,
+      hour: match.hour,
+      siteName: site?.name ?? null,
+      opponentName: opponentNameById.get(opponentId) ?? `#${opponentId}`
+    }
+  })
 }

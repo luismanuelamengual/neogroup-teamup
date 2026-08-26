@@ -69,7 +69,7 @@
     .match-info {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       flex: 1;
       min-width: 240px;
     }
@@ -83,6 +83,29 @@
       &:hover {
         text-decoration: underline;
       }
+    }
+
+    .match-opponent {
+      font-size: 15px;
+      font-weight: 600;
+      color: #263a35;
+    }
+
+    .match-schedule {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      margin-top: 2px;
+      font-size: 13px;
+      color: #5b6f68;
+    }
+
+    .match-schedule-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-transform: capitalize;
     }
   }
 

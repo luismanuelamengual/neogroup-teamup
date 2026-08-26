@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import { SiteData } from '@/app/(protected)/(sites)/models/SiteData'
 import { SiteDto } from '@/app/(protected)/(sites)/models/SiteDto'
 import { SiteFilters } from '@/app/(protected)/(sites)/models/SiteFilters'
 import { SiteInput } from '@/app/(protected)/(sites)/models/SiteInput'
@@ -35,6 +36,14 @@ export function useSites() {
     [executeRequest]
   )
   const deleteSite = useCallback((id: number): Promise<void> => executeRequest('/deleteSite', { id }), [executeRequest])
+  /**
+   * Stores a venue's courts setup. Organizer-writable (the planner calls it on
+   * every change), unlike the rest of the site endpoints.
+   */
+  const updateSiteData = useCallback(
+    (id: number, data: SiteData | null): Promise<void> => executeRequest('/updateSiteData', { id, data }),
+    [executeRequest]
+  )
 
-  return { getSites, getAllSites, createSite, updateSite, deleteSite }
+  return { getSites, getAllSites, createSite, updateSite, deleteSite, updateSiteData }
 }

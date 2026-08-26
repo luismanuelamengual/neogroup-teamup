@@ -1,5 +1,5 @@
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
-import { setMatchResult } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { setMatchResult } from '@/app/(protected)/(tournaments)/services/matches'
 import { withAuth } from '@/app/utils/api-server'
 
 /**
