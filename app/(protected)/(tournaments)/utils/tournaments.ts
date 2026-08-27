@@ -35,7 +35,9 @@ import {
 import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import {
+  generateLeagueRound,
   generateRoundRobinRound,
+  leagueRoundsFor,
   Pairing,
   roundRobinPairs,
   roundRobinRoundsFor
@@ -44,7 +46,8 @@ import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/s
 import {
   allowsUnorderedResults,
   hasConsolationBracket,
-  matchesPerCompetitor
+  matchesPerCompetitor,
+  playsDoubleRound
 } from '@/app/(protected)/(tournaments)/utils/settings'
 import { rankInterclubs } from '@/app/(protected)/(tournaments)/utils/standings'
 import { ApiException } from '@/app/models/ApiException'
@@ -64,7 +67,7 @@ import { User } from '@/app/models/User'
 // The circle method itself lives in utils/roundRobin.ts: it must also run on
 // the client, which cannot import this database-backed module.
 export type { Pairing }
-export { generateRoundRobinRound, roundRobinRoundsFor }
+export { generateLeagueRound, generateRoundRobinRound, roundRobinRoundsFor }
 
 /** Caps `rounds` at `maxRounds` when it is set to a positive number, else returns it unchanged. */
 function capRounds(rounds: number, maxRounds: number | null | undefined): number {
@@ -255,7 +258,11 @@ export function getTotalRounds(type: TournamentType, settings: TournamentSetting
 
   switch (type) {
     case TournamentType.LEAGUE:
-      return capRounds(roundRobinRoundsFor(competitorsCount), scheduleRoundCap(type, settings))
+      // "Ida y vuelta" doubles the natural schedule; `maxRounds` still caps it.
+      return capRounds(
+        leagueRoundsFor(competitorsCount, playsDoubleRound(type, settings)),
+        scheduleRoundCap(type, settings)
+      )
 
     case TournamentType.INTERCLUBS: {
       const format = resolveInterclubsFormat(competitorsCount)
@@ -508,7 +515,7 @@ export function generateRoundPairings(
 ): Pairing[] {
   switch (type) {
     case TournamentType.LEAGUE:
-      return generateRoundRobinRound(competitorIds, roundNumber)
+      return generateLeagueRound(competitorIds, roundNumber, playsDoubleRound(type, settings))
 
     case TournamentType.AMERICANO:
       return generateRoundRobinRound(competitorIds, roundNumber)
@@ -3053,13 +3060,17 @@ async function joinRoundRobin(
     return
   }
 
+  // Only a league is ever played "ida y vuelta", and a league's lane is the
+  // whole category — a group lane of a groups+playoff always meets once.
+  const legs = playsDoubleRound(tournament.type, tournament.settings) ? 2 : 1
+
   if (allowsUnorderedResults(tournament.type, tournament.settings)) {
-    await appendUnorderedFixtures(tournamentCategoryId, lane, members, competitor.id)
+    await appendUnorderedFixtures(tournamentCategoryId, lane, members, competitor.id, legs)
 
     return
   }
 
-  await reconcileOrderedRoundRobin(tournamentCategoryId, lane, members)
+  await reconcileOrderedRoundRobin(tournamentCategoryId, lane, members, legs > 1)
 }
 
 /**
@@ -3082,7 +3093,8 @@ async function joinRoundRobin(
 async function reconcileOrderedRoundRobin(
   tournamentCategoryId: number,
   lane: RoundLane,
-  members: number[]
+  members: number[],
+  doubleRound: boolean
 ): Promise<void> {
   const all = await loadCategoryMatches(tournamentCategoryId)
 
@@ -3091,7 +3103,7 @@ async function reconcileOrderedRoundRobin(
     const byPair = new Map(existing.map((match) => [pairKeyOf(match.homeCompetitorId, match.awayCompetitorId), match]))
     const missing: Pairing[] = []
 
-    for (const pairing of generateRoundRobinRound(members, roundNumber)) {
+    for (const pairing of generateLeagueRound(members, roundNumber, doubleRound)) {
       const match = byPair.get(pairKeyOf(pairing.home, pairing.away))
 
       if (!match) {
@@ -3126,16 +3138,29 @@ async function reconcileOrderedRoundRobin(
  * On an odd lane this happens to reproduce exactly what the circle method would
  * have produced, because the free slots ARE the rest slots. On an even one it
  * simply grows the lane by the rounds it needs.
+ *
+ * `legs` is how many times the entrant owes each rival: one normally, two in a
+ * league played "ida y vuelta", where the second fixture of a pair goes into a
+ * later round with the sides inverted.
  */
 async function appendUnorderedFixtures(
   tournamentCategoryId: number,
   lane: RoundLane,
   members: number[],
-  competitorId: number
+  competitorId: number,
+  legs: number
 ): Promise<void> {
   const all = await loadCategoryMatches(tournamentCategoryId)
   const existing = laneMatches(all, lane)
-  const played = new Set(existing.map((match) => pairKeyOf(match.homeCompetitorId, match.awayCompetitorId)))
+  /** Fixtures the entrant already has against each rival, so only the missing legs are added. */
+  const played = new Map<string, number>()
+
+  for (const match of existing) {
+    const key = pairKeyOf(match.homeCompetitorId, match.awayCompetitorId)
+
+    played.set(key, (played.get(key) ?? 0) + 1)
+  }
+
   /** Competitors already booked in each round, and where the next match of it goes. */
   const busy = new Map<number, Set<number>>()
   const nextPosition = new Map<number, number>()
@@ -3158,30 +3183,37 @@ async function appendUnorderedFixtures(
   let lastRound = roundNumbers[roundNumbers.length - 1] ?? 0
 
   for (const rivalId of members) {
-    if (rivalId === competitorId || played.has(pairKeyOf(rivalId, competitorId))) {
+    if (rivalId === competitorId) {
       continue
     }
 
-    let target = roundNumbers.find((roundNumber) => {
-      const sides = busy.get(roundNumber)!
+    const alreadyPlayed = played.get(pairKeyOf(rivalId, competitorId)) ?? 0
 
-      return !sides.has(rivalId) && !sides.has(competitorId)
-    })
+    for (let leg = alreadyPlayed; leg < legs; leg++) {
+      let target = roundNumbers.find((roundNumber) => {
+        const sides = busy.get(roundNumber)!
 
-    if (target == null) {
-      lastRound++
-      target = lastRound
-      roundNumbers.push(target)
-      busy.set(target, new Set<number>())
-      nextPosition.set(target, 0)
+        return !sides.has(rivalId) && !sides.has(competitorId)
+      })
+
+      if (target == null) {
+        lastRound++
+        target = lastRound
+        roundNumbers.push(target)
+        busy.set(target, new Set<number>())
+        nextPosition.set(target, 0)
+      }
+
+      const position = nextPosition.get(target) ?? 0
+      // The return leg inverts the sides, same as the rest of the fixture.
+      const home = leg % 2 === 0 ? rivalId : competitorId
+      const away = leg % 2 === 0 ? competitorId : rivalId
+
+      busy.get(target)!.add(rivalId)
+      busy.get(target)!.add(competitorId)
+      nextPosition.set(target, position + 1)
+      additions.set(target, [...(additions.get(target) ?? []), { home, away, position }])
     }
-
-    const position = nextPosition.get(target) ?? 0
-
-    busy.get(target)!.add(rivalId)
-    busy.get(target)!.add(competitorId)
-    nextPosition.set(target, position + 1)
-    additions.set(target, [...(additions.get(target) ?? []), { home: rivalId, away: competitorId, position }])
   }
 
   for (const [roundNumber, pairings] of [...additions.entries()].sort((a, b) => a[0] - b[0])) {

@@ -37,6 +37,10 @@ interface BracketViewProps {
 const COLUMN_WIDTH = 280
 const COLUMN_GAP = 56
 const COL_STEP = COLUMN_WIDTH + COLUMN_GAP
+/** Matches the app shell's own mobile breakpoint, where its header becomes a sticky bar. */
+const MOBILE_BREAKPOINT_QUERY = '(max-width: 768px)'
+/** Extra gap (px) below the mobile sticky app bar when landing on a newly re-based round. */
+const MOBILE_HEADER_SCROLL_MARGIN = 8
 const NODE_HEIGHT = 76
 /**
  * Extra height a match card takes when it displays its schedule strip (day /
@@ -117,6 +121,27 @@ export default function BracketView({
   /** Drag-to-scroll state (mouse-based horizontal panning on empty space). */
   const dragStateRef = useRef<{ startX: number; startScrollLeft: number; moved: boolean } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  /** Whether the app shell is currently in its mobile layout (sticky header, page-level scroll). */
+  const [isMobile, setIsMobile] = useState(false)
+  const isMobileRef = useRef(isMobile)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return
+    }
+
+    const mql = window.matchMedia(MOBILE_BREAKPOINT_QUERY)
+
+    const update = (): void => {
+      isMobileRef.current = mql.matches
+      setIsMobile(mql.matches)
+    }
+
+    update()
+    mql.addEventListener('change', update)
+
+    return () => mql.removeEventListener('change', update)
+  }, [])
   /** Matches of the requested bracket lane. */
   const bracketMatches = useMemo(
     () =>
@@ -378,6 +403,29 @@ export default function BracketView({
   useEffect(() => {
     baseRoundRef.current = baseRound
   }, [baseRound])
+  /**
+   * Brings `.bracket-view`'s top edge into view when a round re-base is about
+   * to change its height (see the call site below). On desktop this is a
+   * plain `scrollIntoView`, which finds `.content-wrapper` (the actual
+   * scrolling ancestor there) on its own. On mobile the app shell instead
+   * lets the whole page scroll and pins its header as a sticky bar on top —
+   * `block: 'start'` would align the top edge to y=0 and land the round-title
+   * band right behind that bar, so there we measure the bar's real rendered
+   * height and scroll the window to just below it instead.
+   */
+  const scrollBracketIntoView = useCallback((el: HTMLDivElement) => {
+    if (!isMobileRef.current) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+      return
+    }
+
+    const header = document.querySelector<HTMLElement>('.appbar')
+    const headerHeight = header?.getBoundingClientRect().height ?? 0
+    const targetTop = el.getBoundingClientRect().top + window.scrollY - headerHeight - MOBILE_HEADER_SCROLL_MARGIN
+
+    window.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+  }, [])
   /** Recompute the first visible round from the horizontal scroll offset. */
   const handleScroll = useCallback(() => {
     if (rafRef.current != null) {
@@ -417,12 +465,12 @@ export default function BracketView({
       // element's own height changing, so this scroll doesn't have to race the
       // CSS transition that resizes `.bracket-canvas`, unlike a correction
       // fired after the round change would.
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      scrollBracketIntoView(el)
 
       baseRoundRef.current = nextBase
       setBaseRound(nextBase)
     })
-  }, [rounds.length])
+  }, [rounds.length, scrollBracketIntoView])
   /** Start a click-and-drag horizontal pan. Ignored if the press starts on an interactive node. */
   const handleMouseDown = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     const el = scrollRef.current

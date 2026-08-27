@@ -33,6 +33,10 @@ export interface CompetitorPlacement {
  *  - Knockout (playoff / groups+playoff main bracket): the winner of the final
  *    is `winner`; the loser of each knockout round is placed by how far the
  *    round is from the final (final → `finalist`, semis → `semifinalist`, ...).
+ *    A round that never got a result still places both of its competitors at
+ *    that round's loser placement — reaching the round already guarantees
+ *    that floor to both sides — while only the placement for WINNING it is
+ *    withheld (see `computeBracketPlacements`).
  *  - Playoff with consolation: the same, plus the consolation bracket placed
  *    with the `consolation_` prefix.
  *  - Interclubes: the knockout mapping above, except for the small home-and-away
@@ -91,7 +95,9 @@ function computeBracketPlacements(
   const placements: CompetitorPlacement[] = []
 
   for (const match of bracketMatches) {
-    if (match.awayCompetitorId == null || match.winner === null) {
+    // Not a real, fully-defined matchup yet (a bye, or a bracket slot the
+    // tournament hasn't reached) — nothing to place either side at.
+    if (match.homeCompetitorId == null || match.awayCompetitorId == null) {
       continue
     }
 
@@ -103,19 +109,28 @@ function computeBracketPlacements(
     }
 
     const loserKey = knockoutStageKey(stage, consolation)
+
+    if (match.winner === null) {
+      // Real matchup, no result yet (e.g. the tournament was finished with a
+      // pending final). Whoever loses it can fall no further than this
+      // round's placement — getting here already guarantees that floor to
+      // BOTH competitors — so both share it. The placement for WINNING this
+      // round stays genuinely undetermined and is withheld from both rather
+      // than guessed or split.
+      placements.push({ competitorId: match.homeCompetitorId, placementKey: loserKey })
+      placements.push({ competitorId: match.awayCompetitorId, placementKey: loserKey })
+      continue
+    }
+
     const loserId = match.winner === MatchSide.HOME ? match.awayCompetitorId : match.homeCompetitorId
 
-    if (loserId != null) {
-      placements.push({ competitorId: loserId, placementKey: loserKey })
-    }
+    placements.push({ competitorId: loserId, placementKey: loserKey })
 
     // The winner of the final round is the bracket champion.
     if (match.roundNumber === finalRoundNumber) {
       const winnerId = match.winner === MatchSide.HOME ? match.homeCompetitorId : match.awayCompetitorId
 
-      if (winnerId != null) {
-        placements.push({ competitorId: winnerId, placementKey: knockoutStageKey('winner', consolation) })
-      }
+      placements.push({ competitorId: winnerId, placementKey: knockoutStageKey('winner', consolation) })
     }
   }
 

@@ -34,6 +34,14 @@ export function roundRobinRoundsFor(size: number): number {
 }
 
 /**
+ * Rounds a league lasts: the round robin, run twice when it is played
+ * "ida y vuelta" (see `LeagueSettings.doubleRound`).
+ */
+export function leagueRoundsFor(size: number, doubleRound: boolean): number {
+  return roundRobinRoundsFor(size) * (doubleRound ? 2 : 1)
+}
+
+/**
  * Circle-method round robin. Returns the pairs for a 1-based round number.
  * With an odd number of participants a null "bye" slot is added; pairs that
  * include the bye are skipped.
@@ -79,4 +87,33 @@ export function generateRoundRobinRound(competitorIds: number[], roundNumber: nu
   }
 
   return pairings
+}
+
+/**
+ * League round robin, with the optional return leg ("ida y vuelta").
+ *
+ * Rounds beyond the first full round robin replay it from the start with the
+ * two sides swapped, so a pair that met at home in the "ida" meets away in the
+ * "vuelta". Rounds past the end of the (possibly doubled) schedule produce
+ * nothing.
+ *
+ * The circle method is already periodic in the round number, so the wrap-around
+ * is only made explicit here — what this adds is the side inversion, and the
+ * empty result past the last round.
+ */
+export function generateLeagueRound(competitorIds: number[], roundNumber: number, doubleRound: boolean): Pairing[] {
+  const totalRounds = roundRobinRoundsFor(competitorIds.length)
+
+  if (totalRounds === 0 || roundNumber > leagueRoundsFor(competitorIds.length, doubleRound)) {
+    return []
+  }
+
+  const returnLeg = roundNumber > totalRounds
+  const pairings = generateRoundRobinRound(competitorIds, returnLeg ? roundNumber - totalRounds : roundNumber)
+
+  if (!returnLeg) {
+    return pairings
+  }
+
+  return pairings.map((pairing) => ({ home: pairing.away, away: pairing.home, position: pairing.position }))
 }
