@@ -19,6 +19,16 @@ export interface LeagueSettings {
    * time and only the frontier round accepts results.
    */
   allowUnorderedResults?: boolean
+  /**
+   * When true the league is played "ida y vuelta": the whole round robin runs a
+   * second time, so every pair of competitors meets exactly twice.
+   *
+   * The return leg replays the first one from the start with the sides swapped
+   * (the home of the "ida" is the away of the "vuelta"), which doubles the
+   * natural number of rounds. `maxRounds` still caps that doubled schedule, and
+   * `allowUnorderedResults` still lays all of it out up front.
+   */
+  doubleRound?: boolean
 }
 
 export const DEFAULT_LEAGUE_SETTINGS: LeagueSettings = {

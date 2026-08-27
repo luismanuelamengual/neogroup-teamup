@@ -382,6 +382,22 @@ export default function TournamentForm() {
                 />
               </div>
               <div className="row">
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={leagueSettings.doubleRound ?? false}
+                      onChange={(event) =>
+                        setLeagueSettings({
+                          ...leagueSettings,
+                          doubleRound: event.target.checked || undefined
+                        })
+                      }
+                    />
+                  }
+                  label="Ida y vuelta (cada competidor juega dos veces contra cada rival)"
+                />
+              </div>
+              <div className="row">
                 <TextField
                   label={leagueSettings.allowUnorderedResults ? 'Partidos por competidor' : 'Máxima cantidad de rondas'}
                   type="number"
@@ -398,8 +414,8 @@ export default function TournamentForm() {
                   slotProps={{ htmlInput: { min: 1 } }}
                   helperText={
                     leagueSettings.allowUnorderedResults
-                      ? 'Se crean todas las fechas al iniciar el torneo y se puede cargar cualquier partido, en cualquier orden. Dejar vacío para que se juegue el todos contra todos completo. Si se completa, cada competidor juega esa cantidad de partidos: al alcanzarla, los que le queden pendientes se anulan.'
-                      : 'Dejar vacío para que se jueguen todas las rondas (todos contra todos). Si se completa, la liga finaliza al alcanzar esa cantidad de rondas.'
+                      ? `Se crean todas las fechas al iniciar el torneo y se puede cargar cualquier partido, en cualquier orden. Dejar vacío para que se juegue ${leagueSettings.doubleRound ? 'el todos contra todos completo de ida y vuelta' : 'el todos contra todos completo'}. Si se completa, cada competidor juega esa cantidad de partidos: al alcanzarla, los que le queden pendientes se anulan.`
+                      : `Dejar vacío para que se jueguen todas las rondas (todos contra todos${leagueSettings.doubleRound ? ', ida y vuelta' : ''}). Si se completa, la liga finaliza al alcanzar esa cantidad de rondas.`
                   }
                 />
               </div>

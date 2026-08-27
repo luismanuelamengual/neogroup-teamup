@@ -225,6 +225,13 @@ export async function createTournament(
     } else {
       delete settings.allowUnorderedResults
     }
+
+    // Same convention: "ida y vuelta" is stored only when the organizer turned it on.
+    if (input.settings?.doubleRound) {
+      settings.doubleRound = true
+    } else {
+      delete settings.doubleRound
+    }
   } else if (input.type === TournamentType.AMERICANO) {
     settings = { ...DEFAULT_AMERICANO_SETTINGS, ...input.settings }
   } else if (input.type === TournamentType.PLAYOFF) {

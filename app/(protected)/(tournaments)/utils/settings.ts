@@ -49,6 +49,19 @@ export function matchesPerCompetitor(settings: TournamentSettings | null | undef
 }
 
 /**
+ * Whether a league is played "ida y vuelta" — the round robin run twice, so
+ * every pair meets once at home and once away (see `LeagueSettings.doubleRound`).
+ *
+ * Only a plain league exposes the setting. Every other type ignores it:
+ * interclubes already derives its own home-and-away variant from the entry
+ * count (see utils/interclubs), americanos pair from the standings, and the
+ * group phase of a groups+playoff was deliberately left out of the feature.
+ */
+export function playsDoubleRound(type: TournamentType, settings: TournamentSettings | null | undefined): boolean {
+  return type === TournamentType.LEAGUE && settings?.doubleRound === true
+}
+
+/**
  * Whether a tournament runs its playoff with a consolation bracket (see
  * `PlayoffSettings.consolationBracket`). This used to be encoded as a separate
  * tournament type (`PLAYOFF_WITH_CONSOLATION`); it is now a setting of
