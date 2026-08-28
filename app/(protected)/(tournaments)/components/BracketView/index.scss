@@ -1,12 +1,20 @@
 $bracket-transition: 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
 $node-width: 280px;
 $node-height: 76px;
+// Mirrors COLUMN_GAP in index.tsx — the gap a round leaves behind once it's
+// scrolled past and dropped from the DOM (see `base` in the layout memo).
+$column-gap: 56px;
 
 .bracket-view {
   width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 8px;
+  // Padding, not margin: overflow clips at the padding edge, so this reserves
+  // room for MatchCard's `.highlighted` box-shadow (2px spread) to render in
+  // full instead of getting cut off — left, for the first round at rest
+  // (scrollLeft 0), and right, for the last round once scrolled all the way
+  // there. Bottom does the same job for a highlighted card in the last row.
+  padding: 0 3px 8px;
   -webkit-overflow-scrolling: touch;
   cursor: grab;
   user-select: none;
@@ -90,6 +98,21 @@ $node-height: 76px;
 
     > .match-card {
       width: 100%;
+    }
+
+    // Shown only on the first still-rendered round once earlier rounds have
+    // been scrolled past and dropped from the DOM (see `base` in the layout
+    // memo in index.tsx). Sits in the now-empty gap column to their left —
+    // exactly where the elbow connectors would be if that round were still
+    // mounted — as a dashed stub hinting that hidden rounds are off-screen.
+    &.bracket-node--truncated::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: -#{$column-gap};
+      width: $column-gap;
+      border-top: 2px dashed var(--color-divider);
+      pointer-events: none;
     }
   }
 

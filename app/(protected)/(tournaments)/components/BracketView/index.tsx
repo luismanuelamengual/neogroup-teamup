@@ -212,7 +212,20 @@ export default function BracketView({
     return winnerId != null ? (competitorsById[winnerId] ?? null) : null
   }, [rounds, roundMatchLists, competitorsById])
   const isInterclubs = tournament.type === TournamentType.INTERCLUBS
-  const { editableMatchIds, highlightedMatchIds } = useMemo(() => {
+  /** The competitor entry the logged-in user plays for in this tournament, if any. */
+  const userEntry = useMemo(
+    (): CompetitorDto | null =>
+      (tournament.competitors ?? []).find((c) => userId != null && c.playerIds.includes(userId)) ?? null,
+    [tournament.competitors, userId]
+  )
+  /**
+   * Matches this bracket lane's user-facing "edit" affordance applies to. An
+   * organizer can edit any match that's in an editable state; a regular
+   * player can only self-report the result of their OWN match, and only when
+   * the tournament allows it — being in an editable state is not enough on
+   * its own, otherwise a player would get an edit control on someone else's match.
+   */
+  const editableMatchIds = useMemo((): number[] => {
     const categoryMatches = (tournament.matches ?? []).filter(
       (m) => category == null || m.tournamentCategoryId === category
     )
@@ -221,27 +234,27 @@ export default function BracketView({
     )
 
     if (organizerMode) {
-      return { editableMatchIds: editable.map((m) => m.id), highlightedMatchIds: [] as number[] }
+      return editable.map((m) => m.id)
     }
 
-    const userEntry = (tournament.competitors ?? []).find((c) => userId != null && c.playerIds.includes(userId))
-
-    if (!userEntry) {
-      return { editableMatchIds: [] as number[], highlightedMatchIds: [] as number[] }
+    if (!userEntry || !tournament.allowPlayerSetScore) {
+      return []
     }
 
-    const userMatchIds = editable
+    return editable
       .filter((m) => m.homeCompetitorId === userEntry.id || m.awayCompetitorId === userEntry.id)
       .map((m) => m.id)
-
-    // The highlight (marking the player's own current match) always shows;
-    // only self-reporting the result is gated behind allowPlayerSetScore —
-    // otherwise only an organizer (handled above) can edit it.
-    return {
-      editableMatchIds: tournament.allowPlayerSetScore ? userMatchIds : [],
-      highlightedMatchIds: userMatchIds
+  }, [tournament, bracketMatches, category, organizerMode, userEntry])
+  /** Every match in this bracket lane the user is playing in, editable or not — the highlight always shows. */
+  const highlightedMatchIds = useMemo((): number[] => {
+    if (organizerMode || !userEntry) {
+      return []
     }
-  }, [tournament, bracketMatches, category, organizerMode, userId])
+
+    return bracketMatches
+      .filter((m) => m.homeCompetitorId === userEntry.id || m.awayCompetitorId === userEntry.id)
+      .map((m) => m.id)
+  }, [bracketMatches, organizerMode, userEntry])
   /**
    * Full geometric layout. Rounds at/after `base` are laid out; the base round is
    * stacked compactly and each later round centers each match between its two
@@ -389,7 +402,7 @@ export default function BracketView({
 
     const canvasWidth = total > 0 ? (total - 1) * COL_STEP + COLUMN_WIDTH : 0
 
-    return { nodes, titles, segments, canvasWidth, canvasHeight, championLayout }
+    return { nodes, titles, segments, canvasWidth, canvasHeight, championLayout, base }
   }, [rounds, roundMatchLists, baseRound, champion, nodeHeightOf])
   /**
    * Mirrors `baseRound` for synchronous reads inside `handleScroll` below,
@@ -541,7 +554,7 @@ export default function BracketView({
             {layout.nodes.map((node) => (
               <div
                 key={node.match.id}
-                className="bracket-node"
+                className={`bracket-node${node.roundIndex === layout.base && layout.base > 0 ? ' bracket-node--truncated' : ''}`}
                 style={{
                   height: node.height,
                   transform: `translate(${node.x}px, ${node.yCenter - node.height / 2}px)`
