@@ -13,6 +13,7 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import { useMemo, useState } from 'react'
 import MatchCard from '@/app/(protected)/(tournaments)/components/MatchCard'
+import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
@@ -152,7 +153,20 @@ export default function FixtureView({
     () => rounds.findIndex((r) => r.number === activeRoundNumber),
     [rounds, activeRoundNumber]
   )
-  const { editableMatchIds, highlightedMatchIds } = useMemo(() => {
+  /** The competitor entry the logged-in user plays for in this tournament, if any. */
+  const userEntry = useMemo(
+    (): CompetitorDto | null =>
+      (tournament.competitors ?? []).find((c) => userId != null && c.playerIds.includes(userId)) ?? null,
+    [tournament.competitors, userId]
+  )
+  /**
+   * Matches this fixture lane's user-facing "edit" affordance applies to. An
+   * organizer can edit any match that's in an editable state; a regular
+   * player can only self-report the result of their OWN match, and only when
+   * the tournament allows it — being in an editable state is not enough on
+   * its own, otherwise a player would get an edit control on someone else's match.
+   */
+  const editableMatchIds = useMemo((): number[] => {
     const categoryMatches = (tournament.matches ?? []).filter(
       (m) => category == null || m.tournamentCategoryId === category
     )
@@ -161,27 +175,27 @@ export default function FixtureView({
     )
 
     if (organizerMode) {
-      return { editableMatchIds: editable.map((m) => m.id), highlightedMatchIds: [] as number[] }
+      return editable.map((m) => m.id)
     }
 
-    const userEntry = (tournament.competitors ?? []).find((c) => userId != null && c.playerIds.includes(userId))
-
-    if (!userEntry) {
-      return { editableMatchIds: [] as number[], highlightedMatchIds: [] as number[] }
+    if (!userEntry || !tournament.allowPlayerSetScore) {
+      return []
     }
 
-    const userMatchIds = editable
+    return editable
       .filter((m) => m.homeCompetitorId === userEntry.id || m.awayCompetitorId === userEntry.id)
       .map((m) => m.id)
-
-    // The highlight (marking the player's own current match) always shows;
-    // only self-reporting the result is gated behind allowPlayerSetScore —
-    // otherwise only an organizer (handled above) can edit it.
-    return {
-      editableMatchIds: tournament.allowPlayerSetScore ? userMatchIds : [],
-      highlightedMatchIds: userMatchIds
+  }, [tournament, laneMatches, category, organizerMode, userEntry])
+  /** Every match in this fixture lane the user is playing in, editable or not — the highlight always shows. */
+  const highlightedMatchIds = useMemo((): number[] => {
+    if (organizerMode || !userEntry) {
+      return []
     }
-  }, [tournament, laneMatches, category, organizerMode, userId])
+
+    return laneMatches
+      .filter((m) => m.homeCompetitorId === userEntry.id || m.awayCompetitorId === userEntry.id)
+      .map((m) => m.id)
+  }, [laneMatches, organizerMode, userEntry])
   const [search, setSearch] = useState('')
   // Every name a competitor can be found by, folded once per competitor rather
   // than on each keystroke. Both the long and the short name are indexed: the
