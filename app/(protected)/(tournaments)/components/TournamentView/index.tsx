@@ -616,17 +616,16 @@ export default function TournamentView({ tournamentId, appUrl, isOrganizer }: To
         // Organizers always see categories expanded. Players get them
         // collapsed by default, except while inscriptions are open or when
         // they're registered and playing in this specific category.
-        const isPlayingCategory = !isOrganizer && userEntry?.tournamentCategoryId === key
-        const categoryDefaultExpanded =
-          isOrganizer || tournament.status === TournamentStatus.STAND_BY || isPlayingCategory
-        const showCompetitorCount = isOrganizer || tournament.status === TournamentStatus.STAND_BY
+        const isPlayingCategory = userEntry?.tournamentCategoryId === key
+        const categoryDefaultExpanded = tournament.status === TournamentStatus.STAND_BY || isPlayingCategory
+        const showCompetitorCount = tournament.status === TournamentStatus.STAND_BY
 
         return (
           <Accordion
             key={key}
             defaultExpanded={categoryDefaultExpanded}
             disableGutters
-            elevation={2}
+            slotProps={{ transition: { unmountOnExit: true } }}
             className="category-accordion"
           >
             <AccordionSummary expandIcon={<ExpandMoreIcon />} className="category-accordion-summary">
