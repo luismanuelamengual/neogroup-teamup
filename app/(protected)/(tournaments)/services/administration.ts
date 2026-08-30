@@ -186,6 +186,15 @@ export async function registerCompetitor(
   siteId: number | null = null,
   slotSelection: LateRegistrationSlotSelection | null = null
 ): Promise<Competitor> {
+  // Once the organization has settled TeamUp's service fee for this still
+  // running tournament, late registration closes for good — see the payments
+  // module docblock. (A tournament can also be `paid` while still in
+  // STAND_BY — e.g. a 0%-fee organization gets marked paid on creation — but
+  // that is the normal registration phase and stays open regardless.)
+  if (tournament.status === TournamentStatus.ONGOING && tournament.paid) {
+    throw new ApiException('El torneo ya fue pagado. No se aceptan más inscripciones')
+  }
+
   const categories = tournament.categories ?? []
   const targetCategory = categories.find((category) => category.id === Number(tournamentCategoryId))
 

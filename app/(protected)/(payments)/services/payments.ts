@@ -4,6 +4,8 @@ import { PaymentStatus } from '@/app/(protected)/(payments)/models/PaymentStatus
 import { PendingPaymentsDto, PendingTournamentDto } from '@/app/(protected)/(payments)/models/PendingPaymentsDto'
 import { ServicePayment } from '@/app/(protected)/(payments)/models/ServicePayment'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
+import { Match } from '@/app/(protected)/(tournaments)/models/Match'
+import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
@@ -16,19 +18,30 @@ import { createPreference, getPaymentInfo, isSandbox } from '@/app/services/merc
  *
  * Players do not pay through the platform: they settle the entry fee with the
  * organizer off-platform. What TeamUp bills is a percentage
- * (`organizations.serviceFeePercentage`) of what each tournament collected —
- * **every registered competitor × the entry fee** — for the tournaments that
- * have already started.
+ * (`organizations.serviceFeePercentage`) of what each tournament collected,
+ * for the tournaments that have already started. How many competitors count
+ * depends on whether the tournament is done:
  *
- * **Why "started", and why every competitor.** Both halves of that rule exist to
- * make the amount a *fixed* number by the time it can be paid. Registrations
- * close the moment a tournament leaves `STAND_BY` (`resolveRegistration` and
- * `loadManageableTournament` both reject afterwards), so from that instant the
- * roster can no longer grow and the tournament's bill is settled once and for
- * all. Billing only the competitors that had already played would reopen the
- * problem from the other end: a 40-entry tournament paid after the first 5
- * matches would be charged for a handful of players and then, being flagged as
- * paid, would never be charged for the remaining 35.
+ *  - **Ongoing**: every registered competitor × the entry fee. The roster can
+ *    still grow — an organizer may register a late entrant into a structural
+ *    hole while the tournament is running (see
+ *    `services/administration.ts#registerCompetitor`) — so the bill tracks
+ *    the full roster while that is still possible.
+ *  - **Finished**: only the competitors that took the court at least once
+ *    (appear in a `PLAYED` match) × the entry fee. Nothing can grow the
+ *    roster anymore, and a competitor who registered but never showed up
+ *    never generated anything for the organizer to collect off-platform, so
+ *    they are not billed either.
+ *
+ * **Why this stays a one-time, final bill.** Once a tournament is flagged
+ * `paid` it drops out of `getPendingPayments` for good — it is never billed
+ * again — so whatever gets settled has to be it. That is why paying an
+ * ongoing tournament also closes its registrations for good
+ * (`registerCompetitor` in `services/administration.ts` refuses a new entrant
+ * once `paid` is true): without that, an organizer could keep adding paying
+ * players to a tournament TeamUp had already been paid for. A finished
+ * tournament has no such loophole — its structure cannot change at all — so
+ * only the ongoing case needs the extra guard.
  *
  * Everything is in ARS: the platform only creates ARS tournaments and the
  * checkout is a single ARS payment, so the currency is carried around for
@@ -49,12 +62,13 @@ function getOverdueCutoff(): string {
 }
 
 /**
- * Registered competitors per tournament, across every category instance.
+ * Registered competitors per tournament, across every category instance. Used
+ * to bill an ongoing tournament, whose roster can still change.
  *
  * A competitor is one *inscription*, not one player: a doubles pair (or a whole
  * interclubes team) counts once, because it pays a single entry fee.
  */
-async function countCompetitors(tournamentIds: number[]): Promise<Map<number, number>> {
+async function countRegisteredCompetitors(tournamentIds: number[]): Promise<Map<number, number>> {
   const counts = new Map<number, number>()
 
   if (tournamentIds.length === 0) {
@@ -81,6 +95,66 @@ async function countCompetitors(tournamentIds: number[]): Promise<Map<number, nu
     }
 
     counts.set(tournamentId, (counts.get(tournamentId) ?? 0) + 1)
+  }
+
+  return counts
+}
+
+/**
+ * Competitors that took the court at least once per tournament (appear as the
+ * home or away side of a match with a real result), across every category
+ * instance. Used to bill a finished tournament, whose roster is closed for
+ * good — so this is the final count, unlike `countRegisteredCompetitors`.
+ *
+ * A `PENDING` match (never played) or a `WALKOVER`/`VOID` one (a bye, a
+ * forfeit, or a slot the structure confirmed will never be filled) does not
+ * count as having played: nobody actually took the court, so the organizer
+ * never collected anything from that inscription to pass on to TeamUp.
+ */
+async function countPlayedCompetitors(tournamentIds: number[]): Promise<Map<number, number>> {
+  const counts = new Map<number, number>()
+
+  if (tournamentIds.length === 0) {
+    return counts
+  }
+
+  const categories = await TournamentCategory.whereIn('tournamentId', tournamentIds).get()
+
+  if (categories.length === 0) {
+    return counts
+  }
+
+  const tournamentByCategory = new Map(categories.map((category) => [category.id, category.tournamentId]))
+  const matches = await Match.whereIn(
+    'tournamentCategoryId',
+    categories.map((category) => category.id)
+  )
+    .where('status', MatchStatus.PLAYED)
+    .get()
+  const playedCompetitorIds = new Map<number, Set<number>>()
+
+  for (const match of matches) {
+    const tournamentId = tournamentByCategory.get(match.tournamentCategoryId)
+
+    if (tournamentId === undefined) {
+      continue
+    }
+
+    const competitorIds = playedCompetitorIds.get(tournamentId) ?? new Set<number>()
+
+    if (match.homeCompetitorId != null) {
+      competitorIds.add(match.homeCompetitorId)
+    }
+
+    if (match.awayCompetitorId != null) {
+      competitorIds.add(match.awayCompetitorId)
+    }
+
+    playedCompetitorIds.set(tournamentId, competitorIds)
+  }
+
+  for (const [tournamentId, competitorIds] of playedCompetitorIds) {
+    counts.set(tournamentId, competitorIds.size)
   }
 
   return counts
@@ -114,12 +188,26 @@ export async function getPendingPayments(organizationId: number): Promise<Pendin
     .whereIn('status', [TournamentStatus.ONGOING, TournamentStatus.FINISHED])
     .orderBy('startDate')
     .get()
-  const counts = await countCompetitors(candidates.map((tournament) => tournament.id))
+  const ongoingIds = candidates
+    .filter((tournament) => tournament.status === TournamentStatus.ONGOING)
+    .map((tournament) => tournament.id)
+  const finishedIds = candidates
+    .filter((tournament) => tournament.status === TournamentStatus.FINISHED)
+    .map((tournament) => tournament.id)
+  const [registeredCounts, playedCounts] = await Promise.all([
+    countRegisteredCompetitors(ongoingIds),
+    countPlayedCompetitors(finishedIds)
+  ])
   const cutoff = getOverdueCutoff()
   const tournaments: PendingTournamentDto[] = []
 
   for (const tournament of candidates) {
-    const competitorsCount = counts.get(tournament.id) ?? 0
+    // Ongoing: bill the full (still growable) roster. Finished: only whoever
+    // actually took the court — see the module docblock.
+    const competitorsCount =
+      tournament.status === TournamentStatus.FINISHED
+        ? (playedCounts.get(tournament.id) ?? 0)
+        : (registeredCounts.get(tournament.id) ?? 0)
 
     // A tournament that started with nobody registered owes nothing (and must
     // not block the creation of new tournaments either).

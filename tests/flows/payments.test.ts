@@ -9,6 +9,7 @@ import {
   hasOverdueDebt
 } from '@/app/(protected)/(payments)/services/payments'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
@@ -18,6 +19,8 @@ import { Organization } from '@/app/models/Organization'
 import {
   buildTournament,
   createUser,
+  finalizeIfComplete,
+  getPendingActiveMatches,
   homeWinScore,
   playToCompletion,
   resetDatabase,
@@ -182,6 +185,49 @@ describe('service fee calculation', () => {
     expect(afterOneMatch.amount).toBe(afterStart.amount)
     expect(afterAll.amount).toBe(afterStart.amount)
     expect(afterAll.tournaments[0].competitorsCount).toBe(4)
+  })
+
+  it('once finished, bills only the competitors who actually took the court', async () => {
+    // A registered competitor that never plays a real match (every one of their
+    // matches resolved as a walkover) generated nothing for the organizer to
+    // collect off-platform, so once the tournament is done they drop out of the
+    // bill entirely — unlike an ongoing tournament, which still bills them (see
+    // the test above).
+    const built = await buildTournament({ type: TournamentType.LEAGUE, competitors: 3, entryFee: 1000 })
+
+    await start(built)
+
+    const noShowId = built.competitorIds[2]
+
+    // A 3-competitor round robin spreads its 3 matches across 3 rounds (one bye
+    // per round), so the no-show's matches are resolved one round at a time.
+    for (let guard = 0; guard < 10; guard++) {
+      const pending = await getPendingActiveMatches(built.categoryIds)
+
+      if (pending.length === 0) {
+        break
+      }
+
+      for (const match of pending) {
+        const noShowIsHome = match.homeCompetitorId === noShowId
+        const noShowIsAway = match.awayCompetitorId === noShowId
+
+        if (noShowIsHome || noShowIsAway) {
+          await setResult(match.id, { walkover: noShowIsHome ? MatchSide.AWAY : MatchSide.HOME })
+        } else {
+          await setResult(match.id, homeWinScore(built.tournament.scoreFormat))
+        }
+      }
+    }
+
+    await finalizeIfComplete(built.tournament.id)
+
+    const pending = await getPendingPayments(1)
+
+    expect(pending.tournaments).toHaveLength(1)
+    expect(pending.tournaments[0].competitorsCount).toBe(2)
+    expect(pending.tournaments[0].grossAmount).toBe(2000)
+    expect(pending.amount).toBe(80)
   })
 
   it('counts a doubles pair as a single inscription', async () => {
