@@ -139,12 +139,29 @@ $mineBg: #fffbeb;
 
   table {
     width: 100%;
-    border-collapse: collapse;
+    // `collapse` shares each cell boundary's border between the two cells on
+    // either side of it, painted as part of the table's layout rather than by
+    // either cell's own box. That shared border doesn't travel with a sticky
+    // column during a horizontal scroll, which is what left a hairline gap of
+    // page background running through the hour column. `separate` (with zero
+    // spacing, so cells still touch) gives every cell its own border, so the
+    // sticky column scrolls as one solid piece.
+    border-collapse: separate;
+    border-spacing: 0;
   }
 
+  // `border-collapse: separate` (kept above so the sticky hour column stays
+  // one solid compositor layer) means every cell owns its border outright
+  // instead of sharing one with its neighbour. Drawing all four sides on
+  // every cell would double each internal line to 2px, so each cell only
+  // draws its right and bottom edge — which doubles as the left/top edge of
+  // the next cell — keeping every shared line a single pixel. The table's
+  // own left and top edges come from the header row and the hour column
+  // below, which are the only cells with nothing to share that edge with.
   th,
   td {
-    border: 1px solid $border;
+    border-right: 1px solid $border;
+    border-bottom: 1px solid $border;
   }
 
   // Cell backgrounds are a deliberate cascade, all at the same specificity, so
@@ -177,24 +194,37 @@ $mineBg: #fffbeb;
     text-transform: uppercase;
     padding: 6px 4px;
     border-color: $tealDeep;
+    // The header row has no row above it to supply this edge via its own
+    // border-bottom, so it draws its own top edge.
+    border-top: 1px solid $tealDeep;
   }
 
   .time-header {
     background: $tealDeep;
+    // The hour column has no column to its left to supply this edge via its
+    // own border-right, so it draws its own left edge.
+    border-left: 1px solid $tealDeep;
   }
 
   .time-header,
   .time-cell {
     position: sticky;
     left: 0;
-    z-index: 1;
+    z-index: 2;
     width: 74px;
     min-width: 74px;
+    // Forces its own compositor layer, so it scrolls as one solid piece
+    // instead of being a frame behind the rest of the row — the other half of
+    // the fix for the gap through the hour column on mobile.
+    transform: translateZ(0);
   }
 
   .time-cell {
     background: $tealDark;
     border-color: $tealDeep;
+    // Same reasoning as .time-header above: first column, so it draws its
+    // own left edge instead of relying on a neighbour that doesn't exist.
+    border-left: 1px solid $tealDeep;
     color: #fff;
     text-align: center;
     padding: 6px 4px;
