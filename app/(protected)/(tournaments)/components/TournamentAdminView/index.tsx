@@ -198,6 +198,12 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
   // out when they leave no trace behind (utils/lateRemoval), which together also
   // make a move between categories possible.
   const isOngoing = tournament?.status === TournamentStatus.ONGOING
+  // Once TeamUp's service fee is settled for a running tournament, the roster
+  // that was billed is final — see the payments module docblock — so the
+  // server refuses any further registration regardless of the structure
+  // still having room. Mirrored here so the button and its explanation agree
+  // with what the request would do.
+  const isPaidOngoing = isOngoing && !!tournament?.paid
   const categories = useMemo<TournamentCategoryDto[]>(() => tournament?.categories ?? [], [tournament])
   const competitors = useMemo<CompetitorDto[]>(() => tournament?.competitors ?? [], [tournament])
   const matches = useMemo<MatchDto[]>(() => tournament?.matches ?? [], [tournament])
@@ -215,11 +221,19 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
 
     return map
   }, [tournament, isOngoing, categories, matches, competitors])
-  /** Categories that can still take an entrant — every one of them while in registration. */
+  /**
+   * Categories that can still take an entrant — every one of them while in
+   * registration, none once the tournament is running and already paid (see
+   * `isPaidOngoing`), and otherwise whichever ones still have a structural hole.
+   */
   const registrableCategories = useMemo(
     () =>
-      isOngoing ? categories.filter((category) => (slotsByCategory.get(category.id) ?? []).length > 0) : categories,
-    [isOngoing, categories, slotsByCategory]
+      isPaidOngoing
+        ? []
+        : isOngoing
+          ? categories.filter((category) => (slotsByCategory.get(category.id) ?? []).length > 0)
+          : categories,
+    [isPaidOngoing, isOngoing, categories, slotsByCategory]
   )
   /**
    * Whether each competitor may be taken out of the tournament, and why not when
@@ -719,9 +733,11 @@ export default function TournamentAdminView({ tournamentId }: TournamentAdminVie
         </div>
         {isOngoing && (
           <Alert severity={registrableCategories.length > 0 ? 'info' : 'warning'}>
-            {registrableCategories.length > 0
-              ? 'El torneo ya inició: se puede inscribir a alguien donde la estructura ya tiene lugar, y sacar o mover a quien todavía no jugó y pueda salir sin dejar rastro. Ningún partido ya armado cambia.'
-              : 'El torneo ya inició y su estructura no admite nuevas inscripciones: inscribir a alguien cambiaría partidos que ya se están jugando.'}
+            {isPaidOngoing
+              ? 'El torneo ya inició y ya fue pagado: no se aceptan más inscripciones. Todavía se puede sacar o mover a quien no jugó y pueda salir sin dejar rastro.'
+              : registrableCategories.length > 0
+                ? 'El torneo ya inició: se puede inscribir a alguien donde la estructura ya tiene lugar, y sacar o mover a quien todavía no jugó y pueda salir sin dejar rastro. Ningún partido ya armado cambia.'
+                : 'El torneo ya inició y su estructura no admite nuevas inscripciones: inscribir a alguien cambiaría partidos que ya se están jugando.'}
           </Alert>
         )}
         <div className="register-actions">

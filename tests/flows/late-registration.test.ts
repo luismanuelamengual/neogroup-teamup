@@ -4,6 +4,7 @@ import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
+import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import {
@@ -45,6 +46,14 @@ import {
 /** Reloads the tournament through the same gate the API route uses. */
 function manageable(built: BuiltTournament, allowOngoing = true) {
   return loadManageableTournament(built.tournament.id, built.ownerId, { allowOngoing })
+}
+
+/** Flags a tournament as already settled, the way the payments webhook would. */
+async function markPaid(tournamentId: number): Promise<void> {
+  const tournament = (await Tournament.withoutGlobalScopes().find(tournamentId))!
+
+  tournament.paid = true
+  await tournament.save()
 }
 
 /**
@@ -1153,6 +1162,42 @@ describe('late registration — what a running tournament still refuses', () => 
     await expect(
       registerCompetitor(tournament, categoryId, [existingPlayerId, await createUser(tournament.organizationId)])
     ).rejects.toThrow('ya inscripto')
+  })
+
+  it('refuses registering once the tournament is running AND its service fee is already paid', async () => {
+    const built = await buildTournament(ODD_GROUPS_FOR_GUARDS)
+
+    await start(built)
+
+    // The structure still has room — this is exactly what would otherwise be a
+    // valid late registration — but the roster was already billed.
+    expect(await slotsOf(built, built.categoryIds[0])).not.toEqual([])
+    await markPaid(built.tournament.id)
+
+    await expect(registerLate(built, built.categoryIds[0])).rejects.toThrow('ya fue pagado')
+  })
+
+  it('still allows unregistering and moving once the tournament is paid — only new entrants are refused', async () => {
+    const built = await buildTournament(ODD_GROUPS_FOR_GUARDS)
+
+    await start(built)
+    await markPaid(built.tournament.id)
+
+    const categoryId = built.categoryIds[0]
+    const competitorId = built.competitorIds[0]
+    const tournament = await manageable(built)
+
+    // A competitor that never played can still leave without a trace.
+    await expect(
+      loadManageableTournament(built.tournament.id, built.ownerId, { allowOngoing: true }).then((each) =>
+        unregisterCompetitor(each, competitorId)
+      )
+    ).resolves.toBeUndefined()
+
+    // But registering a brand-new entrant is refused regardless of the slot.
+    await expect(
+      registerCompetitor(tournament, categoryId, [await createUser(tournament.organizationId)])
+    ).rejects.toThrow('ya fue pagado')
   })
 })
 
