@@ -79,8 +79,8 @@ export default function TournamentForm() {
   const [categoryIds, setCategoryIds] = useState<number[]>([])
   const [categoryOptions, setCategoryOptions] = useState<CategoryDto[]>([])
   const [categoryToAdd, setCategoryToAdd] = useState<number | null>(null)
-  const [maxCompetitors, setMaxCompetitors] = useState(16)
-  const [paid, setPaid] = useState(false)
+  const [maxCompetitors, setMaxCompetitors] = useState(64)
+  const [paid, setPaid] = useState(true)
   const [entryFee, setEntryFee] = useState<number | null>(null)
   const [allowPlayerSetScore, setAllowPlayerSetScore] = useState(false)
   const [leagueSettings, setLeagueSettings] = useState(DEFAULT_LEAGUE_SETTINGS)
@@ -232,6 +232,10 @@ export default function TournamentForm() {
 
   return (
     <Paper component="form" onSubmit={handleSubmit} className="tournament-form">
+      <Typography variant="h5" className="form-title">
+        Nuevo torneo
+      </Typography>
+
       {error && <Alert severity="error">{error}</Alert>}
 
       <Accordion defaultExpanded disableGutters elevation={0} className="section">
@@ -343,13 +347,27 @@ export default function TournamentForm() {
               </TextField>
             )}
             <TextField
-              label={isInterclubs ? 'Máx. equipos' : isDoubles ? 'Máx. parejas' : 'Máx. competidores'}
+              label={
+                (isInterclubs ? 'Máx. equipos' : isDoubles ? 'Máx. parejas' : 'Máx. competidores') + ' (por categoría)'
+              }
               type="number"
               value={maxCompetitors}
               onChange={(event) => setMaxCompetitors(Math.max(2, Number(event.target.value)))}
               required
               fullWidth
               slotProps={{ htmlInput: { min: 2 } }}
+            />
+          </div>
+
+          <div className="row">
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={allowPlayerSetScore}
+                  onChange={(event) => setAllowPlayerSetScore(event.target.checked)}
+                />
+              }
+              label="Permitir que, además de los organizadoeres, los jugadores tambien puedan cargar el resultado de sus partidos"
             />
           </div>
 
@@ -518,6 +536,22 @@ export default function TournamentForm() {
           {type === TournamentType.GROUPS_PLAYOFF && (
             <>
               <div className="row">
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={groupsSettings.allowUnorderedResults ?? false}
+                      onChange={(event) =>
+                        setGroupsSettings({
+                          ...groupsSettings,
+                          allowUnorderedResults: event.target.checked || undefined
+                        })
+                      }
+                    />
+                  }
+                  label="Permitir carga de resultados no ordenada"
+                />
+              </div>
+              <div className="row">
                 <TextField
                   label="Competidores por grupo"
                   type="number"
@@ -561,22 +595,6 @@ export default function TournamentForm() {
                   fullWidth
                   slotProps={{ htmlInput: { min: 1 } }}
                   helperText="Dejar vacío para que clasifiquen solo los indicados por grupo. Si se completa, tiene prioridad: el corte sube parejo en todos los grupos hasta alcanzar ese mínimo. Un número muy grande hace que avancen todos."
-                />
-              </div>
-              <div className="row">
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={groupsSettings.allowUnorderedResults ?? false}
-                      onChange={(event) =>
-                        setGroupsSettings({
-                          ...groupsSettings,
-                          allowUnorderedResults: event.target.checked || undefined
-                        })
-                      }
-                    />
-                  }
-                  label="Permitir carga de resultados no ordenada"
                 />
               </div>
               <div className="row">
@@ -642,31 +660,7 @@ export default function TournamentForm() {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion disableGutters elevation={0} className="section">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
-          <Typography variant="subtitle1" className="title">
-            Resultados
-          </Typography>
-        </AccordionSummary>
-        <AccordionDetails className="section-content">
-          <FormControlLabel
-            control={
-              <Switch
-                checked={allowPlayerSetScore}
-                onChange={(event) => setAllowPlayerSetScore(event.target.checked)}
-              />
-            }
-            label="Permitir que los jugadores carguen el resultado de sus partidos"
-          />
-          <Alert severity="info">
-            {allowPlayerSetScore
-              ? 'Cualquiera de los jugadores de un partido podrá cargar o editar su resultado, además del organizador.'
-              : 'Solo el organizador podrá cargar los resultados de los partidos.'}
-          </Alert>
-        </AccordionDetails>
-      </Accordion>
-
-      <Accordion disableGutters elevation={0} className="section">
+      <Accordion defaultExpanded disableGutters elevation={0} className="section">
         <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
             Categorías
@@ -745,7 +739,7 @@ export default function TournamentForm() {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion disableGutters elevation={0} className="section">
+      <Accordion defaultExpanded disableGutters elevation={0} className="section">
         <AccordionSummary expandIcon={<ExpandMoreIcon />} className="section-header">
           <Typography variant="subtitle1" className="title">
             Inscripciones
@@ -781,8 +775,8 @@ export default function TournamentForm() {
               />
               <Alert severity="info">
                 <strong>¿Qué le pagás a TeamUp?</strong> Una tasa de servicio del {serviceFeePercentage}% sobre lo
-                recaudado (inscriptos × monto de inscripción). Cuando el torneo comienza, el monto aparece en la sección{' '}
-                <strong>Pagos</strong> de tu menú de usuario, donde lo abonás con Mercado Pago.
+                recaudado (cantidad de inscriptos × monto de inscripción). Cuando el torneo finaliza, el monto aparece
+                en la sección <strong>Pagos</strong> de tu menú de usuario, donde lo abonás con Mercado Pago.
               </Alert>
             </>
           )}
