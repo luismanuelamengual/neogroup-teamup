@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback } from 'react'
 import type { MatchScheduleInput } from '@/app/(protected)/(tournaments)/models/MatchScheduleInput'
 import type { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
+import { StaleTournamentDto } from '@/app/(protected)/(tournaments)/models/StaleTournamentDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useNotifications } from '@/app/hooks/useNotifications'
 import { useRequests } from '@/app/hooks/useRequests'
@@ -101,6 +102,10 @@ export function useTournaments() {
     (matchId: number): Promise<void> => executeRequest('/clearMatchSchedule', { id: matchId }).then(() => undefined),
     [executeRequest]
   )
+  const getStaleTournaments = useCallback(
+    (): Promise<StaleTournamentDto[]> => executeRequest<StaleTournamentDto[]>('/getStaleTournaments'),
+    [executeRequest]
+  )
   const getTournaments = useCallback(
     ({
       name = undefined,
@@ -147,6 +152,7 @@ export function useTournaments() {
   return {
     getTournament,
     getTournaments,
+    getStaleTournaments,
     createTournament,
     updateTournament,
     deleteTournament,

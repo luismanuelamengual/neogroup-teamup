@@ -8,7 +8,9 @@ import { CreateTournamentInput } from '@/app/(protected)/(tournaments)/models/Cr
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
+import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { DEFAULT_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
+import { StaleTournamentDto } from '@/app/(protected)/(tournaments)/models/StaleTournamentDto'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentImage } from '@/app/(protected)/(tournaments)/models/TournamentImage'
@@ -18,6 +20,7 @@ import { TournamentType } from '@/app/(protected)/(tournaments)/models/Tournamen
 import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
+import { isPlayableMatch } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import {
   canDeleteTournament,
@@ -534,6 +537,67 @@ export async function processTournaments(): Promise<ProcessTournamentsResult> {
   }
 
   return result
+}
+
+/**
+ * How long an ONGOING tournament can go without any match activity before it is
+ * flagged to the organizer as stuck. Matches the "últimas 2 semanas" wording of
+ * the home banner (see `getStaleTournaments`).
+ */
+const STALE_TOURNAMENT_DAYS = 14
+
+/**
+ * ONGOING tournaments of the organization that still have at least one playable
+ * match pending (real matchup, both sides known) and whose most recent match
+ * update — a result loaded, a walkover recorded, a match (re)scheduled — is
+ * older than `STALE_TOURNAMENT_DAYS`.
+ *
+ * These are tournaments `processTournaments` can never auto-finish (see
+ * `isTournamentComplete`): with results missing, the organizer is very likely
+ * just not aware the last matches are still unloaded, and until they are the
+ * tournament stays open and its ranking points never get awarded. Powers the
+ * warning banner on the organizer home.
+ *
+ * A tournament with no matches yet (e.g. just started, round not built) is not
+ * considered stale — there is nothing pending to load — and neither is one
+ * whose only pending matches are unresolved bracket placeholders (no rival
+ * assigned yet), since those resolve on their own as earlier rounds are played.
+ *
+ * Like `getTournaments`/`getTournament`, no organizationId is taken here: the
+ * signed-in user's organization is applied automatically through Tournament's
+ * OrganizationScope.
+ */
+export async function getStaleTournaments(): Promise<StaleTournamentDto[]> {
+  const cutoff = Date.now() - STALE_TOURNAMENT_DAYS * 24 * 60 * 60 * 1000
+  const tournaments = await Tournament.where('status', TournamentStatus.ONGOING).with('matches').get()
+  const stale: StaleTournamentDto[] = []
+
+  for (const tournament of tournaments) {
+    const matches = tournament.matches ?? []
+
+    if (matches.length === 0) {
+      continue
+    }
+
+    const hasPendingPlayableMatch = matches.some(
+      (match) => match.status === MatchStatus.PENDING && isPlayableMatch(match)
+    )
+
+    if (!hasPendingPlayableMatch) {
+      continue
+    }
+
+    const lastActivity = matches.reduce<Date | null>(
+      (latest, match) => (latest == null || match.updatedAt.getTime() > latest.getTime() ? match.updatedAt : latest),
+      null
+    )
+
+    if (lastActivity != null && lastActivity.getTime() < cutoff) {
+      stale.push({ id: tournament.id, name: tournament.name, lastActivityAt: lastActivity.toISOString() })
+    }
+  }
+
+  return stale
 }
 
 // Match actions (results, scheduling) live in services/matches.ts — see

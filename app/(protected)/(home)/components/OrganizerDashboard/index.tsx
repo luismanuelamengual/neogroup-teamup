@@ -9,9 +9,11 @@ import Typography from '@mui/material/Typography'
 import OrganizationStats from '@/app/(protected)/(home)/components/OrganizationStats'
 import OverduePaymentsBanner from '@/app/(protected)/(payments)/components/OverduePaymentsBanner'
 import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverduePayments'
+import StaleTournamentBanners from '@/app/(protected)/(tournaments)/components/StaleTournamentBanners'
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { useUserStore } from '@/app/(protected)/stores/users'
+import { isProduction } from '@/app/utils/environment'
 import { normalizeName } from '@/app/utils/users'
 
 export default function OrganizerDashboard() {
@@ -23,6 +25,7 @@ export default function OrganizerDashboard() {
   return (
     <div className="organizer-dashboard">
       <OverduePaymentsBanner count={overdueCount} />
+      {isProduction && <StaleTournamentBanners />}
 
       <Paper className="hero" elevation={0}>
         <div className="hero-text">
