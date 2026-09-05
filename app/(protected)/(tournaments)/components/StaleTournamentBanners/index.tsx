@@ -33,13 +33,14 @@ export default function StaleTournamentBanners() {
 
         return (
           <Alert key={tournament.id} severity="warning" className="stale-tournament-banner">
-            <b>Atención</b>: el torneo{' '}
+            <b>Atención !!</b> el torneo{' '}
             <Link href={`/tournaments/${tournament.id}`}>
               <strong>{tournament.name}</strong>
             </Link>{' '}
-            no fue finalizado y todavía tiene partidos sin cargar
-            {daysSinceActivity > 0 ? ` (sin actividad hace ${daysSinceActivity} días)` : ''}. Cargá los partidos
-            faltantes para poder finalizar el torneo y repartir los puntos de ranking.
+            no ha sido finalizado y todavía tiene partidos sin cargar{' '}
+            {daysSinceActivity > 0 ? ` (sin actividad hace ${daysSinceActivity} días)` : ''}. Por favor, cargá el
+            resultado de los partidos faltantes y luego finalizá el torneo para que se puedan repartir los puntos de
+            ranking.
           </Alert>
         )
       })}
