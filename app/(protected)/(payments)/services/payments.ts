@@ -49,7 +49,7 @@ import { createPreference, getPaymentInfo, isSandbox } from '@/app/services/merc
  */
 
 /** A tournament is overdue once it started more than this long ago. */
-const OVERDUE_MONTHS = 1
+const OVERDUE_MONTHS = 2
 
 /** Applies a percentage fee to an amount, rounded to two decimals. */
 export function computeServiceFee(grossAmount: number, feePercentage: number): number {
@@ -244,9 +244,9 @@ export async function getPendingPayments(organizationId: number): Promise<Pendin
 }
 
 /**
- * Whether the organization has unsettled tournaments that started more than a
- * month ago. Used to block the creation of new tournaments and to raise the
- * reminder banner on the home dashboards.
+ * Whether the organization has unsettled tournaments that started more than
+ * OVERDUE_MONTHS ago. Used to block the creation of new tournaments and to
+ * raise the reminder banner on the home dashboards.
  */
 export async function hasOverdueDebt(organizationId: number): Promise<boolean> {
   const { overdueCount } = await getPendingPayments(organizationId)

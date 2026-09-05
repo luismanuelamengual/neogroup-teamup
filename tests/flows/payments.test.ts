@@ -322,8 +322,8 @@ describe('overdue debt', () => {
     expect(await hasOverdueDebt(1)).toBe(false)
   })
 
-  it('flags a tournament that started more than a month ago', async () => {
-    await playPaidTournament(1000, daysAgo(45))
+  it('flags a tournament that started more than two months ago', async () => {
+    await playPaidTournament(1000, daysAgo(70))
 
     const pending = await getPendingPayments(1)
 
@@ -333,15 +333,15 @@ describe('overdue debt', () => {
   })
 
   it('blocks the creation of new tournaments while there is overdue debt', async () => {
-    await playPaidTournament(1000, daysAgo(45))
+    await playPaidTournament(1000, daysAgo(70))
 
     const ownerId = await createUser(1)
 
-    await expect(createTournament(NEW_TOURNAMENT, ownerId, 1)).rejects.toThrow(/más de un mes/)
+    await expect(createTournament(NEW_TOURNAMENT, ownerId, 1)).rejects.toThrow(/más de dos meses/)
   })
 
   it('allows creating tournaments again once the debt is settled', async () => {
-    await playPaidTournament(1000, daysAgo(45))
+    await playPaidTournament(1000, daysAgo(70))
     mockMercadoPago()
 
     const payerId = await createUser(1)

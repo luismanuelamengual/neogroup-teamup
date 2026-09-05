@@ -8,7 +8,7 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import OrganizationStats from '@/app/(protected)/(home)/components/OrganizationStats'
 import OverduePaymentsBanner from '@/app/(protected)/(payments)/components/OverduePaymentsBanner'
-import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverduePayments'
+import { usePaymentsStore } from '@/app/(protected)/(payments)/stores/payments'
 import StaleTournamentBanners from '@/app/(protected)/(tournaments)/components/StaleTournamentBanners'
 import TournamentsBrowser from '@/app/(protected)/(tournaments)/components/TournamentsBrowser'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
@@ -19,12 +19,14 @@ import { normalizeName } from '@/app/utils/users'
 export default function OrganizerDashboard() {
   const user = useUserStore((state) => state.user)
   const firstName = (user?.firstName ? normalizeName(user.firstName) : '') || user?.displayName || ''
-  const { overdueCount } = useOverduePayments()
+  // Cheap: reads the store the layout already populated once at sign-in — no
+  // network call here.
+  const overdueCount = usePaymentsStore((state) => state.overdueCount)
   const blocked = overdueCount > 0
 
   return (
     <div className="organizer-dashboard">
-      <OverduePaymentsBanner count={overdueCount} />
+      {isProduction && <OverduePaymentsBanner />}
       {isProduction && <StaleTournamentBanners />}
 
       <Paper className="hero" elevation={0}>

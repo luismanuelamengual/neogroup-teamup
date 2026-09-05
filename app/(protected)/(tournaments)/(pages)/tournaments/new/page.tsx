@@ -15,7 +15,7 @@ export default async function NewTournamentPage() {
   const organizationId = Number(session.user.organizationId)
 
   // Same rule the creation service enforces: an organization owing tournaments
-  // older than a month cannot open new ones. Checked here too so the form is
+  // older than two months cannot open new ones. Checked here too so the form is
   // never rendered just to fail on submit.
   if (organizationId && (await hasOverdueDebt(organizationId))) {
     redirect('/payments')

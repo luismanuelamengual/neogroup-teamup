@@ -5,8 +5,8 @@ import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import OrganizationStats from '@/app/(protected)/(home)/components/OrganizationStats'
 import OverduePaymentsBanner from '@/app/(protected)/(payments)/components/OverduePaymentsBanner'
-import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverduePayments'
 import { useUserStore } from '@/app/(protected)/stores/users'
+import { isProduction } from '@/app/utils/environment'
 import { normalizeName } from '@/app/utils/users'
 
 /**
@@ -20,11 +20,10 @@ import { normalizeName } from '@/app/utils/users'
 export default function AdministratorDashboard() {
   const user = useUserStore((state) => state.user)
   const firstName = (user?.firstName ? normalizeName(user.firstName) : '') || user?.displayName || ''
-  const { overdueCount } = useOverduePayments()
 
   return (
     <div className="administrator-dashboard">
-      <OverduePaymentsBanner count={overdueCount} />
+      {isProduction && <OverduePaymentsBanner />}
 
       <Paper className="hero" elevation={0}>
         <div className="hero-text">
