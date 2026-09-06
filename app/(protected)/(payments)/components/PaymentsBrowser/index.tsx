@@ -155,7 +155,7 @@ export default function PaymentsBrowser() {
     <div className="payments-browser">
       {(pending?.overdueCount ?? 0) > 0 && (
         <Alert severity="warning">
-          Tenés {pending!.overdueCount} {pending!.overdueCount === 1 ? 'torneo' : 'torneos'} con más de un mes sin
+          Tenés {pending!.overdueCount} {pending!.overdueCount === 1 ? 'torneo' : 'torneos'} con más de dos meses sin
           abonar. No vas a poder crear nuevos torneos hasta regularizarlo.
         </Alert>
       )}

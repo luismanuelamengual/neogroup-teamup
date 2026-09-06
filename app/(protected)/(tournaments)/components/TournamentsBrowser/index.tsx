@@ -10,7 +10,7 @@ import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ReactNode, useEffect, useRef, useState } from 'react'
-import { useOverduePayments } from '@/app/(protected)/(payments)/hooks/useOverduePayments'
+import { usePaymentsStore } from '@/app/(protected)/(payments)/stores/payments'
 import TournamentCard, { TournamentCardSkeleton } from '@/app/(protected)/(tournaments)/components/TournamentCard'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -41,8 +41,9 @@ export default function TournamentsBrowser({
   ownedByPlayer = false
 }: TournamentsBrowserProps) {
   const { getTournaments } = useTournaments()
-  // Only asked for when the creation action is on screen (organizers).
-  const { overdueCount } = useOverduePayments(showCreationButton)
+  // Cheap: reads the store the layout already populated once at sign-in — no
+  // network call here.
+  const overdueCount = usePaymentsStore((state) => state.overdueCount)
   const creationBlocked = overdueCount > 0
   const router = useRouter()
   const searchParams = useSearchParams()

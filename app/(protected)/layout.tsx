@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ReactNode, Suspense } from 'react'
 import { auth } from '@/app/(auth)/services/auth'
+import OverduePaymentsLoader from '@/app/(protected)/(payments)/components/OverduePaymentsLoader'
 import AppShell from '@/app/(protected)/components/AppShell'
 import OrganizationStoreHydrator from '@/app/(protected)/components/OrganizationStoreHydrator'
 import UserStoreHydrator from '@/app/(protected)/components/UserStoreHydrator'
@@ -66,6 +67,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
     <>
       <UserStoreHydrator user={user} />
       <OrganizationStoreHydrator organization={sessionOrganization} />
+      <OverduePaymentsLoader />
       <AppShell user={user} logoSrc={resolveOrganizationImage(orgDomain, 'logo-bar.png')}>
         <Suspense fallback={<Loading />}>{children}</Suspense>
       </AppShell>

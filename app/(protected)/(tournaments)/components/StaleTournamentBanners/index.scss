@@ -1,0 +1,9 @@
+.stale-tournament-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .stale-tournament-banner {
+    align-items: center;
+  }
+}
