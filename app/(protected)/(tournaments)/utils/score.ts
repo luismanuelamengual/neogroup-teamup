@@ -4,6 +4,7 @@ import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { SetScore } from '@/app/(protected)/(tournaments)/models/SetScore'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { INTERCLUBS_SERIES_MATCHES } from '@/app/(protected)/(tournaments)/utils/interclubs'
+import { getOppositeSide } from '@/app/(protected)/(tournaments)/utils/matches'
 
 /** Number of set inputs shown for each score format. */
 export function getSetsCount(format: ScoreFormat): number {
@@ -407,4 +408,48 @@ export function formatScore(score: MatchScore | null, format: ScoreFormat): stri
     .filter((set) => set.home !== 0 || set.away !== 0)
     .map((set) => `${set.home}-${set.away}`)
     .join('  ')
+}
+
+/**
+ * Mirrors a score, swapping the two sides.
+ *
+ * Used where a match is listed against a side that is not the one it was
+ * stored under — the head-to-head history, which shows the side you asked
+ * about on top in every row even when it played away that day. Every shape the
+ * score can take carries its two sides in parallel (sets, a basic count, the
+ * walkover winner, and each individual match of an interclubes series with its
+ * player rosters), so all of them flip together or the scoreline would
+ * contradict the names above it.
+ */
+export function flipScore(score: MatchScore | null): MatchScore | null {
+  if (!score) {
+    return null
+  }
+
+  const flipped: MatchScore = {}
+
+  if (score.sets) {
+    flipped.sets = score.sets.map((set) => ({ home: set.away, away: set.home }))
+  }
+
+  if (score.home != null || score.away != null) {
+    flipped.home = score.away
+    flipped.away = score.home
+  }
+
+  if (score.walkover) {
+    flipped.walkover = getOppositeSide(score.walkover) ?? score.walkover
+  }
+
+  if (score.matches) {
+    flipped.matches = score.matches.map((entry) => ({
+      ...entry,
+      homePlayerIds: entry.awayPlayerIds,
+      awayPlayerIds: entry.homePlayerIds,
+      score: flipScore(entry.score) ?? entry.score,
+      winner: getOppositeSide(entry.winner) ?? entry.winner
+    }))
+  }
+
+  return flipped
 }

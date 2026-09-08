@@ -2,8 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback } from 'react'
-import type { MatchScheduleInput } from '@/app/(protected)/(tournaments)/models/MatchScheduleInput'
-import type { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { StaleTournamentDto } from '@/app/(protected)/(tournaments)/models/StaleTournamentDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { useNotifications } from '@/app/hooks/useNotifications'
@@ -14,6 +12,11 @@ import { JoinTournamentInput } from '../models/JoinTournamentInput'
 import { TournamentFilters } from '../models/TournamentFilters'
 import { UpdateTournamentInput } from '../models/UpdateTournamentInput'
 
+/**
+ * Everything a screen does to a TOURNAMENT: listing, creating, running and
+ * joining one. Operations on a single match — loading a result, planning it,
+ * the head-to-head history — live in `useMatches`.
+ */
 export function useTournaments() {
   const executeRequest = useRequests()
   const { showSuccessMessage } = useNotifications()
@@ -81,27 +84,6 @@ export function useTournaments() {
     },
     [executeRequest, showSuccessMessage]
   )
-  const saveMatchResult = useCallback(
-    async (matchId: number, score: MatchScore): Promise<void> => {
-      try {
-        await executeRequest('/setMatchResult', { id: matchId, score })
-        showSuccessMessage('Resultado guardado correctamente')
-      } catch (e) {}
-    },
-    [executeRequest, showSuccessMessage]
-  )
-  // Scheduling is written on every drag & drop of the planner, so unlike
-  // saveMatchResult these deliberately show no success toast — only failures are
-  // surfaced, and they reject so the caller can roll back its optimistic update.
-  const saveMatchSchedule = useCallback(
-    (matchId: number, schedule: MatchScheduleInput): Promise<void> =>
-      executeRequest('/setMatchSchedule', { id: matchId, ...schedule }).then(() => undefined),
-    [executeRequest]
-  )
-  const clearMatchSchedule = useCallback(
-    (matchId: number): Promise<void> => executeRequest('/clearMatchSchedule', { id: matchId }).then(() => undefined),
-    [executeRequest]
-  )
   const getStaleTournaments = useCallback(
     (): Promise<StaleTournamentDto[]> => executeRequest<StaleTournamentDto[]>('/getStaleTournaments'),
     [executeRequest]
@@ -161,9 +143,6 @@ export function useTournaments() {
     closeGroupPhase,
     joinTournament,
     leaveTournament,
-    updateTeamRoster,
-    saveMatchResult,
-    saveMatchSchedule,
-    clearMatchSchedule
+    updateTeamRoster
   }
 }

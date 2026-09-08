@@ -79,6 +79,7 @@ app/(protected)/
   (home)/                   Home/dashboard module (organizer & player dashboards, stats)
   (payments)/               Payments module — settling TeamUp's service fee (organizer & administrator)
   (rankings)/               Rankings module
+  (head-to-head)/           Head-to-head module — the personal record between two sides, across every tournament
   (sites)/                  Sites (venues) module — administrator ABM + the catalogue tournaments pick from
   (categories)/             Categories module — administrator ABM of the category catalogue
 ```
@@ -198,7 +199,7 @@ On the client, `executeRequest<T>(url, payload)` — returned by the `useRequest
 - **A new page** → `app/(module)/(pages)/<route>/page.tsx`. When organizers and players see different things, the page checks `session.user.roleId` (server) and renders the proper view; client components read the role from the user store.
 - **A new API endpoint** → `app/(module)/(api)/api/<verbNoun>/route.ts`, exporting `POST` wrapped with `withApi`/`withAuth`.
 - **A component used only by one module** → `app/(module)/components/<Name>/index.tsx`. Used by several modules → `app/components/<Name>/index.tsx`.
-- **An API call from the FE** → add it to the relevant module's `hooks/` (or shared `app/hooks/`), calling `useRequests()`'s `executeRequest`.
+- **An API call from the FE** → add it to the relevant module's `hooks/` (or shared `app/hooks/`), calling `useRequests()`'s `executeRequest`. Hooks are split by the *thing* they act on, not by the screen that calls them: in the tournaments module, `useTournaments` covers the tournament (list, create, run, join) and `useMatches` covers a single match (load a result, plan it, the head-to-head history).
 - **A neorm entity** → the `models/` folder of the module that owns the concept, with its relationships configured.
 - **FE DTOs/types** → same `models/` folder as the entity; derive DTOs with `Dto<T>`. Cross-module models → `app/models/`.
 - **BE logic** → `app/(module)/services/`.
@@ -282,6 +283,20 @@ Both derive their match list from the same pure builder, `utils/planner.ts` (`bu
 **Which days the schedule covers** is derived rather than chosen (`utils/planner`'s sibling, `utils/schedule.ts`): the first day with any match planned inside the **week ahead** (today included), and from there every day of play until **two consecutive empty days** close the block. A one-day pause inside a weekend keeps the block together; two empty days mean the next matches belong to the following one, and they surface on their own once they are within the week. Only days that actually hold matches are printed. Pinned down in `tests/unit/schedule-window.test.ts`.
 
 **Court names are a property of the venue, not of a browser.** They used to live in the organizer's `localStorage`, which was enough while the planner was the only screen drawing a court column; it stopped being enough the moment a player could open the schedule, since "Cancha 3" has to name the same court on both. They now live in `sites.data` (`{ courts, courtNames, matchDuration }`), written by the planner on every change through `POST /api/updateSiteData` — the one site endpoint that is **not** administrator-only, because naming a venue is administration but describing how many courts it has is planning. Nothing was backfilled: the previous values only ever existed in whichever browser typed them, so a venue with no document falls back to the same defaults it always had (2 courts, "Cancha N"). `matchDuration` rides along as a mirror of the planner's own preference: without it the published sheet cannot tell a promised start time from an **"No antes de"** one (a court that may still be in use cannot promise an hour).
+
+## Head to head
+
+`/head-to-head/{sideA}/{sideB}` shows the personal record between two sides: the tally on top (`2 - 1`) and every encounter below. Each segment is a **roster of player ids**, comma-separated for a pair or a team — `/head-to-head/7/12` for singles, `/head-to-head/1,2/5,6` for doubles.
+
+It lives in its own module, `app/(protected)/(head-to-head)`: the page, its `HeadToHeadView`, the endpoint, `services/headToHead.ts` and the URL helpers. It reads the tournaments module's entities (`Match`, `Competitor`) and score utilities, but owns nothing of theirs.
+
+**Why players and not competitors.** A `Competitor` only exists inside one tournament category, so a competitor id could never name a matchup that spans tournaments — which is the whole point of a head-to-head. `getHeadToHeadMatches` resolves each roster back to every competitor across the organization whose `playerIds` are **exactly** that set (`isSameRoster`, this module's own `utils/headToHead.ts`), and returns the matches between the two groups. Exactly, not partially: "1,2 vs 5,6" must not count the match where player 1 faced player 5 with other partners.
+
+> **The organization filter is a bare `whereHas('tournament')`, with no condition of its own.** It is there purely so that `Tournament`'s `OrganizationScope` gets applied to the subquery — neorm does that from **0.0.47** on (before it, `whereHas` built its `EXISTS` without the related entity's global scopes, and this service had to resolve the organization from the session and filter by hand).
+>
+> It is not about rosters mixing clubs — they can't: a user id is unique across the database and belongs to one organization, so a roster already resolves to competitors of a single club. It is about the ids arriving **from the URL**. Without the constraint, a member of one club who types another club's player ids gets that club's whole match history back. `tests/flows/head-to-head.test.ts` signs in as another organization to catch exactly that, using the `setTestSession` hook of the auth stub.
+
+**How you get there.** Only from the **match detail** (`MatchInfoModal`), as a button at the bottom that closes the dialog and navigates — the card itself stays as it was, since it already spends its two click targets on the match detail and the competitor info. The button only appears when both competitors are loaded: a bye, a voided slot or a "to be defined" bracket placeholder has nobody to compare against. `buildHeadToHeadPath` (this module's `utils/headToHead.ts`) is the single place that decides this and builds the URL — and the one piece of the module the tournaments side reaches for.
 
 ## Interclubes tournaments
 

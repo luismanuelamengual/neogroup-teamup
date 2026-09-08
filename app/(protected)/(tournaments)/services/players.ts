@@ -4,6 +4,15 @@ import { User } from '@/app/models/User'
 
 export interface PlayerOptions {
   query?: string
+  /**
+   * Restrict the result to these user ids — a lookup rather than a search, for
+   * a screen that holds ids and needs the people behind them (the head-to-head
+   * URL, which names its two sides by their player rosters). Combines with
+   * `query` when both are given. An empty array matches nobody, which is what
+   * it literally asks for. Note the result stays paginated and ordered by name:
+   * a caller that wants the whole set back sizes `pageSize` to its own list.
+   */
+  ids?: number[]
   excludeIds?: number[]
   page?: number
   pageSize?: number
@@ -29,7 +38,7 @@ const EMPTY_RESULT = (pageSize: number): PaginatedResponse<User[]> => ({
  * registered in a tournament, one already picked elsewhere in the same form, etc. — this
  * service doesn't need to know why.
  */
-export async function getPlayers({ query, excludeIds, page = 1, pageSize = 10 }: PlayerOptions = {}): Promise<
+export async function getPlayers({ query, ids, excludeIds, page = 1, pageSize = 10 }: PlayerOptions = {}): Promise<
   PaginatedResponse<User[]>
 > {
   const normalized = (query ?? '').trim()
@@ -40,7 +49,15 @@ export async function getPlayers({ query, excludeIds, page = 1, pageSize = 10 }:
     return EMPTY_RESULT(pageSize)
   }
 
+  if (ids && ids.length === 0) {
+    return EMPTY_RESULT(pageSize)
+  }
+
   const playersQuery = User.where('roleId', Role.PLAYER)
+
+  if (ids) {
+    playersQuery.whereIn('id', ids)
+  }
 
   if (excludeIds && excludeIds.length > 0) {
     playersQuery.whereNotIn('id', excludeIds)

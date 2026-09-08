@@ -1,3 +1,4 @@
+import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { isKnockoutType, MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
@@ -20,6 +21,21 @@ export interface EditableMatch {
   homeCompetitorId: number | null
   awayCompetitorId: number | null
   status: MatchStatus
+}
+
+/**
+ * The other side of a match. Null in, null out.
+ *
+ * Used wherever a match is read against the side opposite to the one it was
+ * stored under — the head-to-head history, which shows the side you asked
+ * about on top even in the matches it played away.
+ */
+export function getOppositeSide(side: MatchSide | null | undefined): MatchSide | null {
+  if (side == null) {
+    return null
+  }
+
+  return side === MatchSide.HOME ? MatchSide.AWAY : MatchSide.HOME
 }
 
 /** A real, fully-defined matchup (not a bye or a "to be defined" placeholder). */
@@ -176,4 +192,45 @@ export function isMatchEditable(
   }
 
   return true
+}
+
+/** Spanish name of a knockout stage, from its distance to the final. */
+const BRACKET_INSTANCE_NAMES: Record<number, string> = {
+  1: 'Final',
+  2: 'Semifinal',
+  3: 'Cuartos de final',
+  4: 'Octavos de final',
+  5: 'Dieciseisavos de final'
+}
+
+/** Minimal shape needed to name the stage a match belongs to. */
+export interface StagedMatch {
+  type: MatchType
+  roundNumber: number
+  groupNumber: number | null
+  bracketInstance: number | null
+}
+
+/**
+ * Where inside its category a match sits, in words: the knockout instance
+ * ("Semifinal", prefixed with "Consuelo · " in the consolation bracket), the
+ * group and round of a groups+playoff fixture ("Zona 2 · Fecha 3"), or plain
+ * "Fecha N" for a league/americano round.
+ *
+ * Shared by the match detail modal and the head-to-head history, which name the
+ * same thing and must not drift apart.
+ */
+export function getMatchStageName(match: StagedMatch): string {
+  if (isKnockoutType(match.type)) {
+    const stage = match.bracketInstance ? BRACKET_INSTANCE_NAMES[match.bracketInstance] : null
+    const prefix = match.type === MatchType.CONSOLATION_BRACKET ? 'Consuelo · ' : ''
+
+    return `${prefix}${stage ?? `Ronda ${match.roundNumber}`}`
+  }
+
+  if (match.groupNumber != null) {
+    return `Zona ${match.groupNumber + 1} · Fecha ${match.roundNumber}`
+  }
+
+  return `Fecha ${match.roundNumber}`
 }

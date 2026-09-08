@@ -41,6 +41,7 @@ import MyTeamSection from '@/app/(protected)/(tournaments)/components/MyTeamSect
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import TournamentRoundsView from '@/app/(protected)/(tournaments)/components/TournamentRoundsView'
+import { useMatches } from '@/app/(protected)/(tournaments)/hooks/useMatches'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
@@ -71,8 +72,8 @@ interface TournamentViewProps {
 }
 
 export default function TournamentView({ tournamentId, appUrl, isOrganizer }: TournamentViewProps) {
-  const { closeGroupPhase, finishTournament, getTournament, leaveTournament, saveMatchResult, startTournament } =
-    useTournaments()
+  const { closeGroupPhase, finishTournament, getTournament, leaveTournament, startTournament } = useTournaments()
+  const { saveMatchResult } = useMatches()
   const router = useRouter()
   const searchParams = useSearchParams()
   const joinLinkHandled = useRef(false)
