@@ -1,5 +1,5 @@
 import { BaseEntity, BelongsTo, Column, Entity } from '@neogroup/neorm'
-import { Category } from '@/app/(protected)/(tournaments)/models/Category'
+import { Category } from '@/app/(protected)/(categories)/models/Category'
 import { OrganizationScope } from '@/app/models/OrganizationScope'
 import { User } from '@/app/models/User'
 

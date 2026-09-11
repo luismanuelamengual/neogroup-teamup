@@ -1,4 +1,5 @@
 import { DB } from '@neogroup/neorm'
+import { validateCategoryIds } from '@/app/(protected)/(categories)/services/categories'
 import { hasOverdueDebt } from '@/app/(protected)/(payments)/services/payments'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
 import { resolveSiteId } from '@/app/(protected)/(sites)/services/sites'
@@ -17,7 +18,6 @@ import { TournamentImage } from '@/app/(protected)/(tournaments)/models/Tourname
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
 import { getChampionCompetitorId } from '@/app/(protected)/(tournaments)/utils/champion'

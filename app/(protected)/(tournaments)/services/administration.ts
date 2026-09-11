@@ -1,8 +1,8 @@
+import { validateCategoryIds } from '@/app/(protected)/(categories)/services/categories'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import {
   assignSiteLabels,
   createCompetitor,

@@ -1,5 +1,5 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
-import { Category } from '@/app/(protected)/(tournaments)/models/Category'
+import { Category } from '@/app/(protected)/(categories)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'

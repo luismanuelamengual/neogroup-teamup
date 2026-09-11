@@ -4,8 +4,8 @@ import Chip from '@mui/material/Chip'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import { useEffect, useState } from 'react'
-import { useCategories } from '@/app/(protected)/(tournaments)/hooks/useCategories'
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
+import { useCategories } from '@/app/(protected)/(categories)/hooks/useCategories'
+import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 
 /** Shown in place of the helper text when the organization has no categories for the filters. */
@@ -70,7 +70,7 @@ export default function CategorySelector(props: CategorySelectorProps) {
     helperText,
     onOptionsChange
   } = props
-  const { getCategories } = useCategories()
+  const { getAllCategories } = useCategories()
   const [categories, setCategories] = useState<CategoryDto[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -78,7 +78,7 @@ export default function CategorySelector(props: CategorySelectorProps) {
     let cancelled = false
 
     setLoading(true)
-    getCategories(discipline)
+    getAllCategories(discipline)
       .then((options) => {
         if (!cancelled) {
           setCategories(options)
@@ -97,7 +97,7 @@ export default function CategorySelector(props: CategorySelectorProps) {
     return () => {
       cancelled = true
     }
-  }, [discipline, getCategories, onOptionsChange])
+  }, [discipline, getAllCategories, onOptionsChange])
 
   const options = excludedIds?.length ? categories.filter((category) => !excludedIds.includes(category.id)) : categories
   const isEmpty = !loading && options.length === 0

@@ -1,7 +1,7 @@
+import { Category } from '@/app/(protected)/(categories)/models/Category'
 import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
 import { computeCategoryPlacements } from '@/app/(protected)/(rankings)/utils/placements'
-import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { User } from '@/app/models/User'

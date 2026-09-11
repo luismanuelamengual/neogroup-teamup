@@ -1,4 +1,4 @@
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
+import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
 import type { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 
 /** Serializable representation of a TournamentCategory — safe to pass server→client. */

@@ -9,8 +9,8 @@
  * logic end to end.
  */
 import { DB, SqliteDataSource } from '@neogroup/neorm'
+import { Category } from '@/app/(protected)/(categories)/models/Category'
 import { Site } from '@/app/(protected)/(sites)/models/Site'
-import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'

@@ -27,6 +27,7 @@ import { Dayjs } from 'dayjs'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useEffect, useState } from 'react'
 import CategorySelector from '@/app/(protected)/(categories)/components/CategorySelector'
+import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
 import {
   getDefaultRankingSettings,
   getRankingScheme,
@@ -42,7 +43,6 @@ import DisciplineSelector from '@/app/(protected)/(tournaments)/components/Disci
 import TournamentImageField from '@/app/(protected)/(tournaments)/components/TournamentImageField'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'

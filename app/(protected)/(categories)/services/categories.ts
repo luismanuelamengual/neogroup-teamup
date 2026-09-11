@@ -1,7 +1,7 @@
 import { DB } from '@neogroup/neorm'
+import { Category } from '@/app/(protected)/(categories)/models/Category'
 import { CategoryFilters } from '@/app/(protected)/(categories)/models/CategoryFilters'
 import { CategoryInput } from '@/app/(protected)/(categories)/models/CategoryInput'
-import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
 import { ApiException } from '@/app/models/ApiException'
@@ -9,8 +9,11 @@ import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { getCurrentOrganizationId } from '@/app/services/organization-context'
 
 /**
- * Administration of the category catalogue of an organization — the ABM behind
- * the administrator's "Categorías" page.
+ * All the business logic around the category catalogue of an organization:
+ * the paginated listing used both by the tournament form's autocomplete
+ * (usually filtered by discipline, with a large pageSize — see
+ * useCategories.getAllCategories) and by the administrator's "Categorías"
+ * ABM (search + pagination), plus the create/update/delete of that ABM.
  *
  * Categories used to be created on the fly by whoever was filling the
  * tournament form, which produced near-duplicates ("4ta", "Cuarta", "4TA")
@@ -27,10 +30,123 @@ import { getCurrentOrganizationId } from '@/app/services/organization-context'
  * Category entity, whose OrganizationScope pins it to the organization of the
  * current operation (see services/organization-context.ts), so a category of
  * another organization is not reachable — a lookup by a foreign id simply
- * finds nothing and 404s. The one place the organization is still named is the
- * insert in `createCategory`, where it is the value of a column rather than a
- * filter.
+ * finds nothing and 404s. The one places the organization is still named are
+ * the inserts in `createCategory` and `resolveCategoryIds`, where it is the
+ * value of a column rather than a filter.
  */
+
+/**
+ * Paginated listing of the categories of an organization, searchable by name
+ * and optionally restricted to a discipline and/or a set of ids (a lookup
+ * rather than a search, analogous to `getTournaments` in
+ * services/tournaments.ts).
+ *
+ * Powers both the category autocomplete of the tournament form and the
+ * administrator's categories browser — the CategorySelector goes through
+ * `useCategories.getAllCategories`, which fixes a large `pageSize` to fetch
+ * the whole catalogue of a discipline at once.
+ */
+export async function getCategories({
+  query,
+  discipline = null,
+  ids,
+  page = 1,
+  pageSize = 10
+}: CategoryFilters = {}): Promise<PaginatedResponse<Category[]>> {
+  const categoriesQuery = Category.orderBy('discipline').orderBy('name')
+  const normalized = (query ?? '').trim()
+
+  if (discipline != null) {
+    categoriesQuery.where('discipline', discipline)
+  }
+
+  if (ids && ids.length > 0) {
+    categoriesQuery.whereIn('id', ids)
+  }
+
+  if (normalized.length > 0) {
+    // Explicit ILIKE: neorm's whereLike defaults to a case-sensitive LIKE on
+    // PostgreSQL (same caveat as services/users.ts).
+    categoriesQuery.where('name', 'ILIKE', `%${normalized}%`)
+  }
+
+  return categoriesQuery.paginate(pageSize, page)
+}
+
+/**
+ * Checks that every given id is a category of the organization for that
+ * discipline, and returns them de-duplicated, in input order.
+ *
+ * This is what the tournament form goes through: categories are defined once by
+ * the administrator (/categories ABM) and only ever picked from the catalogue,
+ * so anything that does not resolve here is a stale or forged id, not a new
+ * category to create.
+ */
+export async function validateCategoryIds(discipline: Discipline, ids: number[]): Promise<number[]> {
+  if (ids.length === 0) {
+    return []
+  }
+
+  const existing = await Category.where('discipline', discipline).get()
+  const allowed = new Map(existing.map((category) => [category.id, category]))
+  const resolved: number[] = []
+
+  for (const id of ids) {
+    if (!allowed.has(id)) {
+      throw new ApiException('Alguna de las categorías seleccionadas no es válida')
+    }
+
+    if (!resolved.includes(id)) {
+      resolved.push(id)
+    }
+  }
+
+  return resolved
+}
+
+/**
+ * Resolves a list of category names to their ids for a given organization +
+ * discipline, creating any category that does not exist yet. Only used by the
+ * seed script: the application always picks existing categories through
+ * `validateCategoryIds`.
+ * Matching is case-insensitive; the returned ids preserve the input order and
+ * are de-duplicated.
+ */
+export async function resolveCategoryIds(discipline: Discipline, names: string[]): Promise<number[]> {
+  if (names.length === 0) {
+    return []
+  }
+
+  const pool = await Category.where('discipline', discipline).get()
+  const ids: number[] = []
+
+  for (const rawName of names) {
+    const name = rawName.trim()
+
+    if (name === '') {
+      continue
+    }
+
+    let category = pool.find((candidate) => candidate.name.toLowerCase() === name.toLowerCase())
+
+    if (!category) {
+      category = new Category()
+      // An insert applies no scopes, so this is the one place the organization
+      // is written rather than filtered by.
+      category.organizationId = await getCurrentOrganizationId()
+      category.name = name
+      category.discipline = discipline
+      await category.save()
+      pool.push(category)
+    }
+
+    if (!ids.includes(category.id)) {
+      ids.push(category.id)
+    }
+  }
+
+  return ids
+}
 
 /**
  * Validates and normalizes the fields of a category.
@@ -90,29 +206,6 @@ async function assertNameIsAvailable(
   if (taken) {
     throw new ApiException('Ya existe una categoría con ese nombre para esa disciplina')
   }
-}
-
-/** Paginated listing of the categories of an organization, searchable by name. */
-export async function getManagedCategories({
-  query,
-  discipline = null,
-  page = 1,
-  pageSize = 10
-}: CategoryFilters = {}): Promise<PaginatedResponse<Category[]>> {
-  const categoriesQuery = Category.orderBy('discipline').orderBy('name')
-  const normalized = (query ?? '').trim()
-
-  if (discipline != null) {
-    categoriesQuery.where('discipline', discipline)
-  }
-
-  if (normalized.length > 0) {
-    // Explicit ILIKE: neorm's whereLike defaults to a case-sensitive LIKE on
-    // PostgreSQL (same caveat as services/users.ts).
-    categoriesQuery.where('name', 'ILIKE', `%${normalized}%`)
-  }
-
-  return categoriesQuery.paginate(pageSize, page)
 }
 
 /** Creates a category of the organization. */

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createCategory,
   deleteCategory,
-  getManagedCategories,
+  getCategories,
   updateCategory
 } from '@/app/(protected)/(categories)/services/categories'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
@@ -55,9 +55,9 @@ describe('categories administration', () => {
     await createCategory({ name: 'Quinta', discipline: Discipline.PADEL })
     await createCategory({ name: 'Cuarta', discipline: Discipline.TENNIS })
 
-    expect((await getManagedCategories()).data).toHaveLength(3)
-    expect((await getManagedCategories({ discipline: Discipline.TENNIS })).data).toHaveLength(1)
-    expect((await getManagedCategories({ query: 'quin' })).data).toHaveLength(1)
+    expect((await getCategories()).data).toHaveLength(3)
+    expect((await getCategories({ discipline: Discipline.TENNIS })).data).toHaveLength(1)
+    expect((await getCategories({ query: 'quin' })).data).toHaveLength(1)
   })
 
   it('renames a category', async () => {
@@ -65,7 +65,7 @@ describe('categories administration', () => {
 
     await updateCategory(category.id, { name: '4ta', discipline: Discipline.PADEL })
 
-    const { data } = await getManagedCategories()
+    const { data } = await getCategories()
 
     expect(data[0].name).toBe('4ta')
   })
@@ -86,7 +86,7 @@ describe('categories administration', () => {
     // a better name, same rule as one already referenced by a tournament.
     await updateCategory(category.id, { name: '4ta', discipline: Discipline.PADEL })
 
-    expect((await getManagedCategories()).data[0].name).toBe('4ta')
+    expect((await getCategories()).data[0].name).toBe('4ta')
 
     // Actively moving it to a *different* discipline the organization doesn't
     // offer is still rejected.
@@ -118,7 +118,7 @@ describe('categories administration', () => {
 
     await deleteCategory(category.id)
 
-    expect((await getManagedCategories()).data).toHaveLength(0)
+    expect((await getCategories()).data).toHaveLength(0)
   })
 
   it('refuses to delete or re-classify a category already used by a tournament', async () => {
@@ -137,6 +137,6 @@ describe('categories administration', () => {
     // Renaming it stays allowed — it is the same category under a better name.
     await updateCategory(category.id, { name: '4ta', discipline: Discipline.PADEL })
 
-    expect((await getManagedCategories()).data[0].name).toBe('4ta')
+    expect((await getCategories()).data[0].name).toBe('4ta')
   })
 })
