@@ -1,8 +1,10 @@
 import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
 import { computeCategoryPlacements } from '@/app/(protected)/(rankings)/utils/placements'
+import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
+import { User } from '@/app/models/User'
 import { Tournament } from '../../(tournaments)/models/Tournament'
 
 /** One year of validity for every ranking award, in milliseconds. */
@@ -174,43 +176,53 @@ export async function getRankings({
   page = 1,
   pageSize = 20
 }: RankingBrowseOptions = {}): Promise<PaginatedResponse<RankingEntryDto[]>> {
-  const rankings = await Ranking.with('category', 'user').get()
-  const totals = new Map<number, RankingEntryDto>()
+  // Which awards make up this board, expressed on the Ranking entity so its own
+  // scopes come along: this organization, and not expired yet.
+  const board = Ranking.when(categoryId != null, (query) => query.where('categoryId', categoryId))
+  // Filtering by discipline means "every category of that discipline", which the
+  // catalogue answers — and `Category` is scoped to the organization too, so the
+  // ids can only ever be its own. A discipline with no categories has no board,
+  // and an award with no category at all is not part of one either (it belongs
+  // to a tournament that defined none), which is why this narrows by id rather
+  // than joining.
+  const disciplineCategoryIds =
+    categoryId == null && discipline != null
+      ? (await Category.where('discipline', discipline).get()).map((category) => category.id)
+      : null
 
-  for (const ranking of rankings) {
-    const category = ranking.category
-
-    if (categoryId != null) {
-      if (ranking.categoryId !== categoryId) {
-        continue
-      }
-    } else if (discipline != null) {
-      if (!category || category.discipline !== discipline) {
-        continue
-      }
-    }
-
-    const user = ranking.user
-
-    if (!user) {
-      continue
-    }
-
-    const existing = totals.get(ranking.userId)
-
-    if (existing) {
-      existing.points += ranking.points
-    } else {
-      totals.set(ranking.userId, {
-        userId: ranking.userId,
-        displayName: user.displayName,
-        email: user.email,
-        points: ranking.points
-      })
-    }
+  if (disciplineCategoryIds != null) {
+    board.whereIn('categoryId', disciplineCategoryIds)
   }
 
-  const ordered = [...totals.values()].sort((a, b) => b.points - a.points || a.displayName.localeCompare(b.displayName))
+  // One row per player, not one per award. This used to read every ranking row
+  // of the organization and group them in JavaScript, so what crossed the wire
+  // grew with the entire history of awards — forever, since every finished
+  // tournament adds more. Now it grows with the number of players instead.
+  //
+  // Through toBase() because a projection is not a row of the table: `get()`
+  // would hydrate these into Rankings and drop the aggregate.
+  const totals =
+    disciplineCategoryIds?.length === 0
+      ? []
+      : await (await board.toBase()).select('userId AS userid', 'SUM(points) AS pts').groupBy('userId').get()
+  const pointsByUser = new Map(totals.map((row) => [Number(row.userid), Number(row.pts)]))
+  // `displayName` is a computed getter, not a column, so the board is ordered
+  // here rather than in SQL — which also keeps the accent-aware collation of
+  // localeCompare, something neither Postgres nor SQLite would reproduce for
+  // Spanish names on its own.
+  //
+  // The User scopes are deliberately left on: a deactivated or unverified
+  // account drops off the board, exactly as it did when this read the players
+  // through `Ranking.with('user')`.
+  const players = pointsByUser.size > 0 ? await User.whereIn('id', [...pointsByUser.keys()]).get() : []
+  const ordered = players
+    .map((user) => ({
+      userId: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      points: pointsByUser.get(user.id) ?? 0
+    }))
+    .sort((a, b) => b.points - a.points || a.displayName.localeCompare(b.displayName))
   const total = ordered.length
   const lastPage = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = Math.min(Math.max(1, page), lastPage)
