@@ -343,7 +343,7 @@ export async function startTournament(tournament: Tournament): Promise<void> {
     // Auto-assign preclassification seeds from ranking when the tournament type
     // supports it (Playoff, Groups+Playoff, Playoff with consolation).
     if (supportsPreclassification(tournament.type)) {
-      await autoAssignPreclassification(allCompetitors)
+      await autoAssignPreclassification(allCompetitors, categories)
     }
 
     tournament.status = TournamentStatus.ONGOING

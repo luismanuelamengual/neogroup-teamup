@@ -1,5 +1,6 @@
 import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
+import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { getPreclassificationCount } from '@/app/(protected)/(tournaments)/utils/preclassification'
 
 /**
@@ -13,6 +14,15 @@ import { getPreclassificationCount } from '@/app/(protected)/(tournaments)/utils
  * that category, so a tournament with multiple categories never mixes seeds
  * across them (a competitor's seed must never depend on how strong the other
  * category is).
+ *
+ * Ranking points themselves are also scoped to the catalogue category
+ * (`Ranking.categoryId` / `TournamentCategory.categoryId`), not just summed
+ * per player: a player who is #1 in category C but has never played category
+ * B must start with 0 points — and no seed — when they register in B. Points
+ * earned in one catalogue category must never leak into another one just
+ * because it is the same player. `tournamentCategories` is how the caller
+ * tells this function which catalogue category each `tournamentCategoryId`
+ * belongs to.
  *
  * Manual seeds take priority over ranking. A competitor can only have a
  * non-null `seedNumber` before the tournament starts if the organizer set it
@@ -30,7 +40,10 @@ import { getPreclassificationCount } from '@/app/(protected)/(tournaments)/utils
  * utils/preclassification.ts — which stays free of database models so it can
  * also be imported by client components (e.g. the tournament admin page).
  */
-export async function autoAssignPreclassification(competitors: Competitor[]): Promise<void> {
+export async function autoAssignPreclassification(
+  competitors: Competitor[],
+  tournamentCategories: TournamentCategory[]
+): Promise<void> {
   if (!competitors.length) {
     return
   }
@@ -38,12 +51,19 @@ export async function autoAssignPreclassification(competitors: Competitor[]): Pr
   // Both filters that used to be spelled out here — this organization, not
   // expired yet — are the Ranking entity's own global scopes.
   const validRankings = await Ranking.get()
-  const pointsByUser = new Map<number, number>()
+  // Keyed by "userId:categoryId" — a player's points must stay scoped to the
+  // catalogue category they were earned in (see the note above).
+  const pointsByUserAndCategory = new Map<string, number>()
 
   for (const row of validRankings) {
-    pointsByUser.set(row.userId, (pointsByUser.get(row.userId) ?? 0) + row.points)
+    const key = `${row.userId}:${row.categoryId}`
+
+    pointsByUserAndCategory.set(key, (pointsByUserAndCategory.get(key) ?? 0) + row.points)
   }
 
+  const categoryIdByTournamentCategoryId = new Map(
+    tournamentCategories.map((tournamentCategory) => [tournamentCategory.id, tournamentCategory.categoryId])
+  )
   // Group by category first: seeds must be computed independently within each
   // tournament category, not across the whole tournament.
   const competitorsByCategory = new Map<number, Competitor[]>()
@@ -87,9 +107,17 @@ export async function autoAssignPreclassification(competitors: Competitor[]): Pr
 
     const lockedNumbers = new Set(lockedBySeed.keys())
     const unlocked = categoryCompetitors.filter((c) => c.seedNumber == null)
+    // Every competitor here shares the same tournamentCategoryId, so they all
+    // resolve to the same catalogue category.
+    const catalogueCategoryId =
+      categoryIdByTournamentCategoryId.get(categoryCompetitors[0].tournamentCategoryId) ?? null
     const scored = unlocked.map((c) => {
-      // Sum the ranking points of every player that makes up the competitor.
-      const points = c.playerIds.reduce((sum, id) => sum + (pointsByUser.get(id) ?? 0), 0)
+      // Sum the ranking points of every player that makes up the competitor,
+      // counting only points earned in this same catalogue category.
+      const points = c.playerIds.reduce(
+        (sum, id) => sum + (pointsByUserAndCategory.get(`${id}:${catalogueCategoryId}`) ?? 0),
+        0
+      )
 
       return { competitor: c, points }
     })
