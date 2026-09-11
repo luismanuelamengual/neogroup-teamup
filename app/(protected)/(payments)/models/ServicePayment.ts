@@ -1,5 +1,6 @@
 import { BaseEntity, Column, Entity } from '@neogroup/neorm'
 import { PaymentStatus } from '@/app/(protected)/(payments)/models/PaymentStatus'
+import { OrganizationScope } from '@/app/models/OrganizationScope'
 
 /**
  * A settlement of TeamUp's service fee: the organization paying for the
@@ -13,8 +14,13 @@ import { PaymentStatus } from '@/app/(protected)/(payments)/models/PaymentStatus
  * the status becomes APPROVED and every tournament in `tournamentIds` is marked
  * as paid.
  *
- * No organization global scope is added on purpose: the Mercado Pago webhook
- * resolves the settlement without a subdomain/organization context.
+ * Organization-scoped like every other tenant table: a settlement is one
+ * organization's money, so a read that forgets to filter by it must not be able
+ * to answer with another's. The one reader without an organization in context
+ * is the Mercado Pago webhook, which resolves the row with
+ * `withoutGlobalScopes()` on purpose and only acts inside the row's own
+ * organization once Mercado Pago vouched for it (see
+ * `confirmServicePaymentFromWebhook`).
  */
 @Entity({ table: 'service_payments' })
 export class ServicePayment extends BaseEntity {
@@ -74,4 +80,8 @@ export class ServicePayment extends BaseEntity {
 
   @Column({ cast: 'date' })
   updatedAt!: Date
+
+  protected static booted(): void {
+    ServicePayment.addGlobalScope(new OrganizationScope())
+  }
 }
