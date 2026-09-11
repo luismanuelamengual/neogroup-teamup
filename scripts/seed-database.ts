@@ -81,7 +81,7 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { resolveCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import { assignSiteLabels } from '@/app/(protected)/(tournaments)/services/registrations'
-import { finishTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
+import { finishTournament, getTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import {
@@ -96,6 +96,7 @@ import {
   isTournamentComplete,
   progressTournamentAfterResult
 } from '@/app/(protected)/(tournaments)/utils/tournaments'
+import { withOrganization } from '@/app/services/organization-context'
 import { assertNotProduction } from './utils/production-guard'
 
 // ---------------------------------------------------------------------------
@@ -1287,8 +1288,7 @@ async function buildTournament(
   }
 
   // Resolve (and create on demand) the named categories of this tournament.
-  const categoryIds =
-    categoryNames.length > 0 ? await resolveCategoryIds(organizationId, spec.discipline, categoryNames) : null
+  const categoryIds = categoryNames.length > 0 ? await resolveCategoryIds(spec.discipline, categoryNames) : null
   const tournament = new Tournament()
 
   tournament.organizationId = organizationId
@@ -1353,8 +1353,17 @@ async function buildTournament(
     }
 
     // Could not be played to the end (shouldn't happen): still grant the points
-    // so the ranking demo data is not empty.
-    await awardRankingPoints(tournament.id)
+    // so the ranking demo data is not empty. awardRankingPoints reads the
+    // competitors and matches off the tournament, so it needs them loaded.
+    const loadedTournament = await getTournament({
+      id: tournament.id,
+      withCompetitors: true,
+      withMatches: true
+    })
+
+    if (loadedTournament) {
+      await awardRankingPoints(loadedTournament)
+    }
 
     return
   }
@@ -1510,24 +1519,29 @@ async function run(): Promise<void> {
   }
 
   const organizationId = stagingOrg.id
+  // Everything below seeds this one organization, and a script has no signed-in
+  // user for the organization scope to read — so it states the tenant once here
+  // instead of at every call (see services/organization-context.ts).
+  const playerCount = await withOrganization(organizationId, async () => {
+    await clearDemoOrganizationData(organizationId)
 
-  await clearDemoOrganizationData(organizationId)
+    const { organizer, players } = await createUsers(140, organizationId)
 
-  const { organizer, players } = await createUsers(140, organizationId)
+    console.log(`\nCreating ${SPECS.length} tournaments...`)
 
-  console.log(`\nCreating ${SPECS.length} tournaments...`)
+    let index = 0
 
-  let index = 0
+    for (const spec of SPECS) {
+      index++
+      await buildTournament(spec, organizer.id, organizationId, players)
+      console.log(`  [${index}/${SPECS.length}] ${spec.name}`)
+    }
 
-  for (const spec of SPECS) {
-    index++
-    await buildTournament(spec, organizer.id, organizationId, players)
-    console.log(`  [${index}/${SPECS.length}] ${spec.name}`)
-  }
+    console.log('\nGenerating demo rankings...')
+    await seedDemoRankings(organizationId, players)
 
-  console.log('\nGenerating demo rankings...')
-  await seedDemoRankings(organizationId, players)
-
+    return players.length
+  })
   const [{ tournaments }, { competitors }, { matches }] = await DB.withConnection(async (conn) => {
     return Promise.all([
       conn.query('SELECT COUNT(*) AS tournaments FROM tournaments').then((r) => r[0]),
@@ -1537,9 +1551,7 @@ async function run(): Promise<void> {
   })
 
   console.log(
-    `\nDone. ${
-      players.length + 1
-    } users, ${tournaments} tournaments, ${competitors} competitors, ${matches} matches created.`
+    `\nDone. ${playerCount + 1} users, ${tournaments} tournaments, ${competitors} competitors, ${matches} matches created.`
   )
   console.log('Organizer login: demo-organizer@gmail.com / 123qwe')
 }

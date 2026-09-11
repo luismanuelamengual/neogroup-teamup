@@ -71,23 +71,21 @@ describe('tournament administration', () => {
       let tournament = await manageable(built.tournament.id, built.ownerId)
       const catalogueId = await createCategory(tournament.organizationId, 'Cuarta')
 
-      await addTournamentCategory(tournament, tournament.organizationId, catalogueId, 8)
+      await addTournamentCategory(tournament, catalogueId, 8)
 
       const categories = await TournamentCategory.where('tournamentId', built.tournament.id).get()
 
       expect(categories).toHaveLength(3)
 
       tournament = await manageable(built.tournament.id, built.ownerId)
-      await expect(addTournamentCategory(tournament, tournament.organizationId, catalogueId, 8)).rejects.toThrow(
-        'ya existe'
-      )
+      await expect(addTournamentCategory(tournament, catalogueId, 8)).rejects.toThrow('ya existe')
     })
 
     it('rejects a category that does not belong to the organization catalogue', async () => {
       const built = await buildTournament({ type: TournamentType.LEAGUE, categories: [1, 1] })
       const tournament = await manageable(built.tournament.id, built.ownerId)
 
-      await expect(addTournamentCategory(tournament, tournament.organizationId, 999999, 8)).rejects.toThrow('no es')
+      await expect(addTournamentCategory(tournament, 999999, 8)).rejects.toThrow('no es')
     })
 
     it('removes an empty category but not one with competitors', async () => {

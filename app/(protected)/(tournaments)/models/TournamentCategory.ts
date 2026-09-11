@@ -25,6 +25,19 @@ export class TournamentCategory extends BaseEntity {
   @Column({ cast: 'number' })
   maxCompetitors!: number
 
+  /**
+   * Winner of this category, materialised when the tournament finishes (see
+   * `finishTournament`). Null while it is still running, and also for a
+   * finished category whose final never got a result.
+   *
+   * It exists so counting a player's titles is an indexed COUNT instead of
+   * replaying the whole bracket: the champion can only change while the
+   * tournament is ONGOING — `setMatchResult` refuses a result on anything else
+   * — so once written it never moves.
+   */
+  @Column({ cast: 'number' })
+  championCompetitorId!: number | null
+
   @BelongsTo(() => Tournament, 'tournamentId')
   tournament?: Tournament
 

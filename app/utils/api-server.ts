@@ -3,6 +3,7 @@ import { auth } from '@/app/(auth)/services/auth'
 import { ApiException } from '@/app/models/ApiException'
 import { ApiResponse } from '@/app/models/ApiResponse'
 import { Role } from '@/app/models/Role'
+import { withOrganization } from '@/app/services/organization-context'
 import { getOrganization } from '@/app/services/organizations'
 
 /** Helpers shared by the /api route handlers. */
@@ -66,13 +67,19 @@ async function resolveOrganizationId(request: NextRequest): Promise<number> {
  * Wraps an API handler with the standard response shape: whatever the handler
  * returns is sent as `data`, and any thrown error becomes an error response.
  * Resolves and injects the organizationId from the current subdomain.
+ *
+ * The handler also runs inside that organization's context (see
+ * `services/organization-context.ts`), so the organization-scoped models filter
+ * by the same tenant the handler was handed — the subdomain being served —
+ * rather than re-deriving it from the session on their own. One request, one
+ * answer to "which organization is this".
  */
 export function withApi<P = Record<string, string>>(handler: ApiHandler<P>) {
   return async (request: NextRequest, context: RouteContext<P>): Promise<NextResponse> => {
     try {
       const organizationId = await resolveOrganizationId(request)
 
-      return successResponse(await handler(request, context, organizationId))
+      return successResponse(await withOrganization(organizationId, () => handler(request, context, organizationId)))
     } catch (error) {
       return errorResponse(error)
     }
@@ -92,7 +99,9 @@ export function withAuth<P = Record<string, string>>(handler: AuthenticatedApiHa
     try {
       const organizationId = await resolveOrganizationId(request)
 
-      return successResponse(await handler(request, context, userId, organizationId))
+      return successResponse(
+        await withOrganization(organizationId, () => handler(request, context, userId, organizationId))
+      )
     } catch (error) {
       return errorResponse(error)
     }
@@ -123,7 +132,9 @@ export function withOrganizerOrAdmin<P = Record<string, string>>(handler: Authen
     try {
       const organizationId = await resolveOrganizationId(request)
 
-      return successResponse(await handler(request, context, userId, organizationId))
+      return successResponse(
+        await withOrganization(organizationId, () => handler(request, context, userId, organizationId))
+      )
     } catch (error) {
       return errorResponse(error)
     }
@@ -151,7 +162,9 @@ export function withAdmin<P = Record<string, string>>(handler: AuthenticatedApiH
     try {
       const organizationId = await resolveOrganizationId(request)
 
-      return successResponse(await handler(request, context, userId, organizationId))
+      return successResponse(
+        await withOrganization(organizationId, () => handler(request, context, userId, organizationId))
+      )
     } catch (error) {
       return errorResponse(error)
     }

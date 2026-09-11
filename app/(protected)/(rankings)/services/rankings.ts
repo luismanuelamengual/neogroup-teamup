@@ -2,7 +2,6 @@ import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
 import { computeCategoryPlacements } from '@/app/(protected)/(rankings)/utils/placements'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { getTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { Tournament } from '../../(tournaments)/models/Tournament'
 
@@ -16,16 +15,17 @@ const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
  * category (categoryId null, i.e. no-category tournaments) produce ranking rows
  * with categoryId null. Idempotent enough for a one-shot finish: callers must
  * only invoke it once, right after marking the tournament finished.
+ *
+ * Takes the tournament already hydrated with its competitors and matches
+ * (`getTournament({ withCompetitors: true, withMatches: true })`) rather than an
+ * id: finalisation also has to work out each category's champion off the very
+ * same data, and that load is the expensive half of the whole operation — which
+ * runs inside one transaction, against the Vercel cron's 10s budget.
  */
-export async function awardRankingPoints(tournamentId: number): Promise<void> {
-  const tournament = (await getTournament({
-    id: tournamentId,
-    withCompetitors: true,
-    withMatches: true
-  })) as unknown as Tournament | null
-  const settings = tournament?.rankingSettings
+export async function awardRankingPoints(tournament: Tournament): Promise<void> {
+  const settings = tournament.rankingSettings
 
-  if (!tournament || !settings || !settings.points) {
+  if (!settings || !settings.points) {
     return
   }
 
@@ -89,48 +89,66 @@ export interface OrganizationRankingSummary {
   rankedPlayers: number
 }
 
-/** Player ranking summary: total points and best position across categories. */
+/**
+ * Player ranking summary: total points and best position across categories.
+ *
+ * Entirely aggregated in the database. It used to load every ranking row of the
+ * organization and group them in JavaScript to produce two numbers, which grew
+ * linearly with the whole history of awards; here the rows that cross the wire
+ * are one per category the player holds points in, plus one per rival ahead of
+ * them in those categories.
+ *
+ * Asked of the `Ranking` entity rather than of the table, so both of its global
+ * scopes apply on their own: the organization of the current operation (see
+ * services/organization-context.ts) and "not expired yet". That second one is
+ * the reason worth stating — a ranking total that forgets to exclude expired
+ * awards is wrong in a way nothing reports, and this way it cannot be forgotten.
+ */
 export async function getPlayerRankingSummary(userId: number): Promise<PlayerRankingSummary> {
-  const rankings = await Ranking.get()
-  // category (or null for no-category tournaments) -> (user -> summed points)
-  const byCategory = new Map<number | null, Map<number, number>>()
+  // The player's own still-valid points, one row per category they hold any in.
+  // Through toBase() because a projection is not a row of the table: `get()`
+  // would hydrate these into Rankings and drop the aggregate.
+  const categoryRows = await (await Ranking.where('userId', userId).toBase())
+    .select('categoryId AS catid', 'SUM(points) AS pts')
+    .groupBy('categoryId')
+    .get()
 
-  for (const ranking of rankings) {
-    const key = ranking.categoryId ?? null
-    const users = byCategory.get(key) ?? new Map<number, number>()
-
-    users.set(ranking.userId, (users.get(ranking.userId) ?? 0) + ranking.points)
-    byCategory.set(key, users)
+  if (categoryRows.length === 0) {
+    return { points: 0, bestPosition: 0 }
   }
 
-  let points = 0
-  let bestPosition = 0
+  // Position in a category is "how many rivals are ahead, plus one". Counting
+  // them with a HAVING over the per-player totals keeps the result set down to
+  // the players actually above this one instead of the whole category.
+  const positions = await Promise.all(
+    categoryRows.map(async (row) => {
+      const categoryId = row.catid == null ? null : Number(row.catid)
+      const playerPoints = Number(row.pts)
+      const rivals = categoryId == null ? Ranking.whereNull('categoryId') : Ranking.where('categoryId', categoryId)
+      const rivalsAhead = await rivals.groupBy('userId').having('SUM(points)', '>', playerPoints).count()
 
-  for (const users of byCategory.values()) {
-    const playerPoints = users.get(userId)
+      return rivalsAhead + 1
+    })
+  )
 
-    if (playerPoints == null) {
-      continue
-    }
-
-    points += playerPoints
-
-    let position = 1
-
-    for (const otherPoints of users.values()) {
-      if (otherPoints > playerPoints) {
-        position++
-      }
-    }
-
-    bestPosition = bestPosition === 0 ? position : Math.min(bestPosition, position)
+  return {
+    points: categoryRows.reduce((total, row) => total + Number(row.pts), 0),
+    bestPosition: Math.min(...positions)
   }
+}
 
-  return { points, bestPosition }
+/**
+ * Organization-wide ranking summary: points still in circulation and how many
+ * players hold them. Two aggregates, both scoped by the entity — same reasoning
+ * as its per-player counterpart.
+ */
+export async function getOrganizationRankingSummary(): Promise<OrganizationRankingSummary> {
+  const [pointsAwarded, rankedPlayers] = await Promise.all([Ranking.sum('points'), Ranking.distinct().count('userId')])
+
+  return { pointsAwarded, rankedPlayers }
 }
 
 export interface RankingBrowseOptions {
-  organizationId: number
   /** Restrict to a single catalogue category. */
   categoryId?: number | null
   /** Restrict by discipline (used when no specific category is selected). */
@@ -144,13 +162,18 @@ export interface RankingBrowseOptions {
  * requested category (or, when none is given, for every category of the
  * requested discipline) and returns the players ordered by total points.
  * Pagination is applied on the server.
+ *
+ * Scoped to the organization of the current operation by the `Ranking` entity
+ * itself. It used to also declare an `organizationId` option that it never
+ * read — the filtering was the scope's all along, and the parameter only made
+ * the signature look like it was doing something.
  */
 export async function getRankings({
   categoryId = null,
   discipline = null,
   page = 1,
   pageSize = 20
-}: RankingBrowseOptions): Promise<PaginatedResponse<RankingEntryDto[]>> {
+}: RankingBrowseOptions = {}): Promise<PaginatedResponse<RankingEntryDto[]>> {
   const rankings = await Ranking.with('category', 'user').get()
   const totals = new Map<number, RankingEntryDto>()
 

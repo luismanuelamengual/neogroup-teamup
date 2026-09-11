@@ -1,6 +1,7 @@
 import { Category } from '@/app/(protected)/(tournaments)/models/Category'
 import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { ApiException } from '@/app/models/ApiException'
+import { getCurrentOrganizationId } from '@/app/services/organization-context'
 
 export interface CategoryQuery {
   discipline: Discipline
@@ -36,16 +37,12 @@ export async function getCategoriesByIds(ids: number[] | null | undefined): Prom
  * so anything that does not resolve here is a stale or forged id, not a new
  * category to create.
  */
-export async function validateCategoryIds(
-  organizationId: number,
-  discipline: Discipline,
-  ids: number[]
-): Promise<number[]> {
+export async function validateCategoryIds(discipline: Discipline, ids: number[]): Promise<number[]> {
   if (ids.length === 0) {
     return []
   }
 
-  const existing = await Category.where('organizationId', organizationId).where('discipline', discipline).get()
+  const existing = await Category.where('discipline', discipline).get()
   const allowed = new Map(existing.map((category) => [category.id, category]))
   const resolved: number[] = []
 
@@ -70,16 +67,12 @@ export async function validateCategoryIds(
  * Matching is case-insensitive; the returned ids preserve the input order and
  * are de-duplicated.
  */
-export async function resolveCategoryIds(
-  organizationId: number,
-  discipline: Discipline,
-  names: string[]
-): Promise<number[]> {
+export async function resolveCategoryIds(discipline: Discipline, names: string[]): Promise<number[]> {
   if (names.length === 0) {
     return []
   }
 
-  const pool = await Category.where('organizationId', organizationId).where('discipline', discipline).get()
+  const pool = await Category.where('discipline', discipline).get()
   const ids: number[] = []
 
   for (const rawName of names) {
@@ -93,7 +86,9 @@ export async function resolveCategoryIds(
 
     if (!category) {
       category = new Category()
-      category.organizationId = organizationId
+      // An insert applies no scopes, so this is the one place the organization
+      // is written rather than filtered by.
+      category.organizationId = await getCurrentOrganizationId()
       category.name = name
       category.discipline = discipline
       await category.save()

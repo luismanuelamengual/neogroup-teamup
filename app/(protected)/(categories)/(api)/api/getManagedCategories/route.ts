@@ -9,10 +9,10 @@ import { withAdmin } from '@/app/utils/api-server'
  * The read-only listing that feeds the CategorySelector is /api/getCategories,
  * which is open to every signed-in user.
  */
-export const POST = withAdmin(async (request, _context, _userId, organizationId) => {
+export const POST = withAdmin(async (request) => {
   const body = (await request.json()) as CategoryFilters
 
-  return getManagedCategories(organizationId, {
+  return getManagedCategories({
     query: body.query,
     discipline: body.discipline,
     page: body.page,

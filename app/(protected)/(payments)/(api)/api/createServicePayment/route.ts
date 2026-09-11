@@ -14,15 +14,13 @@ export interface CreateServicePaymentResult {
  * pending tournament of the organization. The tournaments are only marked as
  * paid when the webhook confirms the payment.
  */
-export const POST = withOrganizerOrAdmin(
-  async (request, context, userId, organizationId): Promise<CreateServicePaymentResult> => {
-    const origin = new URL(request.url).origin
-    const payment = await createServicePayment({ organizationId, userId, origin })
+export const POST = withOrganizerOrAdmin(async (request, _context, userId): Promise<CreateServicePaymentResult> => {
+  const origin = new URL(request.url).origin
+  const payment = await createServicePayment({ userId, origin })
 
-    if (!payment.initPoint) {
-      throw new ApiException('No se pudo iniciar el pago')
-    }
-
-    return { initPoint: payment.initPoint, paymentId: payment.id }
+  if (!payment.initPoint) {
+    throw new ApiException('No se pudo iniciar el pago')
   }
-)
+
+  return { initPoint: payment.initPoint, paymentId: payment.id }
+})

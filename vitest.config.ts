@@ -11,7 +11,9 @@ import { defineConfig } from 'vitest/config'
  *   - the auth service is stubbed via a resolveId plugin, because it is imported
  *     through different specifiers (aliased `@/...` AND relative `../...`) that a
  *     plain alias cannot all catch;
- *   - the Next.js / next-auth modules are aliased to an empty stub as a fallback.
+ *   - the Next.js / next-auth modules are aliased to an empty stub as a fallback;
+ *   - app/utils/email is aliased to an inert stub, so the suite is not flooded
+ *     with the "RESEND_API_KEY not set" warning the real one logs per mail.
  *
  * The DB is an in-memory SQLite database (see tests/setup/vitest.setup.ts).
  * Decorators are handled by Vitest's transformer using the project tsconfig.json
@@ -23,6 +25,7 @@ import { defineConfig } from 'vitest/config'
 const root = __dirname
 const authStub = path.resolve(root, 'tests/setup/stubs/auth-service.ts')
 const emptyStub = path.resolve(root, 'tests/setup/stubs/empty.ts')
+const emailStub = path.resolve(root, 'tests/setup/stubs/email-service.ts')
 
 /** Replaces the NextAuth-backed auth service with a stub, however it is imported. */
 function stubAuthService() {
@@ -55,6 +58,9 @@ export default defineConfig({
       { find: 'next-auth/providers/google', replacement: emptyStub },
       { find: 'next-auth', replacement: emptyStub },
       { find: 'server-only', replacement: emptyStub },
+      // Before the `@/` catch-all below, which would otherwise resolve it to
+      // the real module: first match wins.
+      { find: /^@\/app\/utils\/email$/, replacement: emailStub },
       { find: /^@\/(.*)$/, replacement: path.resolve(root, '$1') }
     ]
   },

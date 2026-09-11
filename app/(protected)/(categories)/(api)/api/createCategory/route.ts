@@ -3,9 +3,9 @@ import { createCategory } from '@/app/(protected)/(categories)/services/categori
 import { withAdmin } from '@/app/utils/api-server'
 
 /** POST /api/createCategory — creates a category of the organization. Administrator only. */
-export const POST = withAdmin(async (request, _context, _userId, organizationId) => {
+export const POST = withAdmin(async (request) => {
   const input = (await request.json()) as CategoryInput
-  const category = await createCategory(organizationId, input)
+  const category = await createCategory(input)
 
   return { id: category.id }
 })

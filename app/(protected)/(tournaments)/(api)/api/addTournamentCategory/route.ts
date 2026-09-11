@@ -5,7 +5,7 @@ import {
 import { withAuth } from '@/app/utils/api-server'
 
 /** POST /api/addTournamentCategory — adds a category to a tournament (organizer, stand_by only). */
-export const POST = withAuth(async (request, context, userId, organizationId) => {
+export const POST = withAuth(async (request, context, userId) => {
   const { tournamentId, categoryId, maxCompetitors } = (await request.json()) as {
     tournamentId: number
     categoryId: number
@@ -13,5 +13,5 @@ export const POST = withAuth(async (request, context, userId, organizationId) =>
   }
   const tournament = await loadManageableTournament(Number(tournamentId), userId)
 
-  await addTournamentCategory(tournament, organizationId, Number(categoryId), Number(maxCompetitors))
+  await addTournamentCategory(tournament, Number(categoryId), Number(maxCompetitors))
 })

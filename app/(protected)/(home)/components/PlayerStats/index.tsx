@@ -3,7 +3,6 @@
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import LeaderboardIcon from '@mui/icons-material/Leaderboard'
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
-import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
 import StarIcon from '@mui/icons-material/Star'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
@@ -32,7 +31,7 @@ export default function PlayerStats() {
   if (loading || !stats) {
     return (
       <Stats>
-        {Array.from({ length: 8 }).map((_, i) => (
+        {Array.from({ length: 7 }).map((_, i) => (
           <StatCardSkeleton key={i} />
         ))}
       </Stats>
@@ -57,7 +56,6 @@ export default function PlayerStats() {
         hint={`${stats.matchesWon} de ${stats.matchesPlayed} ganados`}
       />
       <StatCard icon={<WorkspacePremiumIcon />} accent="amber" value={stats.titles} label="Títulos" />
-      <StatCard icon={<MilitaryTechIcon />} accent="amber" value={stats.podiums} label="Podios" />
       <StatCard icon={<LeaderboardIcon />} accent="primary" value={stats.rankingPoints} label="Puntos de ranking" />
       <StatCard
         icon={<StarIcon />}

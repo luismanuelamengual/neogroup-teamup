@@ -33,6 +33,7 @@ import { isTournamentComplete, progressTournamentAfterResult } from '@/app/(prot
 import { Organization } from '@/app/models/Organization'
 import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
+import { withOrganization } from '@/app/services/organization-context'
 import migration from '@/database/migrations/001-create-base-tables'
 import migration002 from '@/database/migrations/002-competitors-player-ids'
 import migration003 from '@/database/migrations/003-tournament-images'
@@ -51,6 +52,11 @@ import migration016 from '@/database/migrations/016-fold-playoff-consolation-int
 import migration017 from '@/database/migrations/017-users-drop-nickname-add-site'
 import migration018 from '@/database/migrations/018-single-competitor-per-side'
 import migration019 from '@/database/migrations/019-sites-data'
+import migration021 from '@/database/migrations/021-materialise-category-champion'
+import { setTestSession } from '@/tests/setup/stubs/auth-service'
+
+/** The organization every harness helper defaults to, and `resetDatabase` seeds. */
+export const DEFAULT_TEST_ORGANIZATION_ID = 1
 
 const TABLES = [
   'service_payments',
@@ -110,6 +116,24 @@ function assertDisposableSqliteDatabase(): void {
 export async function resetDatabase(): Promise<void> {
   assertDisposableSqliteDatabase()
 
+  // Every test runs as organization 1 unless it says otherwise — the tenant a
+  // test has in mind when it calls buildTournament() or a service without
+  // naming one. Without it every organization-scoped query would fail for want
+  // of a tenant (see services/organization-context.ts).
+  //
+  // Carried by the session rather than by an explicit `withOrganization`
+  // context, for two reasons. It has to reach the test body from here, and an
+  // AsyncLocalStorage store entered in a `beforeEach` does not survive into the
+  // test that follows it — they are siblings in the runner, not nested. And it
+  // is the closer analogue of production anyway: a Server Component gets its
+  // organization from the session too.
+  //
+  // A test that acts on ANOTHER organization wraps that part in
+  // withOrganization(otherOrganizationId, ...), which does nest properly and
+  // takes precedence over the session — the same thing the processTournaments
+  // cron does per tournament.
+  setTestSession({ user: { id: 0, organizationId: DEFAULT_TEST_ORGANIZATION_ID } })
+
   for (const table of TABLES) {
     await DB.execute(`DROP TABLE IF EXISTS ${table}`)
   }
@@ -165,6 +189,11 @@ export async function resetDatabase(): Promise<void> {
   // 019 adds sites.data, the JSON document holding a venue's courts setup —
   // what the planner writes and the published schedule reads back.
   await migration019.up()
+  // 020 (dropping tournaments.currency) is deliberately NOT applied here: the
+  // migration tests below insert tournament rows carrying that column.
+  // 021 adds tournament_categories.championCompetitorId, which
+  // finishTournament writes, so the harness schema must have it.
+  await migration021.up()
 
   const organization = new Organization()
 
@@ -485,9 +514,18 @@ export async function start(built: BuiltTournament): Promise<void> {
 export async function finalizeIfComplete(tournamentId: number): Promise<void> {
   const tournament = await Tournament.withoutGlobalScopes().where('id', tournamentId).first()
 
-  if (tournament && (await isTournamentComplete(tournament))) {
-    await finishTournament(tournament)
+  if (!tournament) {
+    return
   }
+
+  // Inside the tournament's organization context, exactly like the cron does
+  // (see processTournaments): a test has no signed-in user either, so this is
+  // how it states which tenant the operation is for.
+  await withOrganization(tournament.organizationId, async () => {
+    if (await isTournamentComplete(tournament)) {
+      await finishTournament(tournament)
+    }
+  })
 }
 
 export interface SetResultError extends Error {

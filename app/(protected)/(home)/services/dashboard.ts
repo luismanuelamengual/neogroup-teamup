@@ -1,42 +1,18 @@
 import { DB } from '@neogroup/neorm'
-import { getSession } from '@/app/(auth)/services/auth'
 import { OrganizationStatistics } from '@/app/(protected)/(home)/models/OrganizationStatistics'
 import { OrganizationStatisticsDto } from '@/app/(protected)/(home)/models/OrganizationStatisticsDto'
 import { PlayerStatistics } from '@/app/(protected)/(home)/models/PlayerStatistics'
 import { PlayerStatisticsDto } from '@/app/(protected)/(home)/models/PlayerStatisticsDto'
 import { UpcomingMatchDto } from '@/app/(protected)/(home)/models/UpcomingMatchDto'
-import { getPlayerRankingSummary } from '@/app/(protected)/(rankings)/services/rankings'
+import { getOrganizationRankingSummary, getPlayerRankingSummary } from '@/app/(protected)/(rankings)/services/rankings'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { getMatches } from '@/app/(protected)/(tournaments)/services/matches'
-import { getPodiumCompetitorIds } from '@/app/(protected)/(tournaments)/utils/champion'
 import { isPlayableMatch } from '@/app/(protected)/(tournaments)/utils/matches'
 import { todayDate } from '@/app/(protected)/(tournaments)/utils/schedule'
-import { Tournament } from '../../(tournaments)/models/Tournament'
-
-/**
- * Normalizes a raw `score` value selected via the query builder (which skips
- * entity casts) into a MatchScore-shaped object. PostgreSQL's driver returns
- * jsonb columns already parsed as a JS object; SQLite stores it as TEXT, so
- * the driver returns a JSON string that still needs parsing.
- */
-function parseRawScore(value: unknown): Record<string, unknown> | null {
-  if (value == null) {
-    return null
-  }
-
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value) as Record<string, unknown>
-    } catch {
-      return null
-    }
-  }
-
-  return value as Record<string, unknown>
-}
+import { getCurrentOrganizationId } from '@/app/services/organization-context'
 
 /** Maximum age of a cached statistics row before it is considered stale (24h). */
 const STATS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
@@ -67,9 +43,7 @@ function parseRawPlayerIds(value: unknown): number[] {
 }
 
 /** Aggregates player stats from every tournament they take part in. */
-async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> {
-  const session = await getSession()
-  const organizationId = session!.user.organizationId
+async function computePlayerStats(userId: number, organizationId: number): Promise<PlayerStatisticsDto> {
   // EXISTS subquery: is there a competitor for this player in the outer query's category?
   const playerInCategorySubquery = DB.selectQuery('competitors')
     .whereColumn('competitors.tournamentCategoryId', 'tournament_categories.id')
@@ -78,99 +52,66 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
   const playerInMatchCategorySubquery = DB.selectQuery('competitors')
     .whereColumn('competitors.tournamentCategoryId', 'm.tournamentCategoryId')
     .whereArrayContains('competitors.playerIds', userId)
-  // IN subquery: distinct tournament_categories in FINISHED tournaments where player competed
-  const finishedPlayerCategoryIds = DB.selectQuery('tournament_categories')
-    .distinct()
-    .select('tournament_categories.id')
-    .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
-    .innerJoin('competitors', 'competitors.tournamentCategoryId', 'tournament_categories.id')
-    .where('tournaments.organizationId', organizationId)
-    .where('tournaments.status', TournamentStatus.FINISHED)
-    .whereArrayContains('competitors.playerIds', userId)
-  const [tournamentRow, competitorRows, matchRows, podiumTournamentRows, podiumMatchRows, rankingSummary] =
-    await Promise.all([
-      // Q1: tournament counts — distinct tournaments where the player competes
-      DB.table('tournaments')
-        .alias('t')
-        .innerJoin('tournament_categories', 'tournament_categories.tournamentId', 't.id')
-        .select(
-          'COUNT(DISTINCT t.id) AS total',
-          `COUNT(DISTINCT CASE WHEN t.status != ${TournamentStatus.FINISHED} THEN t.id END) AS active`
-        )
-        .where('t.organizationId', organizationId)
-        .where({ exists: playerInCategorySubquery })
-        .first(),
+  const [tournamentRow, competitorRows, matchRows, titlesRow, rankingSummary] = await Promise.all([
+    // Q1: tournament counts — distinct tournaments where the player competes
+    DB.table('tournaments')
+      .alias('t')
+      .innerJoin('tournament_categories', 'tournament_categories.tournamentId', 't.id')
+      .select(
+        'COUNT(DISTINCT t.id) AS total',
+        `COUNT(DISTINCT CASE WHEN t.status != ${TournamentStatus.FINISHED} THEN t.id END) AS active`
+      )
+      .where('t.organizationId', organizationId)
+      .where({ exists: playerInCategorySubquery })
+      .first(),
 
-      // Q2: player's competitor id → tournamentCategoryId mapping
-      DB.table('competitors')
-        .alias('c')
-        .innerJoin('tournament_categories', 'tournament_categories.id', 'c.tournamentCategoryId')
-        .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
-        .select('c.id AS cid', 'c.tournamentCategoryId AS catid')
-        .where('tournaments.organizationId', organizationId)
-        .whereArrayContains('c.playerIds', userId)
-        .get(),
+    // Q2: player's competitor id → tournamentCategoryId mapping
+    DB.table('competitors')
+      .alias('c')
+      .innerJoin('tournament_categories', 'tournament_categories.id', 'c.tournamentCategoryId')
+      .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
+      .select('c.id AS cid', 'c.tournamentCategoryId AS catid')
+      .where('tournaments.organizationId', organizationId)
+      .whereArrayContains('c.playerIds', userId)
+      .get(),
 
-      // Q3: played matches in categories where player competes (for matchesPlayed / matchesWon)
-      DB.table('matches')
-        .alias('m')
-        .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
-        .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
-        .select(
-          'm.tournamentCategoryId AS tcid',
-          'm.homeCompetitorId AS homeid',
-          'm.awayCompetitorId AS awayid',
-          'm.winner AS winner'
-        )
-        .where('tournaments.organizationId', organizationId)
-        .whereNotNull('m.awayCompetitorId')
-        .where('m.status', '!=', MatchStatus.PENDING)
-        // A voided fixture keeps both its sides (see MatchStatus.VOID), so it
-        // would otherwise count here as a match played and lost.
-        .where('m.status', '!=', MatchStatus.VOID)
-        .where({ exists: playerInMatchCategorySubquery })
-        .get(),
+    // Q3: played matches in categories where player competes (for matchesPlayed / matchesWon)
+    DB.table('matches')
+      .alias('m')
+      .innerJoin('tournament_categories', 'tournament_categories.id', 'm.tournamentCategoryId')
+      .innerJoin('tournaments', 'tournaments.id', 'tournament_categories.tournamentId')
+      .select(
+        'm.tournamentCategoryId AS tcid',
+        'm.homeCompetitorId AS homeid',
+        'm.awayCompetitorId AS awayid',
+        'm.winner AS winner'
+      )
+      .where('tournaments.organizationId', organizationId)
+      .whereNotNull('m.awayCompetitorId')
+      .where('m.status', '!=', MatchStatus.PENDING)
+      // A voided fixture keeps both its sides (see MatchStatus.VOID), so it
+      // would otherwise count here as a match played and lost.
+      .where('m.status', '!=', MatchStatus.VOID)
+      .where({ exists: playerInMatchCategorySubquery })
+      .get(),
 
-      // Q4a: FINISHED tournament metadata + player's competitor id per category
-      DB.table('tournaments')
-        .alias('t')
-        .innerJoin('tournament_categories', 'tournament_categories.tournamentId', 't.id')
-        .innerJoin('competitors', 'competitors.tournamentCategoryId', 'tournament_categories.id')
-        .select(
-          't.id AS tid',
-          't.type AS ttype',
-          't.scoreFormat AS scoreformat',
-          't.settings AS tsettings',
-          'tournament_categories.id AS catid',
-          'competitors.id AS cid'
-        )
-        .where('t.organizationId', organizationId)
-        .where('t.status', TournamentStatus.FINISHED)
-        .whereArrayContains('competitors.playerIds', userId)
-        .get(),
+    // Q4: titles — categories the player finished as champion. The winner is
+    // settled once, when the tournament finishes (see `persistCategoryChampions`),
+    // so this is a single indexed join. It used to mean pulling every match of
+    // every category the player had ever finished and replaying the bracket over
+    // each one of them in memory.
+    DB.table('tournament_categories')
+      .alias('tc')
+      .innerJoin('tournaments', 'tournaments.id', 'tc.tournamentId')
+      .innerJoin('competitors', 'competitors.id', 'tc.championCompetitorId')
+      .select('COUNT(*) AS total')
+      .where('tournaments.organizationId', organizationId)
+      .whereArrayContains('competitors.playerIds', userId)
+      .first(),
 
-      // Q4b: matches belonging to those finished categories
-      DB.table('matches')
-        .select(
-          'id',
-          'tournamentCategoryId',
-          'roundNumber',
-          'type',
-          'groupNumber',
-          'position',
-          'bracketInstance',
-          'homeCompetitorId',
-          'awayCompetitorId',
-          'score',
-          'status',
-          'winner'
-        )
-        .where('tournamentCategoryId', 'IN', finishedPlayerCategoryIds)
-        .get(),
-
-      // Q5: ranking summary
-      getPlayerRankingSummary(userId)
-    ])
+    // Q5: ranking summary
+    getPlayerRankingSummary(userId)
+  ])
   const competitorByCategory = new Map<number, number>()
 
   for (const row of competitorRows) {
@@ -203,101 +144,13 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
     }
   }
 
-  // ── Podium stats ───────────────────────────────────────────────────────────
-
-  // Build per-category lookups from the flat query results.
-  // Note: column names from DB.table() are returned lowercase by PostgreSQL.
-  const matchesByCategory = new Map<number, object[]>()
-
-  for (const row of podiumMatchRows) {
-    const catId = Number(row.tournamentcategoryid)
-
-    if (!matchesByCategory.has(catId)) {
-      matchesByCategory.set(catId, [])
-    }
-
-    matchesByCategory.get(catId)!.push({
-      id: Number(row.id),
-      tournamentCategoryId: catId,
-      roundNumber: Number(row.roundnumber),
-      type: Number(row.type),
-      groupNumber: row.groupnumber != null ? Number(row.groupnumber) : null,
-      position: Number(row.position),
-      bracketInstance: row.bracketinstance != null ? Number(row.bracketinstance) : null,
-      homeCompetitorId: row.homecompetitorid != null ? Number(row.homecompetitorid) : null,
-      awayCompetitorId: row.awaycompetitorid != null ? Number(row.awaycompetitorid) : null,
-      score: parseRawScore(row.score),
-      status: Number(row.status),
-      winner: row.winner != null ? Number(row.winner) : null
-    })
-  }
-
-  // Derive competitors from match participant arrays — avoids a separate DB query
-  const competitorsByCategory = new Map<number, object[]>()
-
-  for (const [catId, catMatches] of matchesByCategory) {
-    const seen = new Set<number>()
-    const competitors: object[] = []
-
-    for (const match of catMatches as Array<{ homeCompetitorId: number | null; awayCompetitorId: number | null }>) {
-      for (const id of [match.homeCompetitorId, match.awayCompetitorId]) {
-        if (id != null && !seen.has(id)) {
-          seen.add(id)
-          competitors.push({ id, tournamentCategoryId: catId })
-        }
-      }
-    }
-
-    competitorsByCategory.set(catId, competitors)
-  }
-
-  let titles = 0
-  let podiums = 0
-
-  for (const row of podiumTournamentRows) {
-    const categoryId = Number(row.catid)
-    const competitorId = Number(row.cid)
-    const tournamentSettings =
-      row.tsettings != null
-        ? typeof row.tsettings === 'string'
-          ? JSON.parse(row.tsettings as string)
-          : row.tsettings
-        : null
-    // Reconstruct a minimal tournament-shaped object for the podium functions
-    const tournamentForPodium = {
-      id: Number(row.tid),
-      type: Number(row.ttype),
-      scoreFormat: Number(row.scoreformat),
-      settings: tournamentSettings,
-      competitors: competitorsByCategory.get(categoryId) ?? [],
-      matches: matchesByCategory.get(categoryId) ?? []
-    } as unknown as Tournament
-
-    try {
-      const podium = getPodiumCompetitorIds(tournamentForPodium, categoryId)
-
-      if (podium[0] === competitorId) {
-        titles++
-      }
-
-      if (podium.includes(competitorId)) {
-        podiums++
-      }
-    } catch (error) {
-      // A malformed tournament must not break the whole dashboard.
-      // eslint-disable-next-line no-console
-      console.error(`[dashboard] Failed to compute podium for tournament ${row.tid}:`, error)
-    }
-  }
-
   return {
     tournamentsPlayed: Number(tournamentRow?.total ?? 0),
     activeTournaments: Number(tournamentRow?.active ?? 0),
     matchesPlayed,
     matchesWon,
     winRate: matchesPlayed > 0 ? Math.round((matchesWon / matchesPlayed) * 100) : 0,
-    titles,
-    podiums,
+    titles: Number(titlesRow?.total ?? 0),
     rankingPoints: rankingSummary.points,
     bestRankingPosition: rankingSummary.bestPosition
   }
@@ -305,7 +158,7 @@ async function computePlayerStats(userId: number): Promise<PlayerStatisticsDto> 
 
 /** Aggregates organization-wide stats from all tournaments in the organization. */
 async function computeOrganizationStats(organizationId: number): Promise<OrganizationStatisticsDto> {
-  const [tournamentRow, competitorRows, matchRow, rankingRow] = await Promise.all([
+  const [tournamentRow, competitorRows, matchRow, rankingSummary] = await Promise.all([
     // Q1: tournament counts with CASE-based aggregation in a single pass
     DB.table('tournaments')
       .select('COUNT(*) AS total', `SUM(CASE WHEN status = ${TournamentStatus.FINISHED} THEN 1 ELSE 0 END) AS finished`)
@@ -335,11 +188,7 @@ async function computeOrganizationStats(organizationId: number): Promise<Organiz
       .first(),
 
     // Q4: ranking aggregates — mirrors Ranking model's OrganizationScope + expirationScope
-    DB.table('rankings')
-      .select('SUM(points) AS points', 'COUNT(DISTINCT userId) AS players')
-      .where('organizationId', organizationId)
-      .where('expirationDate', '>', new Date())
-      .first()
+    getOrganizationRankingSummary()
   ])
   // Derive competitorsTotal and distinctPlayers from the competitor rows.
   // `playerids` comes back raw (no entity cast): a JS array on PostgreSQL,
@@ -371,12 +220,16 @@ async function computeOrganizationStats(organizationId: number): Promise<Organiz
     matchesTotal,
     matchesPlayed,
     matchesPending,
-    rankingPointsAwarded: Number(rankingRow?.points ?? 0),
-    rankedPlayers: Number(rankingRow?.players ?? 0)
+    rankingPointsAwarded: rankingSummary.pointsAwarded,
+    rankedPlayers: rankingSummary.rankedPlayers
   }
 }
 
 // ── Cache layer ──────────────────────────────────────────────────────────────
+// The organization comes from the current operation's context rather than
+// straight from the session (see services/organization-context.ts), so these
+// entry points also work from a `withOrganization` block — which is what would
+// let a cron pre-compute a cache row for an organization nobody is signed in to.
 // The two public entry points (getOrganizationStats / getPlayerStats) avoid the
 // expensive aggregation above whenever possible. They read the pre-computed row
 // from organization_statistics / player_statistics and only recompute when:
@@ -486,7 +339,6 @@ function playerStatisticsToDto(row: PlayerStatistics): PlayerStatisticsDto {
     matchesWon: row.matchesWon,
     winRate: row.winRate,
     titles: row.titles,
-    podiums: row.podiums,
     rankingPoints: row.rankingPoints,
     bestRankingPosition: row.bestRankingPosition
   }
@@ -515,8 +367,7 @@ async function persistPlayerStatistics(playerId: number, stats: PlayerStatistics
  * organization_statistics cache whenever it is still valid.
  */
 export async function getOrganizationStats(): Promise<OrganizationStatisticsDto> {
-  const session = await getSession()
-  const organizationId = session!.user.organizationId
+  const organizationId = await getCurrentOrganizationId()
   const cached = await OrganizationStatistics.where('organizationId', organizationId).first()
 
   if (cached) {
@@ -546,8 +397,7 @@ export async function getOrganizationStats(): Promise<OrganizationStatisticsDto>
  * player_statistics cache whenever it is still valid.
  */
 export async function getPlayerStats(userId: number): Promise<PlayerStatisticsDto> {
-  const session = await getSession()
-  const organizationId = session!.user.organizationId
+  const organizationId = await getCurrentOrganizationId()
   const cached = await PlayerStatistics.where('playerId', userId).first()
 
   if (cached) {
@@ -566,7 +416,7 @@ export async function getPlayerStats(userId: number): Promise<PlayerStatisticsDt
     }
   }
 
-  const stats = await computePlayerStats(userId)
+  const stats = await computePlayerStats(userId, organizationId)
 
   await persistPlayerStatistics(userId, stats)
 
@@ -595,8 +445,7 @@ function addDays(date: string, days: number): string {
  * compete in. Ordered soonest first.
  */
 export async function getUpcomingMatches(userId: number): Promise<UpcomingMatchDto[]> {
-  const session = await getSession()
-  const organizationId = session!.user.organizationId
+  const organizationId = await getCurrentOrganizationId()
   const today = todayDate()
   const horizon = addDays(today, UPCOMING_MATCHES_WINDOW_DAYS)
   // The player's own competitor id per category they compete in. Competitor

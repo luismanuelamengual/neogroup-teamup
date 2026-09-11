@@ -12,6 +12,7 @@ import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/Tournam
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
 import { createPreference, getPaymentInfo, isSandbox } from '@/app/services/mercadopago'
+import { getCurrentOrganizationId } from '@/app/services/organization-context'
 
 /**
  * Settlement of TeamUp's service fee.
@@ -165,22 +166,23 @@ async function countPlayedCompetitors(tournamentIds: number[]): Promise<Map<numb
  * that already started and are not settled yet, with the amount each one owes
  * and the total.
  */
-export async function getPendingPayments(organizationId: number): Promise<PendingPaymentsDto> {
+export async function getPendingPayments(): Promise<PendingPaymentsDto> {
   // Read the model directly rather than through the cached `getOrganization`
   // helper: that one wraps its reads in Next.js' `unstable_cache`, which needs a
   // real request/build context and throws outside of one — and this service also
-  // runs from the webhook and from the test suite. Same trade-off as
-  // `getEnabledDisciplines`.
-  const organization = await Organization.where('id', organizationId).first()
+  // runs from the test suite. Same trade-off as `getEnabledDisciplines`.
+  //
+  // `Organization` carries no OrganizationScope of its own — it IS the tenant
+  // table — so the id comes from the current operation's context explicitly.
+  // The tournaments below need no such thing: their own scope pins them.
+  const organization = await Organization.where('id', await getCurrentOrganizationId()).first()
 
   if (!organization) {
     throw new ApiException('Organización no encontrada', 404)
   }
 
   const serviceFeePercentage = organization.serviceFeePercentage ?? 0
-  const candidates = await Tournament.withoutGlobalScopes()
-    .where('organizationId', organizationId)
-    .where('paid', false)
+  const candidates = await Tournament.where('paid', false)
     .whereNotNull('entryFee')
     .where('entryFee', '>', 0)
     // Only tournaments that already started: while one is in STAND_BY its roster
@@ -248,14 +250,13 @@ export async function getPendingPayments(organizationId: number): Promise<Pendin
  * OVERDUE_MONTHS ago. Used to block the creation of new tournaments and to
  * raise the reminder banner on the home dashboards.
  */
-export async function hasOverdueDebt(organizationId: number): Promise<boolean> {
-  const { overdueCount } = await getPendingPayments(organizationId)
+export async function hasOverdueDebt(): Promise<boolean> {
+  const { overdueCount } = await getPendingPayments()
 
   return overdueCount > 0
 }
 
 export interface CreateServicePaymentInput {
-  organizationId: number
   /** User starting the checkout (organizer or administrator). */
   userId: number
   /** Origin used to build the back URLs (e.g. https://club.teamup.ar). */
@@ -275,8 +276,8 @@ export interface CreateServicePaymentInput {
  * simply billed in the next settlement.
  */
 export async function createServicePayment(input: CreateServicePaymentInput): Promise<ServicePayment> {
-  const { organizationId, userId, origin } = input
-  const pending = await getPendingPayments(organizationId)
+  const { userId, origin } = input
+  const pending = await getPendingPayments()
 
   if (pending.tournaments.length === 0 || pending.amount <= 0) {
     throw new ApiException('No hay torneos pendientes de pago')
@@ -285,7 +286,9 @@ export async function createServicePayment(input: CreateServicePaymentInput): Pr
   const now = new Date()
   const payment = new ServicePayment()
 
-  payment.organizationId = organizationId
+  // An insert applies no scopes, so this is the one place the organization is
+  // written rather than filtered by.
+  payment.organizationId = await getCurrentOrganizationId()
   payment.userId = userId
   payment.tournamentIds = pending.tournaments.map((tournament) => tournament.id)
   payment.competitorsCount = pending.competitorsCount

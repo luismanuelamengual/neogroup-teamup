@@ -13,14 +13,14 @@ type UpdateSiteDataBody = { id: number; data: SiteData | null }
  * the organizer's planner on every change. Naming a venue is administration;
  * describing how many courts it has is planning.
  */
-export const POST = withOrganizerOrAdmin(async (request, _context, _userId, organizationId) => {
+export const POST = withOrganizerOrAdmin(async (request) => {
   const { id, data } = (await request.json()) as UpdateSiteDataBody
 
   if (!id) {
     throw new ApiException('missingFields')
   }
 
-  await updateSiteData(organizationId, Number(id), data ?? null)
+  await updateSiteData(Number(id), data ?? null)
 
   return null
 })

@@ -130,7 +130,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       }
 
       if (trigger === 'update' && token.userId) {
-        const dbUser = await User.find(token.userId)
+        // Scopes off, like the two lookups above: this runs inside the jwt
+        // callback, which is what *produces* the session, so there is no
+        // session yet for the organization scope to read. The user is already
+        // identified by the token, and the token was minted for one
+        // organization, so the id alone is enough.
+        const dbUser = await User.withoutGlobalScopes().find(token.userId)
 
         if (dbUser) {
           token.organizationId = dbUser.organizationId

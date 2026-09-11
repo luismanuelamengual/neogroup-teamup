@@ -6,10 +6,10 @@ import { withAdmin } from '@/app/utils/api-server'
  * POST /api/getUsers — paginated listing of the organization users for the
  * administrator's management screen. Administrator only.
  */
-export const POST = withAdmin(async (request, _context, _userId, organizationId) => {
+export const POST = withAdmin(async (request) => {
   const body = (await request.json()) as UserFilters
 
-  return getUsers(organizationId, {
+  return getUsers({
     query: body.query,
     roleId: body.roleId,
     page: body.page,

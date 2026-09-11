@@ -30,15 +30,14 @@ import { getPreclassificationCount } from '@/app/(protected)/(tournaments)/utils
  * utils/preclassification.ts — which stays free of database models so it can
  * also be imported by client components (e.g. the tournament admin page).
  */
-export async function autoAssignPreclassification(competitors: Competitor[], organizationId: number): Promise<void> {
+export async function autoAssignPreclassification(competitors: Competitor[]): Promise<void> {
   if (!competitors.length) {
     return
   }
 
-  const validRankings = await Ranking.withoutGlobalScopes()
-    .where('organizationId', organizationId)
-    .where('expirationDate', '>', new Date())
-    .get()
+  // Both filters that used to be spelled out here — this organization, not
+  // expired yet — are the Ranking entity's own global scopes.
+  const validRankings = await Ranking.get()
   const pointsByUser = new Map<number, number>()
 
   for (const row of validRankings) {

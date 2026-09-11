@@ -6,6 +6,9 @@
  * the Next.js / next-auth / react modules that the model layer pulls in at
  * import time (none of which are needed to exercise the tournament logic).
  *
+ * The email sender is stubbed too — not because it would throw, but because it
+ * logs a warning per mail when RESEND_API_KEY is unset, as it always is here.
+ *
  * This file is plain CommonJS so it can be loaded with `node -r`.
  */
 const fs = require('fs')
@@ -72,7 +75,10 @@ STUBS.set('next-auth/providers/google', makeStub())
 const AUTH_SERVICE = path.join(ROOT, 'app', '(auth)', 'services', 'auth.ts')
 const AUTH_CONFIG = path.join(ROOT, 'app', '(auth)', 'services', 'auth.config.ts')
 
+const EMAIL_SERVICE = path.join(ROOT, 'app', 'utils', 'email.ts')
+
 const AUTH_STUB = path.join(__dirname, 'stubs', 'auth-service.ts')
+const EMAIL_STUB = path.join(__dirname, 'stubs', 'email-service.ts')
 let vitestShim = null
 
 const originalLoad = Module._load
@@ -102,6 +108,12 @@ Module._load = function (request, parent, isMain) {
 
       if (resolved === AUTH_SERVICE || resolved === AUTH_CONFIG) {
         return require(AUTH_STUB)
+      }
+
+      // Inert email sender: the real one logs a "RESEND_API_KEY not set"
+      // warning per mail, which is pure noise in a test run.
+      if (resolved === EMAIL_SERVICE) {
+        return require(EMAIL_STUB)
       }
     } catch (_) {
       // fall through to the real loader

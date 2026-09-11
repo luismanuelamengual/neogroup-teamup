@@ -6,6 +6,7 @@ import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
 import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
+import { getCurrentOrganizationId } from '@/app/services/organization-context'
 
 /**
  * Administration of the category catalogue of an organization — the ABM behind
@@ -21,6 +22,14 @@ import { PaginatedResponse } from '@/app/models/PaginatedResponse'
  * between singles and doubles, but an interclubes encounter mixes both, so
  * singles-vs-doubles is a property of the tournament and of each match, never
  * of the category (see migration 010).
+ *
+ * No function here takes an organizationId: every query goes through the
+ * Category entity, whose OrganizationScope pins it to the organization of the
+ * current operation (see services/organization-context.ts), so a category of
+ * another organization is not reachable — a lookup by a foreign id simply
+ * finds nothing and 404s. The one place the organization is still named is the
+ * insert in `createCategory`, where it is the value of a column rather than a
+ * filter.
  */
 
 /**
@@ -33,7 +42,6 @@ import { PaginatedResponse } from '@/app/models/PaginatedResponse'
  * existing one elsewhere — never to a value that isn't changing.
  */
 async function normalizeInput(
-  organizationId: number,
   input: CategoryInput,
   currentDiscipline?: Discipline
 ): Promise<{ name: string; discipline: Discipline }> {
@@ -44,7 +52,7 @@ async function normalizeInput(
   }
 
   if (input.discipline !== currentDiscipline) {
-    const enabledDisciplines = await getEnabledDisciplines(organizationId)
+    const enabledDisciplines = await getEnabledDisciplines()
 
     if (!enabledDisciplines.includes(input.discipline)) {
       throw new ApiException('La disciplina seleccionada no está habilitada para esta organización')
@@ -55,8 +63,8 @@ async function normalizeInput(
 }
 
 /** Finds a category of the organization, or throws a 404. */
-async function findCategory(organizationId: number, categoryId: number): Promise<Category> {
-  const category = await Category.where('organizationId', organizationId).where('id', categoryId).first()
+async function findCategory(categoryId: number): Promise<Category> {
+  const category = await Category.where('id', categoryId).first()
 
   if (!category) {
     throw new ApiException('Categoría no encontrada', 404)
@@ -71,11 +79,10 @@ async function findCategory(organizationId: number, categoryId: number): Promise
  * exactly the duplication this ABM exists to remove.
  */
 async function assertNameIsAvailable(
-  organizationId: number,
   { name, discipline }: { name: string; discipline: Discipline },
   excludedId?: number
 ): Promise<void> {
-  const siblings = await Category.where('organizationId', organizationId).where('discipline', discipline).get()
+  const siblings = await Category.where('discipline', discipline).get()
   const taken = siblings.some(
     (category) => category.id !== excludedId && category.name.toLowerCase() === name.toLowerCase()
   )
@@ -86,11 +93,13 @@ async function assertNameIsAvailable(
 }
 
 /** Paginated listing of the categories of an organization, searchable by name. */
-export async function getManagedCategories(
-  organizationId: number,
-  { query, discipline = null, page = 1, pageSize = 10 }: CategoryFilters = {}
-): Promise<PaginatedResponse<Category[]>> {
-  const categoriesQuery = Category.where('organizationId', organizationId)
+export async function getManagedCategories({
+  query,
+  discipline = null,
+  page = 1,
+  pageSize = 10
+}: CategoryFilters = {}): Promise<PaginatedResponse<Category[]>> {
+  const categoriesQuery = Category.orderBy('discipline').orderBy('name')
   const normalized = (query ?? '').trim()
 
   if (discipline != null) {
@@ -103,18 +112,20 @@ export async function getManagedCategories(
     categoriesQuery.where('name', 'ILIKE', `%${normalized}%`)
   }
 
-  return categoriesQuery.orderBy('discipline').orderBy('name').paginate(pageSize, page)
+  return categoriesQuery.paginate(pageSize, page)
 }
 
 /** Creates a category of the organization. */
-export async function createCategory(organizationId: number, input: CategoryInput): Promise<Category> {
-  const normalized = await normalizeInput(organizationId, input)
+export async function createCategory(input: CategoryInput): Promise<Category> {
+  const normalized = await normalizeInput(input)
 
-  await assertNameIsAvailable(organizationId, normalized)
+  await assertNameIsAvailable(normalized)
 
   const category = new Category()
 
-  category.organizationId = organizationId
+  // An insert applies no scopes, so this is the one place the organization is
+  // written rather than filtered by.
+  category.organizationId = await getCurrentOrganizationId()
   category.name = normalized.name
   category.discipline = normalized.discipline
   await category.save()
@@ -130,13 +141,9 @@ export async function createCategory(organizationId: number, input: CategoryInpu
  * they were never played in. Renaming stays allowed — it is the same category
  * under a better name.
  */
-export async function updateCategory(
-  organizationId: number,
-  categoryId: number,
-  input: CategoryInput
-): Promise<Category> {
-  const category = await findCategory(organizationId, categoryId)
-  const normalized = await normalizeInput(organizationId, input, category.discipline)
+export async function updateCategory(categoryId: number, input: CategoryInput): Promise<Category> {
+  const category = await findCategory(categoryId)
+  const normalized = await normalizeInput(input, category.discipline)
 
   if (normalized.discipline !== category.discipline && (await countCategoryReferences(category.id)) > 0) {
     throw new ApiException(
@@ -144,7 +151,7 @@ export async function updateCategory(
     )
   }
 
-  await assertNameIsAvailable(organizationId, normalized, category.id)
+  await assertNameIsAvailable(normalized, category.id)
 
   category.name = normalized.name
   category.discipline = normalized.discipline
@@ -170,8 +177,8 @@ async function countCategoryReferences(categoryId: number): Promise<number> {
  * rejected instead of deleted: the foreign key would refuse the DELETE anyway,
  * and removing them would rewrite past results.
  */
-export async function deleteCategory(organizationId: number, categoryId: number): Promise<void> {
-  const category = await findCategory(organizationId, categoryId)
+export async function deleteCategory(categoryId: number): Promise<void> {
+  const category = await findCategory(categoryId)
   const references = await countCategoryReferences(category.id)
 
   if (references > 0) {

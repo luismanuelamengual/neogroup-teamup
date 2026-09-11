@@ -133,7 +133,7 @@ describe('service fee calculation', () => {
     await start(built)
     await playToCompletion(built)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(0)
     expect(pending.amount).toBe(0)
@@ -143,7 +143,7 @@ describe('service fee calculation', () => {
     // Registrations are still open, so there is no final roster to bill.
     await buildTournament({ type: TournamentType.LEAGUE, competitors: 4, entryFee: 1000 })
 
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(0)
+    expect((await getPendingPayments()).tournaments).toHaveLength(0)
   })
 
   it('bills every registered competitor as soon as the tournament starts', async () => {
@@ -151,7 +151,7 @@ describe('service fee calculation', () => {
 
     await start(built)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(1)
     expect(pending.tournaments[0].competitorsCount).toBe(4)
@@ -168,7 +168,7 @@ describe('service fee calculation', () => {
 
     await start(built)
 
-    const afterStart = await getPendingPayments(1)
+    const afterStart = await getPendingPayments()
     const tournament = (await Tournament.withoutGlobalScopes()
       .where('id', built.tournament.id)
       .with('matches')
@@ -176,11 +176,11 @@ describe('service fee calculation', () => {
 
     await setResult(tournament.matches![0].id, homeWinScore(built.tournament.scoreFormat))
 
-    const afterOneMatch = await getPendingPayments(1)
+    const afterOneMatch = await getPendingPayments()
 
     await playToCompletion(built)
 
-    const afterAll = await getPendingPayments(1)
+    const afterAll = await getPendingPayments()
 
     expect(afterOneMatch.amount).toBe(afterStart.amount)
     expect(afterAll.amount).toBe(afterStart.amount)
@@ -222,7 +222,7 @@ describe('service fee calculation', () => {
 
     await finalizeIfComplete(built.tournament.id)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(1)
     expect(pending.tournaments[0].competitorsCount).toBe(2)
@@ -240,7 +240,7 @@ describe('service fee calculation', () => {
 
     await start(built)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     // 8 players, 4 inscriptions — each pair pays one entry fee.
     expect(pending.tournaments[0].competitorsCount).toBe(4)
@@ -253,14 +253,14 @@ describe('service fee calculation', () => {
     await start(built)
     await playToCompletion(built)
 
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(0)
+    expect((await getPendingPayments()).tournaments).toHaveLength(0)
   })
 
   it('adds up several tournaments into a single total', async () => {
     await playPaidTournament(1000)
     await playPaidTournament(2000)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(2)
     expect(pending.competitorsCount).toBe(8)
@@ -281,14 +281,14 @@ describe('creating a paid tournament', () => {
     await organization.save()
 
     const ownerId = await createUser(1)
-    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId, 1)
+    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId)
 
     expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(true)
   })
 
   it('is created unsettled when the organization charges a service fee', async () => {
     const ownerId = await createUser(1)
-    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId, 1)
+    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId)
 
     expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(false)
   })
@@ -300,7 +300,7 @@ describe('creating a paid tournament', () => {
     await organization.save()
 
     const ownerId = await createUser(1)
-    const { id } = await createTournament(NEW_TOURNAMENT, ownerId, 1)
+    const { id } = await createTournament(NEW_TOURNAMENT, ownerId)
 
     expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(false)
   })
@@ -315,21 +315,21 @@ describe('overdue debt', () => {
   it('does not flag a tournament played this month', async () => {
     await playPaidTournament(1000, daysAgo(5))
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(1)
     expect(pending.overdueCount).toBe(0)
-    expect(await hasOverdueDebt(1)).toBe(false)
+    expect(await hasOverdueDebt()).toBe(false)
   })
 
   it('flags a tournament that started more than two months ago', async () => {
     await playPaidTournament(1000, daysAgo(70))
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.overdueCount).toBe(1)
     expect(pending.tournaments[0].overdue).toBe(true)
-    expect(await hasOverdueDebt(1)).toBe(true)
+    expect(await hasOverdueDebt()).toBe(true)
   })
 
   it('blocks the creation of new tournaments while there is overdue debt', async () => {
@@ -337,7 +337,7 @@ describe('overdue debt', () => {
 
     const ownerId = await createUser(1)
 
-    await expect(createTournament(NEW_TOURNAMENT, ownerId, 1)).rejects.toThrow(/más de dos meses/)
+    await expect(createTournament(NEW_TOURNAMENT, ownerId)).rejects.toThrow(/más de dos meses/)
   })
 
   it('allows creating tournaments again once the debt is settled', async () => {
@@ -345,12 +345,12 @@ describe('overdue debt', () => {
     mockMercadoPago()
 
     const payerId = await createUser(1)
-    const payment = await createServicePayment({ organizationId: 1, userId: payerId, origin: 'https://test.teamup.ar' })
+    const payment = await createServicePayment({ userId: payerId, origin: 'https://test.teamup.ar' })
 
     await notifyWebhook(payment.id)
 
-    expect(await hasOverdueDebt(1)).toBe(false)
-    expect((await createTournament(NEW_TOURNAMENT, payerId, 1)).id).toBeGreaterThan(0)
+    expect(await hasOverdueDebt()).toBe(false)
+    expect((await createTournament(NEW_TOURNAMENT, payerId)).id).toBeGreaterThan(0)
   })
 })
 
@@ -364,7 +364,7 @@ describe('settlement checkout', () => {
     const tournamentId = await playPaidTournament()
     const { calls } = mockMercadoPago()
     const userId = await createUser(1)
-    const payment = await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+    const payment = await createServicePayment({ userId, origin: 'https://test.teamup.ar' })
 
     expect(payment.status).toBe(PaymentStatus.PENDING)
     expect(payment.tournamentIds).toEqual([tournamentId])
@@ -384,7 +384,7 @@ describe('settlement checkout', () => {
 
     const userId = await createUser(1)
 
-    await expect(createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })).rejects.toThrow(
+    await expect(createServicePayment({ userId, origin: 'https://test.teamup.ar' })).rejects.toThrow(
       /No hay torneos pendientes/
     )
   })
@@ -396,10 +396,10 @@ describe('settlement checkout', () => {
 
     const userId = await createUser(1)
 
-    await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+    await createServicePayment({ userId, origin: 'https://test.teamup.ar' })
 
     expect((await Tournament.withoutGlobalScopes().find(tournamentId))!.paid).toBe(false)
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(1)
+    expect((await getPendingPayments()).tournaments).toHaveLength(1)
   })
 })
 
@@ -412,7 +412,7 @@ describe('settlement webhook', () => {
   async function playAndCheckout(): Promise<{ tournamentId: number; payment: ServicePayment }> {
     const tournamentId = await playPaidTournament()
     const userId = await createUser(1)
-    const payment = await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+    const payment = await createServicePayment({ userId, origin: 'https://test.teamup.ar' })
 
     return { tournamentId, payment }
   }
@@ -432,7 +432,7 @@ describe('settlement webhook', () => {
     expect(tournament.paid).toBe(true)
     expect(tournament.paidAt).not.toBeNull()
     expect(tournament.servicePaymentId).toBe(payment.id)
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(0)
+    expect((await getPendingPayments()).tournaments).toHaveLength(0)
   })
 
   it('is idempotent across redeliveries', async () => {
@@ -455,7 +455,7 @@ describe('settlement webhook', () => {
 
     expect((await ServicePayment.find(payment.id))!.status).toBe(PaymentStatus.REJECTED)
     expect((await Tournament.withoutGlobalScopes().find(tournamentId))!.paid).toBe(false)
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(1)
+    expect((await getPendingPayments()).tournaments).toHaveLength(1)
   })
 
   it('stays pending while Mercado Pago has not resolved the payment', async () => {
@@ -525,7 +525,7 @@ describe('deleting a billable tournament', () => {
     mockMercadoPago({ paymentStatus: 'approved' })
 
     const userId = await createUser(1)
-    const payment = await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+    const payment = await createServicePayment({ userId, origin: 'https://test.teamup.ar' })
 
     await notifyWebhook(payment.id)
 

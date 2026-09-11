@@ -6,9 +6,9 @@ import { withAdmin } from '@/app/utils/api-server'
  * POST /api/createUser — creates a user of the organization and emails them an
  * invitation to set their own password. Administrator only.
  */
-export const POST = withAdmin(async (request, _context, _userId, organizationId) => {
+export const POST = withAdmin(async (request) => {
   const input = (await request.json()) as CreateUserInput
-  const user = await createUser(organizationId, input, request.headers.get('host') ?? '')
+  const user = await createUser(input, request.headers.get('host') ?? '')
 
   return { id: user.id }
 })

@@ -109,7 +109,6 @@ async function countCompetitors(tournamentCategoryId: number): Promise<number> {
  */
 export async function addTournamentCategory(
   tournament: Tournament,
-  organizationId: number,
   categoryId: number,
   maxCompetitors: number
 ): Promise<TournamentCategory> {
@@ -118,7 +117,6 @@ export async function addTournamentCategory(
   }
 
   const [resolvedCategoryId] = await validateCategoryIds(
-    organizationId,
     tournament.discipline,
     [Number(categoryId)].filter((id) => Number.isInteger(id) && id > 0)
   )
@@ -240,7 +238,7 @@ export async function registerCompetitor(
 
   if (registersAsTeam(tournament.type)) {
     const roster = await resolveTeamRoster(user.id, mateIds, competitors)
-    const data = await resolveTeamData(tournament.organizationId, siteId)
+    const data = await resolveTeamData(siteId)
 
     return attachIfLate(tournament, await createCompetitor(targetCategory.id, roster, data), slot)
   }

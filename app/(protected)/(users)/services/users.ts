@@ -1,12 +1,13 @@
 import { DB } from '@neogroup/neorm'
 import { sendPasswordResetEmail } from '@/app/(auth)/services/passwords'
-import { Site } from '@/app/(protected)/(sites)/models/Site'
+import { resolveSiteId } from '@/app/(protected)/(sites)/services/sites'
 import { UserFilters } from '@/app/(protected)/(users)/models/UserFilters'
 import { CreateUserInput, UpdateUserInput } from '@/app/(protected)/(users)/models/UserInput'
 import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
+import { getCurrentOrganizationId } from '@/app/services/organization-context'
 import { isValidRole } from '@/app/utils/users'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -33,18 +34,20 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
  * administrators. Users with no role yet (a first Google login that never
  * reached /select-role) are kept — they are precisely the accounts an
  * administrator may need to fix.
+ *
+ * Only `activeScope` and `emailVerifiedScope` are dropped — a deactivated or
+ * unverified account is exactly what an administrator needs to see. The
+ * OrganizationScope stays on, so this never reaches out of the organization.
  */
-function manageableUsersQuery(organizationId: number) {
-  return User.withoutGlobalScope('activeScope', 'emailVerifiedScope')
-    .where('organizationId', organizationId)
-    .where((group) => {
-      group.where('roleId', '!=', Role.ADMINISTRATOR).orWhereNull('roleId')
-    })
+function manageableUsersQuery() {
+  return User.withoutGlobalScope('activeScope', 'emailVerifiedScope').where((group) => {
+    group.where('roleId', '!=', Role.ADMINISTRATOR).orWhereNull('roleId')
+  })
 }
 
 /** Finds a manageable user of the organization, or throws a 404. */
-async function findManageableUser(organizationId: number, userId: number): Promise<User> {
-  const user = await manageableUsersQuery(organizationId).where('id', userId).first()
+async function findManageableUser(userId: number): Promise<User> {
+  const user = await manageableUsersQuery().where('id', userId).first()
 
   if (!user) {
     throw new ApiException('Usuario no encontrado', 404)
@@ -58,7 +61,7 @@ async function findManageableUser(organizationId: number, userId: number): Promi
  * use by another user of the organization. `excludeUserId` lets an update keep
  * the user's own current email without tripping over itself.
  */
-async function normalizeEmail(organizationId: number, rawEmail: unknown, excludeUserId?: number): Promise<string> {
+async function normalizeEmail(rawEmail: unknown, excludeUserId?: number): Promise<string> {
   const email = String(rawEmail ?? '')
     .trim()
     .toLowerCase()
@@ -67,7 +70,10 @@ async function normalizeEmail(organizationId: number, rawEmail: unknown, exclude
     throw new ApiException('El email no es válido')
   }
 
-  const existingQuery = User.withoutGlobalScopes().where('organizationId', organizationId).where('email', email)
+  // Uniqueness is per organization, so the OrganizationScope is left on; only
+  // the active/verified filters come off, because an address taken by a
+  // deactivated account is still taken.
+  const existingQuery = User.withoutGlobalScope('activeScope', 'emailVerifiedScope').where('email', email)
 
   if (excludeUserId) {
     existingQuery.where('id', '!=', excludeUserId)
@@ -104,40 +110,13 @@ function normalizeProfile(input: Partial<CreateUserInput & UpdateUserInput>) {
 }
 
 /**
- * Resolves the user's home venue ("sede"): sites belong to the catalogue the
- * administrator maintains (/sites ABM), so an id that is not one of the
- * organization's sites is rejected rather than silently stored. `null` /
- * undefined means "no site", which stays valid.
- */
-async function resolveSiteId(organizationId: number, siteId: unknown): Promise<number | null> {
-  if (siteId === undefined || siteId === null || siteId === '') {
-    return null
-  }
-
-  const id = Number(siteId)
-
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new ApiException('La sede seleccionada no es válida')
-  }
-
-  const site = await Site.where('organizationId', organizationId).where('id', id).first()
-
-  if (!site) {
-    throw new ApiException('La sede seleccionada no es válida')
-  }
-
-  return site.id
-}
-
-/**
  * Paginated listing of the organization users, searchable by name or email
  * and filterable by role.
  */
-export async function getUsers(
-  organizationId: number,
-  { query, roleId = null, page = 1, pageSize = 10 }: UserFilters = {}
-): Promise<PaginatedResponse<User[]>> {
-  const usersQuery = manageableUsersQuery(organizationId)
+export async function getUsers({ query, roleId = null, page = 1, pageSize = 10 }: UserFilters = {}): Promise<
+  PaginatedResponse<User[]>
+> {
+  const usersQuery = manageableUsersQuery()
   const normalized = (query ?? '').trim()
 
   if (roleId != null) {
@@ -177,19 +156,20 @@ export async function getUsers(
  * address is verification enough) and with no password hash: until the user
  * follows the invitation link, credentials login simply finds nothing to match.
  */
-export async function createUser(organizationId: number, input: CreateUserInput, host: string): Promise<User> {
+export async function createUser(input: CreateUserInput, host: string): Promise<User> {
   const profile = normalizeProfile(input)
-  const email = await normalizeEmail(organizationId, input.email)
-
+  const email = await normalizeEmail(input.email)
   const user = new User()
 
-  user.organizationId = organizationId
+  // An insert applies no scopes, so this is the one place the organization is
+  // written rather than filtered by.
+  user.organizationId = await getCurrentOrganizationId()
   user.email = email
   user.passwordHash = null
   user.firstName = profile.firstName
   user.lastName = profile.lastName
   user.phoneNumber = profile.phoneNumber
-  user.siteId = await resolveSiteId(organizationId, input.siteId)
+  user.siteId = await resolveSiteId(input.siteId)
   user.roleId = profile.roleId
   user.emailVerified = true
   user.active = true
@@ -205,15 +185,15 @@ export async function createUser(organizationId: number, input: CreateUserInput,
  * organization. The email may change as long as it stays unique within the
  * organization.
  */
-export async function updateUser(organizationId: number, userId: number, input: UpdateUserInput): Promise<User> {
-  const user = await findManageableUser(organizationId, userId)
+export async function updateUser(userId: number, input: UpdateUserInput): Promise<User> {
+  const user = await findManageableUser(userId)
   const profile = normalizeProfile(input)
 
-  user.email = await normalizeEmail(organizationId, input.email, user.id)
+  user.email = await normalizeEmail(input.email, user.id)
   user.firstName = profile.firstName
   user.lastName = profile.lastName
   user.phoneNumber = profile.phoneNumber
-  user.siteId = await resolveSiteId(organizationId, input.siteId)
+  user.siteId = await resolveSiteId(input.siteId)
   user.roleId = profile.roleId
   user.active = input.active !== false
   await user.save()
@@ -249,8 +229,8 @@ async function countUserReferences(userId: number): Promise<number> {
  * refuse the DELETE anyway, and erasing them would rewrite past results. The
  * administrator can deactivate those accounts instead.
  */
-export async function deleteUser(organizationId: number, userId: number): Promise<void> {
-  const user = await findManageableUser(organizationId, userId)
+export async function deleteUser(userId: number): Promise<void> {
+  const user = await findManageableUser(userId)
   const references = await countUserReferences(user.id)
 
   if (references > 0) {
@@ -263,8 +243,8 @@ export async function deleteUser(organizationId: number, userId: number): Promis
 }
 
 /** Sends the password reset email to a user of the organization. */
-export async function resetUserPassword(organizationId: number, userId: number, host: string): Promise<void> {
-  const user = await findManageableUser(organizationId, userId)
+export async function resetUserPassword(userId: number, host: string): Promise<void> {
+  const user = await findManageableUser(userId)
 
   await sendPasswordResetEmail(user, { host })
 }
