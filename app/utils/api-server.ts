@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/app/(auth)/services/auth'
 import { ApiException } from '@/app/models/ApiException'
@@ -5,6 +6,7 @@ import { ApiResponse } from '@/app/models/ApiResponse'
 import { Role } from '@/app/models/Role'
 import { withOrganization } from '@/app/services/organization-context'
 import { getOrganization } from '@/app/services/organizations'
+import { isProduction } from '@/app/utils/environment'
 
 /** Helpers shared by the /api route handlers. */
 
@@ -29,17 +31,26 @@ function successResponse(data: unknown): NextResponse {
 function errorResponse(error: unknown): NextResponse {
   const isApiException = error instanceof ApiException
   const normalizedError = error instanceof Error ? error : new Error(String(error))
+  // Unexpected errors are masked with a stable "internalError" code in
+  // production, so a real cause (a bad query, a misconfigured integration)
+  // never leaks to end users. Outside production the real message is sent
+  // instead, so staging/preview deploys are debuggable from the FE response
+  // alone instead of requiring server-log access.
+  const maskedMessage = isProduction ? 'Internal Error' : normalizedError.message
   const body: ApiResponse = {
     success: false,
-    // Unexpected errors are masked with a stable "internalError" code.
-    error: { name: normalizedError.name, message: isApiException ? error.message : 'internalError' } as Error
+    error: { name: normalizedError.name, message: isApiException ? error.message : maskedMessage } as Error
   }
 
-  // Unexpected (non-ApiException) errors are masked in the response, so log the
-  // real cause to the server console to keep them diagnosable.
+  // Unexpected (non-ApiException) errors are masked in the response, so log
+  // the real cause to the server console AND report it to Sentry — this is
+  // the only place that swallows these errors before they reach Next.js'
+  // own request-error instrumentation, so without an explicit report here
+  // they would never show up in Sentry at all.
   if (!isApiException) {
     // eslint-disable-next-line no-console
     console.error('[api] Unhandled error:', normalizedError)
+    Sentry.captureException(normalizedError)
   }
 
   return NextResponse.json(body, { status: isApiException ? error.status : 500 })
