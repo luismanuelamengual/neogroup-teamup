@@ -33,9 +33,6 @@ export class PlayerStatistics extends BaseEntity {
   titles!: number
 
   @Column({ cast: 'number' })
-  podiums!: number
-
-  @Column({ cast: 'number' })
   rankingPoints!: number
 
   @Column({ cast: 'number' })

@@ -8,8 +8,8 @@ import { withAuth } from '@/app/utils/api-server'
  * Available to any signed-in user (not only administrators): it also feeds the
  * SiteSelector that organizers use when creating or editing a tournament.
  */
-export const POST = withAuth(async (request, _context, _userId, organizationId) => {
+export const POST = withAuth(async (request) => {
   const body = (await request.json()) as SiteFilters
 
-  return getSites(organizationId, { query: body.query, page: body.page, pageSize: body.pageSize })
+  return getSites({ query: body.query, page: body.page, pageSize: body.pageSize })
 })

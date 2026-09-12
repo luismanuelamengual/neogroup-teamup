@@ -1,21 +1,21 @@
+import { validateCategoryIds } from '@/app/(protected)/(categories)/services/categories'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
 import {
   assignSiteLabels,
   createCompetitor,
   resolveTeamData,
   resolveTeamRoster
 } from '@/app/(protected)/(tournaments)/services/registrations'
-import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import {
   getLateRegistrationSlots,
   LateRegistrationSlot,
   slotAcceptsRelocatedCompetitor
 } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { canRemoveCompetitor } from '@/app/(protected)/(tournaments)/utils/lateRemoval'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/registrations'
 import {
   attachLateCompetitor,
   detachLateCompetitor,
@@ -109,7 +109,6 @@ async function countCompetitors(tournamentCategoryId: number): Promise<number> {
  */
 export async function addTournamentCategory(
   tournament: Tournament,
-  organizationId: number,
   categoryId: number,
   maxCompetitors: number
 ): Promise<TournamentCategory> {
@@ -118,7 +117,6 @@ export async function addTournamentCategory(
   }
 
   const [resolvedCategoryId] = await validateCategoryIds(
-    organizationId,
     tournament.discipline,
     [Number(categoryId)].filter((id) => Number.isInteger(id) && id > 0)
   )
@@ -240,7 +238,7 @@ export async function registerCompetitor(
 
   if (registersAsTeam(tournament.type)) {
     const roster = await resolveTeamRoster(user.id, mateIds, competitors)
-    const data = await resolveTeamData(tournament.organizationId, siteId)
+    const data = await resolveTeamData(siteId)
 
     return attachIfLate(tournament, await createCompetitor(targetCategory.id, roster, data), slot)
   }

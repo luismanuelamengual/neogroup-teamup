@@ -5,15 +5,19 @@ import { SiteFilters } from '@/app/(protected)/(sites)/models/SiteFilters'
 import { SiteInput } from '@/app/(protected)/(sites)/models/SiteInput'
 import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
+import { getCurrentOrganizationId } from '@/app/services/organization-context'
 
 /**
  * Administration of the venues ("sedes") of an organization — the ABM behind
  * the administrator's "Sedes" page, and the source of the SiteSelector used
  * across the tournament forms.
  *
- * Every query goes through the Site entity, so the OrganizationScope applies
- * and no site of another organization is ever reachable; each lookup by id
- * re-checks `organizationId` explicitly on top of that.
+ * No function here takes an organizationId: every query goes through the Site
+ * entity, whose OrganizationScope pins it to the organization of the current
+ * operation (see services/organization-context.ts), so a site of another
+ * organization is not reachable — a lookup by a foreign id simply finds
+ * nothing and 404s. The one place the organization is still named is the insert
+ * in `createSite`, where it is the value of a column rather than a filter.
  */
 
 /** Validates and normalizes the name of a site. */
@@ -28,8 +32,8 @@ function normalizeName(input: SiteInput): string {
 }
 
 /** Finds a site of the organization, or throws a 404. */
-async function findSite(organizationId: number, siteId: number): Promise<Site> {
-  const site = await Site.where('organizationId', organizationId).where('id', siteId).first()
+async function findSite(siteId: number): Promise<Site> {
+  const site = await Site.where('id', siteId).first()
 
   if (!site) {
     throw new ApiException('Sede no encontrada', 404)
@@ -44,8 +48,8 @@ async function findSite(organizationId: number, siteId: number): Promise<Site> {
  * same venue, and allowing both would recreate the mess that the free-text
  * `location` column used to be.
  */
-async function assertNameIsAvailable(organizationId: number, name: string, excludedId?: number): Promise<void> {
-  const siblings = await Site.where('organizationId', organizationId).get()
+async function assertNameIsAvailable(name: string, excludedId?: number): Promise<void> {
+  const siblings = await Site.get()
   const taken = siblings.some((site) => site.id !== excludedId && site.name.toLowerCase() === name.toLowerCase())
 
   if (taken) {
@@ -53,12 +57,44 @@ async function assertNameIsAvailable(organizationId: number, name: string, exclu
   }
 }
 
+/**
+ * Resolves the id of a venue of the organization, or null when none was given.
+ *
+ * Sites belong to the catalogue the administrator maintains (the /sites ABM),
+ * so an id that is not one of the organization's is rejected rather than
+ * silently stored — and "not one of the organization's" is decided by the
+ * Site entity's own scope, so a forged id from another club simply does not
+ * resolve.
+ *
+ * Shared by everything that stores a reference to a venue: a tournament's site,
+ * a match's planned site, and a user's home venue. It used to be copy-pasted in
+ * three places, each with its own organizationId parameter.
+ */
+export async function resolveSiteId(siteId: unknown): Promise<number | null> {
+  if (siteId === undefined || siteId === null || siteId === '') {
+    return null
+  }
+
+  const id = Number(siteId)
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  const site = await Site.where('id', id).first()
+
+  if (!site) {
+    throw new ApiException('La sede seleccionada no es válida')
+  }
+
+  return site.id
+}
+
 /** Paginated listing of the sites of an organization, searchable by name. */
-export async function getSites(
-  organizationId: number,
-  { query, page = 1, pageSize = 10 }: SiteFilters = {}
-): Promise<PaginatedResponse<Site[]>> {
-  const sitesQuery = Site.where('organizationId', organizationId)
+export async function getSites({ query, page = 1, pageSize = 10 }: SiteFilters = {}): Promise<
+  PaginatedResponse<Site[]>
+> {
+  const sitesQuery = Site.orderBy('name')
   const normalized = (query ?? '').trim()
 
   if (normalized.length > 0) {
@@ -67,18 +103,20 @@ export async function getSites(
     sitesQuery.where('name', 'ILIKE', `%${normalized}%`)
   }
 
-  return sitesQuery.orderBy('name').paginate(pageSize, page)
+  return sitesQuery.paginate(pageSize, page)
 }
 
 /** Creates a site of the organization. */
-export async function createSite(organizationId: number, input: SiteInput): Promise<Site> {
+export async function createSite(input: SiteInput): Promise<Site> {
   const name = normalizeName(input)
 
-  await assertNameIsAvailable(organizationId, name)
+  await assertNameIsAvailable(name)
 
   const site = new Site()
 
-  site.organizationId = organizationId
+  // An insert applies no scopes, so this is the one place the organization is
+  // written rather than filtered by.
+  site.organizationId = await getCurrentOrganizationId()
   site.name = name
   await site.save()
 
@@ -86,11 +124,11 @@ export async function createSite(organizationId: number, input: SiteInput): Prom
 }
 
 /** Renames a site of the organization. */
-export async function updateSite(organizationId: number, siteId: number, input: SiteInput): Promise<Site> {
-  const site = await findSite(organizationId, siteId)
+export async function updateSite(siteId: number, input: SiteInput): Promise<Site> {
+  const site = await findSite(siteId)
   const name = normalizeName(input)
 
-  await assertNameIsAvailable(organizationId, name, site.id)
+  await assertNameIsAvailable(name, site.id)
 
   site.name = name
   await site.save()
@@ -105,8 +143,8 @@ export async function updateSite(organizationId: number, siteId: number, input: 
  * would refuse the DELETE anyway, and blanking the reference would erase where
  * past tournaments were played.
  */
-export async function deleteSite(organizationId: number, siteId: number): Promise<void> {
-  const site = await findSite(organizationId, siteId)
+export async function deleteSite(siteId: number): Promise<void> {
+  const site = await findSite(siteId)
   const tournaments = Number(await DB.table('tournaments').where('siteId', site.id).count())
 
   if (tournaments > 0) {
@@ -178,8 +216,8 @@ function normalizeSiteData(input: SiteData | null | undefined): SiteData | null 
  * being planned. Renaming a site stays administrator-only; describing its
  * courts is part of planning.
  */
-export async function updateSiteData(organizationId: number, siteId: number, input: SiteData | null): Promise<void> {
-  const site = await findSite(organizationId, siteId)
+export async function updateSiteData(siteId: number, input: SiteData | null): Promise<void> {
+  const site = await findSite(siteId)
 
   site.data = normalizeSiteData(input)
   await site.save()

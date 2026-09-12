@@ -6,8 +6,8 @@ import { withAuth } from '@/app/utils/api-server'
  * its venue, day, start time and court. Organizer-only, same guards as
  * /api/setMatchSchedule.
  */
-export const POST = withAuth(async (request, context, userId, organizationId) => {
+export const POST = withAuth(async (request, context, userId) => {
   const { id } = (await request.json()) as { id: number }
 
-  await clearMatchSchedule(Number(id), userId, organizationId)
+  await clearMatchSchedule(Number(id), userId)
 })

@@ -4,12 +4,13 @@ import './index.scss'
 import Pagination from '@mui/material/Pagination'
 import { useCallback, useEffect, useState } from 'react'
 import CategorySelector from '@/app/(protected)/(categories)/components/CategorySelector'
+import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
+import DisciplineSelector from '@/app/(protected)/(disciplines)/components/DisciplineSelector'
+import { useDisciplines } from '@/app/(protected)/(disciplines)/hooks/useDisciplines'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import RankingCard, { RankingCardSkeleton } from '@/app/(protected)/(rankings)/components/RankingCard'
 import { useRankings } from '@/app/(protected)/(rankings)/hooks/useRankings'
 import { RankingEntryDto } from '@/app/(protected)/(rankings)/models/RankingEntryDto'
-import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import MessagePanel from '@/app/components/MessagePanel'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
 
@@ -17,6 +18,10 @@ const PAGE_SIZE = 10
 
 export default function RankingsBrowser() {
   const { getRankings } = useRankings()
+  const enabledDisciplines = useDisciplines()
+  // With a single enabled discipline there is nothing to choose: skip the
+  // selector and load that discipline's ranking directly.
+  const showDisciplineSelector = enabledDisciplines.length > 1
   const [discipline, setDiscipline] = useState<Discipline>(Discipline.PADEL)
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [loadingCategories, setLoadingCategories] = useState(true)
@@ -38,6 +43,14 @@ export default function RankingsBrowser() {
     setCategoryId(null)
     setLoadingCategories(true)
   }, [discipline])
+
+  // When there's only one enabled discipline, DisciplineSelector isn't rendered
+  // to do this auto-correction itself, so select that discipline directly.
+  useEffect(() => {
+    if (enabledDisciplines.length === 1) {
+      setDiscipline(enabledDisciplines[0])
+    }
+  }, [enabledDisciplines])
 
   // Reset to the first page whenever the category filter changes.
   useEffect(() => {
@@ -66,7 +79,9 @@ export default function RankingsBrowser() {
   return (
     <div className="rankings-browser">
       <div className="filters">
-        <DisciplineSelector value={discipline} onChange={setDiscipline} size="small" className="filter" />
+        {showDisciplineSelector && (
+          <DisciplineSelector value={discipline} onChange={setDiscipline} size="small" className="filter" />
+        )}
         <CategorySelector
           value={categoryId}
           onChange={setCategoryId}

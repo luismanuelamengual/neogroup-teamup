@@ -1,5 +1,5 @@
 import { PaymentStatus } from '@/app/(protected)/(payments)/models/PaymentStatus'
-import { ServicePayment } from '@/app/(protected)/(payments)/models/ServicePayment'
+import { getServicePaymentStatus } from '@/app/(protected)/(payments)/services/payments'
 import { withOrganizerOrAdmin } from '@/app/utils/api-server'
 
 export interface ServicePaymentStatusResult {
@@ -11,11 +11,8 @@ export interface ServicePaymentStatusResult {
  * POST /api/getServicePaymentStatus — status of a settlement, used to poll after
  * returning from the Mercado Pago checkout until the webhook confirms it.
  */
-export const POST = withOrganizerOrAdmin(
-  async (request, context, userId, organizationId): Promise<ServicePaymentStatusResult> => {
-    const { paymentId } = (await request.json()) as { paymentId: number }
-    const payment = await ServicePayment.where('id', Number(paymentId)).where('organizationId', organizationId).first()
+export const POST = withOrganizerOrAdmin(async (request): Promise<ServicePaymentStatusResult> => {
+  const { paymentId } = (await request.json()) as { paymentId: number }
 
-    return { status: payment?.status ?? null }
-  }
-)
+  return { status: await getServicePaymentStatus(Number(paymentId)) }
+})

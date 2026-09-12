@@ -7,14 +7,14 @@ import { withAdmin } from '@/app/utils/api-server'
  * a new password. The administrator never sees or chooses the password.
  * Administrator only.
  */
-export const POST = withAdmin(async (request, _context, _userId, organizationId) => {
+export const POST = withAdmin(async (request) => {
   const { id } = (await request.json()) as { id: number }
 
   if (!id) {
     throw new ApiException('missingFields')
   }
 
-  await resetUserPassword(organizationId, Number(id), request.headers.get('host') ?? '')
+  await resetUserPassword(Number(id), request.headers.get('host') ?? '')
 
   return null
 })

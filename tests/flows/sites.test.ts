@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createSite, deleteSite, getSites, updateSite, updateSiteData } from '@/app/(protected)/(sites)/services/sites'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { withOrganization } from '@/app/services/organization-context'
 import { buildTournament, createOrganization, resetDatabase } from '@/tests/setup/harness'
-
-const ORGANIZATION_ID = 1
 
 describe('sites administration', () => {
   beforeEach(async () => {
@@ -11,77 +10,88 @@ describe('sites administration', () => {
   })
 
   it('creates a site and lists it', async () => {
-    await createSite(ORGANIZATION_ID, { name: '  Club Belgrano  ' })
+    await createSite({ name: '  Club Belgrano  ' })
 
-    const { data } = await getSites(ORGANIZATION_ID)
+    const { data } = await getSites()
 
     expect(data).toHaveLength(1)
     expect(data[0].name).toBe('Club Belgrano')
   })
 
   it('rejects an empty name', async () => {
-    await expect(createSite(ORGANIZATION_ID, { name: '   ' })).rejects.toThrow('obligatorio')
+    await expect(createSite({ name: '   ' })).rejects.toThrow('obligatorio')
   })
 
   it('rejects a duplicated name regardless of casing', async () => {
-    await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    await createSite({ name: 'Club Belgrano' })
 
-    await expect(createSite(ORGANIZATION_ID, { name: 'club belgrano' })).rejects.toThrow('Ya existe')
+    await expect(createSite({ name: 'club belgrano' })).rejects.toThrow('Ya existe')
   })
 
   it('lets two organizations use the same venue name', async () => {
     const otherOrganizationId = await createOrganization()
 
-    await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
-    await createSite(otherOrganizationId, { name: 'Club Belgrano' })
+    await createSite({ name: 'Club Belgrano' })
+    // Acting for the other organization, the way the cron states the tenant of
+    // each tournament: the harness leaves every test in organization 1, and
+    // these services take no organizationId any more — the venue is created in,
+    // and listed from, whichever organization is in context.
+    await withOrganization(otherOrganizationId, () => createSite({ name: 'Club Belgrano' }))
 
-    expect((await getSites(ORGANIZATION_ID)).data).toHaveLength(1)
-    expect((await getSites(otherOrganizationId)).data).toHaveLength(1)
+    const mine = (await getSites()).data
+    const theirs = (await withOrganization(otherOrganizationId, () => getSites())).data
+
+    // The organizationId of each row is asserted, not just the count: with one
+    // site per organization, a context that failed to apply would still return
+    // a single row, and this is what tells the two apart.
+    expect(mine.map((site) => site.organizationId)).toEqual([1])
+    expect(theirs.map((site) => site.organizationId)).toEqual([otherOrganizationId])
   })
 
   it('filters the listing by name', async () => {
-    await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
-    await createSite(ORGANIZATION_ID, { name: 'GEBA' })
+    await createSite({ name: 'Club Belgrano' })
+    await createSite({ name: 'GEBA' })
 
-    const { data } = await getSites(ORGANIZATION_ID, { query: 'geba' })
+    const { data } = await getSites({ query: 'geba' })
 
     expect(data).toHaveLength(1)
     expect(data[0].name).toBe('GEBA')
   })
 
   it('renames a site', async () => {
-    const site = await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    const site = await createSite({ name: 'Club Belgrano' })
 
-    await updateSite(ORGANIZATION_ID, site.id, { name: 'Racket Club Belgrano' })
+    await updateSite(site.id, { name: 'Racket Club Belgrano' })
 
-    const { data } = await getSites(ORGANIZATION_ID)
+    const { data } = await getSites()
 
     expect(data[0].name).toBe('Racket Club Belgrano')
   })
 
   it('does not reach a site of another organization', async () => {
-    const site = await createSite(await createOrganization(), { name: 'Club Belgrano' })
+    const otherOrganizationId = await createOrganization()
+    const site = await withOrganization(otherOrganizationId, () => createSite({ name: 'Club Belgrano' }))
 
-    await expect(updateSite(ORGANIZATION_ID, site.id, { name: 'Otro' })).rejects.toThrow('no encontrada')
-    await expect(deleteSite(ORGANIZATION_ID, site.id)).rejects.toThrow('no encontrada')
+    await expect(updateSite(site.id, { name: 'Otro' })).rejects.toThrow('no encontrada')
+    await expect(deleteSite(site.id)).rejects.toThrow('no encontrada')
   })
 
   it('deletes an unused site', async () => {
-    const site = await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    const site = await createSite({ name: 'Club Belgrano' })
 
-    await deleteSite(ORGANIZATION_ID, site.id)
+    await deleteSite(site.id)
 
-    expect((await getSites(ORGANIZATION_ID)).data).toHaveLength(0)
+    expect((await getSites()).data).toHaveLength(0)
   })
 
   it('refuses to delete a site assigned to a tournament', async () => {
-    const site = await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    const site = await createSite({ name: 'Club Belgrano' })
     const built = await buildTournament({ type: TournamentType.LEAGUE, competitors: 2 })
 
     built.tournament.siteId = site.id
     await built.tournament.save()
 
-    await expect(deleteSite(ORGANIZATION_ID, site.id)).rejects.toThrow('no puede eliminarse')
+    await expect(deleteSite(site.id)).rejects.toThrow('no puede eliminarse')
   })
 })
 
@@ -100,38 +110,38 @@ describe('venue settings', () => {
   })
 
   /** Reads a venue's settings back through the listing, as a client would. */
-  const readData = async (siteId: number) => (await getSites(ORGANIZATION_ID)).data.find((s) => s.id === siteId)?.data
+  const readData = async (siteId: number) => (await getSites()).data.find((s) => s.id === siteId)?.data
 
   it('stores the courts setup of a venue', async () => {
-    const { id } = await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    const { id } = await createSite({ name: 'Club Belgrano' })
 
-    await updateSiteData(ORGANIZATION_ID, id, { courts: 4, courtNames: { 1: 'Central' }, matchDuration: 90 })
+    await updateSiteData(id, { courts: 4, courtNames: { 1: 'Central' }, matchDuration: 90 })
 
     expect(await readData(id)).toEqual({ courts: 4, courtNames: { 1: 'Central' }, matchDuration: 90 })
   })
 
   it('starts with no settings at all', async () => {
-    const { id } = await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    const { id } = await createSite({ name: 'Club Belgrano' })
 
-    expect(await readData(id) ?? null).toBeNull()
+    expect((await readData(id)) ?? null).toBeNull()
   })
 
   it('clamps the courts count to what the planner offers', async () => {
-    const { id } = await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    const { id } = await createSite({ name: 'Club Belgrano' })
 
-    await updateSiteData(ORGANIZATION_ID, id, { courts: 99 })
+    await updateSiteData(id, { courts: 99 })
     expect((await readData(id))?.courts).toBe(12)
 
     // Below one is not a small venue, it is nonsense: the field is dropped and
     // the reader falls back to its own default.
-    await updateSiteData(ORGANIZATION_ID, id, { courts: 0 })
-    expect(await readData(id) ?? null).toBeNull()
+    await updateSiteData(id, { courts: 0 })
+    expect((await readData(id)) ?? null).toBeNull()
   })
 
   it('drops court names that add nothing', async () => {
-    const { id } = await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    const { id } = await createSite({ name: 'Club Belgrano' })
 
-    await updateSiteData(ORGANIZATION_ID, id, {
+    await updateSiteData(id, {
       courts: 3,
       // Blank, and the very fallback the reader would have used anyway.
       courtNames: { 1: '  ', 2: 'Cancha 2', 3: '  Central  ' }
@@ -141,18 +151,18 @@ describe('venue settings', () => {
   })
 
   it('clears the document when nothing survives', async () => {
-    const { id } = await createSite(ORGANIZATION_ID, { name: 'Club Belgrano' })
+    const { id } = await createSite({ name: 'Club Belgrano' })
 
-    await updateSiteData(ORGANIZATION_ID, id, { courts: 4 })
-    await updateSiteData(ORGANIZATION_ID, id, null)
+    await updateSiteData(id, { courts: 4 })
+    await updateSiteData(id, null)
 
-    expect(await readData(id) ?? null).toBeNull()
+    expect((await readData(id)) ?? null).toBeNull()
   })
 
   it('does not reach a venue of another organization', async () => {
     const otherOrganizationId = await createOrganization()
-    const { id } = await createSite(otherOrganizationId, { name: 'Club Belgrano' })
+    const { id } = await withOrganization(otherOrganizationId, () => createSite({ name: 'Club Belgrano' }))
 
-    await expect(updateSiteData(ORGANIZATION_ID, id, { courts: 4 })).rejects.toThrow('no encontrada')
+    await expect(updateSiteData(id, { courts: 4 })).rejects.toThrow('no encontrada')
   })
 })

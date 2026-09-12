@@ -1,5 +1,5 @@
 import { BaseEntity, BelongsTo, Column, Entity, HasMany } from '@neogroup/neorm'
-import { Category } from '@/app/(protected)/(tournaments)/models/Category'
+import { Category } from '@/app/(protected)/(categories)/models/Category'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
@@ -24,6 +24,19 @@ export class TournamentCategory extends BaseEntity {
 
   @Column({ cast: 'number' })
   maxCompetitors!: number
+
+  /**
+   * Winner of this category, materialised when the tournament finishes (see
+   * `finishTournament`). Null while it is still running, and also for a
+   * finished category whose final never got a result.
+   *
+   * It exists so counting a player's titles is an indexed COUNT instead of
+   * replaying the whole bracket: the champion can only change while the
+   * tournament is ONGOING — `setMatchResult` refuses a result on anything else
+   * — so once written it never moves.
+   */
+  @Column({ cast: 'number' })
+  championCompetitorId!: number | null
 
   @BelongsTo(() => Tournament, 'tournamentId')
   tournament?: Tournament

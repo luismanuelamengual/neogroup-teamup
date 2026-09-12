@@ -14,9 +14,9 @@ import {
   registerCompetitor,
   unregisterCompetitor
 } from '@/app/(protected)/(tournaments)/services/administration'
-import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { getLateRegistrationSlots } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/registrations'
 import { Role } from '@/app/models/Role'
 import {
   buildTournament,
@@ -1091,9 +1091,7 @@ describe('late registration — what a running tournament still refuses', () => 
       )
     ).rejects.toThrow('fase de inscripción')
     await expect(
-      loadManageableTournament(built.tournament.id, built.ownerId).then((each) =>
-        addTournamentCategory(each, each.organizationId, 1, 8)
-      )
+      loadManageableTournament(built.tournament.id, built.ownerId).then((each) => addTournamentCategory(each, 1, 8))
     ).rejects.toThrow('fase de inscripción')
 
     // Registering, however, works.

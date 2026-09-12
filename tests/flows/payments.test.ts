@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { SubDiscipline } from '@/app/(protected)/(disciplines)/models/SubDiscipline'
 import { PaymentStatus } from '@/app/(protected)/(payments)/models/PaymentStatus'
 import { ServicePayment } from '@/app/(protected)/(payments)/models/ServicePayment'
 import {
@@ -6,19 +8,22 @@ import {
   confirmServicePaymentFromWebhook,
   createServicePayment,
   getPendingPayments,
+  getServicePaymentStatus,
   hasOverdueDebt
 } from '@/app/(protected)/(payments)/services/payments'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { createTournament, deleteTournament } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { Organization } from '@/app/models/Organization'
+import { Role } from '@/app/models/Role'
+import { withOrganization } from '@/app/services/organization-context'
 import {
   buildTournament,
+  createOrganization,
   createUser,
+  DEFAULT_TEST_ORGANIZATION_ID,
   finalizeIfComplete,
   getPendingActiveMatches,
   homeWinScore,
@@ -27,6 +32,7 @@ import {
   setResult,
   start
 } from '@/tests/setup/harness'
+import { setTestSession } from '@/tests/setup/stubs/auth-service'
 
 /**
  * Service fee settlement.
@@ -38,7 +44,9 @@ import {
  */
 
 /** Installs a fake global.fetch answering the two Mercado Pago endpoints used. */
-function mockMercadoPago(overrides: { paymentStatus?: string } = {}): { calls: string[] } {
+function mockMercadoPago(overrides: { paymentStatus?: string; externalReference?: string | null } = {}): {
+  calls: string[]
+} {
   const calls: string[] = []
 
   globalThis.fetch = (async (input: unknown, init?: { method?: string }) => {
@@ -64,7 +72,9 @@ function mockMercadoPago(overrides: { paymentStatus?: string } = {}): { calls: s
         // The fake echoes back the id it was asked for, so a test that passes the
         // settlement id as the payment id satisfies the external_reference guard,
         // and one that passes a different id models a foreign notification.
-        external_reference: externalReference,
+        // `externalReference` overrides it, down to null: a payment into TeamUp's
+        // account that did not come from one of our checkouts carries none.
+        external_reference: overrides.externalReference !== undefined ? overrides.externalReference : externalReference,
         transaction_amount: 100,
         currency_id: 'ARS'
       })
@@ -105,6 +115,42 @@ async function playPaidTournament(entryFee = 1000, startDate?: string): Promise<
   return built.tournament.id
 }
 
+/**
+ * Same as `playPaidTournament`, for any organization: the tournament is built
+ * in it and started/played inside its context, the way the cron acts for a
+ * tournament that is not the signed-in user's.
+ */
+async function playPaidTournamentOf(organizationId: number, entryFee = 1000, startDate?: string): Promise<number> {
+  const built = await buildTournament({
+    type: TournamentType.LEAGUE,
+    competitors: 4,
+    entryFee,
+    organizationId,
+    ...(startDate ? { startDate } : {})
+  })
+
+  await withOrganization(organizationId, async () => {
+    await start(built)
+    await playToCompletion(built)
+  })
+
+  return built.tournament.id
+}
+
+/**
+ * Runs `callback` with no signed-in user, like the Mercado Pago webhook runs in
+ * production, and puts the harness's organization-1 session back afterwards.
+ */
+async function withoutSession<T>(callback: () => Promise<T>): Promise<T> {
+  setTestSession(null)
+
+  try {
+    return await callback()
+  } finally {
+    setTestSession({ user: { id: 0, organizationId: DEFAULT_TEST_ORGANIZATION_ID } })
+  }
+}
+
 const NEW_TOURNAMENT = {
   name: 'Nuevo torneo',
   discipline: Discipline.TENNIS,
@@ -133,7 +179,7 @@ describe('service fee calculation', () => {
     await start(built)
     await playToCompletion(built)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(0)
     expect(pending.amount).toBe(0)
@@ -143,7 +189,7 @@ describe('service fee calculation', () => {
     // Registrations are still open, so there is no final roster to bill.
     await buildTournament({ type: TournamentType.LEAGUE, competitors: 4, entryFee: 1000 })
 
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(0)
+    expect((await getPendingPayments()).tournaments).toHaveLength(0)
   })
 
   it('bills every registered competitor as soon as the tournament starts', async () => {
@@ -151,7 +197,7 @@ describe('service fee calculation', () => {
 
     await start(built)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(1)
     expect(pending.tournaments[0].competitorsCount).toBe(4)
@@ -168,7 +214,7 @@ describe('service fee calculation', () => {
 
     await start(built)
 
-    const afterStart = await getPendingPayments(1)
+    const afterStart = await getPendingPayments()
     const tournament = (await Tournament.withoutGlobalScopes()
       .where('id', built.tournament.id)
       .with('matches')
@@ -176,11 +222,11 @@ describe('service fee calculation', () => {
 
     await setResult(tournament.matches![0].id, homeWinScore(built.tournament.scoreFormat))
 
-    const afterOneMatch = await getPendingPayments(1)
+    const afterOneMatch = await getPendingPayments()
 
     await playToCompletion(built)
 
-    const afterAll = await getPendingPayments(1)
+    const afterAll = await getPendingPayments()
 
     expect(afterOneMatch.amount).toBe(afterStart.amount)
     expect(afterAll.amount).toBe(afterStart.amount)
@@ -222,7 +268,7 @@ describe('service fee calculation', () => {
 
     await finalizeIfComplete(built.tournament.id)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(1)
     expect(pending.tournaments[0].competitorsCount).toBe(2)
@@ -240,7 +286,7 @@ describe('service fee calculation', () => {
 
     await start(built)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     // 8 players, 4 inscriptions — each pair pays one entry fee.
     expect(pending.tournaments[0].competitorsCount).toBe(4)
@@ -253,14 +299,14 @@ describe('service fee calculation', () => {
     await start(built)
     await playToCompletion(built)
 
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(0)
+    expect((await getPendingPayments()).tournaments).toHaveLength(0)
   })
 
   it('adds up several tournaments into a single total', async () => {
     await playPaidTournament(1000)
     await playPaidTournament(2000)
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(2)
     expect(pending.competitorsCount).toBe(8)
@@ -281,14 +327,14 @@ describe('creating a paid tournament', () => {
     await organization.save()
 
     const ownerId = await createUser(1)
-    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId, 1)
+    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId)
 
     expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(true)
   })
 
   it('is created unsettled when the organization charges a service fee', async () => {
     const ownerId = await createUser(1)
-    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId, 1)
+    const { id } = await createTournament({ ...NEW_TOURNAMENT, entryFee: 1000 }, ownerId)
 
     expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(false)
   })
@@ -300,7 +346,7 @@ describe('creating a paid tournament', () => {
     await organization.save()
 
     const ownerId = await createUser(1)
-    const { id } = await createTournament(NEW_TOURNAMENT, ownerId, 1)
+    const { id } = await createTournament(NEW_TOURNAMENT, ownerId)
 
     expect((await Tournament.withoutGlobalScopes().find(id))!.paid).toBe(false)
   })
@@ -315,21 +361,21 @@ describe('overdue debt', () => {
   it('does not flag a tournament played this month', async () => {
     await playPaidTournament(1000, daysAgo(5))
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.tournaments).toHaveLength(1)
     expect(pending.overdueCount).toBe(0)
-    expect(await hasOverdueDebt(1)).toBe(false)
+    expect(await hasOverdueDebt()).toBe(false)
   })
 
   it('flags a tournament that started more than two months ago', async () => {
     await playPaidTournament(1000, daysAgo(70))
 
-    const pending = await getPendingPayments(1)
+    const pending = await getPendingPayments()
 
     expect(pending.overdueCount).toBe(1)
     expect(pending.tournaments[0].overdue).toBe(true)
-    expect(await hasOverdueDebt(1)).toBe(true)
+    expect(await hasOverdueDebt()).toBe(true)
   })
 
   it('blocks the creation of new tournaments while there is overdue debt', async () => {
@@ -337,7 +383,7 @@ describe('overdue debt', () => {
 
     const ownerId = await createUser(1)
 
-    await expect(createTournament(NEW_TOURNAMENT, ownerId, 1)).rejects.toThrow(/más de dos meses/)
+    await expect(createTournament(NEW_TOURNAMENT, ownerId)).rejects.toThrow(/más de dos meses/)
   })
 
   it('allows creating tournaments again once the debt is settled', async () => {
@@ -345,12 +391,12 @@ describe('overdue debt', () => {
     mockMercadoPago()
 
     const payerId = await createUser(1)
-    const payment = await createServicePayment({ organizationId: 1, userId: payerId, origin: 'https://test.teamup.ar' })
+    const payment = await createServicePayment({ userId: payerId, origin: 'https://test.teamup.ar' })
 
     await notifyWebhook(payment.id)
 
-    expect(await hasOverdueDebt(1)).toBe(false)
-    expect((await createTournament(NEW_TOURNAMENT, payerId, 1)).id).toBeGreaterThan(0)
+    expect(await hasOverdueDebt()).toBe(false)
+    expect((await createTournament(NEW_TOURNAMENT, payerId)).id).toBeGreaterThan(0)
   })
 })
 
@@ -364,7 +410,7 @@ describe('settlement checkout', () => {
     const tournamentId = await playPaidTournament()
     const { calls } = mockMercadoPago()
     const userId = await createUser(1)
-    const payment = await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+    const payment = await createServicePayment({ userId, origin: 'https://test.teamup.ar' })
 
     expect(payment.status).toBe(PaymentStatus.PENDING)
     expect(payment.tournamentIds).toEqual([tournamentId])
@@ -384,7 +430,7 @@ describe('settlement checkout', () => {
 
     const userId = await createUser(1)
 
-    await expect(createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })).rejects.toThrow(
+    await expect(createServicePayment({ userId, origin: 'https://test.teamup.ar' })).rejects.toThrow(
       /No hay torneos pendientes/
     )
   })
@@ -396,10 +442,10 @@ describe('settlement checkout', () => {
 
     const userId = await createUser(1)
 
-    await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+    await createServicePayment({ userId, origin: 'https://test.teamup.ar' })
 
     expect((await Tournament.withoutGlobalScopes().find(tournamentId))!.paid).toBe(false)
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(1)
+    expect((await getPendingPayments()).tournaments).toHaveLength(1)
   })
 })
 
@@ -412,7 +458,7 @@ describe('settlement webhook', () => {
   async function playAndCheckout(): Promise<{ tournamentId: number; payment: ServicePayment }> {
     const tournamentId = await playPaidTournament()
     const userId = await createUser(1)
-    const payment = await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+    const payment = await createServicePayment({ userId, origin: 'https://test.teamup.ar' })
 
     return { tournamentId, payment }
   }
@@ -432,7 +478,7 @@ describe('settlement webhook', () => {
     expect(tournament.paid).toBe(true)
     expect(tournament.paidAt).not.toBeNull()
     expect(tournament.servicePaymentId).toBe(payment.id)
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(0)
+    expect((await getPendingPayments()).tournaments).toHaveLength(0)
   })
 
   it('is idempotent across redeliveries', async () => {
@@ -455,7 +501,7 @@ describe('settlement webhook', () => {
 
     expect((await ServicePayment.find(payment.id))!.status).toBe(PaymentStatus.REJECTED)
     expect((await Tournament.withoutGlobalScopes().find(tournamentId))!.paid).toBe(false)
-    expect((await getPendingPayments(1)).tournaments).toHaveLength(1)
+    expect((await getPendingPayments()).tournaments).toHaveLength(1)
   })
 
   it('stays pending while Mercado Pago has not resolved the payment', async () => {
@@ -525,7 +571,7 @@ describe('deleting a billable tournament', () => {
     mockMercadoPago({ paymentStatus: 'approved' })
 
     const userId = await createUser(1)
-    const payment = await createServicePayment({ organizationId: 1, userId, origin: 'https://test.teamup.ar' })
+    const payment = await createServicePayment({ userId, origin: 'https://test.teamup.ar' })
 
     await notifyWebhook(payment.id)
 
@@ -533,5 +579,190 @@ describe('deleting a billable tournament', () => {
 
     expect(tournament.paid).toBe(true)
     await expect(deleteTournament(tournament)).resolves.toBe(true)
+  })
+})
+
+describe('organization isolation', () => {
+  /**
+   * Every other block runs as organization 1 only, where a missing tenant
+   * filter is invisible: with a single organization, "its payments" and "every
+   * payment" are the same rows. These tests put a second organization with its
+   * own debt next to it, so a query that forgot the tenant would answer with
+   * someone else's money.
+   *
+   * The Mercado Pago webhook is exercised *without a session* (see
+   * `withoutSession`). In production nothing states the organization there, and
+   * the org-1 test session the harness leaves behind would otherwise stand in
+   * for it — hiding exactly the failure a scoped query has in that endpoint.
+   */
+  let otherOrganizationId: number
+
+  beforeEach(async () => {
+    await resetDatabase()
+    process.env.MP_ACCESS_TOKEN = 'TEST-token'
+    otherOrganizationId = await createOrganization()
+
+    // A different fee than organization 1's default 4%, so an amount computed
+    // with the wrong organization's percentage cannot pass for the right one.
+    const other = (await Organization.find(otherOrganizationId))!
+
+    other.serviceFeePercentage = 10
+    await other.save()
+  })
+
+  /** Opens a checkout for everything the organization owes, as one of its organizers. */
+  async function checkoutFor(organizationId: number): Promise<ServicePayment> {
+    const userId = await createUser(organizationId, Role.ORGANIZER)
+
+    return withOrganization(organizationId, () => createServicePayment({ userId, origin: 'https://test.teamup.ar' }))
+  }
+
+  it('lists and prices only the debt of the organization in context', async () => {
+    const mineId = await playPaidTournamentOf(DEFAULT_TEST_ORGANIZATION_ID, 1000)
+    const theirsId = await playPaidTournamentOf(otherOrganizationId, 2000)
+    const mine = await getPendingPayments()
+    const theirs = await withOrganization(otherOrganizationId, () => getPendingPayments())
+
+    expect(mine.tournaments.map((tournament) => tournament.id)).toEqual([mineId])
+    expect(mine.serviceFeePercentage).toBe(4)
+    // 4 × 1000 × 4%
+    expect(mine.amount).toBe(160)
+
+    expect(theirs.tournaments.map((tournament) => tournament.id)).toEqual([theirsId])
+    expect(theirs.serviceFeePercentage).toBe(10)
+    // 4 × 2000 × 10%
+    expect(theirs.amount).toBe(800)
+  })
+
+  it("does not let another organization's overdue debt block this one", async () => {
+    await playPaidTournamentOf(otherOrganizationId, 1000, daysAgo(70))
+
+    const ownerId = await createUser(DEFAULT_TEST_ORGANIZATION_ID, Role.ORGANIZER)
+    const theirOwnerId = await createUser(otherOrganizationId, Role.ORGANIZER)
+
+    expect(await hasOverdueDebt()).toBe(false)
+    expect((await createTournament(NEW_TOURNAMENT, ownerId)).id).toBeGreaterThan(0)
+
+    expect(await withOrganization(otherOrganizationId, () => hasOverdueDebt())).toBe(true)
+    await expect(
+      withOrganization(otherOrganizationId, () => createTournament(NEW_TOURNAMENT, theirOwnerId))
+    ).rejects.toThrow(/más de dos meses/)
+  })
+
+  it('snapshots only the tournaments of the organization opening the checkout', async () => {
+    mockMercadoPago()
+
+    const mineId = await playPaidTournamentOf(DEFAULT_TEST_ORGANIZATION_ID, 1000)
+    const theirsId = await playPaidTournamentOf(otherOrganizationId, 2000)
+    const payment = await checkoutFor(otherOrganizationId)
+
+    expect(payment.organizationId).toBe(otherOrganizationId)
+    expect(payment.tournamentIds).toEqual([theirsId])
+    expect(payment.serviceFeePercentage).toBe(10)
+    expect(payment.amount).toBe(800)
+    // Organization 1 still owes exactly what it owed.
+    expect((await getPendingPayments()).tournaments.map((tournament) => tournament.id)).toEqual([mineId])
+  })
+
+  it("does not let one organization read another's settlements", async () => {
+    mockMercadoPago()
+
+    await playPaidTournamentOf(otherOrganizationId, 2000)
+
+    const theirs = await checkoutFor(otherOrganizationId)
+
+    // No filter written by hand here: the model itself has to refuse to answer
+    // about another organization, whichever call site forgets to ask.
+    expect(await ServicePayment.find(theirs.id)).toBeNull()
+    expect(await ServicePayment.count()).toBe(0)
+    expect((await withOrganization(otherOrganizationId, () => ServicePayment.find(theirs.id)))?.id).toBe(theirs.id)
+  })
+
+  it("answers the checkout status poll only for the organization's own settlements", async () => {
+    mockMercadoPago()
+
+    await playPaidTournamentOf(DEFAULT_TEST_ORGANIZATION_ID, 1000)
+    await playPaidTournamentOf(otherOrganizationId, 2000)
+
+    const mine = await checkoutFor(DEFAULT_TEST_ORGANIZATION_ID)
+    const theirs = await checkoutFor(otherOrganizationId)
+
+    expect(await getServicePaymentStatus(mine.id)).toBe(PaymentStatus.PENDING)
+    // Indistinguishable from a settlement that does not exist.
+    expect(await getServicePaymentStatus(theirs.id)).toBeNull()
+    expect(await getServicePaymentStatus(theirs.id + 1000)).toBeNull()
+    expect(await withOrganization(otherOrganizationId, () => getServicePaymentStatus(theirs.id))).toBe(
+      PaymentStatus.PENDING
+    )
+    expect(await withOrganization(otherOrganizationId, () => getServicePaymentStatus(mine.id))).toBeNull()
+  })
+
+  it('confirms a settlement from the webhook with no organization in context', async () => {
+    mockMercadoPago({ paymentStatus: 'approved' })
+
+    const mineId = await playPaidTournamentOf(DEFAULT_TEST_ORGANIZATION_ID, 1000)
+    const theirsId = await playPaidTournamentOf(otherOrganizationId, 2000)
+    const payment = await checkoutFor(otherOrganizationId)
+
+    await withoutSession(() => notifyWebhook(payment.id))
+
+    const confirmed = (await ServicePayment.withoutGlobalScopes().find(payment.id))!
+
+    expect(confirmed.status).toBe(PaymentStatus.APPROVED)
+    expect((await Tournament.withoutGlobalScopes().find(theirsId))!.paid).toBe(true)
+    expect((await Tournament.withoutGlobalScopes().find(mineId))!.paid).toBe(false)
+    expect((await getPendingPayments()).tournaments.map((tournament) => tournament.id)).toEqual([mineId])
+  })
+
+  it("never marks another organization's tournament as paid, even if the snapshot names it", async () => {
+    mockMercadoPago({ paymentStatus: 'approved' })
+
+    const mineId = await playPaidTournamentOf(DEFAULT_TEST_ORGANIZATION_ID, 1000)
+    const theirsId = await playPaidTournamentOf(otherOrganizationId, 2000)
+    const payment = await checkoutFor(otherOrganizationId)
+
+    // A corrupted (or forged) snapshot reaching into organization 1. The
+    // settlement must only ever clear tournaments of its own organization.
+    payment.tournamentIds = [mineId, theirsId]
+    await payment.save()
+
+    await withoutSession(() => notifyWebhook(payment.id))
+
+    expect((await Tournament.withoutGlobalScopes().find(theirsId))!.paid).toBe(true)
+    expect((await Tournament.withoutGlobalScopes().find(mineId))!.paid).toBe(false)
+  })
+
+  it("ignores a notification that pairs one organization's payment with another's settlement", async () => {
+    mockMercadoPago({ paymentStatus: 'approved' })
+
+    await playPaidTournamentOf(DEFAULT_TEST_ORGANIZATION_ID, 1000)
+
+    const theirsId = await playPaidTournamentOf(otherOrganizationId, 2000)
+    const mine = await checkoutFor(DEFAULT_TEST_ORGANIZATION_ID)
+    const theirs = await checkoutFor(otherOrganizationId)
+
+    // `?ref=` points at their settlement, but the Mercado Pago payment is the
+    // one organization 1 made for its own (the fake echoes the id asked for as
+    // the external reference).
+    await withoutSession(() => confirmServicePaymentFromWebhook(theirs.id, String(mine.id)))
+
+    expect((await ServicePayment.withoutGlobalScopes().find(theirs.id))!.status).toBe(PaymentStatus.PENDING)
+    expect((await Tournament.withoutGlobalScopes().find(theirsId))!.paid).toBe(false)
+  })
+
+  it('ignores an approved payment that carries no external reference at all', async () => {
+    // A payment into TeamUp's account that did not come from a checkout (a
+    // payment link, a QR) vouches for no settlement. Accepting it would let
+    // anyone point `?ref=` at a pending settlement of any organization and have
+    // it approved with somebody else's payment.
+    mockMercadoPago({ paymentStatus: 'approved', externalReference: null })
+
+    const theirsId = await playPaidTournamentOf(otherOrganizationId, 2000)
+    const theirs = await checkoutFor(otherOrganizationId)
+
+    await withoutSession(() => confirmServicePaymentFromWebhook(theirs.id, '123456'))
+
+    expect((await ServicePayment.withoutGlobalScopes().find(theirs.id))!.status).toBe(PaymentStatus.PENDING)
+    expect((await Tournament.withoutGlobalScopes().find(theirsId))!.paid).toBe(false)
   })
 })

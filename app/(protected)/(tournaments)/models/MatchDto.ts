@@ -1,8 +1,10 @@
 import { SiteDto } from '@/app/(protected)/(sites)/models/SiteDto'
+import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
+import { TournamentCategoryDto } from '@/app/(protected)/(tournaments)/models/TournamentCategoryDto'
 
 export interface MatchDto {
   id: number
@@ -29,4 +31,15 @@ export interface MatchDto {
   courtNumber: number | null
   createdAt: string
   updatedAt: string
+  /**
+   * Category instance the match belongs to, with its tournament and catalogue
+   * category. Only present where the match is listed OUTSIDE a tournament it
+   * already hangs from — the head-to-head history, which mixes matches from
+   * many tournaments and has to name each one.
+   */
+  tournamentCategory?: TournamentCategoryDto
+  /** Competitor on the home side, resolved. Present alongside `tournamentCategory`. */
+  homeCompetitor?: CompetitorDto | null
+  /** Competitor on the away side, resolved. */
+  awayCompetitor?: CompetitorDto | null
 }

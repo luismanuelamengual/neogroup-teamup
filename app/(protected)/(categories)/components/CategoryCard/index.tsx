@@ -13,8 +13,8 @@ import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import MuiSkeleton from '@mui/material/Skeleton'
 import { MouseEvent, useState } from 'react'
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
+import { DisciplineNames } from '@/app/(protected)/(disciplines)/models/Discipline'
 
 interface CategoryCardProps {
   category: CategoryDto

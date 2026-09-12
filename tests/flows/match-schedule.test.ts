@@ -3,6 +3,7 @@ import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { clearMatchSchedule, setMatchSchedule } from '@/app/(protected)/(tournaments)/services/matches'
 import { Role } from '@/app/models/Role'
+import { withOrganization } from '@/app/services/organization-context'
 import {
   buildTournament,
   BuiltTournament,
@@ -48,7 +49,7 @@ describe('match scheduling', () => {
     const { built, matchId } = await buildStartedTournament()
     const siteId = await createSite(ORGANIZATION_ID, 'Club Belgrano')
 
-    await setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, built.ownerId, ORGANIZATION_ID)
+    await setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, built.ownerId)
 
     const match = await reloadMatch(matchId)
 
@@ -63,12 +64,11 @@ describe('match scheduling', () => {
     const first = await createSite(ORGANIZATION_ID, 'Club Belgrano')
     const second = await createSite(ORGANIZATION_ID, 'GEBA')
 
-    await setMatchSchedule(matchId, { siteId: first, ...VALID_SCHEDULE }, built.ownerId, ORGANIZATION_ID)
+    await setMatchSchedule(matchId, { siteId: first, ...VALID_SCHEDULE }, built.ownerId)
     await setMatchSchedule(
       matchId,
       { siteId: second, date: '2026-08-13', hour: '09:00', courtNumber: 1 },
-      built.ownerId,
-      ORGANIZATION_ID
+      built.ownerId
     )
 
     const match = await reloadMatch(matchId)
@@ -84,7 +84,7 @@ describe('match scheduling', () => {
     const siteId = await createSite(ORGANIZATION_ID)
     const before = await reloadMatch(matchId)
 
-    await setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, built.ownerId, ORGANIZATION_ID)
+    await setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, built.ownerId)
 
     const after = await reloadMatch(matchId)
 
@@ -98,8 +98,8 @@ describe('match scheduling', () => {
     const { built, matchId } = await buildStartedTournament()
     const siteId = await createSite(ORGANIZATION_ID)
 
-    await setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, built.ownerId, ORGANIZATION_ID)
-    await clearMatchSchedule(matchId, built.ownerId, ORGANIZATION_ID)
+    await setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, built.ownerId)
+    await clearMatchSchedule(matchId, built.ownerId)
 
     const match = await reloadMatch(matchId)
 
@@ -115,7 +115,7 @@ describe('match scheduling', () => {
     const foreignSiteId = await createSite(otherOrganizationId, 'Club Ajeno')
 
     await expect(
-      setMatchSchedule(matchId, { siteId: foreignSiteId, ...VALID_SCHEDULE }, built.ownerId, ORGANIZATION_ID)
+      setMatchSchedule(matchId, { siteId: foreignSiteId, ...VALID_SCHEDULE }, built.ownerId)
     ).rejects.toThrow('sede')
   })
 
@@ -125,8 +125,13 @@ describe('match scheduling', () => {
     const outsiderId = await createUser(otherOrganizationId, Role.ORGANIZER)
     const siteId = await createSite(otherOrganizationId)
 
+    // The outsider operates from their OWN organization's context, which is the
+    // shape this actually takes in production: the request arrives on their
+    // club's subdomain and carries a match id from somebody else's. The match
+    // row loads, but its tournament does not — `Tournament`'s scope sees only
+    // organization 2 — so the guard has nothing to hang the match on.
     await expect(
-      setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, outsiderId, otherOrganizationId)
+      withOrganization(otherOrganizationId, () => setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, outsiderId))
     ).rejects.toThrow('notFound')
   })
 
@@ -137,10 +142,8 @@ describe('match scheduling', () => {
 
     // Unlike setMatchResult, there is no tournament setting that lets a player
     // move their own match around: planning is the organizer's job.
-    await expect(setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, playerId, ORGANIZATION_ID)).rejects.toThrow(
-      'unauthorized'
-    )
-    await expect(clearMatchSchedule(matchId, playerId, ORGANIZATION_ID)).rejects.toThrow('unauthorized')
+    await expect(setMatchSchedule(matchId, { siteId, ...VALID_SCHEDULE }, playerId)).rejects.toThrow('unauthorized')
+    await expect(clearMatchSchedule(matchId, playerId)).rejects.toThrow('unauthorized')
   })
 
   it('rejects malformed dates, hours and court numbers', async () => {
@@ -149,21 +152,17 @@ describe('match scheduling', () => {
     const schedule = (overrides: Record<string, unknown>) => ({ siteId, ...VALID_SCHEDULE, ...overrides }) as never
 
     for (const date of ['12/08/2026', '2026-8-12', '2026-02-31', '']) {
-      await expect(setMatchSchedule(matchId, schedule({ date }), built.ownerId, ORGANIZATION_ID)).rejects.toThrow(
-        'invalidDate'
-      )
+      await expect(setMatchSchedule(matchId, schedule({ date }), built.ownerId)).rejects.toThrow('invalidDate')
     }
 
     for (const hour of ['24:00', '18:60', '8:30', '18.30']) {
-      await expect(setMatchSchedule(matchId, schedule({ hour }), built.ownerId, ORGANIZATION_ID)).rejects.toThrow(
-        'invalidHour'
-      )
+      await expect(setMatchSchedule(matchId, schedule({ hour }), built.ownerId)).rejects.toThrow('invalidHour')
     }
 
     for (const courtNumber of [0, -1, 1.5]) {
-      await expect(
-        setMatchSchedule(matchId, schedule({ courtNumber }), built.ownerId, ORGANIZATION_ID)
-      ).rejects.toThrow('invalidCourtNumber')
+      await expect(setMatchSchedule(matchId, schedule({ courtNumber }), built.ownerId)).rejects.toThrow(
+        'invalidCourtNumber'
+      )
     }
 
     // Nothing was written by any of the rejected attempts.
@@ -177,7 +176,7 @@ describe('match scheduling', () => {
     const { built, matchId } = await buildStartedTournament()
 
     await expect(
-      setMatchSchedule(matchId, { siteId: null, ...VALID_SCHEDULE } as never, built.ownerId, ORGANIZATION_ID)
+      setMatchSchedule(matchId, { siteId: null, ...VALID_SCHEDULE } as never, built.ownerId)
     ).rejects.toThrow('sede')
   })
 })

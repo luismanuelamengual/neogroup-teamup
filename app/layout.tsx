@@ -5,9 +5,9 @@ import { headers } from 'next/headers'
 import Script from 'next/script'
 import { ReactNode } from 'react'
 import { Toaster } from 'react-hot-toast'
+import { getPwaConfig } from '@/app/(pwa)/services/pwa'
 import ThemeRegistry from '@/app/components/ThemeRegistry'
 import { resolveOrganizationImage } from '@/app/services/organizations'
-import { getPwaConfig } from '@/app/services/pwa'
 
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID
 

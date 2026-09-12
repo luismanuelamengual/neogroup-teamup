@@ -25,6 +25,7 @@ import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import { useSites } from '@/app/(protected)/(sites)/hooks/useSites'
 import { DEFAULT_SITE_COURTS, MAX_SITE_COURTS, SiteData } from '@/app/(protected)/(sites)/models/SiteData'
 import { SiteDto } from '@/app/(protected)/(sites)/models/SiteDto'
+import { useMatches } from '@/app/(protected)/(tournaments)/hooks/useMatches'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -124,7 +125,8 @@ interface TournamentPlannerViewProps {
 }
 
 export default function TournamentPlannerView({ tournamentId, logoSrc }: TournamentPlannerViewProps) {
-  const { getTournament, saveMatchSchedule, clearMatchSchedule } = useTournaments()
+  const { getTournament } = useTournaments()
+  const { saveMatchSchedule, clearMatchSchedule } = useMatches()
   const { getAllSites, updateSiteData } = useSites()
   const { showWarningMessage } = useNotifications()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)

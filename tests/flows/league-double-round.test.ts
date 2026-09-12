@@ -7,7 +7,7 @@ import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { loadManageableTournament, registerCompetitor } from '@/app/(protected)/(tournaments)/services/administration'
-import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
+import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/registrations'
 import {
   buildTournament,
   BuiltTournament,

@@ -10,6 +10,7 @@ import { Ranking } from '@/app/(protected)/(rankings)/models/Ranking'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
+import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import {
@@ -221,12 +222,21 @@ describe('REGRESSION #5 — preclassification seeds must not mix across categori
       categories: [4, 4]
     })
     const [categoryAIds, categoryBIds] = [built.competitorIds.slice(0, 4), built.competitorIds.slice(4, 8)]
+    // buildTournament creates one real catalogue Category per entry in
+    // `categories` (since there is more than one here) — rankings must be
+    // tagged with the SAME catalogue categoryId as the competitor's own
+    // category or they will not count towards its seeding (see REGRESSION #7).
+    const tournamentCategories = await TournamentCategory.whereIn('id', built.categoryIds).get()
+    const catalogueCategoryIdByTournamentCategoryId = new Map(tournamentCategories.map((tc) => [tc.id, tc.categoryId]))
 
     // Give every competitor ranking points so all of them are seed-eligible, but
     // reverse the point order relative to creation order within each category so
     // sorting by points actually reshuffles them (this would catch an
     // implementation that "accidentally" keeps categories separate via id order).
-    for (const ids of [categoryAIds, categoryBIds]) {
+    for (const [categoryIndex, ids] of [categoryAIds, categoryBIds].entries()) {
+      const catalogueCategoryId =
+        catalogueCategoryIdByTournamentCategoryId.get(built.categoryIds[categoryIndex]) ?? null
+
       for (const [index, competitorId] of ids.entries()) {
         const competitor = await Competitor.withoutGlobalScopes().where('id', competitorId).first()
 
@@ -238,7 +248,7 @@ describe('REGRESSION #5 — preclassification seeds must not mix across categori
 
         Object.assign(ranking, {
           organizationId: built.tournament.organizationId,
-          categoryId: null,
+          categoryId: catalogueCategoryId,
           userId: competitor.playerIds[0],
           points: (ids.length - index) * 10,
           expirationDate: new Date('2099-01-01'),
@@ -324,5 +334,46 @@ describe('REGRESSION #6 — manually-set seeds take priority over ranking at tou
     // same number.
     expect(seeded).toHaveLength(1)
     expect(seeded[0].id).toBe(Math.min(a, b))
+  })
+})
+
+describe('REGRESSION #7 — ranking points must not leak across catalogue categories', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+  })
+
+  it('does not seed a player using points earned in a different catalogue category', async () => {
+    // Two catalogue categories (e.g. "B" and "C") — buildTournament creates one
+    // real Category per entry in `categories` whenever there is more than one.
+    const built = await buildTournament({
+      type: TournamentType.PLAYOFF,
+      scoreFormat: ScoreFormat.BASIC_COUNT,
+      categories: [4, 4]
+    })
+    const [, categoryCTournamentCategoryId] = built.categoryIds
+    const categoryC = await TournamentCategory.where('id', categoryCTournamentCategoryId).first()
+    const categoryBIds = built.competitorIds.slice(0, 4)
+    // The player registered in category B was champion of category C last
+    // season and has 100 ranking points there — but zero in B.
+    const competitorB = await Competitor.withoutGlobalScopes().where('id', categoryBIds[0]).first()
+    const ranking = new Ranking()
+
+    Object.assign(ranking, {
+      organizationId: built.tournament.organizationId,
+      categoryId: categoryC!.categoryId,
+      userId: competitorB!.playerIds[0],
+      points: 100,
+      expirationDate: new Date('2099-01-01'),
+      createdAt: new Date()
+    })
+    await ranking.save()
+
+    await start(built)
+
+    const seededCompetitorB = await Competitor.withoutGlobalScopes().where('id', categoryBIds[0]).first()
+
+    // Zero points in category B's own catalogue category → no seed there,
+    // regardless of how strong the player is in category C.
+    expect(seededCompetitorB!.seedNumber).toBeNull()
   })
 })

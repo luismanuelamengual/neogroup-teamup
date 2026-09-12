@@ -33,6 +33,8 @@ import dayjs from 'dayjs'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { DisciplineNames } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { SubDisciplineNames } from '@/app/(protected)/(disciplines)/models/SubDiscipline'
 import CompetitorsList from '@/app/(protected)/(tournaments)/components/CompetitorsList'
 import EditTournamentDialog from '@/app/(protected)/(tournaments)/components/EditTournamentDialog'
 import JoinTournamentDialog from '@/app/(protected)/(tournaments)/components/JoinTournamentDialog'
@@ -41,14 +43,13 @@ import MyTeamSection from '@/app/(protected)/(tournaments)/components/MyTeamSect
 import ScoreDialog from '@/app/(protected)/(tournaments)/components/ScoreDialog'
 import StatusChip from '@/app/(protected)/(tournaments)/components/StatusChip'
 import TournamentRoundsView from '@/app/(protected)/(tournaments)/components/TournamentRoundsView'
+import { useMatches } from '@/app/(protected)/(tournaments)/hooks/useMatches'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
-import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { ScoreFormatNames } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
-import { SubDisciplineNames } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
@@ -71,8 +72,8 @@ interface TournamentViewProps {
 }
 
 export default function TournamentView({ tournamentId, appUrl, isOrganizer }: TournamentViewProps) {
-  const { closeGroupPhase, finishTournament, getTournament, leaveTournament, saveMatchResult, startTournament } =
-    useTournaments()
+  const { closeGroupPhase, finishTournament, getTournament, leaveTournament, startTournament } = useTournaments()
+  const { saveMatchResult } = useMatches()
   const router = useRouter()
   const searchParams = useSearchParams()
   const joinLinkHandled = useRef(false)

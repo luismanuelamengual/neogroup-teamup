@@ -11,7 +11,8 @@ import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/Tourn
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
-import { createPreference, getPaymentInfo, isSandbox } from '@/app/services/mercadopago'
+import { createPreference, getPaymentInfo, isSandbox, MpPaymentResponse } from '@/app/services/mercadopago'
+import { getCurrentOrganizationId, withOrganization } from '@/app/services/organization-context'
 
 /**
  * Settlement of TeamUp's service fee.
@@ -165,22 +166,23 @@ async function countPlayedCompetitors(tournamentIds: number[]): Promise<Map<numb
  * that already started and are not settled yet, with the amount each one owes
  * and the total.
  */
-export async function getPendingPayments(organizationId: number): Promise<PendingPaymentsDto> {
+export async function getPendingPayments(): Promise<PendingPaymentsDto> {
   // Read the model directly rather than through the cached `getOrganization`
   // helper: that one wraps its reads in Next.js' `unstable_cache`, which needs a
   // real request/build context and throws outside of one — and this service also
-  // runs from the webhook and from the test suite. Same trade-off as
-  // `getEnabledDisciplines`.
-  const organization = await Organization.where('id', organizationId).first()
+  // runs from the test suite. Same trade-off as `getDisciplines`.
+  //
+  // `Organization` carries no OrganizationScope of its own — it IS the tenant
+  // table — so the id comes from the current operation's context explicitly.
+  // The tournaments below need no such thing: their own scope pins them.
+  const organization = await Organization.where('id', await getCurrentOrganizationId()).first()
 
   if (!organization) {
     throw new ApiException('Organización no encontrada', 404)
   }
 
   const serviceFeePercentage = organization.serviceFeePercentage ?? 0
-  const candidates = await Tournament.withoutGlobalScopes()
-    .where('organizationId', organizationId)
-    .where('paid', false)
+  const candidates = await Tournament.where('paid', false)
     .whereNotNull('entryFee')
     .where('entryFee', '>', 0)
     // Only tournaments that already started: while one is in STAND_BY its roster
@@ -248,14 +250,13 @@ export async function getPendingPayments(organizationId: number): Promise<Pendin
  * OVERDUE_MONTHS ago. Used to block the creation of new tournaments and to
  * raise the reminder banner on the home dashboards.
  */
-export async function hasOverdueDebt(organizationId: number): Promise<boolean> {
-  const { overdueCount } = await getPendingPayments(organizationId)
+export async function hasOverdueDebt(): Promise<boolean> {
+  const { overdueCount } = await getPendingPayments()
 
   return overdueCount > 0
 }
 
 export interface CreateServicePaymentInput {
-  organizationId: number
   /** User starting the checkout (organizer or administrator). */
   userId: number
   /** Origin used to build the back URLs (e.g. https://club.teamup.ar). */
@@ -275,8 +276,8 @@ export interface CreateServicePaymentInput {
  * simply billed in the next settlement.
  */
 export async function createServicePayment(input: CreateServicePaymentInput): Promise<ServicePayment> {
-  const { organizationId, userId, origin } = input
-  const pending = await getPendingPayments(organizationId)
+  const { userId, origin } = input
+  const pending = await getPendingPayments()
 
   if (pending.tournaments.length === 0 || pending.amount <= 0) {
     throw new ApiException('No hay torneos pendientes de pago')
@@ -285,7 +286,9 @@ export async function createServicePayment(input: CreateServicePaymentInput): Pr
   const now = new Date()
   const payment = new ServicePayment()
 
-  payment.organizationId = organizationId
+  // An insert applies no scopes, so this is the one place the organization is
+  // written rather than filtered by.
+  payment.organizationId = await getCurrentOrganizationId()
   payment.userId = userId
   payment.tournamentIds = pending.tournaments.map((tournament) => tournament.id)
   payment.competitorsCount = pending.competitorsCount
@@ -334,15 +337,44 @@ export async function createServicePayment(input: CreateServicePaymentInput): Pr
 }
 
 /**
+ * Status of one of the organization's settlements, or null when it has none by
+ * that id. Polled by the "Pagos" page after returning from the checkout, until
+ * the webhook confirms the payment.
+ *
+ * A settlement of another organization answers null, same as a missing one:
+ * `ServicePayment`'s own scope pins the lookup, so there is no filter to forget.
+ */
+export async function getServicePaymentStatus(paymentId: number): Promise<PaymentStatus | null> {
+  const payment = await ServicePayment.find(paymentId)
+
+  return payment?.status ?? null
+}
+
+/**
  * Confirms (or rejects) a settlement from a Mercado Pago webhook notification.
  *
  * Idempotent: re-deliveries of an already-approved settlement are no-ops. When
  * approved, every tournament the settlement covers is marked as paid inside a
  * transaction, so the settlement and the tournaments it clears can never
  * disagree.
+ *
+ * **The one caller with no organization in context.** The webhook has no
+ * session and no subdomain, and `paymentRowId` is whatever `?ref=` said — so
+ * nothing here authenticates a tenant. The row is therefore read across every
+ * organization on purpose (`withoutGlobalScopes`), and its organization is
+ * only taken as the one this notification acts for once Mercado Pago vouched
+ * for the pairing (the external reference check below). Everything after that
+ * runs inside `withOrganization(payment.organizationId)`, so any scoped query
+ * added to this flow later is pinned to the settlement's own organization
+ * instead of failing for want of one.
+ *
+ * Mind what that context is and is not: it is *derived from the row*, not
+ * proven by the caller, so it does not isolate this endpoint by itself. What
+ * keeps one organization from settling another's debt through here is the
+ * webhook signature and the external reference check.
  */
 export async function confirmServicePaymentFromWebhook(paymentRowId: number, mpPaymentId: string): Promise<void> {
-  const payment = await ServicePayment.find(paymentRowId)
+  const payment = await ServicePayment.withoutGlobalScopes().find(paymentRowId)
 
   if (!payment || payment.status === PaymentStatus.APPROVED) {
     return
@@ -351,10 +383,22 @@ export async function confirmServicePaymentFromWebhook(paymentRowId: number, mpP
   const mpPayment = await getPaymentInfo(mpPaymentId)
 
   // Guard against spoofed notifications: the payment must reference this row.
-  if (mpPayment.external_reference && mpPayment.external_reference !== String(payment.id)) {
+  // A missing reference is no exception — every checkout we open sets one, so a
+  // payment without it (a payment link, a QR into TeamUp's account) vouches for
+  // no settlement at all, and letting it through would approve whichever one
+  // `?ref=` pointed at, of any organization.
+  if (mpPayment.external_reference !== String(payment.id)) {
     return
   }
 
+  await withOrganization(payment.organizationId, () => applyMercadoPagoPayment(payment, mpPayment))
+}
+
+/**
+ * Moves a settlement to whatever state its Mercado Pago payment is in. Runs
+ * inside the settlement's organization (see `confirmServicePaymentFromWebhook`).
+ */
+async function applyMercadoPagoPayment(payment: ServicePayment, mpPayment: MpPaymentResponse): Promise<void> {
   payment.mpPaymentId = String(mpPayment.id)
   payment.updatedAt = new Date()
 
@@ -383,6 +427,9 @@ export async function confirmServicePaymentFromWebhook(paymentRowId: number, mpP
     const now = new Date()
 
     if (payment.tournamentIds.length > 0) {
+      // A raw query-builder update applies no global scopes, so the organization
+      // filter is written by hand: a snapshot must never clear a tournament of
+      // another organization, however its ids got there.
       await DB.table('tournaments')
         .where('organizationId', payment.organizationId)
         .whereIn('id', payment.tournamentIds)

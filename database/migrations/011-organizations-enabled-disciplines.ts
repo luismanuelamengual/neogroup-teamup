@@ -1,9 +1,9 @@
 import { Schema } from '@neogroup/neorm'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 
 /**
  * Adds `organizations.enabledDisciplines`: the subset of the Discipline catalogue
- * (see app/(protected)/(tournaments)/models/Discipline.ts) that an organization
+ * (see app/(protected)/(disciplines)/models/Discipline.ts) that an organization
  * actually offers. Every discipline-listing screen (categories, rankings,
  * tournament form) filters its options against this instead of showing the
  * full catalogue, so an organization that only runs one discipline never sees

@@ -9,8 +9,25 @@
  * the tests need. Both the sandbox loader and vitest.config.ts alias the auth
  * service to this file.
  */
-export const getSession = async () => null
-export const auth = async () => null
+/**
+ * The session the stub hands out. Null by default, which is what every test
+ * that does not care about the organization relies on: OrganizationScope (and
+ * any service resolving the organization by hand) then applies no filter at
+ * all, the same way it behaves in scripts and seeds.
+ *
+ * A test that DOES exercise organization scoping signs in with
+ * `setTestSession` and MUST clear it again in an afterEach — test files share
+ * one process (fileParallelism is off), so a session left behind would start
+ * filtering everybody else's queries.
+ */
+let testSession: { user: { id: number; organizationId: number } } | null = null
+
+export const setTestSession = (session: typeof testSession) => {
+  testSession = session
+}
+
+export const getSession = async () => testSession
+export const auth = async () => testSession
 export const signIn = async () => undefined
 export const signOut = async () => undefined
 export const unstable_update = async () => undefined

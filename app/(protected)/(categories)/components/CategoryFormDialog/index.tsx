@@ -8,10 +8,10 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import TextField from '@mui/material/TextField'
 import { FormEvent, useEffect, useState } from 'react'
-import { useManagedCategories } from '@/app/(protected)/(categories)/hooks/useManagedCategories'
-import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { useCategories } from '@/app/(protected)/(categories)/hooks/useCategories'
+import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
+import DisciplineSelector from '@/app/(protected)/(disciplines)/components/DisciplineSelector'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import { useNotifications } from '@/app/hooks/useNotifications'
 
 interface CategoryFormDialogProps {
@@ -23,7 +23,7 @@ interface CategoryFormDialogProps {
 }
 
 export default function CategoryFormDialog({ open, category, onClose, onSaved }: CategoryFormDialogProps) {
-  const { createCategory, updateCategory } = useManagedCategories()
+  const { createCategory, updateCategory } = useCategories()
   const { showSuccessMessage } = useNotifications()
   const isEdit = !!category
   const [name, setName] = useState('')

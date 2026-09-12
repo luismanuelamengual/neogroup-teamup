@@ -1,11 +1,13 @@
 import { DB } from '@neogroup/neorm'
+import { validateCategoryIds } from '@/app/(protected)/(categories)/services/categories'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { getDisciplines } from '@/app/(protected)/(disciplines)/services/disciplines'
 import { hasOverdueDebt } from '@/app/(protected)/(payments)/services/payments'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
-import { Site } from '@/app/(protected)/(sites)/models/Site'
+import { resolveSiteId } from '@/app/(protected)/(sites)/services/sites'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { CreateTournamentInput } from '@/app/(protected)/(tournaments)/models/CreateTournamentInput'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -17,9 +19,8 @@ import { TournamentImage } from '@/app/(protected)/(tournaments)/models/Tourname
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { validateCategoryIds } from '@/app/(protected)/(tournaments)/services/categories'
-import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
+import { getChampionCompetitorId } from '@/app/(protected)/(tournaments)/utils/champion'
 import { isPlayableMatch } from '@/app/(protected)/(tournaments)/utils/matches'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
 import {
@@ -37,6 +38,7 @@ import {
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
+import { getCurrentOrganizationId, withOrganization } from '@/app/services/organization-context'
 
 export interface TournamentOptions {
   id?: number
@@ -97,43 +99,12 @@ export async function getTournament(options: TournamentOptions = {}): Promise<To
 }
 
 /**
- * Resolves the venue a tournament is played at.
- *
- * Sites belong to the catalogue the administrator maintains (/sites ABM), so an
- * id that is not one of the organization's sites is rejected rather than
- * silently stored. `null` / undefined means "no venue", which stays valid.
- */
-export async function resolveSiteId(organizationId: number, siteId: unknown): Promise<number | null> {
-  if (siteId === undefined || siteId === null || siteId === '') {
-    return null
-  }
-
-  const id = Number(siteId)
-
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new ApiException('La sede seleccionada no es válida')
-  }
-
-  const site = await Site.where('organizationId', organizationId).where('id', id).first()
-
-  if (!site) {
-    throw new ApiException('La sede seleccionada no es válida')
-  }
-
-  return site.id
-}
-
-/**
  * Creates a new tournament (in STAND_BY status) owned by `userId` inside
  * `organizationId`, from the organizer-provided input. Validates the input and
  * the referenced catalogue rows (site, categories), materialises the category
  * instances and stores the optional poster image. Returns the new tournament id.
  */
-export async function createTournament(
-  input: CreateTournamentInput,
-  userId: number,
-  organizationId: number
-): Promise<{ id: number }> {
+export async function createTournament(input: CreateTournamentInput, userId: number): Promise<{ id: number }> {
   const name = input.name?.trim() ?? ''
 
   if (!name || !input.discipline || !input.type || !input.scoreFormat) {
@@ -150,7 +121,7 @@ export async function createTournament(
     throw new ApiException('La fecha de inicio de inscripciones no puede ser posterior a la fecha de inicio del torneo')
   }
 
-  const enabledDisciplines = await getEnabledDisciplines(organizationId)
+  const enabledDisciplines = await getDisciplines()
 
   if (!enabledDisciplines.includes(input.discipline)) {
     throw new ApiException('La disciplina seleccionada no está habilitada para esta organización')
@@ -162,7 +133,7 @@ export async function createTournament(
 
   // A tournament cannot be created while the organization owes TeamUp for
   // tournaments that finished more than two months ago.
-  if (await hasOverdueDebt(organizationId)) {
+  if (await hasOverdueDebt()) {
     throw new ApiException(
       'Tenés torneos con más de dos meses sin abonar. Regularizá los pagos pendientes para poder crear nuevos torneos'
     )
@@ -198,15 +169,16 @@ export async function createTournament(
 
   const subDiscipline = input.discipline === Discipline.TENNIS && !isInterclubs ? (input.subDiscipline ?? null) : null
   const pickedCategoryIds = normalizeCategoryIds(input.categoryIds)
-  const categoryIds = pickedCategoryIds
-    ? await validateCategoryIds(organizationId, input.discipline, pickedCategoryIds)
-    : null
-  const siteId = await resolveSiteId(organizationId, input.siteId)
+  const categoryIds = pickedCategoryIds ? await validateCategoryIds(input.discipline, pickedCategoryIds) : null
+  const siteId = await resolveSiteId(input.siteId)
   const entryFee = input.entryFee && input.entryFee > 0 ? input.entryFee : null
   // A paid tournament (entryFee set) whose organization charges no service fee
   // (serviceFeePercentage === 0) owes TeamUp nothing, ever — so it is created
   // already settled instead of sitting as a false pending payment.
   let paid = false
+  // `Organization` carries no OrganizationScope of its own — it IS the tenant
+  // table — so the id comes from the current operation's context explicitly.
+  const organizationId = await getCurrentOrganizationId()
 
   if (entryFee !== null) {
     const organization = await Organization.where('id', organizationId).first()
@@ -371,7 +343,7 @@ export async function startTournament(tournament: Tournament): Promise<void> {
     // Auto-assign preclassification seeds from ranking when the tournament type
     // supports it (Playoff, Groups+Playoff, Playoff with consolation).
     if (supportsPreclassification(tournament.type)) {
-      await autoAssignPreclassification(allCompetitors, tournament.organizationId)
+      await autoAssignPreclassification(allCompetitors, categories)
     }
 
     tournament.status = TournamentStatus.ONGOING
@@ -409,12 +381,55 @@ export async function finishTournament(tournament: Tournament): Promise<void> {
     tournament.status = TournamentStatus.FINISHED
     tournament.updatedAt = new Date()
     await tournament.save()
-    await awardRankingPoints(tournament.id)
+
+    // Hydrated once and shared: awarding the points and settling each category's
+    // champion both replay the same competitors and matches, and this whole
+    // transaction runs against the cron's 10s budget.
+    const finishedTournament = await getTournament({
+      id: tournament.id,
+      withCompetitors: true,
+      withMatches: true
+    })
+
+    if (finishedTournament) {
+      await awardRankingPoints(finishedTournament)
+      await persistCategoryChampions(finishedTournament)
+    }
+
     // After the awards, which read the tournament's matches back. Voided
     // fixtures never counted towards anything, so this changes no placement —
     // it only stops them from lingering as rows nobody will ever look at.
     await deleteVoidedFixtures(tournament)
   })
+}
+
+/**
+ * Writes each category's `championCompetitorId`, the value the home dashboard
+ * counts titles with.
+ *
+ * Called once, from inside the finalisation transaction, because that is the
+ * last moment the result can change: a FINISHED tournament accepts no further
+ * results (`setMatchResult` requires ONGOING), so the champion is settled for
+ * good. Categories whose final never got played keep a null champion.
+ *
+ * A category whose structure the podium engine cannot make sense of is logged
+ * and skipped rather than aborting the finalisation — the tournament being
+ * closed matters more than one cached number.
+ */
+async function persistCategoryChampions(tournament: Tournament): Promise<void> {
+  for (const category of tournament.categories ?? []) {
+    try {
+      const championCompetitorId = getChampionCompetitorId(tournament, category.id)
+
+      if (championCompetitorId != null) {
+        category.championCompetitorId = championCompetitorId
+        await category.save()
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`[tournaments] Failed to resolve the champion of category ${category.id}:`, error)
+    }
+  }
 }
 
 /**
@@ -521,12 +536,19 @@ export async function processTournaments(): Promise<ProcessTournamentsResult> {
 
   for (const tournament of ongoingTournaments) {
     try {
-      if (await isTournamentComplete(tournament)) {
-        await finishTournament(tournament)
-        result.finished.push(tournament.id)
-        // eslint-disable-next-line no-console
-        console.log(`[processTournaments] Finished tournament ${tournament.id} (${tournament.name})`)
-      }
+      // The cron has no signed-in user, so it says which organization each
+      // tournament belongs to instead: everything under here — including the
+      // organization-scoped models the finalisation reads — is answered for
+      // that tenant and no other. Without it the scope would find nothing to
+      // filter by and quietly span the whole database.
+      await withOrganization(tournament.organizationId, async () => {
+        if (await isTournamentComplete(tournament)) {
+          await finishTournament(tournament)
+          result.finished.push(tournament.id)
+          // eslint-disable-next-line no-console
+          console.log(`[processTournaments] Finished tournament ${tournament.id} (${tournament.name})`)
+        }
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
 

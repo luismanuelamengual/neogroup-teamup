@@ -24,6 +24,7 @@ import Link from 'next/link'
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import { useSites } from '@/app/(protected)/(sites)/hooks/useSites'
+import { useMatches } from '@/app/(protected)/(tournaments)/hooks/useMatches'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { MatchSide, MatchSideNames } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
@@ -142,7 +143,8 @@ interface InterclubsPlannerViewProps {
 }
 
 export default function InterclubsPlannerView({ tournamentId, logoSrc }: InterclubsPlannerViewProps) {
-  const { getTournament, saveMatchSchedule, clearMatchSchedule } = useTournaments()
+  const { getTournament } = useTournaments()
+  const { saveMatchSchedule, clearMatchSchedule } = useMatches()
   const { getAllSites } = useSites()
   const { showWarningMessage } = useNotifications()
   const [tournament, setTournament] = useState<TournamentDto | null>(null)

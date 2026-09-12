@@ -21,7 +21,7 @@ export class Organization extends BaseEntity {
   allowedRegistrationRoles!: number[]
 
   /**
-   * Disciplines (see app/(protected)/(tournaments)/models/Discipline.ts) the
+   * Disciplines (see app/(protected)/(disciplines)/models/Discipline.ts) the
    * organization offers. Every screen that lists disciplines — category and
    * tournament forms, ranking filters — only shows the ones in this array.
    * Defaults to every discipline that exists today (padel and tennis).

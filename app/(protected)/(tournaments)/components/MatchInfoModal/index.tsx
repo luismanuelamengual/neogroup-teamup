@@ -3,6 +3,8 @@
 import './index.scss'
 import 'dayjs/locale/es'
 import CloseIcon from '@mui/icons-material/Close'
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
+import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
@@ -11,31 +13,24 @@ import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import dayjs from 'dayjs'
+import { useRouter } from 'next/navigation'
 import { Fragment, useEffect, useState } from 'react'
+import { buildHeadToHeadPath } from '@/app/(protected)/(head-to-head)/utils/headToHead'
 import { useSites } from '@/app/(protected)/(sites)/hooks/useSites'
 import SuperTiebreakValue from '@/app/(protected)/(tournaments)/components/SuperTiebreakValue'
 import { CompetitorDto } from '@/app/(protected)/(tournaments)/models/CompetitorDto'
 import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
-import { MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
+import { getMatchStageName } from '@/app/(protected)/(tournaments)/utils/matches'
 import {
   formatScore,
   getScoreColumns,
   getSeriesMatchesWon,
   isSeriesScore
 } from '@/app/(protected)/(tournaments)/utils/score'
-
-/** Spanish name of a knockout stage, from its distance to the final. */
-const BRACKET_INSTANCE_NAMES: Record<number, string> = {
-  1: 'Final',
-  2: 'Semifinal',
-  3: 'Cuartos de final',
-  4: 'Octavos de final',
-  5: 'Dieciseisavos de final'
-}
 
 interface MatchInfoModalProps {
   open: boolean
@@ -52,6 +47,7 @@ interface MatchInfoModalProps {
  * part is which players took the court in each of them and how those went.
  */
 export default function MatchInfoModal({ open, tournament, match, onClose }: MatchInfoModalProps) {
+  const router = useRouter()
   const { getAllSites } = useSites()
   const [siteNames, setSiteNames] = useState<Record<number, string>>({})
   const competitorsById = new Map((tournament.competitors ?? []).map((competitor) => [competitor.id, competitor]))
@@ -87,6 +83,11 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
 
   const homeTeam = match.homeCompetitorId != null ? competitorsById.get(match.homeCompetitorId) : undefined
   const awayTeam = match.awayCompetitorId != null ? competitorsById.get(match.awayCompetitorId) : undefined
+  // The head-to-head compares the two sides as PLAYERS across every tournament
+  // of the organization, so it only exists once both of them are known — a bye,
+  // a voided slot or a "to be defined" bracket placeholder has nobody to
+  // compare against, and gets no link.
+  const headToHeadPath = buildHeadToHeadPath(homeTeam, awayTeam)
 
   const sideName = (id: number | null): string => {
     if (id == null) {
@@ -101,21 +102,6 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
     const player = index >= 0 ? competitor?.players?.[index] : undefined
 
     return player?.displayName || `#${playerId}`
-  }
-
-  const stageName = (): string => {
-    if (match.type === MatchType.BRACKET || match.type === MatchType.CONSOLATION_BRACKET) {
-      const stage = match.bracketInstance ? BRACKET_INSTANCE_NAMES[match.bracketInstance] : null
-      const prefix = match.type === MatchType.CONSOLATION_BRACKET ? 'Consuelo · ' : ''
-
-      return `${prefix}${stage ?? `Ronda ${match.roundNumber}`}`
-    }
-
-    if (match.groupNumber != null) {
-      return `Zona ${match.groupNumber + 1} · Fecha ${match.roundNumber}`
-    }
-
-    return `Fecha ${match.roundNumber}`
   }
 
   const series = isSeriesScore(match.score) ? (match.score?.matches ?? []) : []
@@ -164,7 +150,7 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
       </DialogTitle>
       <DialogContent className="match-info-modal-content">
         <div className="stage">
-          <Chip size="small" label={stageName()} />
+          <Chip size="small" label={getMatchStageName(match)} />
           {match.status === MatchStatus.PENDING && <Chip size="small" variant="outlined" label="Pendiente" />}
           {match.status === MatchStatus.WALKOVER && <Chip size="small" color="warning" label="W.O." />}
         </div>
@@ -283,6 +269,26 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
           <Typography variant="body2" color="text.secondary">
             El encuentro se resolvió sin jugarse.
           </Typography>
+        )}
+
+        {/* The way out of this match and into the whole story between these two.
+            Closing the dialog on the way is deliberate: it is a navigation, and
+            a dialog left open behind the new page would still be there when the
+            visitor comes back. */}
+        {headToHeadPath && (
+          <div className="head-to-head-action">
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<CompareArrowsIcon />}
+              onClick={() => {
+                onClose()
+                router.push(headToHeadPath)
+              }}
+            >
+              Ver head to head
+            </Button>
+          </div>
         )}
       </DialogContent>
     </Dialog>

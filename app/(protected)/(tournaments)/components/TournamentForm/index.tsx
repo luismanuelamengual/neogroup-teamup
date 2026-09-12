@@ -27,6 +27,11 @@ import { Dayjs } from 'dayjs'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useEffect, useState } from 'react'
 import CategorySelector from '@/app/(protected)/(categories)/components/CategorySelector'
+import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
+import DisciplineSelector from '@/app/(protected)/(disciplines)/components/DisciplineSelector'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(disciplines)/models/SubDiscipline'
+import { isDoublesDiscipline } from '@/app/(protected)/(disciplines)/utils/disciplines'
 import {
   getDefaultRankingSettings,
   getRankingScheme,
@@ -38,19 +43,14 @@ import {
   RankingSettings
 } from '@/app/(protected)/(rankings)/models/RankingSettings'
 import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
-import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
 import TournamentImageField from '@/app/(protected)/(tournaments)/components/TournamentImageField'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { DEFAULT_PLAYOFF_SETTINGS, PlayoffSettings } from '@/app/(protected)/(tournaments)/models/PlayoffSettings'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
-import { SubDiscipline, SubDisciplineNames, SubDisciplines } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { TournamentType, TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { isDoublesDiscipline } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { useOrganizationStore } from '@/app/(protected)/stores/organization'
 
 export default function TournamentForm() {

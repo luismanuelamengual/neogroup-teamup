@@ -5,12 +5,12 @@ import { JoinTournamentInput } from '@/app/(protected)/(tournaments)/models/Join
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import {
   buildSiteLabels,
   INTERCLUBS_MIN_TEAM_PLAYERS,
   LabelableTeam
 } from '@/app/(protected)/(tournaments)/utils/interclubs'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/registrations'
 import { isRegistrationOpen } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'
@@ -103,7 +103,7 @@ export async function resolveRegistration(
 
   if (registersAsTeam(tournament.type)) {
     const playerIds = await resolveTeamRoster(user.id, mates, competitors)
-    const data = await resolveTeamData(tournament.organizationId, input.siteId)
+    const data = await resolveTeamData(input.siteId)
 
     return { targetCategory, playerIds, data }
   }
@@ -169,14 +169,14 @@ export async function resolveTeamRoster(
 }
 
 /** Validates the venue an interclubes team represents and wraps it as competitor data. */
-export async function resolveTeamData(organizationId: number, siteId: unknown): Promise<CompetitorData> {
+export async function resolveTeamData(siteId: unknown): Promise<CompetitorData> {
   const id = Number(siteId)
 
   if (!Number.isInteger(id) || id <= 0) {
     throw new ApiException('La sede del equipo es requerida')
   }
 
-  const site = await Site.where('organizationId', organizationId).where('id', id).first()
+  const site = await Site.where('id', id).first()
 
   if (!site) {
     throw new ApiException('La sede seleccionada no es válida')

@@ -1,10 +1,10 @@
+import { resolveSiteId } from '@/app/(protected)/(sites)/services/sites'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchScheduleInput } from '@/app/(protected)/(tournaments)/models/MatchScheduleInput'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { resolveSiteId } from '@/app/(protected)/(tournaments)/services/tournaments'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
 import { getScoreWinner, isValidScore, normalizeScore } from '@/app/(protected)/(tournaments)/utils/score'
 import { progressTournamentAfterResult } from '@/app/(protected)/(tournaments)/utils/tournaments'
@@ -179,11 +179,16 @@ export async function setMatchResult(matchId: number, score: MatchScore, userId:
  * must also belong to a tournament of the caller's own organization, so a
  * crafted id from another club is rejected rather than silently scheduled.
  */
-async function loadMatchForScheduling(matchId: number, userId: number, organizationId: number): Promise<Match> {
+async function loadMatchForScheduling(matchId: number, userId: number): Promise<Match> {
   const match = await Match.where('id', matchId).with('tournamentCategory.tournament').first()
   const tournament = match?.tournamentCategory?.tournament ?? null
 
-  if (!match || !tournament || tournament.organizationId !== organizationId) {
+  // A null tournament is what rejects a match of another club. `Match` carries
+  // no organization scope of its own — it has no organizationId column — but the
+  // eager-loaded `tournament` goes through `Tournament`'s, so a match outside
+  // this organization loads with nothing hanging off it. That is the
+  // organization check; there is no separate comparison to make.
+  if (!match || !tournament) {
     throw new ApiException('notFound', 404)
   }
 
@@ -223,13 +228,8 @@ function isValidScheduleDate(value: unknown): value is string {
  * result is loaded, and a played match can still be corrected afterwards
  * (e.g. recording the court a finished match was actually played on).
  */
-export async function setMatchSchedule(
-  matchId: number,
-  schedule: MatchScheduleInput,
-  userId: number,
-  organizationId: number
-): Promise<void> {
-  const match = await loadMatchForScheduling(matchId, userId, organizationId)
+export async function setMatchSchedule(matchId: number, schedule: MatchScheduleInput, userId: number): Promise<void> {
+  const match = await loadMatchForScheduling(matchId, userId)
 
   if (!isValidScheduleDate(schedule.date)) {
     throw new ApiException('invalidDate')
@@ -248,7 +248,7 @@ export async function setMatchSchedule(
   // A match is always planned somewhere, so unlike the tournament's own site
   // this one cannot be left empty. resolveSiteId additionally rejects an id
   // that is not part of this organization's catalogue.
-  const siteId = await resolveSiteId(organizationId, schedule.siteId)
+  const siteId = await resolveSiteId(schedule.siteId)
 
   if (siteId === null) {
     throw new ApiException('La sede seleccionada no es válida')
@@ -267,8 +267,8 @@ export async function setMatchSchedule(
  * (its state before it was ever planned). Organizer-only, same as
  * setMatchSchedule.
  */
-export async function clearMatchSchedule(matchId: number, userId: number, organizationId: number): Promise<void> {
-  const match = await loadMatchForScheduling(matchId, userId, organizationId)
+export async function clearMatchSchedule(matchId: number, userId: number): Promise<void> {
+  const match = await loadMatchForScheduling(matchId, userId)
 
   match.siteId = null
   match.date = null

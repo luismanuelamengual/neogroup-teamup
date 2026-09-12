@@ -1,5 +1,6 @@
 import { BaseEntity, BelongsTo, BelongsToThrough, Column, Entity } from '@neogroup/neorm'
 import { Site } from '@/app/(protected)/(sites)/models/Site'
+import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { MatchScore } from '@/app/(protected)/(tournaments)/models/MatchScore'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -98,6 +99,18 @@ export class Match extends BaseEntity {
 
   @BelongsTo(() => TournamentCategory, 'tournamentCategoryId')
   tournamentCategory?: TournamentCategory
+
+  /**
+   * The competitors on each side, resolved from the ids. Only eager-loaded
+   * where a caller needs the ROSTER behind a side rather than just its name —
+   * the head-to-head listing, which has to tell which of the two sides it was
+   * asked about played at home in each match.
+   */
+  @BelongsTo(() => Competitor, 'homeCompetitorId')
+  homeCompetitor?: Competitor
+
+  @BelongsTo(() => Competitor, 'awayCompetitorId')
+  awayCompetitor?: Competitor
 
   /** Resolved venue, eager-loaded alongside the tournament's matches. */
   @BelongsTo(() => Site, 'siteId')

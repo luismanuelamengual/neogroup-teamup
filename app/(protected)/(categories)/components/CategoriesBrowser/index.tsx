@@ -15,10 +15,10 @@ import TextField from '@mui/material/TextField'
 import { useCallback, useEffect, useState } from 'react'
 import CategoryCard, { CategoryCardSkeleton } from '@/app/(protected)/(categories)/components/CategoryCard'
 import CategoryFormDialog from '@/app/(protected)/(categories)/components/CategoryFormDialog'
-import { useManagedCategories } from '@/app/(protected)/(categories)/hooks/useManagedCategories'
-import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
-import { CategoryDto } from '@/app/(protected)/(tournaments)/models/CategoryDto'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { useCategories } from '@/app/(protected)/(categories)/hooks/useCategories'
+import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
+import DisciplineSelector from '@/app/(protected)/(disciplines)/components/DisciplineSelector'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import MessagePanel from '@/app/components/MessagePanel'
 import { useDebouncedValue } from '@/app/hooks/useDebouncedValue'
 import { useLoadingData } from '@/app/hooks/useLoadingData'
@@ -30,7 +30,7 @@ type DisciplineFilter = Discipline | 'all'
 
 /** Categories ABM of the organization: search, create, edit and delete. */
 export default function CategoriesBrowser() {
-  const { getManagedCategories, deleteCategory } = useManagedCategories()
+  const { getCategories, deleteCategory } = useCategories()
   const { showSuccessMessage } = useNotifications()
   const [queryInput, setQueryInput] = useState('')
   const debouncedQuery = useDebouncedValue(queryInput)
@@ -51,7 +51,7 @@ export default function CategoriesBrowser() {
   }, [debouncedQuery, disciplineFilter])
 
   const { loading } = useLoadingData(async () => {
-    const { data, lastPage } = await getManagedCategories({
+    const { data, lastPage } = await getCategories({
       query: debouncedQuery.trim(),
       discipline: disciplineFilter === 'all' ? null : disciplineFilter,
       page,

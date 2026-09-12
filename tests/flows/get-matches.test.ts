@@ -70,14 +70,12 @@ describe('getMatches', () => {
     await setMatchSchedule(
       allMatches[0]!.id,
       { siteId, date: '2026-08-12', hour: '10:00', courtNumber: 1 },
-      built.ownerId,
-      ORGANIZATION_ID
+      built.ownerId
     )
     await setMatchSchedule(
       allMatches[1]!.id,
       { siteId, date: '2026-09-01', hour: '10:00', courtNumber: 1 },
-      built.ownerId,
-      ORGANIZATION_ID
+      built.ownerId
     )
 
     const inWindow = await getMatches({
@@ -141,8 +139,7 @@ describe('getMatches', () => {
     await setMatchSchedule(
       allMatches[0]!.id,
       { siteId, date: '2026-08-12', hour: '10:00', courtNumber: 1 },
-      built.ownerId,
-      ORGANIZATION_ID
+      built.ownerId
     )
 
     const [match] = await getMatches({
@@ -169,14 +166,12 @@ describe('getMatches', () => {
     await setMatchSchedule(
       allMatches[0]!.id,
       { siteId, date: '2026-08-13', hour: '09:00', courtNumber: 1 },
-      built.ownerId,
-      ORGANIZATION_ID
+      built.ownerId
     )
     await setMatchSchedule(
       allMatches[1]!.id,
       { siteId, date: '2026-08-12', hour: '18:00', courtNumber: 1 },
-      built.ownerId,
-      ORGANIZATION_ID
+      built.ownerId
     )
 
     const matches = await getMatches({ tournamentCategoryId: built.categoryIds[0] })

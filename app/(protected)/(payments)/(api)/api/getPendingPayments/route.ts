@@ -9,6 +9,4 @@ import { withOrganizerOrAdmin } from '@/app/utils/api-server'
  * Organization-wide for both profiles: an organizer and the administrator see
  * (and can pay) the same debt.
  */
-export const POST = withOrganizerOrAdmin(
-  async (request, context, userId, organizationId): Promise<PendingPaymentsDto> => getPendingPayments(organizationId)
-)
+export const POST = withOrganizerOrAdmin(async (): Promise<PendingPaymentsDto> => getPendingPayments())
