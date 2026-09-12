@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getPwaConfig } from '@/app/(pwa)/services/pwa'
 import { resolveOrganizationImage } from '@/app/services/organizations'
-import { getPwaConfig } from '@/app/services/pwa'
 import { resolveOrganizationDomain } from '@/app/utils/domains'
 
 /**

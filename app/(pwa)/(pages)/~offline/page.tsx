@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 /**
  * Offline fallback page.
  *
- * Precached by the service worker (see app/(pwa)/sw.ts) and shown when a navigation
+ * Precached by the service worker (see app/(pwa)/services/sw.ts) and shown when a navigation
  * request fails because the device is offline. It must stay fully static and
  * free of per-request/organization data — it has to render from cache with no
  * network. Excluded from the auth middleware (see proxy.ts) so it renders for
