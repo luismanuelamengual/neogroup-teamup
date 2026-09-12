@@ -2,8 +2,8 @@ import { DB } from '@neogroup/neorm'
 import { Category } from '@/app/(protected)/(categories)/models/Category'
 import { CategoryFilters } from '@/app/(protected)/(categories)/models/CategoryFilters'
 import { CategoryInput } from '@/app/(protected)/(categories)/models/CategoryInput'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { getDisciplines } from '@/app/(protected)/(disciplines)/services/disciplines'
 import { ApiException } from '@/app/models/ApiException'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 import { getCurrentOrganizationId } from '@/app/services/organization-context'
@@ -168,7 +168,7 @@ async function normalizeInput(
   }
 
   if (input.discipline !== currentDiscipline) {
-    const enabledDisciplines = await getEnabledDisciplines()
+    const enabledDisciplines = await getDisciplines()
 
     if (!enabledDisciplines.includes(input.discipline)) {
       throw new ApiException('La disciplina seleccionada no está habilitada para esta organización')

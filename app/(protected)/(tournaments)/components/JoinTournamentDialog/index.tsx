@@ -12,20 +12,20 @@ import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useEffect, useState } from 'react'
+import { DisciplineNames } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { SubDisciplineNames } from '@/app/(protected)/(disciplines)/models/SubDiscipline'
 import SiteSelector from '@/app/(protected)/(sites)/components/SiteSelector'
 import TeamRosterField, { RosterPlayer } from '@/app/(protected)/(tournaments)/components/TeamRosterField'
 import { usePlayers } from '@/app/(protected)/(tournaments)/hooks/usePlayers'
 import { useTournaments } from '@/app/(protected)/(tournaments)/hooks/useTournaments'
-import { DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentTypeNames } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { INTERCLUBS_MIN_TEAM_PLAYERS } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import { formatMoney } from '@/app/(protected)/(tournaments)/utils/money'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/registrations'
 import { useUserStore } from '@/app/(protected)/stores/users'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'
-import { SubDisciplineNames } from '../../models/SubDiscipline'
 
 interface JoinTournamentModalProps {
   open: boolean
@@ -174,8 +174,7 @@ export default function JoinTournamentDialog({ open, tournament, onClose, onSucc
             <Alert severity="info" icon={false}>
               Costo de inscripción:{' '}
               <div className="entry-fee">
-                <PaidIcon fontSize="inherit" />{' '}
-                <strong>{formatMoney(tournament.entryFee!)}</strong>
+                <PaidIcon fontSize="inherit" /> <strong>{formatMoney(tournament.entryFee!)}</strong>
               </div>
               . Se abona directamente al organizador, en la cancha o por el medio que acuerden.
             </Alert>

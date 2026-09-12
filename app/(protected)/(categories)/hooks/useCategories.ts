@@ -4,7 +4,7 @@ import { useCallback } from 'react'
 import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
 import { CategoryFilters } from '@/app/(protected)/(categories)/models/CategoryFilters'
 import { CategoryInput } from '@/app/(protected)/(categories)/models/CategoryInput'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import { useRequests } from '@/app/hooks/useRequests'
 import { PaginatedResponse } from '@/app/models/PaginatedResponse'
 

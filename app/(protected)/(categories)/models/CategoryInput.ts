@@ -1,4 +1,4 @@
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 
 /**
  * Payload used by the administrator to create or edit a category of its

@@ -1,4 +1,4 @@
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 
 /** Filters accepted by the categories listing. */
 export interface CategoryFilters {

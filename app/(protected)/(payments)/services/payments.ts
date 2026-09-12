@@ -170,7 +170,7 @@ export async function getPendingPayments(): Promise<PendingPaymentsDto> {
   // Read the model directly rather than through the cached `getOrganization`
   // helper: that one wraps its reads in Next.js' `unstable_cache`, which needs a
   // real request/build context and throws outside of one — and this service also
-  // runs from the test suite. Same trade-off as `getEnabledDisciplines`.
+  // runs from the test suite. Same trade-off as `getDisciplines`.
   //
   // `Organization` carries no OrganizationScope of its own — it IS the tenant
   // table — so the id comes from the current operation's context explicitly.

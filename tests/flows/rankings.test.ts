@@ -1,7 +1,7 @@
 import { DB } from '@neogroup/neorm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import { getRankings } from '@/app/(protected)/(rankings)/services/rankings'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { Role } from '@/app/models/Role'
 import { User } from '@/app/models/User'
 import { withOrganization } from '@/app/services/organization-context'

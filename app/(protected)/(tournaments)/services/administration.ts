@@ -9,13 +9,13 @@ import {
   resolveTeamData,
   resolveTeamRoster
 } from '@/app/(protected)/(tournaments)/services/registrations'
-import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import {
   getLateRegistrationSlots,
   LateRegistrationSlot,
   slotAcceptsRelocatedCompetitor
 } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { canRemoveCompetitor } from '@/app/(protected)/(tournaments)/utils/lateRemoval'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/registrations'
 import {
   attachLateCompetitor,
   detachLateCompetitor,

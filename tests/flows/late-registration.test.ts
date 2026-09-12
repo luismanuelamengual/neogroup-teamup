@@ -14,9 +14,9 @@ import {
   registerCompetitor,
   unregisterCompetitor
 } from '@/app/(protected)/(tournaments)/services/administration'
-import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { getLateRegistrationSlots } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { isMatchEditable } from '@/app/(protected)/(tournaments)/utils/matches'
+import { registersAsPairs } from '@/app/(protected)/(tournaments)/utils/registrations'
 import { Role } from '@/app/models/Role'
 import {
   buildTournament,

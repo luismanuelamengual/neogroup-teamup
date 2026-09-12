@@ -3,8 +3,8 @@
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import { useEffect } from 'react'
-import { useEnabledDisciplines } from '@/app/(protected)/(tournaments)/hooks/useEnabledDisciplines'
-import { Discipline, DisciplineNames } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { useDisciplines } from '@/app/(protected)/(disciplines)/hooks/useDisciplines'
+import { Discipline, DisciplineNames } from '@/app/(protected)/(disciplines)/models/Discipline'
 
 interface BaseDisciplineSelectorProps {
   label?: string
@@ -64,7 +64,7 @@ export type DisciplineSelectorProps = FixedDisciplineSelectorProps | WithAllDisc
  */
 export default function DisciplineSelector(props: DisciplineSelectorProps) {
   const { label = 'Disciplina', disabled = false, fullWidth, size, className, allowCurrentValue = false } = props
-  const enabledDisciplines = useEnabledDisciplines()
+  const enabledDisciplines = useDisciplines()
   const isDiscipline = props.value !== 'all'
   const isValueEnabled = isDiscipline && enabledDisciplines.includes(props.value as Discipline)
 

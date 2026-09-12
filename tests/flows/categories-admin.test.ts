@@ -5,7 +5,7 @@ import {
   getCategories,
   updateCategory
 } from '@/app/(protected)/(categories)/services/categories'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { Organization } from '@/app/models/Organization'

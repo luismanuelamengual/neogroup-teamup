@@ -5,12 +5,12 @@ import { JoinTournamentInput } from '@/app/(protected)/(tournaments)/models/Join
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import {
   buildSiteLabels,
   INTERCLUBS_MIN_TEAM_PLAYERS,
   LabelableTeam
 } from '@/app/(protected)/(tournaments)/utils/interclubs'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/registrations'
 import { isRegistrationOpen } from '@/app/(protected)/(tournaments)/utils/tournaments'
 import { ApiException } from '@/app/models/ApiException'
 import { Organization } from '@/app/models/Organization'

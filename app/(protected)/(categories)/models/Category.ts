@@ -1,5 +1,5 @@
 import { BaseEntity, Column, Entity } from '@neogroup/neorm'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import { OrganizationScope } from '@/app/models/OrganizationScope'
 
 /**

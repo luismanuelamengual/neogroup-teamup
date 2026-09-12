@@ -10,8 +10,8 @@ import TextField from '@mui/material/TextField'
 import { FormEvent, useEffect, useState } from 'react'
 import { useCategories } from '@/app/(protected)/(categories)/hooks/useCategories'
 import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
-import DisciplineSelector from '@/app/(protected)/(tournaments)/components/DisciplineSelector'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import DisciplineSelector from '@/app/(protected)/(disciplines)/components/DisciplineSelector'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import { useNotifications } from '@/app/hooks/useNotifications'
 
 interface CategoryFormDialogProps {

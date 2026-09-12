@@ -1,12 +1,13 @@
 import { DB } from '@neogroup/neorm'
 import { validateCategoryIds } from '@/app/(protected)/(categories)/services/categories'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { getDisciplines } from '@/app/(protected)/(disciplines)/services/disciplines'
 import { hasOverdueDebt } from '@/app/(protected)/(payments)/services/payments'
 import { awardRankingPoints } from '@/app/(protected)/(rankings)/services/rankings'
 import { resolveSiteId } from '@/app/(protected)/(sites)/services/sites'
 import { DEFAULT_AMERICANO_SETTINGS } from '@/app/(protected)/(tournaments)/models/AmericanoSettings'
 import { Competitor } from '@/app/(protected)/(tournaments)/models/Competitor'
 import { CreateTournamentInput } from '@/app/(protected)/(tournaments)/models/CreateTournamentInput'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { DEFAULT_GROUPS_PLAYOFF_SETTINGS } from '@/app/(protected)/(tournaments)/models/GroupsPlayoffSettings'
 import { DEFAULT_LEAGUE_SETTINGS } from '@/app/(protected)/(tournaments)/models/LeagueSettings'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
@@ -18,7 +19,6 @@ import { TournamentImage } from '@/app/(protected)/(tournaments)/models/Tourname
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
-import { getEnabledDisciplines } from '@/app/(protected)/(tournaments)/services/organizations'
 import { autoAssignPreclassification } from '@/app/(protected)/(tournaments)/services/preclassification'
 import { getChampionCompetitorId } from '@/app/(protected)/(tournaments)/utils/champion'
 import { isPlayableMatch } from '@/app/(protected)/(tournaments)/utils/matches'
@@ -121,7 +121,7 @@ export async function createTournament(input: CreateTournamentInput, userId: num
     throw new ApiException('La fecha de inicio de inscripciones no puede ser posterior a la fecha de inicio del torneo')
   }
 
-  const enabledDisciplines = await getEnabledDisciplines()
+  const enabledDisciplines = await getDisciplines()
 
   if (!enabledDisciplines.includes(input.discipline)) {
     throw new ApiException('La disciplina seleccionada no está habilitada para esta organización')

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { SubDiscipline } from '@/app/(protected)/(disciplines)/models/SubDiscipline'
 import { PaymentStatus } from '@/app/(protected)/(payments)/models/PaymentStatus'
 import { ServicePayment } from '@/app/(protected)/(payments)/models/ServicePayment'
 import {
@@ -9,10 +11,8 @@ import {
   getServicePaymentStatus,
   hasOverdueDebt
 } from '@/app/(protected)/(payments)/services/payments'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { createTournament, deleteTournament } from '@/app/(protected)/(tournaments)/services/tournaments'

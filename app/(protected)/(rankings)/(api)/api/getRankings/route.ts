@@ -1,5 +1,5 @@
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 import { getRankings } from '@/app/(protected)/(rankings)/services/rankings'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
 import { withAuth } from '@/app/utils/api-server'
 
 interface GetRankingsBody {

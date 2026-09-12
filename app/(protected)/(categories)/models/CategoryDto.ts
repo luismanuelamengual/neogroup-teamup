@@ -1,4 +1,4 @@
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 
 /** Serializable representation of a Category — safe to pass server→client. */
 export interface CategoryDto {

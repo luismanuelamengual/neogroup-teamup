@@ -37,7 +37,6 @@ import { MatchDto } from '@/app/(protected)/(tournaments)/models/MatchDto'
 import { TournamentCategoryDto } from '@/app/(protected)/(tournaments)/models/TournamentCategoryDto'
 import { TournamentDto } from '@/app/(protected)/(tournaments)/models/TournamentDto'
 import { TournamentStatus } from '@/app/(protected)/(tournaments)/models/TournamentStatus'
-import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/discipline'
 import { INTERCLUBS_MIN_TEAM_PLAYERS } from '@/app/(protected)/(tournaments)/utils/interclubs'
 import {
   getLateRegistrationSlots,
@@ -46,6 +45,7 @@ import {
 } from '@/app/(protected)/(tournaments)/utils/lateRegistration'
 import { canRemoveCompetitor, RemovalCheck } from '@/app/(protected)/(tournaments)/utils/lateRemoval'
 import { supportsPreclassification } from '@/app/(protected)/(tournaments)/utils/preclassification'
+import { registersAsPairs, registersAsTeam } from '@/app/(protected)/(tournaments)/utils/registrations'
 import { useIsOrganizer } from '@/app/(protected)/stores/users'
 import Avatar from '@/app/components/Avatar'
 import { UserDto } from '@/app/models/UserDto'

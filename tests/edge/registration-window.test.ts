@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
-import { SubDiscipline } from '@/app/(protected)/(tournaments)/models/SubDiscipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
+import { SubDiscipline } from '@/app/(protected)/(disciplines)/models/SubDiscipline'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { resolveRegistration } from '@/app/(protected)/(tournaments)/services/registrations'

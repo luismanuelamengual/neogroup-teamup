@@ -1,4 +1,4 @@
-import { Discipline, Disciplines } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline, Disciplines } from '@/app/(protected)/(disciplines)/models/Discipline'
 import { useOrganizationStore } from '@/app/(protected)/stores/organization'
 
 // Stable reference for the "not hydrated yet" fallback. A literal `?? []`
@@ -13,7 +13,7 @@ const NO_DISCIPLINES: Discipline[] = []
  * Every screen that lists disciplines (category and tournament forms, ranking
  * filters) should map over this instead of the full `Disciplines` catalogue.
  */
-export function useEnabledDisciplines(): Discipline[] {
+export function useDisciplines(): Discipline[] {
   const enabledDisciplines = useOrganizationStore((state) => state.organization?.enabledDisciplines ?? NO_DISCIPLINES)
 
   return Disciplines.filter((discipline) => enabledDisciplines.includes(discipline))

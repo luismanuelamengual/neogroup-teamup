@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField'
 import { useEffect, useState } from 'react'
 import { useCategories } from '@/app/(protected)/(categories)/hooks/useCategories'
 import { CategoryDto } from '@/app/(protected)/(categories)/models/CategoryDto'
-import { Discipline } from '@/app/(protected)/(tournaments)/models/Discipline'
+import { Discipline } from '@/app/(protected)/(disciplines)/models/Discipline'
 
 /** Shown in place of the helper text when the organization has no categories for the filters. */
 const EMPTY_MESSAGE = 'No hay ninguna categoría cargada, pídele a un administrador que cree alguna categoría'
