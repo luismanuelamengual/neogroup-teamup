@@ -3,12 +3,12 @@ import type { Metadata } from 'next'
 /**
  * Offline fallback page.
  *
- * Precached by the service worker (see app/sw.ts) and shown when a navigation
+ * Precached by the service worker (see app/(pwa)/sw.ts) and shown when a navigation
  * request fails because the device is offline. It must stay fully static and
  * free of per-request/organization data — it has to render from cache with no
  * network. Excluded from the auth middleware (see proxy.ts) so it renders for
  * everyone. The service worker precaches it by fetching the URL at install
- * time (see additionalPrecacheEntries in app/serwist/[path]/route.ts).
+ * time (see additionalPrecacheEntries in app/(pwa)/(pages)/serwist/[path]/route.ts).
  */
 export const metadata: Metadata = {
   title: 'Sin conexión'
