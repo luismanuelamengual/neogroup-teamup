@@ -117,6 +117,8 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
   // to visually share the overflow with, so without reserved room it spills
   // straight past the board into the dialog's own padding. See `.has-super-tiebreak`.
   const scoreEndsInSuperTiebreak = scoreColumns?.some((column) => column.superTiebreak) ?? false
+  // Empty when the tournament's allowUnorderedResults leaves no round to name.
+  const stageName = getMatchStageName(match, tournament.type, tournament.settings)
   /**
    * Venue of the match, resolving the "null means somewhere else" convention so
    * the reader never has to know about it: the match's own venue first, and when
@@ -150,7 +152,7 @@ export default function MatchInfoModal({ open, tournament, match, onClose }: Mat
       </DialogTitle>
       <DialogContent className="match-info-modal-content">
         <div className="stage">
-          <Chip size="small" label={getMatchStageName(match)} />
+          {stageName && <Chip size="small" label={stageName} />}
           {match.status === MatchStatus.PENDING && <Chip size="small" variant="outlined" label="Pendiente" />}
           {match.status === MatchStatus.WALKOVER && <Chip size="small" color="warning" label="W.O." />}
         </div>

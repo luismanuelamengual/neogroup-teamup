@@ -217,15 +217,27 @@ export interface StagedMatch {
  * group and round of a groups+playoff fixture ("Zona 2 · Fecha 3"), or plain
  * "Fecha N" for a league/americano round.
  *
+ * The "Fecha N" part is dropped (leaving just "Zona N", or nothing beyond the
+ * knockout case) when the tournament has `allowUnorderedResults` on: with no
+ * fixed order of rounds, a round number is not meaningful information.
+ *
  * Shared by the match detail modal and the head-to-head history, which name the
  * same thing and must not drift apart.
  */
-export function getMatchStageName(match: StagedMatch): string {
+export function getMatchStageName(
+  match: StagedMatch,
+  tournamentType: TournamentType | null | undefined,
+  settings?: TournamentSettings | null
+): string {
   if (isKnockoutType(match.type)) {
     const stage = match.bracketInstance ? BRACKET_INSTANCE_NAMES[match.bracketInstance] : null
     const prefix = match.type === MatchType.CONSOLATION_BRACKET ? 'Consuelo · ' : ''
 
     return `${prefix}${stage ?? `Ronda ${match.roundNumber}`}`
+  }
+
+  if (tournamentType != null && allowsUnorderedResults(tournamentType, settings)) {
+    return match.groupNumber != null ? `Zona ${match.groupNumber + 1}` : ''
   }
 
   if (match.groupNumber != null) {
