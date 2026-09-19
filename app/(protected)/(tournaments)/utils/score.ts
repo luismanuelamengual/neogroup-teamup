@@ -12,6 +12,38 @@ export function getSetsCount(format: ScoreFormat): number {
 }
 
 /**
+ * Sets and games a walkover win is credited with, as if the winner had swept
+ * the match at the maximum possible score — a 6-0 in every set needed to win
+ * it outright (2-0 for a 3-sets/2-sets-super-tiebreak format, 3-0 for a
+ * hypothetical 5-sets one), rather than the 0-0 a walkover previously
+ * contributed to either side.
+ *
+ * The number of sets credited is the majority needed to win the format's
+ * maximum sets count (`getSetsCount`) — 2 of 3, 3 of 5, and so on — since
+ * that is the fewest sets a real match at that format could ever end on.
+ *
+ * BASIC_COUNT has no sets to speak of and no configured "maximum" score, so a
+ * walkover there still contributes nothing to either side, unchanged.
+ */
+export function getWalkoverSetsAndGames(
+  format: ScoreFormat,
+  winner: MatchSide
+): { sets: { home: number; away: number }; games: { home: number; away: number } } {
+  const setsCount = getSetsCount(format)
+
+  if (setsCount === 0) {
+    return { sets: { home: 0, away: 0 }, games: { home: 0, away: 0 } }
+  }
+
+  const winningSets = Math.floor(setsCount / 2) + 1
+  const winningGames = winningSets * 6
+
+  return winner === MatchSide.HOME
+    ? { sets: { home: winningSets, away: 0 }, games: { home: winningGames, away: 0 } }
+    : { sets: { home: 0, away: winningSets }, games: { home: 0, away: winningGames } }
+}
+
+/**
  * True when a score holds an interclubes series (three individual matches)
  * rather than a single result. The shape is the discriminator: a series always
  * carries its `matches` array, and nothing else ever does.

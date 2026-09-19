@@ -5,6 +5,7 @@ import { Match } from '@/app/(protected)/(tournaments)/models/Match'
 import { MatchSide } from '@/app/(protected)/(tournaments)/models/MatchSide'
 import { MatchStatus } from '@/app/(protected)/(tournaments)/models/MatchStatus'
 import { isKnockoutType, MatchType } from '@/app/(protected)/(tournaments)/models/MatchType'
+import { ScoreFormat } from '@/app/(protected)/(tournaments)/models/ScoreFormat'
 import { Tournament } from '@/app/(protected)/(tournaments)/models/Tournament'
 import { TournamentCategory } from '@/app/(protected)/(tournaments)/models/TournamentCategory'
 import { TournamentSettings } from '@/app/(protected)/(tournaments)/models/TournamentSettings'
@@ -42,7 +43,7 @@ import {
   roundRobinPairs,
   roundRobinRoundsFor
 } from '@/app/(protected)/(tournaments)/utils/roundRobin'
-import { getGamesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSetsWon, getWalkoverSetsAndGames } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   allowsUnorderedResults,
   hasConsolationBracket,
@@ -1540,6 +1541,7 @@ async function syncConsolationNextRound(
 function rankGroup(
   competitorIds: number[],
   matches: Match[],
+  scoreFormat: ScoreFormat,
   settings?: Tournament['settings'],
   type: TournamentType = TournamentType.GROUPS_PLAYOFF
 ): GroupRankRow[] {
@@ -1587,11 +1589,15 @@ function rankGroup(
 
     const score = match.score ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
-    const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
+    const { sets, games } = isWalkover
+      ? getWalkoverSetsAndGames(scoreFormat, score.walkover ?? match.winner ?? MatchSide.HOME)
+      : { sets: getSetsWon(score), games: getGamesWon(score, scoreFormat) }
 
     add(match.homeCompetitorId, (row) => {
       row.setsWon += sets.home
       row.setsLost += sets.away
+      row.gamesWon += games.home
+      row.gamesLost += games.away
       row.points += sets.home * league.pointsPerSetWon
 
       if (!isWalkover || score.walkover === MatchSide.HOME) {
@@ -1606,6 +1612,8 @@ function rankGroup(
     add(match.awayCompetitorId, (row) => {
       row.setsWon += sets.away
       row.setsLost += sets.home
+      row.gamesWon += games.away
+      row.gamesLost += games.home
       row.points += sets.away * league.pointsPerSetWon
 
       if (!isWalkover || score.walkover === MatchSide.AWAY) {
@@ -1694,6 +1702,7 @@ async function computeGroupsKnockoutSeeds(
   tournamentCategoryId: number,
   competitorIds: number[],
   settings: Tournament['settings'],
+  scoreFormat: ScoreFormat,
   cache?: AdvanceCache,
   type: TournamentType = TournamentType.GROUPS_PLAYOFF
 ): Promise<GroupsKnockoutSeeds> {
@@ -1727,7 +1736,7 @@ async function computeGroupsKnockoutSeeds(
     }
 
     const groupMatches = all.filter((match) => match.type === MatchType.LEAGUE && (match.groupNumber ?? null) === index)
-    const ranked = rankGroup(group, groupMatches, settings, type)
+    const ranked = rankGroup(group, groupMatches, scoreFormat, settings, type)
     const advancing = ranked.slice(0, Math.min(quotas[index] ?? 0, group.length))
 
     for (const row of advancing) {
@@ -2087,6 +2096,7 @@ async function materializeCategoryRound(
           tournamentCategoryId,
           competitorIds,
           settings,
+          tournament.scoreFormat,
           undefined,
           tournament.type
         )
@@ -2157,7 +2167,12 @@ async function materializeCategoryRound(
         // A single group also gets a bracket: its standings seed a knockout that
         // decides the title, even when that replays a pairing the group already
         // played. `createKnockoutBracket` bails on its own below 2 qualifiers.
-        const { seeded, groupOf } = await computeGroupsKnockoutSeeds(tournamentCategoryId, competitorIds, settings)
+        const { seeded, groupOf } = await computeGroupsKnockoutSeeds(
+          tournamentCategoryId,
+          competitorIds,
+          settings,
+          tournament.scoreFormat
+        )
 
         return createKnockoutBracket(tournamentCategoryId, knockoutLane, seeded, groupPhaseRounds + 1, false, groupOf)
       }
@@ -2570,6 +2585,7 @@ async function maybeStartGroupsKnockout(
     tournamentCategoryId,
     competitorIds,
     settings,
+    tournament.scoreFormat,
     cache,
     tournament.type
   )

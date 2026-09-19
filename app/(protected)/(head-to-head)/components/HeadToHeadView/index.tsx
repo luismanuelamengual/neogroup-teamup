@@ -58,6 +58,8 @@ interface Encounter {
   tournamentName: string
   categoryName: string | null
   siteName: string | null
+  /** Empty when the tournament's `allowUnorderedResults` leaves no round to name. */
+  stageName: string
 }
 
 /** Orients one stored match to the page's own sides. */
@@ -79,7 +81,8 @@ function toEncounter(match: MatchDto, homePlayerIds: number[]): Encounter {
     tournamentName: tournament?.name ?? 'Torneo',
     categoryName: match.tournamentCategory?.category?.name ?? null,
     // Null means the match was played at the tournament's own venue.
-    siteName: match.site?.name ?? tournament?.site?.name ?? null
+    siteName: match.site?.name ?? tournament?.site?.name ?? null,
+    stageName: getMatchStageName(match, tournament?.type, tournament?.settings)
   }
 }
 
@@ -147,7 +150,7 @@ function HistoryRow({ encounter, homeName, awayName }: { encounter: Encounter; h
         )}
         <div className="tags">
           {encounter.categoryName && <Chip size="small" variant="outlined" label={encounter.categoryName} />}
-          <Chip size="small" label={getMatchStageName(match)} />
+          {encounter.stageName && <Chip size="small" label={encounter.stageName} />}
           {match.status === MatchStatus.WALKOVER && <Chip size="small" color="warning" label="W.O." />}
         </div>
       </div>

@@ -112,4 +112,34 @@ describe('walkovers', () => {
     expect(match.status).toBe(MatchStatus.WALKOVER)
     expect(match.winner).toBe(MatchSide.AWAY)
   })
+
+  it('credits a walkover winner with the maximal scoreline (league, 3-sets format)', async () => {
+    const built = await buildTournament({
+      type: TournamentType.LEAGUE,
+      competitors: 2,
+      scoreFormat: ScoreFormat.THREE_SETS
+    })
+
+    await start(built)
+
+    const pending = await getPendingActiveMatches(built.categoryIds)
+    await setResult(pending[0].id, { walkover: MatchSide.HOME })
+
+    const tournament = await reloadTournament(built.tournament.id)
+    const standings = computeStandings(tournament, built.categoryIds[0])
+    const winner = standings.find((row) => row.won === 1)!
+    const loser = standings.find((row) => row.won === 0)!
+
+    // A 3-sets walkover is credited as if it had been won 6-0 6-0: 2 sets and
+    // 12 games for the side that showed up, none for the side that didn't —
+    // never the 0-0 it used to leave on both ladders.
+    expect(winner.setsWon).toBe(2)
+    expect(winner.setsLost).toBe(0)
+    expect(winner.gamesWon).toBe(12)
+    expect(winner.gamesLost).toBe(0)
+    expect(loser.setsWon).toBe(0)
+    expect(loser.setsLost).toBe(2)
+    expect(loser.gamesWon).toBe(0)
+    expect(loser.gamesLost).toBe(12)
+  })
 })

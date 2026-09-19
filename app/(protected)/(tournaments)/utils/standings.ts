@@ -9,7 +9,12 @@ import { StandingsRowDto } from '@/app/(protected)/(tournaments)/models/Standing
 import { TournamentType } from '@/app/(protected)/(tournaments)/models/TournamentType'
 import { computeGroupMembership } from '@/app/(protected)/(tournaments)/utils/groups'
 import { countsForStandings } from '@/app/(protected)/(tournaments)/utils/matches'
-import { getGamesWon, getSeriesMatchesWon, getSetsWon } from '@/app/(protected)/(tournaments)/utils/score'
+import {
+  getGamesWon,
+  getSeriesMatchesWon,
+  getSetsWon,
+  getWalkoverSetsAndGames
+} from '@/app/(protected)/(tournaments)/utils/score'
 import { Tournament } from '../models/Tournament'
 import { TournamentDto } from '../models/TournamentDto'
 
@@ -50,8 +55,11 @@ function emptyInterclubsRow(competitorId: number): StandingsRowDto {
  *  4. Head-to-head between the tied teams.
  *
  * A series settled by walkover counts as a win but contributes no individual
- * matches or sets to either side — the same convention the league standings
- * already use for a walkover's sets, since nothing was actually played.
+ * matches or sets to either side. Unlike the league/groups standings below —
+ * which credit a walkover winner with a maximal scoreline (6-0 in every set
+ * needed to win) — an interclubes series has no single scoreline of its own
+ * to fabricate: its sets come from three individual matches that, on a
+ * walkover, were never assigned or played.
  *
  * It is deliberately shared by the standings table and the knockout seeding
  * (`rankGroup`), so what the table shows and who advances can never disagree.
@@ -293,8 +301,9 @@ export function computeStandings(
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
 
     if (type === TournamentType.LEAGUE) {
-      const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
-      const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
+      const { sets, games } = isWalkover
+        ? getWalkoverSetsAndGames(scoreFormat, score.walkover ?? match.winner ?? MatchSide.HOME)
+        : { sets: getSetsWon(score), games: getGamesWon(score, scoreFormat) }
 
       addToSide(match.homeCompetitorId, (row) => {
         row.played++
