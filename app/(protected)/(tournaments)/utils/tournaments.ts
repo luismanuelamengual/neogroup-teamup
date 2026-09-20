@@ -43,7 +43,7 @@ import {
   roundRobinPairs,
   roundRobinRoundsFor
 } from '@/app/(protected)/(tournaments)/utils/roundRobin'
-import { getGamesWon, getSetsWon, getWalkoverSetsAndGames } from '@/app/(protected)/(tournaments)/utils/score'
+import { getGamesWon, getSetsWon, getWalkoverPointsSets } from '@/app/(protected)/(tournaments)/utils/score'
 import {
   allowsUnorderedResults,
   hasConsolationBracket,
@@ -1589,16 +1589,15 @@ function rankGroup(
 
     const score = match.score ?? {}
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
-    const { sets, games } = isWalkover
-      ? getWalkoverSetsAndGames(scoreFormat, score.walkover ?? match.winner ?? MatchSide.HOME)
-      : { sets: getSetsWon(score), games: getGamesWon(score, scoreFormat) }
+    const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
+    const pointsSets = isWalkover
+      ? getWalkoverPointsSets(scoreFormat, score.walkover ?? match.winner ?? MatchSide.HOME)
+      : sets
 
     add(match.homeCompetitorId, (row) => {
       row.setsWon += sets.home
       row.setsLost += sets.away
-      row.gamesWon += games.home
-      row.gamesLost += games.away
-      row.points += sets.home * league.pointsPerSetWon
+      row.points += pointsSets.home * league.pointsPerSetWon
 
       if (!isWalkover || score.walkover === MatchSide.HOME) {
         row.points += league.pointsPerPresent
@@ -1612,9 +1611,7 @@ function rankGroup(
     add(match.awayCompetitorId, (row) => {
       row.setsWon += sets.away
       row.setsLost += sets.home
-      row.gamesWon += games.away
-      row.gamesLost += games.home
-      row.points += sets.away * league.pointsPerSetWon
+      row.points += pointsSets.away * league.pointsPerSetWon
 
       if (!isWalkover || score.walkover === MatchSide.AWAY) {
         row.points += league.pointsPerPresent
