@@ -13,7 +13,7 @@ import {
   getGamesWon,
   getSeriesMatchesWon,
   getSetsWon,
-  getWalkoverSetsAndGames
+  getWalkoverPointsSets
 } from '@/app/(protected)/(tournaments)/utils/score'
 import { Tournament } from '../models/Tournament'
 import { TournamentDto } from '../models/TournamentDto'
@@ -55,11 +55,10 @@ function emptyInterclubsRow(competitorId: number): StandingsRowDto {
  *  4. Head-to-head between the tied teams.
  *
  * A series settled by walkover counts as a win but contributes no individual
- * matches or sets to either side. Unlike the league/groups standings below —
- * which credit a walkover winner with a maximal scoreline (6-0 in every set
- * needed to win) — an interclubes series has no single scoreline of its own
- * to fabricate: its sets come from three individual matches that, on a
- * walkover, were never assigned or played.
+ * matches or sets to either side — the same convention the league/groups
+ * standings below use for a walkover's sets and games: nothing fabricated on
+ * those columns, only the points a maximal scoreline (6-0 in every set
+ * needed to win) would have earned get credited there.
  *
  * It is deliberately shared by the standings table and the knockout seeding
  * (`rankGroup`), so what the table shows and who advances can never disagree.
@@ -301,9 +300,11 @@ export function computeStandings(
     const isWalkover = match.status === MatchStatus.WALKOVER || !!score.walkover
 
     if (type === TournamentType.LEAGUE) {
-      const { sets, games } = isWalkover
-        ? getWalkoverSetsAndGames(scoreFormat, score.walkover ?? match.winner ?? MatchSide.HOME)
-        : { sets: getSetsWon(score), games: getGamesWon(score, scoreFormat) }
+      const sets = isWalkover ? { home: 0, away: 0 } : getSetsWon(score)
+      const games = isWalkover ? { home: 0, away: 0 } : getGamesWon(score, scoreFormat)
+      const pointsSets = isWalkover
+        ? getWalkoverPointsSets(scoreFormat, score.walkover ?? match.winner ?? MatchSide.HOME)
+        : sets
 
       addToSide(match.homeCompetitorId, (row) => {
         row.played++
@@ -311,7 +312,7 @@ export function computeStandings(
         row.setsLost = (row.setsLost ?? 0) + sets.away
         row.gamesWon = (row.gamesWon ?? 0) + games.home
         row.gamesLost = (row.gamesLost ?? 0) + games.away
-        row.points += sets.home * leagueSettings.pointsPerSetWon
+        row.points += pointsSets.home * leagueSettings.pointsPerSetWon
 
         if (!isWalkover || score.walkover === MatchSide.HOME) {
           row.points += leagueSettings.pointsPerPresent
@@ -328,7 +329,7 @@ export function computeStandings(
         row.setsLost = (row.setsLost ?? 0) + sets.home
         row.gamesWon = (row.gamesWon ?? 0) + games.away
         row.gamesLost = (row.gamesLost ?? 0) + games.home
-        row.points += sets.away * leagueSettings.pointsPerSetWon
+        row.points += pointsSets.away * leagueSettings.pointsPerSetWon
 
         if (!isWalkover || score.walkover === MatchSide.AWAY) {
           row.points += leagueSettings.pointsPerPresent

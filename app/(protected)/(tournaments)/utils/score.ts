@@ -12,11 +12,17 @@ export function getSetsCount(format: ScoreFormat): number {
 }
 
 /**
- * Sets and games a walkover win is credited with, as if the winner had swept
- * the match at the maximum possible score — a 6-0 in every set needed to win
- * it outright (2-0 for a 3-sets/2-sets-super-tiebreak format, 3-0 for a
- * hypothetical 5-sets one), rather than the 0-0 a walkover previously
- * contributed to either side.
+ * Sets credited to a walkover winner for the POINTS formula only (points per
+ * set won), as if the match had been swept at the maximum possible score — a
+ * 6-0 in every set needed to win it outright (2-0 for a 3-sets/2-sets-super-
+ * tiebreak format, 3-0 for a hypothetical 5-sets one).
+ *
+ * This is deliberately NOT used for the setsWon/setsLost/gamesWon/gamesLost
+ * columns: nothing was actually played on a walkover, so crediting a
+ * fabricated 2-0 (or 12-0 in games) there would distort the set/game
+ * differential tiebreaker with a scoreline that never happened. Those columns
+ * stay at 0 for both sides on a walkover — only the points a maximal
+ * scoreline would have earned are credited.
  *
  * The number of sets credited is the majority needed to win the format's
  * maximum sets count (`getSetsCount`) — 2 of 3, 3 of 5, and so on — since
@@ -25,22 +31,16 @@ export function getSetsCount(format: ScoreFormat): number {
  * BASIC_COUNT has no sets to speak of and no configured "maximum" score, so a
  * walkover there still contributes nothing to either side, unchanged.
  */
-export function getWalkoverSetsAndGames(
-  format: ScoreFormat,
-  winner: MatchSide
-): { sets: { home: number; away: number }; games: { home: number; away: number } } {
+export function getWalkoverPointsSets(format: ScoreFormat, winner: MatchSide): { home: number; away: number } {
   const setsCount = getSetsCount(format)
 
   if (setsCount === 0) {
-    return { sets: { home: 0, away: 0 }, games: { home: 0, away: 0 } }
+    return { home: 0, away: 0 }
   }
 
   const winningSets = Math.floor(setsCount / 2) + 1
-  const winningGames = winningSets * 6
 
-  return winner === MatchSide.HOME
-    ? { sets: { home: winningSets, away: 0 }, games: { home: winningGames, away: 0 } }
-    : { sets: { home: 0, away: winningSets }, games: { home: 0, away: winningGames } }
+  return winner === MatchSide.HOME ? { home: winningSets, away: 0 } : { home: 0, away: winningSets }
 }
 
 /**

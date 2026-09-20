@@ -113,7 +113,7 @@ describe('walkovers', () => {
     expect(match.winner).toBe(MatchSide.AWAY)
   })
 
-  it('credits a walkover winner with the maximal scoreline (league, 3-sets format)', async () => {
+  it('credits a walkover winner with points as if won 6-0 6-0, without fabricating sets/games (league, 3-sets format)', async () => {
     const built = await buildTournament({
       type: TournamentType.LEAGUE,
       competitors: 2,
@@ -123,6 +123,7 @@ describe('walkovers', () => {
     await start(built)
 
     const pending = await getPendingActiveMatches(built.categoryIds)
+
     await setResult(pending[0].id, { walkover: MatchSide.HOME })
 
     const tournament = await reloadTournament(built.tournament.id)
@@ -130,16 +131,22 @@ describe('walkovers', () => {
     const winner = standings.find((row) => row.won === 1)!
     const loser = standings.find((row) => row.won === 0)!
 
-    // A 3-sets walkover is credited as if it had been won 6-0 6-0: 2 sets and
-    // 12 games for the side that showed up, none for the side that didn't —
-    // never the 0-0 it used to leave on both ladders.
-    expect(winner.setsWon).toBe(2)
+    // Points: as if the winner had swept it 6-0 6-0 (2 sets * pointsPerSetWon,
+    // the default is 1) plus the match-won bonus (default 1). The side that
+    // didn't show up earns nothing for this match.
+    expect(winner.points).toBe(3)
+    expect(loser.points).toBe(0)
+
+    // But nothing was actually played, so the sets/games columns — which feed
+    // the set/game differential tiebreaker — stay untouched at 0 for both
+    // sides rather than showing a 2-0 / 12-0 scoreline that never happened.
+    expect(winner.setsWon).toBe(0)
     expect(winner.setsLost).toBe(0)
-    expect(winner.gamesWon).toBe(12)
+    expect(winner.gamesWon).toBe(0)
     expect(winner.gamesLost).toBe(0)
     expect(loser.setsWon).toBe(0)
-    expect(loser.setsLost).toBe(2)
+    expect(loser.setsLost).toBe(0)
     expect(loser.gamesWon).toBe(0)
-    expect(loser.gamesLost).toBe(12)
+    expect(loser.gamesLost).toBe(0)
   })
 })
