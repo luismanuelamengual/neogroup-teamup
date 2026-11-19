@@ -50,7 +50,7 @@ import { getCurrentOrganizationId, withOrganization } from '@/app/services/organ
  */
 
 /** A tournament is overdue once it started more than this long ago. */
-const OVERDUE_MONTHS = 2
+const OVERDUE_MONTHS = 4
 
 /** Applies a percentage fee to an amount, rounded to two decimals. */
 export function computeServiceFee(grossAmount: number, feePercentage: number): number {

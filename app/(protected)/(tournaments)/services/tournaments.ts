@@ -132,10 +132,10 @@ export async function createTournament(input: CreateTournamentInput, userId: num
   }
 
   // A tournament cannot be created while the organization owes TeamUp for
-  // tournaments that finished more than two months ago.
+  // tournaments that finished more than four months ago.
   if (await hasOverdueDebt()) {
     throw new ApiException(
-      'Tenés torneos con más de dos meses sin abonar. Regularizá los pagos pendientes para poder crear nuevos torneos'
+      'Tenés torneos con más de cuatro meses sin abonar. Regularizá los pagos pendientes para poder crear nuevos torneos'
     )
   }
 

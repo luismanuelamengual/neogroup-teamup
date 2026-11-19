@@ -7,7 +7,7 @@ import { usePaymentsStore } from '@/app/(protected)/(payments)/stores/payments'
 
 /**
  * Reminder shown on the organizer / administrator home when the organization has
- * tournaments that started more than two months ago and are still unpaid. While
+ * tournaments that started more than four months ago and are still unpaid. While
  * that is the case no new tournament can be created, so the banner says so.
  *
  * Reads straight from usePaymentsStore, populated once at sign-in by
@@ -30,7 +30,7 @@ export default function OverduePaymentsBanner() {
         </Button>
       }
     >
-      Tenés {overdueCount} {overdueCount === 1 ? 'torneo' : 'torneos'} con más de dos meses sin abonar. Regularizá los
+      Tenés {overdueCount} {overdueCount === 1 ? 'torneo' : 'torneos'} con más de cuatro meses sin abonar. Regularizá los
       pagos pendientes para poder crear nuevos torneos.
     </Alert>
   )

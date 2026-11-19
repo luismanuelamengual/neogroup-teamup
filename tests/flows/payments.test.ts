@@ -368,8 +368,8 @@ describe('overdue debt', () => {
     expect(await hasOverdueDebt()).toBe(false)
   })
 
-  it('flags a tournament that started more than two months ago', async () => {
-    await playPaidTournament(1000, daysAgo(70))
+  it('flags a tournament that started more than four months ago', async () => {
+    await playPaidTournament(1000, daysAgo(130))
 
     const pending = await getPendingPayments()
 
@@ -379,15 +379,15 @@ describe('overdue debt', () => {
   })
 
   it('blocks the creation of new tournaments while there is overdue debt', async () => {
-    await playPaidTournament(1000, daysAgo(70))
+    await playPaidTournament(1000, daysAgo(130))
 
     const ownerId = await createUser(1)
 
-    await expect(createTournament(NEW_TOURNAMENT, ownerId)).rejects.toThrow(/más de dos meses/)
+    await expect(createTournament(NEW_TOURNAMENT, ownerId)).rejects.toThrow(/más de cuatro meses/)
   })
 
   it('allows creating tournaments again once the debt is settled', async () => {
-    await playPaidTournament(1000, daysAgo(70))
+    await playPaidTournament(1000, daysAgo(130))
     mockMercadoPago()
 
     const payerId = await createUser(1)
@@ -635,7 +635,7 @@ describe('organization isolation', () => {
   })
 
   it("does not let another organization's overdue debt block this one", async () => {
-    await playPaidTournamentOf(otherOrganizationId, 1000, daysAgo(70))
+    await playPaidTournamentOf(otherOrganizationId, 1000, daysAgo(130))
 
     const ownerId = await createUser(DEFAULT_TEST_ORGANIZATION_ID, Role.ORGANIZER)
     const theirOwnerId = await createUser(otherOrganizationId, Role.ORGANIZER)
@@ -646,7 +646,7 @@ describe('organization isolation', () => {
     expect(await withOrganization(otherOrganizationId, () => hasOverdueDebt())).toBe(true)
     await expect(
       withOrganization(otherOrganizationId, () => createTournament(NEW_TOURNAMENT, theirOwnerId))
-    ).rejects.toThrow(/más de dos meses/)
+    ).rejects.toThrow(/más de cuatro meses/)
   })
 
   it('snapshots only the tournaments of the organization opening the checkout', async () => {
