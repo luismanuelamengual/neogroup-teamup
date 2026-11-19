@@ -12,7 +12,7 @@ export interface PendingTournamentDto {
   grossAmount: number
   /** TeamUp's cut of `grossAmount`. */
   amount: number
-  /** Whether it started more than two months ago and is therefore overdue. */
+  /** Whether it started more than four months ago and is therefore overdue. */
   overdue: boolean
 }
 
@@ -26,6 +26,6 @@ export interface PendingPaymentsDto {
   grossAmount: number
   /** Total to pay: the sum of every tournament's `amount`. */
   amount: number
-  /** How many of `tournaments` are overdue (older than two months). */
+  /** How many of `tournaments` are overdue (older than four months). */
   overdueCount: number
 }

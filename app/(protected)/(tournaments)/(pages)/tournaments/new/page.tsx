@@ -13,7 +13,7 @@ export default async function NewTournamentPage() {
   }
 
   // Same rule the creation service enforces: an organization owing tournaments
-  // older than two months cannot open new ones. Checked here too so the form is
+  // older than four months cannot open new ones. Checked here too so the form is
   // never rendered just to fail on submit.
   if (await hasOverdueDebt()) {
     redirect('/payments')
